@@ -1,0 +1,2068 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<room>
+  <game-table name="最初のテーブル" width="32" height="20" gridSize="50" imageIdentifier="testTableBackgroundImage_image" backgroundImageIdentifier="imageIdentifier" backgroundFilterType="" selected="true" gridType="0" gridColor="#000000e6"></game-table>
+  <text-note location.name="table" location.x="-241.50000000000392" location.y="194.749999999961" posZ="0" rotate="0" zindex="0" password="">
+    <data name="text-note">
+      <data name="image">
+        <data type="image" name="imageIdentifier">null</data>
+      </data>
+      <data name="common">
+        <data name="width">8</data>
+        <data name="height">3</data>
+        <data name="fontsize">14</data>
+        <data name="title">公开信息</data>
+        <data type="note" currentValue="ループ回数: 4回 / 1ループ日数: 5日 相談: 不可 [事件予定] 1日目: 不安拡大 2日目: 殺人事件 3日目: 自殺 4日目: 行方不明 5日目: " name="text">轮回数: 4轮 / 每轮回天数: 5日
+讨论: 不可
+[事件预定]
+1日: 不安扩散
+2日: 谋杀
+3日: 自杀
+4日: 失踪
+5日:</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </text-note>
+  <card-stack location.name="table" location.x="850" location.y="400" posZ="0" rotate="0" zindex="96" owner="" isShowTotal="true">
+    <data name="card-stack">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+      </data>
+      <data name="common">
+        <data name="name">角色一览</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+    <node name="cardRoot">
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">7e5a2a48482e09dc750ce086bacf215b08dfcbb40a8b9c66d44398f4bef60e0b</data>
+            <data type="image" name="back">3d36af45ba795c2132176d4e9b3700075cea4547f31b823255086759a35b0e91</data>
+          </data>
+          <data name="common">
+            <data name="name">男学生</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">学校</data>
+            <data name="初期位置">学校</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">571017c83e464a582f241aa35de0946c2245fbab387ec89199e67b4d83b0f314</data>
+            <data type="image" name="back">99b0dfd79adfc445a797503232ba51a00246fa59662ffcd599ba350068edef65</data>
+          </data>
+          <data name="common">
+            <data name="name">女学生</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">学校</data>
+            <data name="初期位置">学校</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">f9f08c2f0b4f676ec1a4560261673d71c342c9b4528836e7ec4d7f215b3d264c</data>
+            <data type="image" name="back">4576e576fb056223560c482619b09ac2ba20ecac86ccf28a6c50258718c6e6f8</data>
+          </data>
+          <data name="common">
+            <data name="name">大小姐</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">学校</data>
+            <data name="初期位置">学校</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">52fde2a8811f36005b0c5cd762560e03a79c2d4969d2e56def43d307719151e9</data>
+            <data type="image" name="back">9db951c769b90996d36e526a56d7c8bd77b8a5d2b36d513e81d517fe46b495db</data>
+          </data>
+          <data name="common">
+            <data name="name">巫女</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">神社</data>
+            <data name="初期位置">神社</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">a63b96543810632a163e3f6fc8be4faf6fd995fdff85428a9bc410f1e781c8ab</data>
+            <data type="image" name="back">1cdd284bca81b20adbee93df34d93a83c0727638353da95a2565f060acaa21ba</data>
+          </data>
+          <data name="common">
+            <data name="name">刑警</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">都市</data>
+            <data name="初期位置">都市</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">0ecb82aa454e933942f4c8cf10b31b3987c58cc292291e4d161aa1c775a940de</data>
+            <data type="image" name="back">582ffb218a357f43060d4338b0d01910e83f218c953c96f7865a044e00a05fd8</data>
+          </data>
+          <data name="common">
+            <data name="name">职员</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">都市</data>
+            <data name="初期位置">都市</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">ffbc87f43e9eb1606ee5b366c40b4fab7c371f75dd24ed69e4bd44596ce2fb81</data>
+            <data type="image" name="back">d89891151866d0c2bc9d7f1078228ad7c56e2b799169a593f17656415062d162</data>
+          </data>
+          <data name="common">
+            <data name="name">情报商</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">都市</data>
+            <data name="初期位置">都市</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">749b822e09179979f15c78506ef95f35b25d45c2c3181414075bbd9d53da8f04</data>
+            <data type="image" name="back">65a571b81182d64114abf90b445dc69709a027291ecf193bce1ab23017532072</data>
+          </data>
+          <data name="common">
+            <data name="name">医生</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">病院</data>
+            <data name="初期位置">病院</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">1ca3607b5d399c92e94d1b3a0fc87311afc60d0af4b03746cd5095d18d33ac39</data>
+            <data type="image" name="back">2a58963944613c2d20b26e993e607773bd25efa0ddd5b0fe860c2a6044aae7e4</data>
+          </data>
+          <data name="common">
+            <data name="name">住院患者</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">病院</data>
+            <data name="初期位置">病院</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">94007b10bf50037c408777be5c211b1116be137d06304acc79f0357cb46588ac</data>
+            <data type="image" name="back">46c6da93402ea10c796dafd0aa909066dda7b7b8981e85e5201d14836946a7c9</data>
+          </data>
+          <data name="common">
+            <data name="name">班长</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">学校</data>
+            <data name="初期位置">学校</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">49136eef871443b69ec2f2411d4fe759a18d8d5e357d06410a072146ec5e3f10</data>
+            <data type="image" name="back">00e5200764cc865bc87bee4886c1d28bca9a4f775404af10c925a65b342b919e</data>
+          </data>
+          <data name="common">
+            <data name="name">局外人</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">学校</data>
+            <data name="初期位置">学校</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">8f52e7b0287639728ca2a2b2893e878dd1735ae22aea30449b711b35f0ee5908</data>
+            <data type="image" name="back">6f228ec6679dfb8c6a493fb986cb943dfde9c51d8bd72d5be42349fdb2c21147</data>
+          </data>
+          <data name="common">
+            <data name="name">异界人</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">神社</data>
+            <data name="初期位置">神社</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">99da28d634e8a26d2dc6b57502e8dcf3d6b0d8a8112e3e3087b2cc80e1437c28</data>
+            <data type="image" name="back">7e73da80651313afb840eeb167a47aa2f071cbfbd61235c49836116e55341f20</data>
+          </data>
+          <data name="common">
+            <data name="name">仙人</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">神社</data>
+            <data name="初期位置">神社</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">f621ef943a11f1218815aefbdd9c8682581a6ea26622b462f717914a4eec8072</data>
+            <data type="image" name="back">b7785ad9fc121a95178cf4a5dbc699dd0adc340e1492b77ea5eb3c87ad029a70</data>
+          </data>
+          <data name="common">
+            <data name="name">偶像</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">都市</data>
+            <data name="初期位置">都市</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">9f29ad9380b8159dfb45c62b4fda8f15562c3bcb423389e65cf012597cd7880c</data>
+            <data type="image" name="back">248134a6c7b9a86e8bdf77b883ca6a13afe2527f3f19825ac7f32f8083a98da6</data>
+          </data>
+          <data name="common">
+            <data name="name">媒体人</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">都市</data>
+            <data name="初期位置">都市</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">5d60940f0f705a698ed05ac3b77a4428b2fb7ba7d008e9330cd0e84c97ecd8c9</data>
+            <data type="image" name="back">1395fb6854d9809d19aedbb385ab94c8378969de3e5f9a677f8829cb11632fcc</data>
+          </data>
+          <data name="common">
+            <data name="name">大人物</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">都市</data>
+            <data name="初期位置">都市</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">c8c6fa6d289a727e37b7e04084ac8d96bd06f34b0617bbe5c580d0c512dba56d</data>
+            <data type="image" name="back">a186d056863c2ee6535e0c8ac4e4078b023080a26f7ebd309d97b70b1b98eabd</data>
+          </data>
+          <data name="common">
+            <data name="name">护士</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">病院</data>
+            <data name="初期位置">病院</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">03ff279903452a504e67a2a8ad41049214641e9e6f46e8a5ccb02d41634542ad</data>
+            <data type="image" name="back">5277b980e491452f6466040e311d974a58727e30b66d509c5eefc723519da0f4</data>
+          </data>
+          <data name="common">
+            <data name="name">手下</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">神社</data>
+            <data name="初期位置">神社</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">0a5388b9661332528a7206c0196fce0b42475de1e1d7c8171b70074795baf732</data>
+            <data type="image" name="back">e42a46f9fb1c809eb972d6f3bed30a78bedfb981d7a0bb981a8039278bb10ba1</data>
+          </data>
+          <data name="common">
+            <data name="name">学者</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">病院</data>
+            <data name="初期位置">病院</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">57d9493b22c2536d244fbd81b53c0d61d5d7eee30b33ec5af70f678f688943f7</data>
+            <data type="image" name="back">d2289dece5538098796c2e48f76a84783b8b4034e8879e726a12001828728227</data>
+          </data>
+          <data name="common">
+            <data name="name">幻想</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">神社</data>
+            <data name="初期位置">神社</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">61c335e33e2ccde6e17864fc81b223e7cc2968ce59c8eda4b4c6a2b1add3c718</data>
+            <data type="image" name="back">47244ca2b89d6f9ae84575210ad8822be87989740e5acec0058a322b94aa8f4d</data>
+          </data>
+          <data name="common">
+            <data name="name">鉴识官</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">都市</data>
+            <data name="初期位置">都市</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">d78ee35d62dde7593e6c7c232b6e2536e1973ea55aa4074fcd515a1b25b3528d</data>
+            <data type="image" name="back">ec5f0face57c7b6966595ca6532ec597f7ab18ae5ca7a8a4bef45af45a89cf02</data>
+          </data>
+          <data name="common">
+            <data name="name">A.I.</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">都市</data>
+            <data name="初期位置">都市</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">e105c3ce4f9c885c910e943f9031ae7f7768da0551a8d1cb9a34fe67512e75b2</data>
+            <data type="image" name="back">3f91faff7b48a952091e63fcc65ad18d23db674a6362594c775b5cd52feae17e</data>
+          </data>
+          <data name="common">
+            <data name="name">教师</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">学校</data>
+            <data name="初期位置">学校</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">05aea076efc5245265464c3d9727f3780507ac186093e2e74d8f47baa9a95f4c</data>
+            <data type="image" name="back">f8e10e81b7397495c5747560e15dd4afb41ae77ad90d77319525f88d22fcef1d</data>
+          </data>
+          <data name="common">
+            <data name="name">UP主</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">神社</data>
+            <data name="初期位置">神社</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">e83a5df6cb5b39fd242cdb8f6a27d6555cc41e5d60d7acf685d09708929b59a7</data>
+            <data type="image" name="back">820bd4e870cfaf7c9f581b58ebca76efe579e6275bfeedec64bc53e806f10f2e</data>
+          </data>
+          <data name="common">
+            <data name="name">军人</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">病院</data>
+            <data name="初期位置">病院</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">ae81b16f024d94bb60d5d2bfa9f81c834fc1c6ad72d9a988f5f1a1f3f026c787</data>
+            <data type="image" name="back">e4e1fc9799269289c686d35795c5a3b7523579cf4ea7ff1e14d65e28dd3588f4</data>
+          </data>
+          <data name="common">
+            <data name="name">黑猫</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">神社</data>
+            <data name="初期位置">神社</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">fd46aa2b1313982e5d4778aa3f95ff26e602bf76fe329bfbbf7db1e38f5204d1</data>
+            <data type="image" name="back">80fcf8bf65880556a2b4fde557df91bac1bee2d05b309f8f144b2242fa35aab9</data>
+          </data>
+          <data name="common">
+            <data name="name">小女孩</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">学校</data>
+            <data name="初期位置">学校</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">6cc43fdcb5d81ff84e2c657d5a47297a8ec3fcd7b20e1b079f5fefe8be4b9d2b</data>
+            <data type="image" name="back">35535c25af41caf0a89d940f019933204de42d1278db6a48dbf230689c7d5de2</data>
+          </data>
+          <data name="common">
+            <data name="name">模仿者</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">都市</data>
+            <data name="初期位置">都市</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">f0a520e76f3cf2a2287eb39d568e1f4c8991ccd421613b27bea700b9a1688572</data>
+            <data type="image" name="back">68e343f3b792b359f12d396093ff0bc74a398f93038b4b33bd5b28c704a458a9</data>
+          </data>
+          <data name="common">
+            <data name="name">教主</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">神社</data>
+            <data name="初期位置">神社</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">294ee9a3327d346272cb0a52d852f94a6d9c39deb832afe8294518b5db2fd297</data>
+            <data type="image" name="back">f1c8c81147c0bcf5888747f690c3296280ce758f8cbc2b5def436016e5499a58</data>
+          </data>
+          <data name="common">
+            <data name="name">御神木</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">神社</data>
+            <data name="初期位置">神社</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">9ec531cf39c94de693887e0b488cc2c8d66f02469fef08b357e39da9f84a4c34</data>
+            <data type="image" name="back">ed2af7ea92676dda56958ec2dc7c740d89c2455e7839d6653872a3dec14dcb38</data>
+          </data>
+          <data name="common">
+            <data name="name">妹妹</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">神社</data>
+            <data name="初期位置">神社</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">8865217da9eb6e59739fe9d991914896b51b8fd4a4846a0608aa3b8138f8669a</data>
+            <data type="image" name="back">513baa26848ddd0a14c668ecf27d97fefe0fe2a28ff94f63926aa3cb01e773b6</data>
+          </data>
+          <data name="common">
+            <data name="name">临时工</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">都市</data>
+            <data name="初期位置">都市</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">bddcad86a8b8441e6a47c366427821eeff071f3f01592c301bb71b4e238323aa</data>
+            <data type="image" name="back">8b8c9446959964988282974463506147cad2f400c108e5ed5e1cc3e0a17ffb63</data>
+          </data>
+          <data name="common">
+            <data name="name">临时工？</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">都市</data>
+            <data name="初期位置">都市</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">b84c5ce7ea76f70731a70c7bae78cb5a7f2e15faa78a8e2f1fd405f8c1742e72</data>
+            <data type="image" name="back">1c98def589faa46c6e9c88ae0972f8e540e8625938b568886f31eabc0c0b1540</data>
+          </data>
+          <data name="common">
+            <data name="name">从者</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">学校</data>
+            <data name="初期位置">学校</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="875" location.y="375" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">9cddaa0b00f3bbe9040c29e6fad7e0d9ed6c545f3fd76acb4c3f23bfecf75535</data>
+            <data type="image" name="back">fa623d71f4fe6fb5957fec156e641d4f28faf7bfb74253e6c7405c0b68293874</data>
+          </data>
+          <data name="common">
+            <data name="name">上位存在</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">神社</data>
+            <data name="初期位置">神社</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="1100" location.y="200" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">833e9c14031da27f91336b1bb5f99b1734348217ea66e85aad7b52460f26c840</data>
+            <data type="image" name="back">a9e7dc301222eebc588bce625ad0761d12feece6b12f5d403e7b6f7e5c882b12</data>
+          </data>
+          <data name="common">
+            <data name="name">神灵</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">神社</data>
+            <data name="初期位置">神社</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+      <rooper-card location.name="table" location.x="950" location.y="125" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="rooper-card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">3a27a91236d55de91bb70b1a95fa431e698780c1086604e69f0186a125d2af0e</data>
+            <data type="image" name="back">9dcc6d8ecd49727159a8efd3ecbf2fc9240e0e6c5046461edc1f4ff0e12fe5cf</data>
+          </data>
+          <data name="common">
+            <data name="name">转校生</data>
+            <data name="size">3</data>
+            <data type="numberResource" currentValue="0" name="友好">0</data>
+            <data type="numberResource" currentValue="0" name="不安">0</data>
+            <data type="numberResource" currentValue="0" name="暗躍">0</data>
+            <data name="位置">学校</data>
+            <data name="初期位置">学校</data>
+            <data type="numberResource" currentValue="0" name="希望">0</data>
+            <data type="numberResource" currentValue="0" name="絶望">0</data>
+            <data type="numberResource" currentValue="0" name="死亡済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済">0</data>
+            <data type="numberResource" currentValue="0" name="交友済(拒否)">0</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </rooper-card>
+    </node>
+  </card-stack>
+  <card-stack location.name="table" location.x="-397.1000000000662" location.y="224.14999999996445" posZ="0" rotate="0" zindex="94" owner="" isShowTotal="true">
+    <data name="card-stack">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+      </data>
+      <data name="common">
+        <data name="name">ExtraCard</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+    <node name="cardRoot">
+      <card location.name="table" location.x="400" location.y="-150" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">./assets/images/tragedy_commons_5th/extra/extra_d.png</data>
+            <data type="image" name="back">19538242f182acedd3028f94e09ca7a93f4d30afc24d323433d735a37550e6ef</data>
+          </data>
+          <data name="common">
+            <data name="name">ExtraD</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="400" location.y="-150" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">./assets/images/tragedy_commons_5th/extra/extra_c.png</data>
+            <data type="image" name="back">19538242f182acedd3028f94e09ca7a93f4d30afc24d323433d735a37550e6ef</data>
+          </data>
+          <data name="common">
+            <data name="name">ExtraC</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="400" location.y="-150" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">./assets/images/tragedy_commons_5th/extra/extra_b.png</data>
+            <data type="image" name="back">19538242f182acedd3028f94e09ca7a93f4d30afc24d323433d735a37550e6ef</data>
+          </data>
+          <data name="common">
+            <data name="name">ExtraB</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="400" location.y="-150" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">./assets/images/tragedy_commons_5th/extra/extra_a.png</data>
+            <data type="image" name="back">19538242f182acedd3028f94e09ca7a93f4d30afc24d323433d735a37550e6ef</data>
+          </data>
+          <data name="common">
+            <data name="name">ExtraA</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+    </node>
+  </card-stack>
+  <card-stack location.name="table" location.x="875" location.y="-175" posZ="0" rotate="0" zindex="80" owner="" isShowTotal="true">
+    <data name="card-stack">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+      </data>
+      <data name="common">
+        <data name="name">剧作家手牌</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+    <node name="cardRoot">
+      <card location.name="table" location.x="900" location.y="-175" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">f791bbff748387369818aba610e58527baa52ae61dbcfe2ca307a046507f5477</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_writer_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">不安+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="900" location.y="-175" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">f791bbff748387369818aba610e58527baa52ae61dbcfe2ca307a046507f5477</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_writer_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">不安+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="900" location.y="-175" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">d388d262ae92f5d9b849be135e18c502156a1051041ce2fc5ab14bcde74f3862</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_writer_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">不安-1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="900" location.y="-175" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">9e363ed36ff70792b10a329401ea735afc04121e0e6b93f62740f92c6654e481</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_writer_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">不安禁止</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="900" location.y="-175" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">6e63d6f4f88d66a3acb20675493b1d09407b20c176a5a8e72965c67c5230199e</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_writer_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">友好禁止</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="900" location.y="-175" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">eb06e5566e3d45aac340293528beb7ca7e85ee4b2d0c1eee7f907c108541ed35</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_writer_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">密谋+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="900" location.y="-175" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">bdb310ea355bd01cd1f77107d6b0f37d5b3e35efe4121c9d21661c865af42d94</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_writer_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">密谋+2</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="900" location.y="-175" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">b8a0266dc9af3c3fee70ef892cfb3edb368dbc1b66e26696267db20bd314fe7d</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_writer_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">移动↑↓</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="900" location.y="-175" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">0cc0f05acafc571d2f9b93a630a9335344b1cd19f12d52e52afbdb8cc66cfdf5</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_writer_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">移动←→</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="900" location.y="-175" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">fc1344cb1fff7b4f4de9f4f95eeb3869aab7a2d4b830f864beb0289407af6b46</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_writer_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">斜向移动</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+    </node>
+  </card-stack>
+  <card-stack location.name="table" location.x="625" location.y="1025" posZ="0" rotate="0" zindex="79" owner="" isShowTotal="true">
+    <data name="card-stack">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+      </data>
+      <data name="common">
+        <data name="name">主人公A手牌</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+    <node name="cardRoot">
+      <card location.name="table" location.x="550" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">22ca44231c07d34c26a9ebee9246c1f87d9fe6e38b183c7bb3ae687e064b2dc0</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroA_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">不安+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="550" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">252da5fa4bc3436afc22a0b819355d7ae835a46fb975ffb4a95529a41486a677</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroA_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">不安-1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="550" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">9a22071e423cb96179a2bae34d2362a4ea82c815dabffa44324cc06f4220bae2</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroA_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">友好+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="550" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">5dd6768f4dbb0fdaf5dc80da9b7201c3f31d13516625b3c1c509404fc88f096f</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroA_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">友好+2</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="550" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">4ecef910e3551883a48b174eadb3e9eb92b8d3b1d61f7d404dfc89b3c12e0f23</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroA_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">密谋禁止</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="550" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">c78d47c868ea8c38b52295758384b40bd14109fdebe0070fecc402c5b42d9551</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroA_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">移动↑↓</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="550" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">c29e2afbe9742cfd75ca56da0d1dbe175785a4ba4359b11c7481d051cc12e690</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroA_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">移动←→</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="550" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">90449762e653bc0c8db066cfbb7e9ba580a24e8cca9b01435373d635a928106a</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroA_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">移动禁止</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+    </node>
+  </card-stack>
+  <card-stack location.name="table" location.x="875" location.y="1025" posZ="0" rotate="0" zindex="77" owner="" isShowTotal="true">
+    <data name="card-stack">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+      </data>
+      <data name="common">
+        <data name="name">主人公B手牌</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+    <node name="cardRoot">
+      <card location.name="table" location.x="850" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">3ebfa0a75797f68b33b456014490c23fa910dc21b1621656c59a8c5bf5853483</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroB_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">不安+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="850" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">2b6704edaccf41007b0f03bd8a97687379cbd6e6de0904b23953295b08a767b2</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroB_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">不安-1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="850" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">4fefceabb1c92ac414611d9efc6873cb991c2d7d77984b72429508a15bcaeae3</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroB_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">友好+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="850" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">cc91a2fe3fc6963941308e14e3eddfc9da7e4463ccaa46812dc276bc9f88f42a</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroB_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">友好+2</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="850" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">4ab70acaa3021a2f129775000e7f579095ec788596ef536c440e8cda14dd598a</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroB_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">密谋禁止</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="850" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">5563c0eaaffe1dd54a9289dd1590f7b82cb74cf7b697c5a7ea1e8ec0d56fbc90</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroB_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">移动↑↓</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="850" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">ef5dbb40fc0c6821ade9b3925ee4453783778fcfa5553bf153170517063b67af</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroB_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">移动←→</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="850" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">c146fc713d19ab2346b5ce8e595994ea9733df61978108f1227fa9e7655648ad</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroB_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">移动禁止</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+    </node>
+  </card-stack>
+  <card-stack location.name="table" location.x="1150" location.y="1025" posZ="0" rotate="0" zindex="78" owner="" isShowTotal="true">
+    <data name="card-stack">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+      </data>
+      <data name="common">
+        <data name="name">主人公C手牌</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+    <node name="cardRoot">
+      <card location.name="table" location.x="1150" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">b0fb2bd646f6c1cb38a232cdba2eccbd42022cfb505ec1c8114660541cf10c28</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroC_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">不安+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1150" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">2bda1db2a3889686a6461d4dddc308d3cc06b915c178ee2b1c4e5100db926dae</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroC_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">不安-1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1150" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">9f045eb898bd6241663962efef7f5d8f8d6cf2a8591e83b049ad8e69ffe17326</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroC_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">友好+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1150" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">8e4c91bde170bc528f2bc15445fab26886a671893abb649688a0fedc854c8363</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroC_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">友好+2</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1150" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">9262437a05fdf909a73cc383377522628e2ecfbf2e81301e3e96537405a551ed</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroC_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">密谋禁止</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1150" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">ad03b6ed33eae5cc391e09150f11380182f6582199982858c5c348515ed4c4ad</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroC_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">移动↑↓</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1150" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">297ffe8eb0da14d62df269dba4e0f26a40329fc7dd57fad87b1c861f5d097456</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroC_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">移动←→</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1150" location.y="1025" posZ="0" state="1" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">2d4d04f9acb8984cd26183d944ed86b376aad4ab50eb39d2a82a52e0b1585622</data>
+            <data type="image" name="back">./assets/images/tragedy_commons_5th/action_cards/a_heroC_cards_0b.png</data>
+          </data>
+          <data name="common">
+            <data name="name">移动禁止</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+    </node>
+  </card-stack>
+  <card-stack location.name="table" location.x="-264.69999999979814" location.y="224.04999999996267" posZ="0" rotate="0" zindex="95" owner="" isShowTotal="true">
+    <data name="card-stack">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+      </data>
+      <data name="common">
+        <data name="name">追加牌</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+    <node name="cardRoot">
+      <card location.name="table" location.x="-350" location.y="425" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">95297124de52183e703e61873aab4c9534d607f27db66a58d003facaf0666734</data>
+            <data type="image" name="back">37b4d15fc7a9f9fed61ff0a6ae44d4c52ce02a5fea29e4137a0f46963ebbfc45</data>
+          </data>
+          <data name="common">
+            <data name="name">绝望+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="-350" location.y="425" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">e8ebb9302ee33da60334fd399c6b773a7d65b2b0c7484c09edf47918d6d9ef91</data>
+            <data type="image" name="back">37b4d15fc7a9f9fed61ff0a6ae44d4c52ce02a5fea29e4137a0f46963ebbfc45</data>
+          </data>
+          <data name="common">
+            <data name="name">友好+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="-350" location.y="425" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">f79a6f5becdcd32ae04ff89ddfa0752c72b94a0fa0b651628e5d7131af52b12a</data>
+            <data type="image" name="back">c345416cc1902f13e63f45f8a86883e2183416f6d28cf92fe99ab761c146b011</data>
+          </data>
+          <data name="common">
+            <data name="name">不安+2</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="-350" location.y="425" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">8464140248552916422b0b09bf49cb5cb2250abaa7aefe8432556399a6be5212</data>
+            <data type="image" name="back">c345416cc1902f13e63f45f8a86883e2183416f6d28cf92fe99ab761c146b011</data>
+          </data>
+          <data name="common">
+            <data name="name">希望+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="-350" location.y="425" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">e347e3e32acb866294e60e51665295bc90deab52fddf0a159c39e09b4225f845</data>
+            <data type="image" name="back">b1dbd007ce973628422a0b6b3de0839a91427717b5e08406f211f7f4aa6d0887</data>
+          </data>
+          <data name="common">
+            <data name="name">不安+2</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="-350" location.y="425" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">7df16a5cf2b4ddc329a6887cb4c9d3dc709bce18cf2975469a8e3e3a2fcf00d8</data>
+            <data type="image" name="back">b1dbd007ce973628422a0b6b3de0839a91427717b5e08406f211f7f4aa6d0887</data>
+          </data>
+          <data name="common">
+            <data name="name">希望+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="-350" location.y="425" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">2e22491aa23e64ccde9d4f2928fe12342c588b196fe34bab43487e92216418f0</data>
+            <data type="image" name="back">e222ed52370d3bbb134a46d98e27414ab6a9cbf4ecd1b4547c1da8bb14804f51</data>
+          </data>
+          <data name="common">
+            <data name="name">不安+2</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="-350" location.y="425" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">621527e9c42746989200dad3732507a69c22ac421b0c987ed01eeee7ced68617</data>
+            <data type="image" name="back">e222ed52370d3bbb134a46d98e27414ab6a9cbf4ecd1b4547c1da8bb14804f51</data>
+          </data>
+          <data name="common">
+            <data name="name">希望+1</data>
+            <data name="size">2</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+    </node>
+  </card-stack>
+  <card-stack location.name="table" location.x="1650" location.y="-25" posZ="0" rotate="0" zindex="85" owner="" isShowTotal="true">
+    <data name="card-stack">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+      </data>
+      <data name="common">
+        <data name="name">模组纸</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+    <node name="cardRoot">
+      <card location.name="table" location.x="1625" location.y="-50" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">0b2d84f17c995d604bf04e818f20af880a5e5a4d388d87450e5969933f33a90b</data>
+            <data type="image" name="back">0b2d84f17c995d604bf04e818f20af880a5e5a4d388d87450e5969933f33a90b</data>
+          </data>
+          <data name="common">
+            <data name="name">FirstSteps(FS)</data>
+            <data name="size">30</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1625" location.y="-50" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">52184bc7f3f57b2166130ecfe1d3579412161208d72faff5f1164fab99a4bf64</data>
+            <data type="image" name="back">52184bc7f3f57b2166130ecfe1d3579412161208d72faff5f1164fab99a4bf64</data>
+          </data>
+          <data name="common">
+            <data name="name">BasicTragedyX(BTX)</data>
+            <data name="size">30</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1625" location.y="-50" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">3fa84bd5c4510724dee88df812473d947da2b1b2e27a9e67ccfa04662756bf76</data>
+            <data type="image" name="back">3fa84bd5c4510724dee88df812473d947da2b1b2e27a9e67ccfa04662756bf76</data>
+          </data>
+          <data name="common">
+            <data name="name">OldFashion(OF)</data>
+            <data name="size">30</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1625" location.y="-50" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">0ff7d26db6b6234412c4724b887be22711797a8ca01221ea158dc6008a5b6ad5</data>
+            <data type="image" name="back">0ff7d26db6b6234412c4724b887be22711797a8ca01221ea158dc6008a5b6ad5</data>
+          </data>
+          <data name="common">
+            <data name="name">MidnightZone(MZ)</data>
+            <data name="size">30</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1625" location.y="-50" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">580c63070d5165da141cbc6d9a0ad36c84ec0b42c47b9ae0600adc06694bac84</data>
+            <data type="image" name="back">580c63070d5165da141cbc6d9a0ad36c84ec0b42c47b9ae0600adc06694bac84</data>
+          </data>
+          <data name="common">
+            <data name="name">MysteryCircle(MC)</data>
+            <data name="size">30</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1625" location.y="-50" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">4645576cb1273858a1aa3331635dd24010533de5654fc46c34a14f3204b2a097</data>
+            <data type="image" name="back">4645576cb1273858a1aa3331635dd24010533de5654fc46c34a14f3204b2a097</data>
+          </data>
+          <data name="common">
+            <data name="name">HauntedStageA(HSA)</data>
+            <data name="size">30</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1625" location.y="-50" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">d64746aba569062d9747bfe3028d649d77073e0820b01a068f595c15faf1ff97</data>
+            <data type="image" name="back">d64746aba569062d9747bfe3028d649d77073e0820b01a068f595c15faf1ff97</data>
+          </data>
+          <data name="common">
+            <data name="name">HauntedStage(HS)</data>
+            <data name="size">30</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1625" location.y="-50" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">58ee16f6252b142a4d3e3b99096855f82ad1aaabd2f62d535331bcf22219da71</data>
+            <data type="image" name="back">58ee16f6252b142a4d3e3b99096855f82ad1aaabd2f62d535331bcf22219da71</data>
+          </data>
+          <data name="common">
+            <data name="name">WeirdMythology(WM)</data>
+            <data name="size">30</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1625" location.y="-50" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">54d76c27736e785a7639bc49eb53bb3b6388c91141632d852d7e3509ad1faae4</data>
+            <data type="image" name="back">54d76c27736e785a7639bc49eb53bb3b6388c91141632d852d7e3509ad1faae4</data>
+          </data>
+          <data name="common">
+            <data name="name">AnotherHorizon(AHR)</data>
+            <data name="size">30</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+      <card location.name="table" location.x="1625" location.y="-50" posZ="0" state="0" rotate="0" owner="" zindex="0">
+        <data name="card">
+          <data name="image">
+            <data type="image" name="imageIdentifier"></data>
+            <data type="image" name="front">feeb24bd3834c479255cf9446c40704e05ee218dd360890b7f036c7486fce7e6</data>
+            <data type="image" name="back">feeb24bd3834c479255cf9446c40704e05ee218dd360890b7f036c7486fce7e6</data>
+          </data>
+          <data name="common">
+            <data name="name">LastLiar(LL)</data>
+            <data name="size">30</data>
+          </data>
+          <data name="detail"></data>
+        </data>
+      </card>
+    </node>
+  </card-stack>
+  <card location.name="table" location.x="5" location.y="255" posZ="0" state="0" rotate="0" owner="" zindex="0">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_07.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_07.png</data>
+      </data>
+      <data name="common">
+        <data name="name">現在日数</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="73.55000000000229" location.y="252.0999999999974" posZ="0" state="0" rotate="0" owner="" zindex="90">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_08.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_08.png</data>
+      </data>
+      <data name="common">
+        <data name="name">事件カウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="72.10000000000184" location.y="314.99999999999307" posZ="0" state="0" rotate="0" owner="" zindex="91">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_08.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_08.png</data>
+      </data>
+      <data name="common">
+        <data name="name">事件カウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="72.10000000000184" location.y="377.8999999999887" posZ="0" state="0" rotate="0" owner="" zindex="88">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_08.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_08.png</data>
+      </data>
+      <data name="common">
+        <data name="name">事件カウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="72.10000000000184" location.y="440.6499999999765" posZ="0" state="0" rotate="0" owner="" zindex="87">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_08.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_08.png</data>
+      </data>
+      <data name="common">
+        <data name="name">事件カウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="136.94999999999897" location.y="502.89999999996314" posZ="0" state="0" rotate="0" owner="" zindex="86">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_09.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_09.png</data>
+      </data>
+      <data name="common">
+        <data name="name">ループカウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="204.99999999998732" location.y="147.69999999999348" posZ="0" state="0" rotate="0" owner="" zindex="89">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_10.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_10.png</data>
+      </data>
+      <data name="common">
+        <data name="name">Exカウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="275" location.y="-75" posZ="0" state="0" rotate="0" owner="" zindex="0">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_03.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_03.png</data>
+      </data>
+      <data name="common">
+        <data name="name">暗躍カウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="285" location.y="-75" posZ="0" state="0" rotate="0" owner="" zindex="0">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_03.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_03.png</data>
+      </data>
+      <data name="common">
+        <data name="name">暗躍カウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="295" location.y="-75" posZ="0" state="0" rotate="0" owner="" zindex="0">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_03.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_03.png</data>
+      </data>
+      <data name="common">
+        <data name="name">暗躍カウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="305" location.y="-75" posZ="0" state="0" rotate="0" owner="" zindex="0">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_03.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_03.png</data>
+      </data>
+      <data name="common">
+        <data name="name">暗躍カウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="315" location.y="-75" posZ="0" state="0" rotate="0" owner="" zindex="0">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_03.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_03.png</data>
+      </data>
+      <data name="common">
+        <data name="name">暗躍カウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="325" location.y="-75" posZ="0" state="0" rotate="0" owner="" zindex="0">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_06.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_06.png</data>
+      </data>
+      <data name="common">
+        <data name="name">暗躍カウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="335" location.y="-75" posZ="0" state="0" rotate="0" owner="" zindex="0">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_06.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_06.png</data>
+      </data>
+      <data name="common">
+        <data name="name">暗躍カウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="345" location.y="-75" posZ="0" state="0" rotate="0" owner="" zindex="0">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/chip_06.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/chip_06.png</data>
+      </data>
+      <data name="common">
+        <data name="name">暗躍カウンター</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="100" location.y="-75" posZ="0" state="0" rotate="0" owner="" zindex="3">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/turf.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/turf.png</data>
+      </data>
+      <data name="common">
+        <data name="name">大物トークン</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="175" location.y="-75" posZ="0" state="0" rotate="0" owner="" zindex="2">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">./assets/images/tragedy_commons_5th/tokens/guard.png</data>
+        <data type="image" name="back">./assets/images/tragedy_commons_5th/tokens/guard.png</data>
+      </data>
+      <data name="common">
+        <data name="name">刑事トークン</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="25" location.y="-75" posZ="0" state="0" rotate="0" owner="" zindex="71">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">3c00fb0927ef0e377463cc43d352db388f05682048381cfe018081e7582b61aa</data>
+        <data type="image" name="back">3c00fb0927ef0e377463cc43d352db388f05682048381cfe018081e7582b61aa</data>
+      </data>
+      <data name="common">
+        <data name="name">从者标志</data>
+        <data name="size">1</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+  <card location.name="table" location.x="425" location.y="1025" posZ="0" state="0" rotate="0" owner="" zindex="81">
+    <data name="card">
+      <data name="image">
+        <data type="image" name="imageIdentifier"></data>
+        <data type="image" name="front">5b960b9c8057a8a647074cdcadd27d2053bdfd6608cd231aee4ce89416ad4e81</data>
+        <data type="image" name="back">5b960b9c8057a8a647074cdcadd27d2053bdfd6608cd231aee4ce89416ad4e81</data>
+      </data>
+      <data name="common">
+        <data name="name">领队卡</data>
+        <data name="size">2</data>
+      </data>
+      <data name="detail"></data>
+    </data>
+  </card>
+</room>
