@@ -1,10 +1,11 @@
 # tragedy-sim
 
-Python 版《悲剧轮回》模拟器，逐阶段实现。
+Python 版《悲剧轮回》本地命令行模拟器。FS / BTX 对局现已串通：
+出牌、好感（界面称“友好”）能力、剧作家与身份能力、事件、日末、轮回与胜负。
 
-**当前仅实现第一阶段：FS / BTX 共用的基础出牌、揭示与行动结算。**
-不是完整 FS / BTX 对局：没有身份能力、好感能力、剧作家能力、事件、剧本胜负、AI 或联网。
-`--module` 记录本次练习的模组依据；现阶段两者的基础牌与执行逻辑相同。
+支持 FS 的全部 6 个规则 X/Y、7 种事件，以及 BTX 的全部 12 个规则 X/Y、9 种事件；
+内置 BTX 速查表上的 17 名角色和对应能力。以用户提供的中文模组速查表为优先依据。
+这是由真人控制双方的热座/裁判工具，不含 AI 或联网。
 
 ## 运行
 
@@ -13,18 +14,21 @@ Python 版《悲剧轮回》模拟器，逐阶段实现。
 ```powershell
 python -m tragedy_sim --demo
 python -m tragedy_sim --demo --module BTX
-python -m tragedy_sim
+python -m tragedy_sim --module FS
+python -m tragedy_sim --script examples/btx-tutorial.json
 ```
 
-前两条自动演示一次双方出牌，第三条进入本地人工操作模式。
+前两条自动演示“触发谋杀 → 第一轮失败 → 重置 → 第二轮获胜”；后两条进入人工对局。
+没有参数时默认运行原创 FS 教学剧本。`--script` 以文件中的模组为准。
 程序仅输出文字，不需要加载图片或联网。
 
-## 手动完成第一次出牌
+## 手动完成第一天
 
 启动 `python -m tragedy_sim` 后依次输入：
 
 ```text
 hand m
+next m
 play m h student
 play m i2 hospital
 play m p1a doctor
@@ -33,12 +37,32 @@ play b fi hospital
 play c g2 doctor
 board
 resolve
+next m
 board
 ```
 
 预期：男学生由学校横移到都市（两张横移不抵消）；医院密谋仍为 0；医生不安 1、友好 2。
 `m` 的 `i2` 和 `c` 的 `g2` 进入公开留置区，其余已用牌立即回手。
 执行 `resolve` 前棋盘状态不变，`board` 只显示暗牌归属与目标。
+`resolve` 先统一揭示、移动，再给剧作家一个私密的行动能力窗口；`next m` 才继续结算计数物。
+
+接着按阶段操作：
+
+```text
+options m
+next m
+options a
+choose a 1
+options m
+choose m 1
+next a
+next m
+next m
+```
+
+这段示例跳过剧作家可选能力；领队 A 声明医生的第一项友好能力，剧作家选择执行，患者不安 +1。
+随后结算当天事件（第 1 天没有预定事件），换领队、结束第 1 天。下一天从 B 开始主人公出牌。
+每次操作后都有下一步提示；`options` 的编号取决于当前状态，其他对局应重新查看，不要照抄编号。
 
 操作命令：
 
@@ -46,19 +70,51 @@ board
 | --- | --- |
 | `hand m` / `hand a` | 查看指定玩家的可用手牌 |
 | `play <玩家> <牌> <目标>` | 玩家 m / a / b / c 按顺序出牌 |
-| `board` | 公开棋盘、暗牌位置和公开留置牌 |
+| `board` / `status` | 公开棋盘、临界值、尸体、护卫、事件日程、历史确认信息、能力使用情况 |
 | `view a` | A 的视角，只显示 A 自己的暗牌内容 |
-| `resolve` | 六张牌全部放好后揭示并结算 |
+| `view m` | 剧作家私密视角：额外显示身份、实际规则 X/Y、当事人；不要向主人公展示 |
+| `inspect doctor` | 角色初始/当前区域、禁行区域、属性、能力、被动特性 |
+| `rules` | 本模组所有可能规则、身份能力、事件效果和固定初始牌组；不显示剧本答案 |
+| `resolve` | 六张牌齐全后统一揭示、结算移动，进入行动能力窗口 |
+| `options <座位>` | 合法能力或必要目标选项；`options m` 是私密窗口 |
+| `choose <座位> <编号>` | 选择当前选项；好感能力声明后须由剧作家确认执行或拒绝 |
 | `log` | 已揭示行动及公开结算日志 |
-| `next` | **练习控制**：保留棋盘与限次牌使用记录，轮换领队，进入下一次出牌 |
-| `reset` | **练习控制**：恢复初始棋盘与全部手牌，开始新的练习轮回 |
+| `next [座位]` | 依次推进阶段；不代打行动牌，不跳过强制效果或必要选择 |
+| `guess <领队> <角色> <身份ID>` | BTX 最终猜测：所有角色的初始身份必须猜对，一次错误即败 |
+| `final <领队>` | BTX 轮回之间，放弃剩余轮回并提前猜测 |
+| `save "session.json"` | 保存到新文件；已存在的文件不会覆盖；路径可加双引号 |
 | `help` / `quit` | 帮助 / 退出 |
 
-`next` / `reset` 只能在结算完成后使用；它们不是完整的日末或轮回流程。
-下一次出牌的领队按 A → B → C 轮换，三名主人公从当次领队开始出牌。
+日常领队按 A → B → C 轮换；中途结束轮回不会额外轮换。
+失败之后用 `next m` 开始下一轮。FS 轮回耗尽即判负；BTX 会进入最终猜测。
+完整对局没有任意 `reset` 按钮。保留了独立的第一阶段练习：`python -m tragedy_sim --practice`。
 
-这是可信本地操作者使用的热座/调试程序。可以查询所有人的手牌，输入历史也会显示牌名；
-视角过滤不等于防作弊安全边界。以后联机时，完整状态必须留在服务端。
+恢复存档：
+
+```powershell
+python -m tragedy_sim --load session.json
+```
+
+存档使用 JSON 剧本和命令重放，可恢复到暗牌未揭示、目标选择或能力确认途中。
+存档含完整秘密，不应在游戏中发给主人公；退出不会自动保存。
+
+这是可信本地操作者使用的热座/调试程序。默认输出只含公开信息，身份、当事人与隐藏能力来源不会自动透露。
+但是同一操作者可以主动查询私密视角，输入历史也会显示出牌内容；视角过滤不是防作弊安全边界。
+实际同桌游玩需隔离私密操作的屏幕和终端历史，或由独立裁判输入命令。讨论限制由真人遵守。
+
+## 自定义剧本
+
+复制 [FS 示例](examples/fs-tutorial.json) 或 [BTX 示例](examples/btx-tutorial.json) 后修改。
+文件包含身份与当事人答案，主人公请勿提前阅读；这是原创教学剧本，不是官方剧本转录。
+
+`main_plot` 选一个规则 Y，`subplots` 在 FS 选一个 X，在 BTX 选两个不同 X。
+`cast` 是角色 ID → 身份 ID，余下普通角色填写 `ordinary`。
+规则、身份、事件 ID 可用 `rules` 查；全部角色见 [catalog.py](tragedy_sim/catalog.py)。
+`incidents` 每条包含 `day`、`kind`、`culprit`，同一天最多一起事件，同一角色最多承担一起事件。
+身份数量、上限、少女条件、模组、日期和重复当事人会在开始前检查。
+
+当前接受 1–8 天、1–8 轮、3–17 名已支持角色。暂不支持任意额外剧本规则、延迟登场、其他模组或扩展角色；
+不支持的字段会明确报错，不会静默忽略。也不自动 OCR 或导入整个资源包。
 
 ## 当前牌组
 
@@ -89,24 +145,28 @@ python -m unittest discover -v
 
 - `tragedy_sim/cards.py`：独立牌组、限次标记、地图。
 - `tragedy_sim/engine.py`：`ActionGame`、`Character`、出牌与结算、玩家视图。
-- `tragedy_sim/cli.py`：命令行交互和自动演示。
-- `tests/test_actions.py`：规则、信息可见性、资源索引及 CLI 测试。
-- [docs/rules-actions.md](docs/rules-actions.md)：规则来源、已实现范围及后续边界。
+- `tragedy_sim/catalog.py`：角色、规则 X/Y、身份、事件及公开规则文案。
+- `tragedy_sim/scenario.py`：JSON 剧本、严格校验、教学示例。
+- `tragedy_sim/game.py`：完整状态机、效果队列、选择、胜负、知识记录和存档。
+- `tragedy_sim/cli.py`：完整对局、行动练习、中文提示和自动演示。
+- `tests/test_actions.py`、`tests/test_game.py`：行动、能力、9 种事件、胜负、信息过滤、CLI、存档重放；含全部 114 种 X/Y 组合校验与固定种子对局。
+- [完整对局规则说明](docs/rules-match.md)、[基础行动来源](docs/rules-actions.md)。
 
 引擎与界面分离，可直接调用：
 
 ```python
-from tragedy_sim import ActionGame
+from tragedy_sim import Game
 
-game = ActionGame(module="FS")
-game.play("m", "i2", "doctor")
+game = Game()  # 默认 FS 教学剧本，或传入经过校验的剧本字典
+game.dispatch("m", "next")
+game.dispatch("m", "play", card="i2", target="doctor")
 print(game.view("a")["pending"])  # 可见 m 和 doctor，不可见 i2
+print(game.controller)             # 当前应操作的座位
 ```
 
-## 后续逐步扩展
-
-先确认基础出牌，再分别加入好感能力、剧作家/身份能力、事件，最后连接完整轮回与胜负。
-实现顺序与游戏内结算顺序是两回事：新增能力时需继续以 FS / BTX 标注的触发时机为准。
+完整对局统一通过 `dispatch` 修改，非法命令回滚，成功命令进入存档历史。
+`state`、`roles` 等内部状态仅供引擎或测试使用；直接修改这些字段不会记录到存档。
+独立出牌练习的 `ActionGame` API 保持兼容。
 
 资源图片和 XML 保持用户提供的原样，没有打包进 Python 分发文件；代码运行不依赖资源。
 不在本仓库替这些社区翻译或游戏图片声明新的授权。

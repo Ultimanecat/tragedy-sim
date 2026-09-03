@@ -236,7 +236,7 @@ class CLITests(unittest.TestCase):
             self.assertNotIn("�", result.stdout)
 
     def test_interactive_errors_and_success(self):
-        result = self.run_cli(commands="\n".join([
+        result = self.run_cli("--practice", commands="\n".join([
             "hand m", "resolve", "play m h student", "play m i2 hospital", "play m p1a doctor",
             "play a h student", "play b fi hospital", "play c g2 doctor", "view a", "resolve",
             "board", "next", "board", "nonsense", "quit", ""]))

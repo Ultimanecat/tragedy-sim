@@ -38,6 +38,7 @@ class State:
     phase: str = "mastermind"
     locations: dict[str, int] = field(default_factory=lambda: dict.fromkeys(LOCATIONS, 0))
     pending: list[Placement] = field(default_factory=list)
+    face_up: bool = False
     hands: dict[str, list[str]] = field(default_factory=lambda: {a: list(deck(a)) for a in ACTORS})
     discarded: dict[str, list[str]] = field(default_factory=lambda: {a: [] for a in ACTORS})
     events: list[dict] = field(default_factory=list)
@@ -92,6 +93,9 @@ class ActionGame:
         s = self.state
         s.events.append(dict(loop=s.loop, round=s.round, kind=kind, message=message, **data))
 
+    def name(self, target: str) -> str:
+        return self.state.characters[target].name if target in self.state.characters else LOCATIONS.get(target, target)
+
     def play(self, actor: str, card_id: str, target: str) -> None:
         s = self.state
         if actor not in ACTORS or actor != self.next_actor:
@@ -107,7 +111,7 @@ class ActionGame:
         # All action cards may legally target locations, including ineffective bluffs.
         s.hands[actor].remove(card_id)
         s.pending.append(Placement(actor, card_id, target))
-        self._event("card_placed", f"{ACTOR_NAMES[actor]} 在 {target} 放置了一张暗牌。",
+        self._event("card_placed", f"{ACTOR_NAMES[actor]}在{self.name(target)}放置了一张暗牌。",
                     actor=actor, target=target)
         if len(s.pending) == 3:
             s.phase = "protagonists"
@@ -115,10 +119,15 @@ class ActionGame:
             s.phase = "reveal"
 
     def resolve(self) -> None:
+        self._reveal_and_move()
+        self._resolve_counters()
+
+    def _reveal_and_move(self) -> None:
         s = self.state
         if s.phase != "reveal":
             raise RuleError("必须完成剧作家三张、每名主人公各一张出牌后，才能揭示")
         self._event("cards_revealed", "同时揭示六张行动牌。", cards=[asdict(p) for p in s.pending])
+        s.face_up = True
         by_target = {}
         for p in s.pending:
             by_target.setdefault(p.target, []).append(deck(p.actor)[p.card])
@@ -148,6 +157,22 @@ class ActionGame:
                 self._event("character_moved", f"{char.name} 移动到{LOCATIONS[destination]}。",
                             character=target, location=destination)
 
+        s.phase = "action_counters"
+
+    def _ignore_forbid(self, counter: str, target: str) -> bool:
+        return False
+
+    def _counter_mutated(self, target: str, counter: str) -> None:
+        """Hook for mandatory constant effects in a complete game."""
+
+    def _resolve_counters(self) -> None:
+        s = self.state
+        if s.phase != "action_counters":
+            raise RuleError("尚未揭示并结算移动")
+        by_target = {}
+        for p in s.pending:
+            by_target.setdefault(p.target, []).append(deck(p.actor)[p.card])
+
         # 3. Other forbids: multiple Forbid Intrigue cards cancel GLOBALLY, even bluffs.
         intrigue_forbids = sum(deck(p.actor)[p.card].effect == "forbid_intrigue" for p in s.pending)
         if intrigue_forbids >= 2:
@@ -155,6 +180,10 @@ class ActionGame:
         # 4. Remaining counters. Add before remove; never below zero.
         for target, cards in by_target.items():
             effects = {card.effect for card in cards}
+            if target in LOCATIONS:
+                for card in cards:
+                    if card.effect not in ("intrigue", "forbid_intrigue"):
+                        self._event("location_bluff", f"{LOCATIONS[target]}上的「{card.name}」没有效果（地点佯攻牌）。")
             counters = COUNTER_NAMES if target in s.characters else ("intrigue",)
             for counter in counters:
                 changes = [c.amount for c in cards if c.effect == counter]
@@ -163,17 +192,28 @@ class ActionGame:
                 blocked = f"forbid_{counter}" in effects
                 if counter == "intrigue":
                     blocked = blocked and intrigue_forbids == 1
+                blocked = blocked and not self._ignore_forbid(counter, target)
                 if blocked:
-                    self._event("counter_blocked", f"{target}：{COUNTER_NAMES[counter]}变更被禁止。")
+                    self._event("counter_blocked", f"{self.name(target)}：{COUNTER_NAMES[counter]}变更被禁止。")
                     continue
                 before = getattr(s.characters[target], counter) if target in s.characters else s.locations[target]
-                after = max(0, before + sum(v for v in changes if v > 0) + sum(v for v in changes if v < 0))
-                if target in s.characters:
-                    setattr(s.characters[target], counter, after)
-                else:
-                    s.locations[target] = after
-                self._event("counter_changed", f"{target}：{COUNTER_NAMES[counter]} {before} → {after}。",
-                            target=target, counter=counter, before=before, after=after)
+                after = before
+                steps = [before]
+                for delta in (sum(v for v in changes if v > 0), sum(v for v in changes if v < 0)):
+                    if not delta:
+                        continue
+                    after = max(0, after + delta)
+                    if target in s.characters:
+                        setattr(s.characters[target], counter, after)
+                    else:
+                        s.locations[target] = after
+                    self._counter_mutated(target, counter)
+                    steps.append(after)
+                if len(steps) == 1:
+                    steps.append(after)
+                progression = " → ".join(str(value) for value in steps)
+                self._event("counter_changed", f"{self.name(target)}：{COUNTER_NAMES[counter]} {progression}。",
+                            target=target, counter=counter, before=before, after=after, steps=steps)
 
         # Return ordinary cards NOW. Limited cards are public discards even if blocked.
         for p in s.pending:
@@ -182,6 +222,7 @@ class ActionGame:
             else:
                 s.hands[p.actor].append(p.card)
         s.pending.clear()
+        s.face_up = False
         s.phase = "resolved"
         self._event("actions_resolved", "行动结算完成；普通牌收回，限次牌公开留置。此处暂停。")
 
@@ -215,5 +256,5 @@ class ActionGame:
                          "locations": s.locations, "discarded": s.discarded,
                          "hand": [cid for cid in deck(viewer) if cid in s.hands[viewer]] if viewer in ACTORS else [],
                          "pending": [{"actor": p.actor, "target": p.target,
-                                      "card": p.card if p.actor == viewer else None} for p in s.pending],
+                                      "card": p.card if p.actor == viewer or s.face_up else None} for p in s.pending],
                          "events": s.events})

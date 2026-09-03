@@ -1,0 +1,22 @@
+{
+  "id": "silent-town-btx",
+  "title": "寂静小镇（原创教学剧本）",
+  "module": "BTX",
+  "days": 3,
+  "loops": 3,
+  "main_plot": "murder_plan",
+  "subplots": ["rumor", "threads"],
+  "cast": {
+    "student": "ordinary",
+    "girl": "key",
+    "doctor": "brain",
+    "worker": "killer",
+    "maiden": "conspiracy",
+    "patient": "ordinary"
+  },
+  "incidents": [
+    {"day": 2, "kind": "murder", "culprit": "doctor"},
+    {"day": 3, "kind": "suicide", "culprit": "patient"}
+  ],
+  "table_talk": true
+}

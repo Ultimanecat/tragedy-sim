@@ -1,6 +1,7 @@
-"""Small local hotseat / debugging interface for the action-card milestone."""
+"""Human-operated FS/BTX matches and an independent action-card practice mode."""
 
 import argparse
+import shlex
 import sys
 
 from .cards import ACTOR_NAMES, LOCATIONS, deck
@@ -52,10 +53,10 @@ def board(game: ActionGame, viewer: str = "spectator") -> None:
 
 def events(game: ActionGame, start: int = 0) -> None:
     for event in game.view()["events"][start:]:
-        print(f"  [轮回{event['loop']}/出牌{event['round']}] {event['message']}")
+        print(f"  [轮回{event['loop']}/第{event['round']}天] {event['message']}")
         if event["kind"] == "cards_revealed":
             for p in event["cards"]:
-                print(f"    {p['actor']} {deck(p['actor'])[p['card']].name} → {p['target']}")
+                print(f"    {ACTOR_NAMES[p['actor']]}：{deck(p['actor'])[p['card']].name} → {game.name(p['target'])}")
 
 
 def demo(module: str) -> int:
@@ -77,7 +78,7 @@ def demo(module: str) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def practice_main(argv: list[str] | None = None) -> int:
     # Windows redirected stdout otherwise uses the legacy code page and garbles Chinese.
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -133,4 +134,283 @@ def main(argv: list[str] | None = None) -> int:
                 if game.next_actor:
                     print("下一位：" + ACTOR_NAMES[game.next_actor])
         except ValueError as exc:
+            print(f"无法执行：{exc}")
+
+
+MATCH_PHASES = {**PHASES, "day_start": "日初", "action_counters": "行动结算能力窗口",
+                "master_abilities": "剧作家能力", "goodwill": "友好能力", "refusal": "确认友好能力结算",
+                "incident": "事件", "decision": "等待必要选择", "day_end": "日末可选能力",
+                "loop_end": "轮回之间", "final_guess": "最终猜测", "game_over": "游戏结束"}
+MATCH_HELP = """
+board / status                公开棋盘、事件日程、历史确认信息、保护及能力使用情况
+hand <m|a|b|c>                查看指定座位手牌（m 的手牌属于私密信息）
+play <座位> <牌ID> <目标ID>    暗置行动牌；m 出三张，再按领队顺序各出一张
+resolve                       统一揭示，先结算移动，进入行动能力窗口
+options <座位>                当前合法能力/选择；options m 是剧作家私密窗口
+choose <座位> <编号>          执行 options 中的选择（编号随状态变化）
+next [座位]                   按顺序进入下一阶段；有必要选择时不能跳过
+inspect <角色ID>              查看角色全部公开属性、能力及合法使用条件
+rules                         查看当前模组的所有可能规则/身份/事件（不是剧本答案）
+view <座位|spectator>         棋盘视角；view m 会显示剧本秘密，仅剧作家查看
+log                           回看完整公开结算日志
+guess <座位> <角色> <身份ID>   最终猜测，仅 BTX；每个角色都需回答
+final <领队>                  BTX 轮回之间放弃余下轮回，直接最终猜测
+save <新文件路径>             保存完整对局（含秘密，不要在对局中分享）
+help / quit                   帮助 / 退出；恢复存档用 --load <路径>
+
+本地热座/裁判工具，不是 AI 对手：由真人控制 m/a/b/c，单人也可调试全部座位。
+默认界面只显示公开信息。私密命令和终端历史仍可能泄露秘密，换人时请隔离屏幕。
+"""
+
+
+def match_board(game, viewer="spectator"):
+    from .catalog import PLOTS, ROLE_NAMES
+    v = game.view(viewer)
+    print(f"\n【{v['title']} / {v['module']}】轮回 {v['loop']}/{v['loops']}，"
+          f"第 {v['round']}/{v['days']} 天 · {MATCH_PHASES[v['phase']]}")
+    print(f"领队：{ACTOR_NAMES[v['leader']]}；桌面讨论：{'允许' if v['table_talk'] else '出牌中不允许（真人遵守）'}")
+    if v["winner"]:
+        print("胜方：" + ("主人公" if v["winner"] == "protagonists" else "剧作家"))
+    for loc, label in LOCATIONS.items():
+        print(f"  {label} [{loc}] 密谋={v['locations'][loc]}")
+        for c in v["characters"].values():
+            if c["location"] == loc:
+                panic = " 达临界" if c["alive"] and c["paranoia"] >= c["paranoia_limit"] else ""
+                print(f"    {c['name']} [{c['id']}] {'存活' if c['alive'] else '尸体'} | "
+                      f"友好 {c['goodwill']} · 不安 {c['paranoia']}/{c['paranoia_limit']}{panic} · "
+                      f"密谋 {c['intrigue']} · 护卫 {c['guard']}")
+    for p in v["pending"]:
+        label = deck(p["actor"])[p["card"]].name if p["card"] else "暗牌"
+        print(f"  {ACTOR_NAMES[p['actor']]} → {game.name(p['target'])}：{label}")
+    for actor, cards in v["discarded"].items():
+        if cards:
+            print(f"  {ACTOR_NAMES[actor]}公开留置：" + "、".join(f"{deck(actor)[c].name}[{c}]" for c in cards))
+    records = {r["day"]: r for r in v["incidents"]}
+    from .catalog import INCIDENT_NAMES
+    print("事件日程：")
+    for day in range(1, v["days"] + 1):
+        item = next((i for i in v["schedule"] if i["day"] == day), None)
+        if item:
+            r = records.get(day)
+            status = "未结算" if r is None else ("发生" if r["happened"] else "未发生")
+            if r and r["happened"] and not r["effective"]:
+                status += "；结算中" if game.state.phase == "decision" and day == v["round"] else "；无效果"
+            print(f"  第 {day} 天：{INCIDENT_NAMES[item['kind']]}（{status}）")
+        else:
+            print(f"  第 {day} 天：无预定事件")
+    for cid, fact in v["known_roles"].items():
+        print(f"历史确认：{game.name(cid)} → {ROLE_NAMES[fact['role']]}（轮回 {fact['loop']} / 第 {fact['day']} 天）")
+    for day, cid in v["known_culprits"].items():
+        print(f"已公开：第 {day} 天事件当事人是{game.name(cid)}。")
+    for plot in v["known_plots"]:
+        print(f"已公开规则 X：{PLOTS[plot][0]}")
+    if v["protected"]:
+        print("公开保护：本轮主人公不会死亡，但仍可能因其他条件失败。")
+    for key in sorted(set(v["ability_day_used"]) | set(v["ability_loop_used"])):
+        _, cid, aid = key.split(":")
+        when = "今日已声明" if key in v["ability_day_used"] else "本轮已声明"
+        print(f"{when}能力：{game.name(cid)} / {aid}" + ("（本轮限次已使用）" if key in v["ability_loop_used"] else ""))
+    if "secret" in v:
+        print("【剧作家私密信息 · 请勿向主人公展示】")
+        secret = v["secret"]
+        print("规则 Y：" + PLOTS[secret["main_plot"]][0])
+        print("规则 X：" + "、".join(PLOTS[p][0] for p in secret["subplots"]))
+        for cid, role in secret["roles"].items():
+            print(f"  {game.name(cid)}：{ROLE_NAMES[role]}（初始 {ROLE_NAMES[secret['initial_roles'][cid]]}）")
+        for i in secret["incidents"]:
+            print(f"  第 {i['day']} 天事件当事人：{game.name(i['culprit'])}")
+        if secret["loss_reasons"]:
+            print("  内部失败诊断（累计，不对主人公公开）：" + "；".join(secret["loss_reasons"]))
+        if secret["ability_day_used"]:
+            print("  私密完整日内使用记录：" + "、".join(secret["ability_day_used"]))
+        if secret["ability_loop_used"]:
+            print("  私密完整轮内限次记录：" + "、".join(secret["ability_loop_used"]))
+    hint(game)
+
+
+def hint(game):
+    phase, actor = game.state.phase, game.controller
+    if phase in ("mastermind", "protagonists"):
+        print(f"下一步：{ACTOR_NAMES[actor]}出牌；hand {actor} / play {actor} <牌> <目标>")
+    elif phase == "reveal":
+        print("下一步：resolve，统一揭示六张牌。")
+    elif phase == "final_guess":
+        print(f"待猜角色：{', '.join(game.view()['guess_remaining'])}；guess {actor} <角色> <身份ID>")
+    elif phase == "game_over":
+        print("对局已结束，可查看 log、保存存档或 quit。")
+    elif phase in ("refusal", "decision"):
+        print("下一步：剧作家在私密窗口查看 options m，再 choose m <编号>。此处不能跳过。")
+    elif phase in ("action_counters", "master_abilities", "goodwill", "day_end"):
+        print(f"下一步：options {actor} 查看可选能力；choose {actor} <编号>，或 next {actor} 结束本阶段。")
+    else:
+        print(f"下一步：next {actor}，按流程继续。")
+
+
+def show_rules(game):
+    from .catalog import INCIDENT_NAMES, INCIDENT_RULES, MODULE_PLOTS, PLOTS, PLOT_RULES, ROLE_NAMES, ROLE_RULES
+    print(f"{game.module} 模组公开资料（列出全部可能项，不披露剧本选择）：")
+    print("每日：出牌 → 揭示及移动 → 其余行动结算 → 剧作家能力 → 领队友好能力 → 事件 → 换领队 → 日末。")
+    print("能力通常每日一次，标注每轮一次的另有限制；友好不消耗，被拒绝也计次数。拒绝只针对能力来源，不针对目标。")
+    print("禁止牌只限制同行动结算的牌，不限制能力或事件；两张以上禁止密谋全场失效。计数物先加后减，不低于零。")
+    print("本轮顺利结束即可获胜。关键人物死亡/主人公死亡等会立即结束轮回，但仍须执行轮回结束的强制结算。")
+    roles = {"ordinary"}
+    for plot in MODULE_PLOTS[game.module]:
+        name, group, required = PLOTS[plot]
+        roles.update(required)
+        print(f"  {group} {name} [{plot}]：" + ("、".join(f"{ROLE_NAMES[r]}×{n}" for r, n in required.items()) or "无固定身份"))
+        print("    " + PLOT_RULES[plot])
+    if game.module == "FS":
+        roles.add("curmudgeon")
+        print("最黑暗的剧本另可加入 0–2 名暴徒。FS 没有最终猜测。")
+    else:
+        print("BTX：轮回耗尽进入最终猜测，也可在轮回间提前进入；猜对所有初始身份才获胜，错误一次即失败。")
+    print("多个规则的身份槽位相加，再按身份上限截断；未分配身份的角色为平民。")
+    for role in ROLE_NAMES:
+        if role in roles:
+            print(f"  {ROLE_NAMES[role]} [{role}]：{ROLE_RULES[role]}")
+    print("事件发生条件：当事人仍存活且不安达到临界。发生/未发生均公开；发生但无有效目标也算发生。目标由剧作家选择。")
+    for kind, name in INCIDENT_NAMES.items():
+        if game.module == "BTX" or kind not in ("foul_play", "butterfly"):
+            print(f"  {name} [{kind}]：{INCIDENT_RULES[kind]}")
+    print("角色能力和被动特性请用 inspect <角色ID> 查看；护卫消耗一枚替代一次死亡，军人的保护持续整轮。")
+    for actor, label in (("m", "剧作家"), ("a", "每位主人公")):
+        print(label + "初始牌组（公开固定清单，不是当前私密手牌）：")
+        print("  " + "；".join(f"{c.name}[{c.id}]" + ("（每轮一次）" if c.once_per_loop else "") for c in deck(actor).values()))
+
+
+def match_demo(module):
+    from .game import Game
+    from .scenario import example_scenario
+    game = Game(example_scenario(module))
+    print("完整对局演示：第一轮触发谋杀并失败，第二轮成功结束轮回。固定演示行动，不是 AI 对手。")
+    while game.winner is None:
+        start = len(game.state.events)
+        phase, actor = game.state.phase, game.controller
+        if phase == "mastermind":
+            plays = (("p1a", "school"), ("p1b", "city"), ("h", "shrine"))
+            if game.state.loop == 1:
+                plays = (("p1a", "doctor"), ("p1b", "patient"),
+                         ("d", "girl") if game.state.round == 1 else ("h", "shrine"))
+            for card, target in plays:
+                game.dispatch("m", "play", card=card, target=target)
+        elif phase == "protagonists":
+            count = sum(p.actor != "m" for p in game.state.pending)
+            game.dispatch(actor, "play", card="g1", target=("student", "doctor", "maiden")[count])
+        elif phase == "reveal":
+            game.dispatch("m", "resolve")
+        elif phase in ("decision", "refusal"):
+            opts = game.options(actor)
+            index = next((i for i, c in enumerate(opts, 1) if any(e.get("target") == "girl" for e in c["effects"])), 1)
+            game.dispatch(actor, "choose", index=index)
+        else:
+            game.dispatch(actor, "next")
+        events(game, start)
+    match_board(game)
+    print("演示完成：已从日初运行到正式胜负。")
+    return 0
+
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if "--practice" in argv:
+        argv.remove("--practice")
+        return practice_main(argv)
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    from .game import Game
+    from .scenario import example_scenario, load_scenario
+    parser = argparse.ArgumentParser(description="悲剧轮回 FS/BTX 完整本地热座对局")
+    parser.add_argument("--module", choices=("FS", "BTX"), default="FS")
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument("--demo", action="store_true", help="演示事件、失败、重置和获胜的完整对局")
+    source.add_argument("--script", help="加载 JSON 剧本；以文件的 module 为准")
+    source.add_argument("--load", help="恢复完整对局存档")
+    parser.add_argument("--practice", action="store_true", help="仅练习出牌（独立模式）")
+    args = parser.parse_args(argv)
+    if args.demo:
+        return match_demo(args.module)
+    try:
+        game = Game.load(args.load) if args.load else Game(load_scenario(args.script) if args.script else example_scenario(args.module))
+    except (ValueError, OSError, TypeError) as exc:
+        print(f"无法开始对局：{exc}")
+        return 1
+    print(MATCH_HELP)
+    match_board(game)
+    while True:
+        try:
+            parts = [p.strip('"') for p in shlex.split(input(f"\n[{MATCH_PHASES[game.state.phase]}] > "), posix=False)]
+        except (EOFError, KeyboardInterrupt):
+            print("\n已退出；未保存的对局不会自动存档。")
+            return 0
+        except ValueError as exc:
+            print(f"输入格式错误：{exc}")
+            continue
+        if not parts:
+            continue
+        cmd, *values = parts
+        start = len(game.state.events)
+        try:
+            counts = {"board": (0,), "status": (0,), "help": (0,), "quit": (0,), "hand": (1,),
+                      "play": (3,), "view": (1,), "resolve": (0,), "options": (1,), "choose": (2,),
+                      "next": (0, 1), "log": (0,), "inspect": (1,), "rules": (0,), "save": (1,),
+                      "guess": (3,), "final": (1,)}
+            if cmd not in counts or len(values) not in counts[cmd]:
+                raise RuleError("命令或参数数量错误，请输入 help")
+            if cmd == "quit":
+                return 0
+            if cmd == "help":
+                print(MATCH_HELP)
+            elif cmd in ("board", "status"):
+                match_board(game)
+            elif cmd == "view":
+                match_board(game, values[0])
+            elif cmd == "hand":
+                if values[0] == "m":
+                    print("【剧作家私密手牌】")
+                for cid in game.view(values[0])["hand"]:
+                    card = deck(values[0])[cid]
+                    print(f"  {cid:<4} {card.name}" + (" [每轮限一次]" if card.once_per_loop else ""))
+            elif cmd == "play":
+                game.dispatch(values[0], "play", card=values[1], target=values[2])
+            elif cmd == "resolve":
+                game.dispatch("m", "resolve")
+            elif cmd == "next":
+                game.dispatch(values[0] if values else game.controller, "next")
+            elif cmd == "options":
+                game.view(values[0])  # Validate the actor even when no options exist.
+                if values[0] == "m":
+                    print("【剧作家私密选择 · 请勿向主人公展示】")
+                opts = game.options(values[0])
+                for index, item in enumerate(opts, 1):
+                    print(f"  {index}. {item['label']}")
+                if not opts:
+                    print("当前没有属于这个座位的能力/目标选择。")
+            elif cmd == "choose":
+                game.dispatch(values[0], "choose", index=int(values[1]))
+            elif cmd == "guess":
+                game.dispatch(values[0], "guess", character=values[1], role=values[2])
+            elif cmd == "final":
+                game.dispatch(values[0], "final")
+            elif cmd == "log":
+                events(game)
+            elif cmd == "rules":
+                show_rules(game)
+            elif cmd == "inspect":
+                char = game.view()["characters"].get(values[0])
+                if not char:
+                    raise RuleError("角色不在本剧本中")
+                print(f"{char['name']} [{char['id']}]：{' / '.join(char['traits'])}；不安临界 {char['paranoia_limit']}")
+                print(f"初始区域：{LOCATIONS[char['initial_location']]}；当前区域：{LOCATIONS[char['location']]}")
+                print("禁行区域：" + ("、".join(LOCATIONS[loc] for loc in char["forbidden"]) or "无"))
+                for a in char["abilities"]:
+                    print(f"  {a['id']}：友好 ≥ {a['threshold']}，{a['text']}" + ("（每轮一次）" if a["once"] else "（每日一次）"))
+                if char["passive"]:
+                    print("  被动特性：" + char["passive"])
+            elif cmd == "save":
+                game.save(values[0])
+                print("已保存完整对局。文件包含剧本和暗牌秘密，请勿在对局中分享。")
+            if cmd in ("play", "resolve", "next", "choose", "guess", "final"):
+                events(game, start)
+                hint(game)
+        except (ValueError, OSError, TypeError) as exc:
             print(f"无法执行：{exc}")
