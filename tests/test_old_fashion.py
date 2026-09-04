@@ -290,9 +290,11 @@ class OldFashionMainAndPlotRuleTests(unittest.TestCase):
         for cid in victims:
             game.state.characters[cid].paranoia = 4
         finish_day(game)
-        self.assertEqual(game.state.phase, "decision")
-        select(game, lambda choice: any(effect.get("target") == victims[0]
-                                         for effect in choice["effects"]))
+        # Another mandatory effect may need a target, but the whole batch waits
+        # until every mandatory activation has collected its required choices.
+        if game.state.phase == "decision":
+            self.assertTrue(all(game.state.characters[cid].alive for cid in victims))
+            game.dispatch("m", "choose", index=1)
         self.assertTrue(all(not game.state.characters[cid].alive for cid in victims))
 
     def test_grandfather_kills_returner_enemy_if_friend_is_dead(self):
@@ -305,12 +307,7 @@ class OldFashionMainAndPlotRuleTests(unittest.TestCase):
             if cid != trickster and char.location == "city":
                 char.location = "hospital"
         finish_day(game)
-        self.assertEqual(game.state.phase, "decision")
-        select(game, lambda choice: any(effect.get("kind") == "kill_many" and enemy in effect["targets"]
-                                         for effect in choice["effects"]))
         self.assertFalse(game.state.characters[enemy].alive)
-        if game.state.phase == "day_end":
-            game.dispatch("m", "next")
         self.assertEqual(game.state.phase, "loop_end")
 
 
@@ -424,7 +421,7 @@ class OldFashionRoleTests(unittest.TestCase):
         self.assertEqual(len(companions), 3)
         finish_day(game)
         self.assertEqual(game.state.phase, "decision")
-        select(game, lambda choice: any(effect.get("kind") == "kill"
+        select(game, lambda choice: any(effect.get("kind") == "trickster_mark"
                                          and effect.get("target") == companions[0]
                                          for effect in choice["effects"]))
         self.assertFalse(game.state.characters[companions[0]].alive)
@@ -437,7 +434,7 @@ class OldFashionRoleTests(unittest.TestCase):
         finish_day(game)
         self.assertFalse(game.state.characters[trickster].alive)
 
-    def test_two_tricksters_recompute_targets_and_never_repeat_a_designation(self):
+    def test_two_tricksters_activate_together_and_never_repeat_a_designation(self):
         game = make("of_terminator", ("of_doomsday", "of_grandfather"), days=1)
         tricksters = [cid for cid, role in game.roles.items() if role == "trickster"]
         self.assertEqual(len(tricksters), 2)
@@ -448,14 +445,32 @@ class OldFashionRoleTests(unittest.TestCase):
         finish_day(game)
         self.assertEqual(game.state.phase, "decision")
         first = victims[0]
-        select(game, lambda choice: any(effect.get("kind") == "kill" and effect.get("target") == first
+        select(game, lambda choice: any(effect.get("kind") == "trickster_mark" and effect.get("target") == first
                                          for effect in choice["effects"]))
         self.assertEqual(game.state.phase, "decision")
+        self.assertTrue(game.state.characters[first].alive)  # Death waits for every activation's target.
         available = {effect["target"] for choice in game.options("m") for effect in choice["effects"]
-                     if effect.get("kind") == "kill"}
+                     if effect.get("kind") == "trickster_mark"}
         self.assertNotIn(first, available)
         second = next(cid for cid in victims[1:] if cid in available)
-        select(game, lambda choice: any(effect.get("kind") == "kill" and effect.get("target") == second
+        select(game, lambda choice: any(effect.get("kind") == "trickster_mark" and effect.get("target") == second
+                                         for effect in choice["effects"]))
+        self.assertFalse(game.state.characters[first].alive)
+        self.assertFalse(game.state.characters[second].alive)
+
+    def test_triggered_trickster_still_resolves_if_another_trickster_targets_it(self):
+        game = make("of_terminator", ("of_doomsday", "of_grandfather"), days=1)
+        first, second = [cid for cid, role in game.roles.items() if role == "trickster"]
+        for char in game.state.characters.values():
+            char.location = "school"
+        finish_day(game)
+        select(game, lambda choice: any(effect.get("kind") == "trickster_mark"
+                                         and effect.get("target") == second
+                                         for effect in choice["effects"]))
+        self.assertEqual(game.state.phase, "decision")
+        self.assertTrue(game.state.characters[second].alive)
+        select(game, lambda choice: any(effect.get("kind") == "trickster_mark"
+                                         and effect.get("target") == first
                                          for effect in choice["effects"]))
         self.assertFalse(game.state.characters[first].alive)
         self.assertFalse(game.state.characters[second].alive)

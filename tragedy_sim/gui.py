@@ -423,7 +423,7 @@ class TragedyApp:
         phase = view["phase"]
         ttk.Label(parent, text=PHASE_NAMES[phase], style="Section.TLabel").pack(anchor="w", pady=(2, 10))
         explanations = {"refusal": "领队已公开声明能力；请确认执行或拒绝。这里不能跳过。",
-                        "decision": "请选择强制效果的结算顺序或目标。不会自动代选或跳过。",
+                        "decision": "请完成必要的目标或效果选择。强制效果不能跳过。",
                         "reveal": (f"{view['action_counts']['mastermind'] + view['action_counts']['protagonists']} 张暗牌均已放置。"
                                    "揭示后所有牌及结算结果都会公开。"),
                         "day_start": "准备开始今天的行动。接下来由剧作家放置暗牌。",

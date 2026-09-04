@@ -61,6 +61,7 @@ class Game(ActionGame):
         self._permanent_dead = set()
         self._returner_carry = {}
         self._trickster_targets = set()
+        self._mandatory_victims = []
         self._distort_next_day = False
         self._night_forced_done = False
         self.state.phase = "day_start"
@@ -466,7 +467,7 @@ class Game(ActionGame):
 
     def _advance(self):
         if self._pending:
-            raise RuleError("当前有必须完成的结算顺序或目标选择，请使用 options 和 choose")
+            raise RuleError("当前有必须完成的目标或效果选择，请使用 options 和 choose")
         s = self.state
         if s.phase == "day_start":
             order = self._protagonists_from(s.leader)
@@ -680,12 +681,22 @@ class Game(ActionGame):
                 self._incident_effect = True
                 self._event("time_distortion_set", "时空扭曲将在下一日的行动阶段生效。")
             elif kind == "trickster_mark":
-                self._mark(f"trickster:{effect['source']}", True)
                 self._trickster_targets.add(effect["target"])
-            elif kind == "mark_mandatory":
-                self.day_used.add(effect["key"])
+                self._mandatory_victims.append(effect["target"])
+            elif kind == "mandatory_trickster_choice":
+                choices = [option(f"{self.name(effect['source'])}（捣蛋鬼·强制）：使{self.name(target)}死亡",
+                                  [op("trickster_mark", source=effect["source"], target=target)])
+                           for target in effect["targets"] if target not in self._trickster_targets]
+                if choices:
+                    self._queue.insert(0, op("choice", prompt="捣蛋鬼已触发：选择一名同区域角色死亡",
+                                             options=choices))
+                else:
+                    self._event("no_effect", "已触发的强制效果没有合法目标，未产生变化。")
+            elif kind == "resolve_mandatory_deaths":
+                victims, self._mandatory_victims = self._mandatory_victims, []
+                self._kill(victims)
             elif kind == "next_day_end_mandatory":
-                self._queue_next_day_end_mandatory()
+                self._queue_day_end_mandatory_batch()
             elif kind == "loop_loss":
                 self.loss_reasons.append(effect["reason"])
                 self._finish_loop(forced=True)
@@ -805,67 +816,62 @@ class Game(ActionGame):
         self._queue = [op("next_day_end_mandatory")]
         self._drain()
 
-    def _day_end_mandatory_options(self):
-        """Currently applicable mandatory effects, recomputed after each result."""
-        choices = []
-        for c in self._living():
-            others = [t for t in self._living() if t.id != c.id and t.location == c.location]
+    def _queue_day_end_mandatory_batch(self):
+        """Activate every mandatory effect on one snapshot, then resolve the batch."""
+        living = self._living()
+        victims = []
+        target_choices = []
+        loss_reasons = []
+        for c in living:
+            others = [target for target in living if target.id != c.id and target.location == c.location]
             serial_key = f"mandatory:serial:{c.id}"
             if self._has(c.id, "serial") and serial_key not in self.day_used and len(others) == 1:
-                choices.append(option(f"{c.name}（杀人狂·强制）：使{others[0].name}死亡",
-                                      [op("mark_mandatory", key=serial_key),
-                                       op("kill", target=others[0].id)]))
+                self.day_used.add(serial_key)
+                victims.append(others[0].id)
             doom_key = f"mandatory:doomsday:{c.id}"
             if ("of_doomsday" in self.scenario["subplots"] and c.paranoia >= 4
                     and doom_key not in self.day_used):
-                choices.append(option(f"破灭的预言（强制）：使{c.name}死亡",
-                                      [op("mark_mandatory", key=doom_key),
-                                       op("kill", target=c.id)]))
+                self.day_used.add(doom_key)
+                victims.append(c.id)
             isolated_key = f"mandatory:trickster-alone:{c.id}"
             if (self._has(c.id, "trickster") and not others and isolated_key not in self.day_used):
-                choices.append(option(f"{c.name}（捣蛋鬼·强制）：区域内没有其他角色，自身死亡",
-                                      [op("mark_mandatory", key=isolated_key),
-                                       op("kill", target=c.id)]))
+                self.day_used.add(isolated_key)
+                victims.append(c.id)
+            trickster_key = f"trickster:{c.id}"
             if (self._has(c.id, "trickster") and len(others) >= 3
-                    and self._available_key(f"trickster:{c.id}", True)):
-                choices += [option(f"{c.name}（捣蛋鬼·强制）：使{target.name}死亡",
-                                   [op("trickster_mark", source=c.id, target=target.id),
-                                    op("kill", target=target.id)])
-                            for target in others if target.id not in self._trickster_targets]
+                    and self._available_key(trickster_key, True)):
+                # Activation is mandatory and fixed now; only its target still
+                # requires human input. A later death of the source cannot undo it.
+                self._mark(trickster_key, True)
+                target_choices.append(op("mandatory_trickster_choice", source=c.id,
+                                         targets=[target.id for target in others]))
 
         grandfather_key = "mandatory:plot:of_grandfather"
-        enemies = [c.id for c in self._living() if self._has(c.id, "returner_enemy")]
+        enemies = [c.id for c in living if self._has(c.id, "returner_enemy")]
         if ("of_grandfather" in self.scenario["subplots"] and grandfather_key not in self.day_used
                 and enemies and any(self.roles[c.id] == "friend" and not c.alive
                                     for c in self.state.characters.values())):
-            choices.append(option("祖父悖论（强制）：所有存活的归来者·敌死亡",
-                                  [op("mark_mandatory", key=grandfather_key),
-                                   op("kill_many", targets=enemies)]))
+            self.day_used.add(grandfather_key)
+            victims.extend(enemies)
 
         if self.scenario["main_plot"] == "of_dream_beauty":
             brain_alive = any(self._has(c.id, "brain") for c in self.state.characters.values())
             key_ready = any(self._has(c.id, "key") and c.intrigue >= 2
                             for c in self.state.characters.values())
             if brain_alive and key_ready:
-                choices.append(option("梦中的美人（强制）：满足规则 Y 的失败条件",
-                                      [op("loop_loss", reason="规则 Y 失败条件")]))
+                loss_reasons.append("规则 Y 失败条件")
         if (self.scenario["main_plot"] == "of_retry"
                 and self.state.round >= self._current_loop_days()):
-            choices.append(option("重来（强制）：最终日使主人公失败",
-                                  [op("loop_loss", reason="规则 Y 最终日强制主人公死亡")]))
-        return choices
+            loss_reasons.append("规则 Y 最终日强制主人公死亡")
 
-    def _queue_next_day_end_mandatory(self):
-        choices = self._day_end_mandatory_options()
-        if not choices:
+        if not victims and not target_choices and not loss_reasons:
             return
-        for choice in choices:
-            choice["effects"].append(op("next_day_end_mandatory"))
-        if len(choices) == 1:
-            self._queue = choices[0]["effects"] + self._queue
-        else:
-            self._queue.insert(0, op("choice", prompt="选择下一项日末强制效果；同类效果的顺序由剧作家决定",
-                                     options=choices))
+        self._mandatory_victims.extend(victims)
+        follow = [op("resolve_mandatory_deaths")]
+        if loss_reasons:
+            follow.append(op("loop_loss", reason="；".join(loss_reasons)))
+        follow.append(op("next_day_end_mandatory"))
+        self._queue = target_choices + follow + self._queue
 
     def _finish_loop(self, forced=False):
         s = self.state
@@ -930,6 +936,7 @@ class Game(ActionGame):
         self.public_loop_used.clear()
         self._ignore_intrigue.clear()
         self._ignored_placement_indexes.clear()
+        self._mandatory_victims.clear()
         self.mastermind_plays = 3
         self.protagonist_order = self._protagonists_from(self.state.leader)
         self._distort_next_day = False
