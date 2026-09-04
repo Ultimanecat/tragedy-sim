@@ -101,6 +101,8 @@ class IncidentTests(unittest.TestCase):
         game = make(kind="murder")
         game.state.characters["nurse"].alive = False
         incident(game)
+        self.assertEqual(game.view()["phase"], "incident")
+        self.assertEqual(game.view("m")["phase"], "decision")
         targets = {c["effects"][0]["target"] for c in game.options("m")}
         self.assertEqual(targets, {"patient", "soldier"})
         target(game, "patient")
@@ -569,6 +571,9 @@ class RoleInteractionTests(unittest.TestCase):
         game.state.phase = "incident"
         game.dispatch("m", "next")
         self.assertEqual(game.state.phase, "decision")
+        self.assertEqual(game.view("m")["phase"], "decision")
+        self.assertEqual(game.view()["phase"], "day_end")
+        self.assertEqual(game.view("a")["phase"], "day_end")
         self.assertEqual(game.options("a"), [])
         self.assertNotIn("杀人狂", json.dumps(game.view(), ensure_ascii=False))
         self.assertEqual(len([choice for choice in game.options("m") if "杀人狂" in choice["label"]]), 2)

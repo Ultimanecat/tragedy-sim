@@ -50,6 +50,7 @@ class Game(ActionGame):
         self.loss_reasons = []  # private diagnostic information
         self._queue = []
         self._pending = None
+        self._decision_public_phase = None
         self._return_phase = None
         self._request = None
         self._ignore_intrigue = set()
@@ -583,6 +584,10 @@ class Game(ActionGame):
             if kind == "choice":
                 if effect["options"]:
                     self._pending = effect
+                    origin = self.state.phase
+                    if origin in ("decision", "refusal"):
+                        origin = self._return_phase
+                    self._decision_public_phase = origin
                     self.state.phase = "decision"
                     return
                 self._event("no_effect", "没有可作用的目标，这部分效果未产生变化。")
@@ -692,6 +697,7 @@ class Game(ActionGame):
                 raise RuleError("不支持的内部效果；停止结算")
         if not self._pending and self.state.phase not in ("loop_end", "final_guess", "game_over"):
             self.state.phase = self._return_phase
+            self._decision_public_phase = None
 
     def _incident(self):
         scheduled_day = self._scheduled_day()
@@ -886,6 +892,7 @@ class Game(ActionGame):
             self.loss_reasons.append("规则 Y 失败条件")
         loss |= plot_loss
         self._queue, self._pending, self._request = [], None, None
+        self._decision_public_phase = None
         self._previous_goodwill = {c.id for c in s.characters.values() if c.goodwill > 0}
         self._returner_carry = {
             c.id: {**{counter: getattr(c, counter) for counter in COUNTER_NAMES},
@@ -959,6 +966,7 @@ class Game(ActionGame):
         self._restore_board()
         self.incident_records = final_incidents  # Keep the last loop's public event results readable.
         self._queue, self._pending, self._request = [], None, None
+        self._decision_public_phase = None
         self.state.phase = "final_guess"
         self._guess_remaining = list(self.roles)
         self._event("final_guess_started", "进入最终猜测：棋盘还原，身份恢复剧本初始分配。领队逐个声明角色身份，全部正确才获胜，答错即失败。")
@@ -980,10 +988,16 @@ class Game(ActionGame):
         self.winner = winner
         self.state.phase = "game_over"
         self._queue, self._pending, self._request = [], None, None
+        self._decision_public_phase = None
         self._event("game_ended", message, winner=winner)
 
     def view(self, viewer="spectator"):
         result = super().view(viewer)
+        # `decision` is an internal pause. Showing it publicly can reveal that
+        # several hidden abilities are simultaneously applicable. Other seats
+        # continue to see the surrounding public rules phase instead.
+        if viewer != "m" and result["phase"] == "decision" and self._decision_public_phase:
+            result["phase"] = self._decision_public_phase
         spec = MODULES[self.module]
         for cid, char in result["characters"].items():
             definition = CHARACTERS[cid]
