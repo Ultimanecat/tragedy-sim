@@ -7,6 +7,31 @@ Python 版《悲剧轮回》本地命令行模拟器。FS / BTX 对局现已串�
 内置 BTX 速查表上的 17 名角色和对应能力。以用户提供的中文模组速查表为优先依据。
 这是由真人控制双方的热座/裁判工具，不含 AI 或联网。
 
+## 本地热座 GUI
+
+Python 3.11+ 的 Windows/macOS 官方安装通常自带 Tk，无需安装第三方库：
+
+```powershell
+python -m tragedy_sim --gui
+python -m tragedy_sim --gui --module BTX
+python -m tragedy_sim --gui --script examples/btx-tutorial.json
+python -m tragedy_sim --gui --load tragedy-session.json
+```
+
+安装项目后也可以运行 `tragedy-sim-gui`。窗口提供：
+
+- 四区域公共棋盘、事件日程、公开留置牌、角色能力、完整公开日志和规则速查；
+- 手牌/目标选择、能力与事件选项、友好能力确认、最终猜测；
+- 剧作家专属的规则、身份、当事人和内部使用记录；
+- 换座位自动遮挡、`Esc` 手动遮挡、窗口失焦/最小化遮挡，以及旧按钮失效保护；
+- 新建 FS/BTX 教学局、载入自定义剧本、恢复/保存任意中间状态。
+
+热座交接时，其他玩家应先移开视线，再由界面提示的玩家点击“我是该玩家”。
+公共棋盘永远从 `spectator` 视角渲染，不会因为私密操作区展开而改变。
+这是防止同桌误露信息的隐私帘，不是账户认证；屏幕共享、截图、终端历史和直接读取含秘密的存档仍可泄密。
+
+如果 Python 未包含 Tk，GUI 会给出明确错误；命令行模式不受影响。
+
 ## 运行
 
 需要 Python 3.11+，使用标准库，无需安装依赖。在项目目录运行：

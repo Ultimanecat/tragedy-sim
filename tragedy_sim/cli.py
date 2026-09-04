@@ -312,6 +312,16 @@ def match_demo(module):
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if "--gui" in argv:
+        argv.remove("--gui")
+        try:
+            from .gui import main as gui_main
+        except ImportError as exc:
+            if exc.name not in ("tkinter", "_tkinter"):
+                raise
+            print("此 Python 没有安装 Tk，无法启动 GUI。请安装包含 Tcl/Tk 的 Python，或继续使用命令行。")
+            return 1
+        return gui_main(argv)
     if "--practice" in argv:
         argv.remove("--practice")
         return practice_main(argv)
@@ -326,6 +336,7 @@ def main(argv=None):
     source.add_argument("--script", help="加载 JSON 剧本；以文件的 module 为准")
     source.add_argument("--load", help="恢复完整对局存档")
     parser.add_argument("--practice", action="store_true", help="仅练习出牌（独立模式）")
+    parser.add_argument("--gui", action="store_true", help="打开本地热座桌面窗口")
     args = parser.parse_args(argv)
     if args.demo:
         return match_demo(args.module)
