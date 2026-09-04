@@ -588,6 +588,24 @@ class RoleInteractionTests(unittest.TestCase):
         game.dispatch("m", "next")
         self.assertTrue(all(c.alive for c in game.state.characters.values()))
 
+    def test_mandatory_serial_resolves_before_killers_optional_day_end_ability(self):
+        game = make("BTX", subplots=["virus", "threads"])
+        for character in game.state.characters.values():
+            character.location = "hospital"
+        game.roles["student"] = "serial"
+        game.roles["girl"] = "killer"
+        game.state.characters["student"].location = "school"
+        game.state.characters["girl"].location = "school"
+        game.state.characters["girl"].intrigue = 4
+        game.state.phase = "incident"
+        game.dispatch("m", "next")
+        self.assertFalse(game.state.characters["girl"].alive)
+        self.assertTrue(game.state.characters["student"].alive)
+        self.assertEqual(game.state.phase, "day_end")
+        self.assertFalse(any(choice.get("key") == "killer:heroes:girl"
+                             for choice in game.options("m")))
+        self.assertFalse(any(event["kind"] == "heroes_died" for event in game.state.events))
+
     def test_lovers_react_and_lover_can_kill_heroes(self):
         for dead, survivor in (("worker", "doctor"), ("doctor", "worker")):
             game = make("BTX", subplots=["love", "threads"], roles={"girl": "witch", "worker": "loved", "doctor": "lover"},

@@ -427,6 +427,7 @@ class TragedyApp:
                         "reveal": (f"{view['action_counts']['mastermind'] + view['action_counts']['protagonists']} 张暗牌均已放置。"
                                    "揭示后所有牌及结算结果都会公开。"),
                         "day_start": "准备开始今天的行动。接下来由剧作家放置暗牌。",
+                        "day_end": "同时点的强制能力已统一触发并结算。现在可按任意顺序发动可选能力，或结束本阶段。",
                         "loop_end": "当前轮回已失败。主人公可在这里自由讨论，然后重置棋盘继续。"}
         ttk.Label(parent, text=explanations.get(phase, "可以依次使用合法能力，也可以结束本阶段。强制效果由引擎自动结算。"),
                   wraplength=345, style="Muted.TLabel").pack(fill="x", pady=(0, 12))
