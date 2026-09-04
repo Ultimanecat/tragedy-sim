@@ -1,20 +1,27 @@
-"""Human-operated FS/BTX matches and an independent action-card practice mode."""
+"""Human-operated matches and an independent action-card practice mode."""
 
 import argparse
 import shlex
 import sys
 
 from .cards import ACTOR_NAMES, LOCATIONS, deck
+from .catalog import MODULES
 from .engine import ActionGame, RuleError
 
 PHASES = {"mastermind": "剧作家出牌", "protagonists": "主人公出牌",
           "reveal": "等待揭示", "resolved": "行动结算完成"}
+
+
+def _supported_modules(capability: str) -> tuple[str, ...]:
+    return tuple(module for module, spec in MODULES.items() if getattr(spec, capability))
+
+
 HELP = """
 board                         公开棋盘、暗牌目标、限次牌留置区
 hand <玩家>                   该玩家手牌（m 剧作家，a/b/c 主人公）
 play <玩家> <牌> <目标>        例如 play m i2 doctor
 view <玩家|spectator>         查看该玩家自己的暗牌；不显示他人的暗牌
-resolve                       六张牌齐全后统一揭示并结算
+resolve                       本日双方牌数齐全后统一揭示并结算
 log                           查看本次练习的公开日志
 next                          练习控制：保留棋盘，轮换领队，开始下一次出牌
 reset                         练习控制：恢复初始棋盘和所有牌，开始新轮回
@@ -25,7 +32,7 @@ quit                          退出
       city     都市 | school 学校
 角色：student 男学生、doctor 医生、maiden 巫女、worker 职员、patient 住院患者
 
-仅实现基础行动牌。没有能力、身份、事件、胜负或机器人。
+练习模式仅实现基础行动牌。没有能力、身份、事件、胜负或机器人。
 本地热座/调试模式：允许操作者查看各方手牌，终端历史不提供安全隔离。
 """
 
@@ -93,9 +100,10 @@ def events(game: ActionGame, start: int = 0) -> None:
 def demo(module: str) -> int:
     game = ActionGame(module=module)
     print("演示：相同方向只移动一次；一张禁止密谋有效；友好直接增加。")
-    for actor, card, target in [("m", "h", "student"), ("m", "i2", "hospital"),
-                                ("m", "p1a", "doctor"), ("a", "h", "student"),
-                                ("b", "fi", "hospital"), ("c", "g2", "doctor")]:
+    placements = [("m", "h", "student"), ("m", "i2", "hospital"),
+                  ("m", "p1a", "doctor"), ("a", "h", "student"),
+                  ("b", "fi", "hospital"), ("c", "g2", "doctor")]
+    for actor, card, target in placements:
         game.play(actor, card, target)
     board(game)
     start = len(game.state.events)
@@ -113,8 +121,9 @@ def practice_main(argv: list[str] | None = None) -> int:
     # Windows redirected stdout otherwise uses the legacy code page and garbles Chinese.
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    parser = argparse.ArgumentParser(description="FS / BTX 基础出牌模拟器（第一阶段）")
-    parser.add_argument("--module", choices=("FS", "BTX"), default="FS", help="选择资源依据；当前基础牌相同")
+    parser = argparse.ArgumentParser(description="悲剧轮回基础出牌练习器")
+    parser.add_argument("--module", choices=_supported_modules("cli_supported"), default="FS",
+                        help="选择规则集；练习模式只结算各规则集共用的基础行动牌")
     parser.add_argument("--demo", action="store_true", help="自动演示一次双方出牌及结算")
     args = parser.parse_args(argv)
     if args.demo:
@@ -175,7 +184,7 @@ MATCH_PHASES = {**PHASES, "day_start": "日初", "action_counters": "行动结�
 MATCH_HELP = """
 board / status                公开棋盘、事件日程、历史确认信息、保护及能力使用情况
 hand <m|a|b|c>                查看指定座位手牌（m 的手牌属于私密信息）
-play <座位> <牌ID> <目标ID>    暗置行动牌；m 出三张，再按领队顺序各出一张
+play <座位> <牌ID> <目标ID>    暗置行动牌；本日所需牌数和主人公顺序显示在棋盘提示中
 resolve                       统一揭示，先结算移动，进入行动能力窗口
 options <座位>                当前合法能力/选择；options m 是剧作家私密窗口
 choose <座位> <编号>          执行 options 中的选择（编号随状态变化）
@@ -184,8 +193,8 @@ inspect <角色ID>              查看角色全部公开属性、能力及合法
 rules                         查看当前模组的所有可能规则/身份/事件（不是剧本答案）
 view <座位|spectator>         棋盘视角；view m 会显示剧本秘密，仅剧作家查看
 log                           回看完整公开结算日志
-guess <座位> <角色> <身份ID>   最终猜测，仅 BTX；每个角色都需回答
-final <领队>                  BTX 轮回之间放弃余下轮回，直接最终猜测
+guess <座位> <角色> <身份ID>   支持最终猜测的规则集：为每个角色回答初始身份
+final <领队>                  规则集允许时，在轮回之间放弃余下轮回并最终猜测
 save <新文件路径>             保存完整对局（含秘密，不要在对局中分享）
 help / quit                   帮助 / 退出；恢复存档用 --load <路径>
 
@@ -262,9 +271,19 @@ def match_board(game, viewer="spectator"):
 def hint(game):
     phase, actor = game.state.phase, game.controller
     if phase in ("mastermind", "protagonists"):
-        print(f"下一步：{ACTOR_NAMES[actor]}出牌；hand {actor} / play {actor} <牌> <目标>")
+        view = game.view()
+        if phase == "mastermind":
+            played = sum(p.actor == "m" for p in game.state.pending)
+            progress = f"剧作家本日 {played}/{view['action_counts']['mastermind']} 张"
+        else:
+            played = sum(p.actor != "m" for p in game.state.pending)
+            order = " → ".join(ACTOR_NAMES[seat] for seat in view["protagonist_order"])
+            progress = f"主人公本日 {played}/{view['action_counts']['protagonists']} 张；顺序 {order}"
+        print(f"下一步：{ACTOR_NAMES[actor]}出牌（{progress}）；hand {actor} / play {actor} <牌> <目标>")
     elif phase == "reveal":
-        print("下一步：resolve，统一揭示六张牌。")
+        counts = game.view()["action_counts"]
+        total = counts["mastermind"] + counts["protagonists"]
+        print(f"下一步：resolve，统一揭示 {total} 张牌。")
     elif phase == "final_guess":
         print(f"待猜角色：{', '.join(game.view()['guess_remaining'])}；guess {actor} <角色> <身份ID>")
     elif phase == "game_over":
@@ -278,31 +297,40 @@ def hint(game):
 
 
 def show_rules(game):
-    from .catalog import INCIDENT_NAMES, INCIDENT_RULES, MODULE_PLOTS, PLOTS, PLOT_RULES, ROLE_NAMES, ROLE_RULES
-    print(f"{game.module} 模组公开资料（列出全部可能项，不披露剧本选择）：")
+    from .catalog import INCIDENT_NAMES, INCIDENT_RULES, PLOTS, PLOT_RULES, ROLE_NAMES, ROLE_RULES
+    spec = MODULES[game.module]
+    print(f"{game.module} 模组公开资料 / {spec.name}（列出全部可能项，不披露剧本选择）：")
+    print(f"剧本结构：1 个规则 Y + {spec.subplot_count} 个规则 X；"
+          f"可用角色 {len(spec.characters)} 名；可用事件 {len(spec.incidents)} 种。")
     print("每日：出牌 → 揭示及移动 → 其余行动结算 → 剧作家能力 → 领队友好能力 → 事件 → 换领队 → 日末。")
     print("能力通常每日一次，标注每轮一次的另有限制；友好不消耗，被拒绝也计次数。拒绝只针对能力来源，不针对目标。")
     print("禁止牌只限制同行动结算的牌，不限制能力或事件；两张以上禁止密谋全场失效。计数物先加后减，不低于零。")
     print("本轮顺利结束即可获胜。关键人物死亡/主人公死亡等会立即结束轮回，但仍须执行轮回结束的强制结算。")
     roles = {"ordinary"}
-    for plot in MODULE_PLOTS[game.module]:
+    for plot in spec.plots:
         name, group, required = PLOTS[plot]
         roles.update(required)
         print(f"  {group} {name} [{plot}]：" + ("、".join(f"{ROLE_NAMES[r]}×{n}" for r, n in required.items()) or "无固定身份"))
         print("    " + PLOT_RULES[plot])
-    if game.module == "FS":
+    if "hideous" in spec.plots:
         roles.add("curmudgeon")
-        print("最黑暗的剧本另可加入 0–2 名暴徒。FS 没有最终猜测。")
+        print("最黑暗的剧本另可加入 0–2 名暴徒。")
+    if spec.final_guess:
+        timing = "；也可在轮回之间提前进入" if spec.early_final_guess else ""
+        print(f"{game.module}：轮回耗尽进入最终猜测{timing}；猜对所有初始身份才获胜，错误一次即失败。")
     else:
-        print("BTX：轮回耗尽进入最终猜测，也可在轮回间提前进入；猜对所有初始身份才获胜，错误一次即失败。")
+        print(f"{game.module}：不使用最终猜测；轮回全部失败时剧作家获胜。")
+    if spec.role_caps:
+        print("身份人数上限：" + "、".join(f"{ROLE_NAMES[r]}×{n}" for r, n in spec.role_caps.items()) + "。")
+    if spec.friend_gender_split:
+        print("两名亲友同时登场时，必须一名男性、一名女性。")
     print("多个规则的身份槽位相加，再按身份上限截断；未分配身份的角色为平民。")
     for role in ROLE_NAMES:
         if role in roles:
             print(f"  {ROLE_NAMES[role]} [{role}]：{ROLE_RULES[role]}")
     print("事件发生条件：当事人仍存活且不安达到临界。发生/未发生均公开；发生但无有效目标也算发生。目标由剧作家选择。")
-    for kind, name in INCIDENT_NAMES.items():
-        if game.module == "BTX" or kind not in ("foul_play", "butterfly"):
-            print(f"  {name} [{kind}]：{INCIDENT_RULES[kind]}")
+    for kind in spec.incidents:
+        print(f"  {INCIDENT_NAMES[kind]} [{kind}]：{INCIDENT_RULES[kind]}")
     print("角色能力和被动特性请用 inspect <角色ID> 查看；护卫消耗一枚替代一次死亡，军人的保护持续整轮。")
     for actor, label in (("m", "剧作家"), ("a", "每位主人公")):
         print(label + "初始牌组（公开固定清单，不是当前私密手牌）：")
@@ -313,29 +341,39 @@ def match_demo(module):
     from .game import Game
     from .scenario import example_scenario
     game = Game(example_scenario(module))
-    print("完整对局演示：第一轮触发谋杀并失败，第二轮成功结束轮回。固定演示行动，不是 AI 对手。")
-    while game.winner is None:
+    print("完整对局演示：自动走完出牌、事件、轮回与最终胜负。固定演示行动，不是 AI 对手。")
+    for _ in range(1000):
+        if game.winner is not None:
+            break
         start = len(game.state.events)
         phase, actor = game.state.phase, game.controller
         if phase == "mastermind":
-            plays = (("p1a", "school"), ("p1b", "city"), ("h", "shrine"))
-            if game.state.loop == 1:
+            required = game.view()["action_counts"]["mastermind"]
+            plays = (("p1a", "school"), ("p1b", "city"), ("h", "shrine"), ("v", "hospital"))[:required]
+            if required == 3 and game.state.loop == 1:
                 plays = (("p1a", "doctor"), ("p1b", "patient"),
                          ("d", "girl") if game.state.round == 1 else ("h", "shrine"))
             for card, target in plays:
                 game.dispatch("m", "play", card=card, target=target)
         elif phase == "protagonists":
             count = sum(p.actor != "m" for p in game.state.pending)
-            game.dispatch(actor, "play", card="g1", target=("student", "doctor", "maiden")[count])
+            game.dispatch(actor, "play", card="g1", target=("school", "city", "shrine")[count])
         elif phase == "reveal":
             game.dispatch("m", "resolve")
         elif phase in ("decision", "refusal"):
             opts = game.options(actor)
             index = next((i for i, c in enumerate(opts, 1) if any(e.get("target") == "girl" for e in c["effects"])), 1)
             game.dispatch(actor, "choose", index=index)
+        elif phase == "final_guess":
+            remaining = game.view()["guess_remaining"]
+            character = remaining[0]
+            role = game.view("m")["secret"]["initial_roles"][character]
+            game.dispatch(actor, "guess", character=character, role=role)
         else:
             game.dispatch(actor, "next")
         events(game, start)
+    else:
+        raise RuntimeError("完整演示未能在预期步骤内结束")
     match_board(game)
     print("演示完成：已从日初运行到正式胜负。")
     return 0
@@ -353,8 +391,8 @@ def main(argv=None):
         sys.stdout.reconfigure(encoding="utf-8")
     from .game import Game
     from .scenario import example_scenario, load_scenario
-    parser = argparse.ArgumentParser(description="悲剧轮回 FS/BTX 完整本地热座对局")
-    parser.add_argument("--module", choices=("FS", "BTX"), default="FS")
+    parser = argparse.ArgumentParser(description="悲剧轮回完整本地热座对局")
+    parser.add_argument("--module", choices=_supported_modules("cli_supported"), default="FS")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--demo", action="store_true", help="演示事件、失败、重置和获胜的完整对局")
     source.add_argument("--script", help="加载 JSON 剧本；以文件的 module 为准")

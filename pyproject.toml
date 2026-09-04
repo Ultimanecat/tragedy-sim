@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tragedy-sim"
-version = "0.3.0"
-description = "Local FS/BTX simulator with CLI and native hotseat GUI"
+version = "0.4.0"
+description = "Local FS/BTX/OF simulator with CLI and native hotseat GUI"
 requires-python = ">=3.11"
 dependencies = []
 

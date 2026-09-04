@@ -1,11 +1,11 @@
-# 第一阶段：FS / BTX 基础行动牌
+# 基础行动牌结算（FS / BTX / OF 共用）
 
 本文记录独立 `ActionGame` / `--practice` 的规则与最初里程碑。
 默认命令行现已切换为完整对局；能力、事件和胜负的新增实现见 [完整对局](rules-match.md)。
 
 ## 依据优先级
 
-1. 用户提供的 FS、BTX 模组图片；作为模组内容的第一优先级。
+1. 用户提供的 FS、BTX、OF 模组图片；作为模组内容的第一优先级。
 2. `resources/data.xml` 的牌组索引及对应中文牌面；确认独立副本、限次标记和冲突效果。
 3. 对图片没有列出的通用放牌/回收流程，补查英文《Player's Handbook》第 21–22 页
    （[手册镜像](https://cdn.1j1ju.com/medias/4a/87/06-tragedy-looper-rulebook.pdf)）。
@@ -17,6 +17,7 @@
 | --- | --- |
 | FirstSteps(FS) | [FS](../resources/rulebooks/0b2d84f17c995d604bf04e818f20af880a5e5a4d388d87450e5969933f33a90b.png) |
 | BasicTragedyX(BTX) | [BTX](../resources/rulebooks/52184bc7f3f57b2166130ecfe1d3579412161208d72faff5f1164fab99a4bf64.png) |
+| OldFashion(OF) | [OF](../resources/rulebooks/3fa84bd5c4510724dee88df812473d947da2b1b2e27a9e67ccfa04662756bf76.png) |
 | 主人公禁止密谋 | [牌面](../resources/4ecef910e3551883a48b174eadb3e9eb92b8d3b1d61f7d404dfc89b3c12e0f23.png) |
 | 主人公纵向移动 | [牌面](../resources/c78d47c868ea8c38b52295758384b40bd14109fdebe0070fecc402c5b42d9551.png) |
 | 主人公移动禁止 | [牌面](../resources/90449762e653bc0c8db066cfbb7e9ba580a24e8cca9b01435373d635a928106a.png) |
@@ -27,7 +28,7 @@
 | 领队 | [牌面](../resources/5b960b9c8057a8a647074cdcadd27d2053bdfd6608cd231aee4ce89416ad4e81.png) |
 
 `resources/rulebooks/` 内是原图副本；`data.xml` 的 front 值对应 `resources/<front>.png`。
-索引和图片不是可执行配置，也没有运行其中的脚本或导入其他模组规则。
+索引和图片不是可执行配置，也没有运行其中的脚本。
 
 ## 已实现与测试对应
 
@@ -54,7 +55,7 @@
 
 - 任何身份、角色能力或模组特殊规则；包括会影响行动结算的邪教徒、时间旅行者等。
 - 好感/友好能力、剧作家能力、事件、死亡触发、胜负及最终猜测。
-- FS/BTX 完整剧本内容、不同人数的座位分配、通信限制、联机及 AI。
+- 不同人数的座位分配、通信限制、联机及 AI。
 - 正式的日末/轮回开始结算；`next` 和 `reset` 只是反复验证出牌用的练习按钮。
 
 上述边界仅适用于 `ActionGame` / `--practice`，不适用于新的 `Game` 完整对局。

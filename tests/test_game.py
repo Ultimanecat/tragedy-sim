@@ -20,7 +20,7 @@ import unittest
 
 from tragedy_sim import Game, RuleError
 from tragedy_sim.cards import ACTORS, LOCATIONS, deck
-from tragedy_sim.catalog import CHARACTERS, INCIDENT_NAMES, MODULE_PLOTS, PLOTS
+from tragedy_sim.catalog import CHARACTERS, INCIDENT_NAMES, MODULES, MODULE_PLOTS, PLOTS
 from tragedy_sim.scenario import example_scenario, validate_scenario
 
 
@@ -789,7 +789,7 @@ class MatchAndVisibilityTests(unittest.TestCase):
             main = rng.choice(mains)
             chosen = rng.sample(xs, 1 if module == "FS" else 2)
             data = generated_scenario(module, main, chosen)
-            allowed = list(INCIDENT_NAMES)[:7] if module == "FS" else list(INCIDENT_NAMES)
+            allowed = list(MODULES[module].incidents)
             data["incidents"] = [{"day": n, "kind": rng.choice(allowed), "culprit": c}
                                  for n, c in enumerate(rng.sample(list(CHARACTERS), 3), 1)]
             game = Game(data)

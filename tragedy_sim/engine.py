@@ -1,9 +1,10 @@
-"""Deterministic action phase only. No role, goodwill ability, incident or AI rules."""
+"""Deterministic action phase shared by every implemented ruleset."""
 
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 
 from .cards import ACTORS, ACTOR_NAMES, COORDS, COUNTER_NAMES, LOCATIONS, MOVES, PROTAGONISTS, deck
+from .catalog import MODULES
 
 
 class RuleError(ValueError):
@@ -54,8 +55,8 @@ def practice_characters() -> list[Character]:
 
 class ActionGame:
     def __init__(self, characters: list[Character] | None = None, *, leader: str = "a", module: str = "FS"):
-        if module not in ("FS", "BTX"):
-            raise RuleError("第一阶段只支持 FS / BTX 共用的基础行动牌")
+        if module not in MODULES:
+            raise RuleError(f"未知规则集：{module}")
         if leader not in PROTAGONISTS:
             raise RuleError("领队必须是 a / b / c")
         characters = practice_characters() if characters is None else deepcopy(characters)
@@ -76,8 +77,32 @@ class ActionGame:
                 raise RuleError("计数物必须是非负整数，alive 必须是布尔值")
             ids.add(char.id)
         self.module = module
+        self.mastermind_plays = 3
+        self.protagonist_order = self._protagonists_from(leader)
+        self._ignored_placement_indexes = set()
         self._initial = deepcopy({c.id: c for c in characters})
         self.state = State(characters=deepcopy(self._initial), leader=leader)
+
+    @staticmethod
+    def _protagonists_from(leader: str) -> tuple[str, ...]:
+        start = PROTAGONISTS.index(leader)
+        return tuple(PROTAGONISTS[(start + offset) % len(PROTAGONISTS)]
+                     for offset in range(len(PROTAGONISTS)))
+
+    def configure_actions(self, *, mastermind: int = 3,
+                          protagonists: tuple[str, ...] | None = None) -> None:
+        """Configure the next action phase before its first card is played."""
+        if self.state.pending or self.state.phase not in ("day_start", "mastermind"):
+            raise RuleError("只能在行动阶段开始前改变出牌数量")
+        protagonists = self._protagonists_from(self.state.leader) if protagonists is None else protagonists
+        if type(mastermind) is not int or mastermind < 1:
+            raise RuleError("剧作家的出牌数必须是正整数")
+        if (not isinstance(protagonists, tuple) or not protagonists
+                or len(set(protagonists)) != len(protagonists)
+                or any(actor not in PROTAGONISTS for actor in protagonists)):
+            raise RuleError("主人公出牌顺序非法")
+        self.mastermind_plays = mastermind
+        self.protagonist_order = protagonists
 
     @property
     def next_actor(self) -> str | None:
@@ -86,7 +111,7 @@ class ActionGame:
             return "m"
         if s.phase == "protagonists":
             already_played = sum(p.actor != "m" for p in s.pending)
-            return PROTAGONISTS[(PROTAGONISTS.index(s.leader) + already_played) % 3]
+            return self.protagonist_order[already_played] if already_played < len(self.protagonist_order) else None
         return None
 
     def _event(self, kind: str, message: str, **data) -> None:
@@ -113,23 +138,41 @@ class ActionGame:
         s.pending.append(Placement(actor, card_id, target))
         self._event("card_placed", f"{ACTOR_NAMES[actor]}在{self.name(target)}放置了一张暗牌。",
                     actor=actor, target=target)
-        if len(s.pending) == 3:
+        mastermind_played = sum(p.actor == "m" for p in s.pending)
+        protagonist_played = len(s.pending) - mastermind_played
+        if s.phase == "mastermind" and mastermind_played == self.mastermind_plays:
             s.phase = "protagonists"
-        elif len(s.pending) == 6:
+        elif s.phase == "protagonists" and protagonist_played == len(self.protagonist_order):
             s.phase = "reveal"
 
     def resolve(self) -> None:
         self._reveal_and_move()
         self._resolve_counters()
 
-    def _reveal_and_move(self) -> None:
+    def _expected_placements(self) -> int:
+        return self.mastermind_plays + len(self.protagonist_order)
+
+    def _reveal_cards(self) -> None:
         s = self.state
         if s.phase != "reveal":
-            raise RuleError("必须完成剧作家三张、每名主人公各一张出牌后，才能揭示")
-        self._event("cards_revealed", "同时揭示六张行动牌。", cards=[asdict(p) for p in s.pending])
+            raise RuleError("双方必须完成本日要求的出牌后，才能揭示")
+        count = self._expected_placements()
+        if len(s.pending) != count:
+            raise RuleError("行动牌数量与本日规则不符")
+        self._event("cards_revealed", f"同时揭示 {count} 张行动牌。", cards=[asdict(p) for p in s.pending])
         s.face_up = True
+        s.phase = "action_counters"
+
+    def _active_placements(self):
+        return [p for index, p in enumerate(self.state.pending)
+                if index not in self._ignored_placement_indexes]
+
+    def _resolve_movements(self) -> None:
+        s = self.state
+        if s.phase != "action_counters" or not s.face_up:
+            raise RuleError("必须先揭示行动牌，才能结算移动")
         by_target = {}
-        for p in s.pending:
+        for p in self._active_placements():
             by_target.setdefault(p.target, []).append(deck(p.actor)[p.card])
 
         # 1. Forbid movement; 2. all movements. Cards on characters travel with them.
@@ -157,7 +200,9 @@ class ActionGame:
                 self._event("character_moved", f"{char.name} 移动到{LOCATIONS[destination]}。",
                             character=target, location=destination)
 
-        s.phase = "action_counters"
+    def _reveal_and_move(self) -> None:
+        self._reveal_cards()
+        self._resolve_movements()
 
     def _ignore_forbid(self, counter: str, target: str) -> bool:
         return False
@@ -170,11 +215,12 @@ class ActionGame:
         if s.phase != "action_counters":
             raise RuleError("尚未揭示并结算移动")
         by_target = {}
-        for p in s.pending:
+        active = self._active_placements()
+        for p in active:
             by_target.setdefault(p.target, []).append(deck(p.actor)[p.card])
 
         # 3. Other forbids: multiple Forbid Intrigue cards cancel GLOBALLY, even bluffs.
-        intrigue_forbids = sum(deck(p.actor)[p.card].effect == "forbid_intrigue" for p in s.pending)
+        intrigue_forbids = sum(deck(p.actor)[p.card].effect == "forbid_intrigue" for p in active)
         if intrigue_forbids >= 2:
             self._event("forbids_cancelled", "本次打出了多张禁止密谋牌，所有禁止密谋牌失效。")
         # 4. Remaining counters. Add before remove; never below zero.
@@ -222,6 +268,7 @@ class ActionGame:
             else:
                 s.hands[p.actor].append(p.card)
         s.pending.clear()
+        self._ignored_placement_indexes.clear()
         s.face_up = False
         s.phase = "resolved"
         self._event("actions_resolved", "行动结算完成；普通牌收回，限次牌公开留置。此处暂停。")
@@ -233,6 +280,8 @@ class ActionGame:
         s = self.state
         s.round += 1
         s.leader = PROTAGONISTS[(PROTAGONISTS.index(s.leader) + 1) % 3]
+        self.mastermind_plays = 3
+        self.protagonist_order = self._protagonists_from(s.leader)
         s.phase = "mastermind"
         self._event("practice_advanced", "练习控制：进入下一次出牌（未模拟能力、事件、胜负）。")
 
@@ -243,6 +292,9 @@ class ActionGame:
         old = self.state
         self.state = State(characters=deepcopy(self._initial), leader=old.leader,
                            loop=old.loop + 1, events=old.events)
+        self.mastermind_plays = 3
+        self.protagonist_order = self._protagonists_from(self.state.leader)
+        self._ignored_placement_indexes.clear()
         self._event("practice_reset", "练习控制：还原初始棋盘，收回所有限次牌；不判定胜负。")
 
     def view(self, viewer: str = "spectator") -> dict:
@@ -252,6 +304,9 @@ class ActionGame:
         s = self.state
         return deepcopy({"module": self.module, "loop": s.loop, "round": s.round,
                          "phase": s.phase, "leader": s.leader, "next_actor": self.next_actor,
+                         "action_counts": {"mastermind": self.mastermind_plays,
+                                           "protagonists": len(self.protagonist_order)},
+                         "protagonist_order": list(self.protagonist_order),
                          "characters": {cid: asdict(c) for cid, c in s.characters.items()},
                          "locations": s.locations, "discarded": s.discarded,
                          "hand": [cid for cid in deck(viewer) if cid in s.hands[viewer]] if viewer in ACTORS else [],

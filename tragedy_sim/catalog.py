@@ -1,16 +1,23 @@
-"""FS/BTX content transcribed from the user's sheets; no executable script data."""
+"""FS/BTX/OF content transcribed from the user's sheets; no executable script data."""
 
 from dataclasses import dataclass
 
 ROLE_NAMES = {"ordinary": "平民", "key": "关键人物", "killer": "杀手", "brain": "主谋",
               "cultist": "邪教徒", "conspiracy": "传谣人", "serial": "杀人狂",
               "curmudgeon": "暴徒", "friend": "亲友", "time_traveler": "时间旅行者",
-              "witch": "魔女", "loved": "心上人", "lover": "求爱者", "factor": "不安定因子"}
+              "witch": "魔女", "loved": "心上人", "lover": "求爱者", "factor": "不安定因子",
+              "puppet": "傀儡", "assassin": "刺客", "terrorist": "恐怖分子",
+              "returner_enemy": "归来者·敌", "returner_friend": "归来者·友",
+              "trickster": "捣蛋鬼"}
 REFUSAL = {"killer": "optional", "brain": "optional", "curmudgeon": "optional",
-           "factor": "optional", "cultist": "mandatory", "witch": "mandatory"}
+           "factor": "optional", "cultist": "mandatory", "witch": "mandatory",
+           "puppet": "optional", "assassin": "optional", "terrorist": "optional",
+           "returner_enemy": "optional", "trickster": "optional"}
 INCIDENT_NAMES = {"murder": "谋杀", "unease": "不安扩散", "suicide": "自杀",
                   "hospital": "医院事故", "faraway": "远距离杀人", "missing": "失踪",
-                  "spreading": "散播", "foul_play": "邪气污染", "butterfly": "蝴蝶效应"}
+                  "spreading": "散播", "foul_play": "邪气污染", "butterfly": "蝴蝶效应",
+                  "malicious_rumor": "恶意谣言", "poison_gas": "毒气扩散",
+                  "exposure": "曝光", "time_distortion": "时空扭曲", "confession": "自白"}
 # id: (name, Y/X, required roles). Duplicate roles are capped by their printed maximum.
 PLOTS = {
     "murder_plan": ("谋杀计划", "Y", {"key": 1, "killer": 1, "brain": 1}),
@@ -29,10 +36,67 @@ PLOTS = {
     "virus": ("妄想扩大病毒", "X", {"conspiracy": 1}),
     "threads": ("因果线", "X", {}),
     "unknown": ("未知因子 X", "X", {"factor": 1}),
+    "of_dream_beauty": ("梦中的美人", "Y", {"key": 1, "puppet": 1, "brain": 1}),
+    "of_retry": ("重来", "Y", {"key": 1}),
+    "of_endless": ("循环无止境", "Y", {"brain": 1, "assassin": 1}),
+    "of_time_patrol": ("时空巡逻队", "Y", {"terrorist": 1}),
+    "of_terminator": ("来自天网的刺客", "Y", {"key": 1, "terrorist": 1}),
+    "of_truman": ("捏造的世界", "X", {"friend": 1}),
+    "of_delorean": ("德罗宁时光机", "X", {"loved": 1, "lover": 1}),
+    "of_blue_cat": ("蓝色狸猫的阴谋", "X", {"returner_enemy": 1, "conspiracy": 1}),
+    "of_lavender": ("薰衣草香气", "X", {"returner_friend": 1, "friend": 1}),
+    "of_doomsday": ("破灭的预言", "X", {"friend": 1, "conspiracy": 1, "trickster": 1}),
+    "of_grandfather": ("祖父悖论", "X", {"returner_enemy": 1, "friend": 1, "trickster": 1}),
+    "of_time_war": ("时间战争", "X", {"puppet": 1, "returner_enemy": 1,
+                                      "returner_friend": 1, "conspiracy": 1}),
 }
-MODULE_PLOTS = {"FS": ("murder_plan", "avenger", "protect", "ripper", "rumor", "hideous"),
-                "BTX": ("murder_plan", "sealed", "sign", "change", "bomb", "friends", "love",
-                        "lurking", "rumor", "virus", "threads", "unknown")}
+
+
+@dataclass(frozen=True)
+class ModuleSpec:
+    """Declarative module differences consumed by validation and the front ends."""
+
+    name: str
+    plots: tuple[str, ...]
+    subplot_count: int
+    incidents: tuple[str, ...]
+    role_caps: dict[str, int]
+    final_guess: bool
+    early_final_guess: bool
+    characters: tuple[str, ...]
+    gui_supported: bool
+    cli_supported: bool = True
+    friend_gender_split: bool = False
+
+
+_ALL_CHARACTERS = ("student", "girl", "rich", "class_rep", "teacher", "maiden", "outsider",
+                   "police", "worker", "informer", "idol", "journalist", "forensic", "doctor",
+                   "patient", "nurse", "soldier")
+_FS_PLOTS = ("murder_plan", "avenger", "protect", "ripper", "rumor", "hideous")
+_BTX_PLOTS = ("murder_plan", "sealed", "sign", "change", "bomb", "friends", "love",
+              "lurking", "rumor", "virus", "threads", "unknown")
+_OF_PLOTS = ("of_dream_beauty", "of_retry", "of_endless", "of_time_patrol", "of_terminator",
+             "of_truman", "of_delorean", "of_blue_cat", "of_lavender", "of_doomsday",
+             "of_grandfather", "of_time_war")
+_FS_INCIDENTS = ("murder", "unease", "suicide", "hospital", "faraway", "missing", "spreading")
+_BTX_INCIDENTS = (*_FS_INCIDENTS, "foul_play", "butterfly")
+_OF_INCIDENTS = ("murder", "suicide", "malicious_rumor", "hospital", "poison_gas", "exposure",
+                 "time_distortion", "confession")
+_OF_CHARACTERS = ("student", "girl", "rich", "class_rep", "maiden", "police", "worker",
+                  "informer", "idol", "doctor", "patient")
+
+MODULES = {
+    "FS": ModuleSpec("FirstSteps", _FS_PLOTS, 1, _FS_INCIDENTS,
+                     {"conspiracy": 1, "friend": 2}, False, False, _ALL_CHARACTERS, True),
+    "BTX": ModuleSpec("BasicTragedyX", _BTX_PLOTS, 2, _BTX_INCIDENTS,
+                      {"conspiracy": 1, "friend": 2}, True, True, _ALL_CHARACTERS, True),
+    "OF": ModuleSpec("OldFashion", _OF_PLOTS, 2, _OF_INCIDENTS,
+                     {"returner_enemy": 1, "conspiracy": 1, "friend": 2}, True, True,
+                     _OF_CHARACTERS, True, friend_gender_split=True),
+}
+
+# Historical public name retained for callers and saved-game compatibility.
+MODULE_PLOTS = {module: spec.plots for module, spec in MODULES.items()}
 
 PLOT_RULES = {
     "murder_plan": "无追加规则；失败来源由身份能力决定。",
@@ -48,6 +112,18 @@ PLOT_RULES = {
     "virus": "常驻强制：存活平民的不安达到 3，即变为杀人狂，持续到轮回重置。",
     "threads": "轮回开始：上轮结束时带有友好的所有角色（含尸体）各得不安 +2。",
     "unknown": "无追加规则。",
+    "of_dream_beauty": "回合结束阶段：主谋存活且关键人物密谋 ≥2，主人公失败。",
+    "of_retry": "最终日的回合结束阶段强制使主人公死亡；制作剧本时每轮最大日数 -1（不公开）。",
+    "of_endless": "轮回结束：神社密谋 ≥2，主人公失败。",
+    "of_time_patrol": "轮回结束：恐怖分子（无论生死）密谋 ≥2，主人公失败。",
+    "of_terminator": "无追加规则。",
+    "of_truman": "常驻强制：本局所有平民身份均视为傀儡。",
+    "of_delorean": "轮回结束：心上人友好 ≥3，主人公失败。",
+    "of_blue_cat": "剧作家能力阶段可给任意版图或角色密谋 +1，每轮一次。",
+    "of_lavender": "无追加规则。",
+    "of_doomsday": "回合结束：任意角色不安 ≥4 时，该角色强制死亡。",
+    "of_grandfather": "回合结束阶段（含本阶段）：存在死去的亲友时，所有归来者·敌强制死亡。",
+    "of_time_war": "无追加规则。",
 }
 ROLE_RULES = {
     "ordinary": "没有身份能力。",
@@ -64,6 +140,12 @@ ROLE_RULES = {
     "loved": "求爱者死亡时，强制得不安 +6。",
     "lover": "心上人死亡时，强制得不安 +6。日末若自身不安 ≥3 且密谋 ≥1，可使主人公死亡。",
     "factor": "可拒绝自身友好能力。学校密谋 ≥2 时获得传谣人能力；都市密谋 ≥2 时获得关键人物能力。身份仍为因子。",
+    "puppet": "可拒绝自身友好能力；友好 ≥4 时必须拒绝。拒绝后强制死亡，一旦死亡，之后轮回均保持尸体状态。日末可杀死同区域友好 ≥4 的任意角色。",
+    "assassin": "可拒绝自身友好能力。回合结束时自身密谋 ≥3，可使主人公死亡。",
+    "terrorist": "可拒绝自身友好能力。回合结束时所在版图密谋 ≥3，可使主人公死亡；≥2 时可杀死同区域任意一名角色。",
+    "returner_enemy": "可拒绝自身友好能力。行动结算阶段可无效化同区域主人公放置的一张行动牌，每轮一次。上轮结束时若存活且友好 ≥3，本轮继承全部计数物。人数上限 1。",
+    "returner_friend": "轮回开始时，若上轮结束时存活且友好 ≥3，本轮继承上轮结束时的所有计数物。",
+    "trickster": "可拒绝自身友好能力。回合结束时，同区域除自身外有至少三名角色，可选择一名死亡（每轮一次、每名角色全局至多被指定一次）；若同区域没有其他角色则自身死亡。",
 }
 INCIDENT_RULES = {
     "murder": "同当事人一个区域的另一名存活角色死亡。",
@@ -75,6 +157,11 @@ INCIDENT_RULES = {
     "spreading": "任意存活角色友好 -2（不足减至零），随后另一名存活角色友好 +2。",
     "foul_play": "神社密谋 +2。",
     "butterfly": "与当事人同区域任意存活角色（可含当事人）获得友好、不安或密谋 +1。",
+    "malicious_rumor": "当事人所在区域的所有角色不安 +2。",
+    "poison_gas": "当事人所在版图及另一个任意版图各获得密谋 +1。",
+    "exposure": "选择其一：从当事人所在区域的角色合计移除 2 友好，或合计放置 2 友好；可分给两名角色。",
+    "time_distortion": "下一日行动阶段剧作家放置四张行动牌，主人公合计只能放置两张，领队不能放置。",
+    "confession": "公开当事人的身份。",
 }
 
 

@@ -6,7 +6,7 @@ This is a local privacy curtain, not authentication against a malicious user.
 """
 
 from .cards import ACTOR_NAMES, LOCATIONS, deck
-from .catalog import INCIDENT_NAMES, INCIDENT_RULES, MODULE_PLOTS, PLOTS, PLOT_RULES, ROLE_NAMES, ROLE_RULES
+from .catalog import INCIDENT_NAMES, INCIDENT_RULES, MODULES, PLOTS, PLOT_RULES, ROLE_NAMES, ROLE_RULES
 from .engine import RuleError
 from .game import Game
 
@@ -88,8 +88,8 @@ class HotseatSession:
 
     def request_final_guess(self):
         view = self.public_view()
-        if view["module"] != "BTX" or view["phase"] != "loop_end":
-            raise RuleError("只有 BTX 轮回之间才能选择提前猜测")
+        if not module_capability(view, "early_final_guess") or view["phase"] != "loop_end":
+            raise RuleError("当前规则集或阶段不允许提前最终猜测")
         self.intent = "final"
         self.hide()
 
@@ -110,6 +110,27 @@ class HotseatSession:
 
 def target_name(view, target):
     return view["characters"][target]["name"] if target in view["characters"] else LOCATIONS[target]
+
+
+def module_capability(view, name):
+    """Read public engine capabilities, with catalog fallback for old saves."""
+    capabilities = view.get("capabilities", {})
+    if name in capabilities:
+        return bool(capabilities[name])
+    if name in view:
+        return bool(view[name])
+    return bool(getattr(MODULES[view["module"]], name))
+
+
+def module_roles(module):
+    """Return exactly the identities players know may appear in a module."""
+    spec = MODULES[module]
+    roles = {"ordinary"}
+    for plot in spec.plots:
+        roles.update(PLOTS[plot][2])
+    if "hideous" in spec.plots:
+        roles.add("curmudgeon")
+    return tuple(role for role in ROLE_NAMES if role in roles)
 
 
 def public_log(view):
@@ -166,26 +187,33 @@ def character_details(view, cid):
 
 
 def public_rules(module):
-    lines = [f"{module} 公开速查表 · 列出所有可能项，不是剧本答案", "",
+    spec = MODULES[module]
+    lines = [f"{module} / {spec.name} 公开速查表 · 列出所有可能项，不是剧本答案", "",
+             f"剧本结构：1 个规则 Y + {spec.subplot_count} 个规则 X · "
+             f"可用角色 {len(spec.characters)} 名 · 可用事件 {len(spec.incidents)} 种", "",
              "每日：出牌 → 揭示与移动 → 其余行动 → 剧作家能力 → 友好能力 → 事件 → 换领队 → 日末。",
              "友好不消耗；被拒绝也计次数。禁止牌不限制能力/事件；两张以上禁止密谋全场失效。",
-             "角色或主人公死亡可能立即结束轮回，但亲友等轮回结束效果仍须结算。",
-             "FS 无最终猜测；BTX 轮回耗尽后猜全部初始身份，也可在轮回之间提前进入。", ""]
-    roles = {"ordinary"}
-    for plot in MODULE_PLOTS[module]:
+             "角色或主人公死亡可能立即结束轮回，但亲友等轮回结束效果仍须结算。"]
+    if spec.final_guess:
+        extra = "，也可在轮回之间提前进入" if spec.early_final_guess else ""
+        lines += [f"轮回耗尽后猜全部初始身份{extra}；全部正确才获胜，错误一次即失败。", ""]
+    else:
+        lines += ["不使用最终猜测；轮回全部失败时剧作家获胜。", ""]
+    roles = set(module_roles(module))
+    for plot in spec.plots:
         name, group, counts = PLOTS[plot]
-        roles.update(counts)
         lines += [f"规则 {group} · {name}", "身份：" + ("、".join(f"{ROLE_NAMES[r]} ×{n}" for r, n in counts.items()) or "无固定身份"), PLOT_RULES[plot], ""]
-    if module == "FS":
-        roles.add("curmudgeon")
-    lines += ["多个规则的身份数量相加，再按身份上限截断。", ""]
-    for role in ROLE_NAMES:
-        if role in roles:
-            lines += [ROLE_NAMES[role] + "：" + ROLE_RULES[role], ""]
+    lines += ["多个规则的身份数量相加，再按身份上限截断。"]
+    if spec.role_caps:
+        lines.append("身份人数上限：" + "、".join(f"{ROLE_NAMES[r]} ×{n}" for r, n in spec.role_caps.items()) + "。")
+    if spec.friend_gender_split:
+        lines.append("两名亲友同时登场时，必须一名男性、一名女性。")
+    lines.append("")
+    for role in module_roles(module):
+        lines += [ROLE_NAMES[role] + "：" + ROLE_RULES[role], ""]
     lines += ["事件：当事人存活且不安达临界时发生；没有有效目标也算发生。", ""]
-    for kind in INCIDENT_NAMES:
-        if module == "BTX" or kind not in ("foul_play", "butterfly"):
-            lines += [INCIDENT_NAMES[kind] + "：" + INCIDENT_RULES[kind], ""]
+    for kind in spec.incidents:
+        lines += [INCIDENT_NAMES[kind] + "：" + INCIDENT_RULES[kind], ""]
     for actor, name in (("m", "剧作家"), ("a", "每位主人公")):
         lines.append(name + "固定初始牌组（不是当前手牌）")
         lines.extend(c.name + (" · 每轮一次" if c.once_per_loop else "") for c in deck(actor).values())

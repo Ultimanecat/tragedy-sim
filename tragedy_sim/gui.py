@@ -7,10 +7,11 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from .cards import ACTOR_NAMES, LOCATIONS, deck
-from .catalog import INCIDENT_NAMES, ROLE_NAMES
+from .catalog import INCIDENT_NAMES, MODULES, ROLE_NAMES
 from .game import Game
 from .hotseat import (HotseatSession, NEXT_LABELS, PHASE_NAMES, character_details,
-                      public_knowledge, public_log, public_rules, secret_dossier, target_name)
+                      module_capability, module_roles, public_knowledge, public_log,
+                      public_rules, secret_dossier, target_name)
 from .scenario import example_scenario, load_scenario
 
 
@@ -322,7 +323,7 @@ class TragedyApp:
             if self.session.intent:
                 ttk.Label(self.private, text="正在交接：提前进入最终猜测", foreground=DANGER).pack(pady=10)
                 ttk.Button(self.private, text="取消，返回轮回之间", command=self.cancel_final).pack(pady=6)
-            elif public["phase"] == "loop_end" and public["module"] == "BTX":
+            elif public["phase"] == "loop_end" and module_capability(public, "early_final_guess"):
                 ttk.Button(self.private, text="领队希望提前最终猜测…", command=self.request_final).pack(pady=16)
             ttk.Label(self.private, text="遮挡只防误露，不是身份验证。\n请勿将私密操作投屏或录制。", justify="center", style="Muted.TLabel").pack(side="bottom", pady=18)
             return
@@ -354,7 +355,8 @@ class TragedyApp:
     def _render_cards(self, parent, view, token):
         seat = self.session.seat
         own_plays = [p for p in view["pending"] if p["actor"] == seat]
-        count = f"还需放置 {3 - len(own_plays)} 张" if seat == "m" else "本次放置 1 张"
+        required = view["action_counts"]["mastermind"] if seat == "m" else 1
+        count = f"还需放置 {required - len(own_plays)} 张" if seat == "m" else "本次放置 1 张"
         ttk.Label(parent, text="选择手牌，再选择目标", style="Section.TLabel").pack(anchor="w", pady=(2, 4))
         ttk.Label(parent, text=count + " · 确认前不会出牌", style="Muted.TLabel").pack(anchor="w", pady=(0, 10))
         scroll = ScrollFrame(parent)
@@ -407,8 +409,9 @@ class TragedyApp:
         ttk.Label(parent, text=PHASE_NAMES[phase], style="Section.TLabel").pack(anchor="w", pady=(2, 10))
         explanations = {"refusal": "领队已公开声明能力；请确认执行或拒绝。这里不能跳过。",
                         "decision": "请完成必要的目标选择。不会自动代选或跳过。",
-                        "reveal": "六张暗牌均已放置。揭示后所有牌及移动结果都会公开。",
-                        "day_start": "准备开始今天的行动。接下来由剧作家放置三张暗牌。",
+                        "reveal": (f"{view['action_counts']['mastermind'] + view['action_counts']['protagonists']} 张暗牌均已放置。"
+                                   "揭示后所有牌及结算结果都会公开。"),
+                        "day_start": "准备开始今天的行动。接下来由剧作家放置暗牌。",
                         "loop_end": "当前轮回已失败。主人公可在这里自由讨论，然后重置棋盘继续。"}
         ttk.Label(parent, text=explanations.get(phase, "可以依次使用合法能力，也可以结束本阶段。强制效果由引擎自动结算。"),
                   wraplength=345, style="Muted.TLabel").pack(fill="x", pady=(0, 12))
@@ -436,12 +439,13 @@ class TragedyApp:
         elif phase in ("master_abilities", "goodwill", "action_counters", "day_end"):
             ttk.Label(parent, text="当前没有可发动的能力。", style="Muted.TLabel").pack(pady=18)
         if phase == "reveal":
-            self.controls["resolve"] = ttk.Button(parent, text="统一揭示六张牌", command=lambda: self.perform(token, "resolve"), style="Accent.TButton")
+            total = view["action_counts"]["mastermind"] + view["action_counts"]["protagonists"]
+            self.controls["resolve"] = ttk.Button(parent, text=f"统一揭示 {total} 张牌", command=lambda: self.perform(token, "resolve"), style="Accent.TButton")
             self.controls["resolve"].pack(fill="x", pady=15)
         if phase in NEXT_LABELS:
             self.controls["next"] = ttk.Button(parent, text=NEXT_LABELS[phase], command=lambda: self.perform(token, "next"))
             self.controls["next"].pack(fill="x", pady=(6, 0))
-        if phase == "loop_end" and view["module"] == "BTX":
+        if phase == "loop_end" and module_capability(view, "early_final_guess"):
             ttk.Button(parent, text="交给领队：提前最终猜测…", command=self.request_final).pack(fill="x", pady=12)
 
     def select_option(self, event=None):
@@ -456,7 +460,7 @@ class TragedyApp:
         ttk.Label(parent, text="最后的机会", style="Section.TLabel").pack(anchor="w", pady=12)
         ttk.Label(parent, text="按任意顺序猜测每个角色的初始身份。\n全部正确才获胜，答错一次即失败。", wraplength=345, foreground=DANGER).pack(fill="x", pady=10)
         characters = list(view["guess_remaining"])
-        roles = list(ROLE_NAMES)
+        roles = list(module_roles(view["module"]))
         ttk.Label(parent, text=f"待猜角色（剩余 {len(characters)} 名）").pack(anchor="w", pady=(14, 5))
         char_box = ttk.Combobox(parent, state="readonly", values=[target_name(view, c) for c in characters])
         char_box.pack(fill="x", pady=5)
@@ -576,8 +580,11 @@ class TragedyApp:
                 self._error = ""
                 self.render()
 
-        ttk.Button(frame, text="FS · 简单规则 / 无最终猜测", command=lambda: start("FS"), style="Accent.TButton").pack(fill="x", pady=6)
-        ttk.Button(frame, text="BTX · 两个规则 X / 有最终猜测", command=lambda: start("BTX")).pack(fill="x", pady=6)
+        for index, (module, spec) in enumerate((item for item in MODULES.items() if item[1].gui_supported)):
+            ending = "有最终猜测" if spec.final_guess else "无最终猜测"
+            style = "Accent.TButton" if index == 0 else "TButton"
+            ttk.Button(frame, text=f"{module} · {spec.name} / {ending}",
+                       command=lambda selected=module: start(selected), style=style).pack(fill="x", pady=6)
         ttk.Button(frame, text="取消", command=popup.destroy).pack(fill="x", pady=(14, 0))
         popup.grab_set()
 
@@ -635,8 +642,8 @@ def main(argv=None, *, error_reporter=None):
         sys.stdout.reconfigure(encoding="utf-8")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
-    parser = GuiArgumentParser(description="悲剧轮回 FS/BTX 本地热座 GUI")
-    parser.add_argument("--module", choices=("FS", "BTX"), default="FS")
+    parser = GuiArgumentParser(description="悲剧轮回本地热座 GUI")
+    parser.add_argument("--module", choices=tuple(m for m, spec in MODULES.items() if spec.gui_supported), default="FS")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--script", help="载入 JSON 剧本")
     source.add_argument("--load", help="恢复 JSON 存档")

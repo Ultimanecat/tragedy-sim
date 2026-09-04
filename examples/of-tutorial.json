@@ -1,0 +1,22 @@
+{
+  "id": "silent-town-of",
+  "title": "寂静小镇（原创教学剧本）",
+  "module": "OF",
+  "days": 3,
+  "loops": 3,
+  "main_plot": "of_dream_beauty",
+  "subplots": ["of_truman", "of_blue_cat"],
+  "cast": {
+    "student": "puppet",
+    "girl": "key",
+    "doctor": "brain",
+    "worker": "returner_enemy",
+    "maiden": "conspiracy",
+    "patient": "friend"
+  },
+  "incidents": [
+    {"day": 2, "kind": "murder", "culprit": "doctor"},
+    {"day": 3, "kind": "suicide", "culprit": "patient"}
+  ],
+  "table_talk": true
+}

@@ -1,10 +1,11 @@
 # tragedy-sim
 
-Python 版《悲剧轮回》本地命令行模拟器。FS / BTX 对局现已串通：
+Python 版《悲剧轮回》本地热座模拟器。FS、BTX、OF 对局现已串通：
 出牌、好感（界面称“友好”）能力、剧作家与身份能力、事件、日末、轮回与胜负。
 
-支持 FS 的全部 6 个规则 X/Y、7 种事件，以及 BTX 的全部 12 个规则 X/Y、9 种事件；
-内置 BTX 速查表上的 17 名角色和对应能力。以用户提供的中文模组速查表为优先依据。
+支持 FS 的全部 6 个规则 X/Y、7 种事件，BTX 的全部 12 个规则 X/Y、9 种事件，
+以及 OldFashion（OF）的全部 12 个规则 X/Y、8 种事件和 11 名登场角色。
+内置速查表上的 17 名角色及对应能力。以用户提供的中文模组速查表为优先依据。
 这是由真人控制双方的热座/裁判工具，不含 AI 或联网。
 
 ## 本地热座 GUI
@@ -14,6 +15,7 @@ Python 3.11+ 的 Windows/macOS 官方安装通常自带 Tk，无需安装第三�
 ```powershell
 python -m tragedy_sim --gui
 python -m tragedy_sim --gui --module BTX
+python -m tragedy_sim --gui --module OF
 python -m tragedy_sim --gui --script examples/btx-tutorial.json
 python -m tragedy_sim --gui --load tragedy-session.json
 ```
@@ -24,7 +26,7 @@ python -m tragedy_sim --gui --load tragedy-session.json
 - 手牌/目标选择、能力与事件选项、友好能力确认、最终猜测；
 - 剧作家专属的规则、身份、当事人和内部使用记录；
 - 换座位自动遮挡、`Esc` 手动遮挡、窗口失焦/最小化遮挡，以及旧按钮失效保护；
-- 新建 FS/BTX 教学局、载入自定义剧本、恢复/保存任意中间状态。
+- 新建 FS/BTX/OF 教学局、载入自定义剧本、恢复/保存任意中间状态。
 
 热座交接时，其他玩家应先移开视线，再由界面提示的玩家点击“我是该玩家”。
 公共棋盘永远从 `spectator` 视角渲染，不会因为私密操作区展开而改变。
@@ -39,6 +41,7 @@ python -m tragedy_sim --gui --load tragedy-session.json
 ```powershell
 python -m tragedy_sim --demo
 python -m tragedy_sim --demo --module BTX
+python -m tragedy_sim --demo --module OF
 python -m tragedy_sim --module FS
 python -m tragedy_sim --script examples/btx-tutorial.json
 ```
@@ -100,18 +103,18 @@ next m
 | `view m` | 剧作家私密视角：额外显示身份、实际规则 X/Y、当事人；不要向主人公展示 |
 | `inspect doctor` | 角色初始/当前区域、禁行区域、属性、能力、被动特性 |
 | `rules` | 本模组所有可能规则、身份能力、事件效果和固定初始牌组；不显示剧本答案 |
-| `resolve` | 六张牌齐全后统一揭示、结算移动，进入行动能力窗口 |
+| `resolve` | 本日要求的牌齐全后统一揭示，进入行动能力窗口 |
 | `options <座位>` | 合法能力或必要目标选项；`options m` 是私密窗口 |
 | `choose <座位> <编号>` | 选择当前选项；好感能力声明后须由剧作家确认执行或拒绝 |
 | `log` | 已揭示行动及公开结算日志 |
 | `next [座位]` | 依次推进阶段；不代打行动牌，不跳过强制效果或必要选择 |
-| `guess <领队> <角色> <身份ID>` | BTX 最终猜测：所有角色的初始身份必须猜对，一次错误即败 |
-| `final <领队>` | BTX 轮回之间，放弃剩余轮回并提前猜测 |
+| `guess <领队> <角色> <身份ID>` | BTX/OF 最终猜测：所有角色的初始身份必须猜对，一次错误即败 |
+| `final <领队>` | BTX/OF 轮回之间，放弃剩余轮回并提前猜测 |
 | `save "session.json"` | 保存到新文件；已存在的文件不会覆盖；路径可加双引号 |
 | `help` / `quit` | 帮助 / 退出 |
 
 日常领队按 A → B → C 轮换；中途结束轮回不会额外轮换。
-失败之后用 `next m` 开始下一轮。FS 轮回耗尽即判负；BTX 会进入最终猜测。
+失败之后用 `next m` 开始下一轮。FS 轮回耗尽即判负；BTX/OF 会进入最终猜测。
 完整对局没有任意 `reset` 按钮。保留了独立的第一阶段练习：`python -m tragedy_sim --practice`。
 
 恢复存档：
@@ -129,16 +132,17 @@ python -m tragedy_sim --load session.json
 
 ## 自定义剧本
 
-复制 [FS 示例](examples/fs-tutorial.json) 或 [BTX 示例](examples/btx-tutorial.json) 后修改。
+复制 [FS 示例](examples/fs-tutorial.json)、[BTX 示例](examples/btx-tutorial.json) 或
+[OF 示例](examples/of-tutorial.json) 后修改。
 文件包含身份与当事人答案，主人公请勿提前阅读；这是原创教学剧本，不是官方剧本转录。
 
-`main_plot` 选一个规则 Y，`subplots` 在 FS 选一个 X，在 BTX 选两个不同 X。
+`main_plot` 选一个规则 Y，`subplots` 在 FS 选一个 X，在 BTX/OF 选两个不同 X。
 `cast` 是角色 ID → 身份 ID，余下普通角色填写 `ordinary`。
 规则、身份、事件 ID 可用 `rules` 查；全部角色见 [catalog.py](tragedy_sim/catalog.py)。
 `incidents` 每条包含 `day`、`kind`、`culprit`，同一天最多一起事件，同一角色最多承担一起事件。
 身份数量、上限、少女条件、模组、日期和重复当事人会在开始前检查。
 
-当前接受 1–8 天、1–8 轮、3–17 名已支持角色。暂不支持任意额外剧本规则、延迟登场、其他模组或扩展角色；
+当前接受 1–8 天、1–8 轮和各模组速查表允许的角色。暂不支持任意额外剧本规则、延迟登场、其余模组或扩展角色；
 不支持的字段会明确报错，不会静默忽略。也不自动 OCR 或导入整个资源包。
 
 ## 当前牌组
@@ -159,7 +163,7 @@ python -m tragedy_sim --load session.json
 | `d` | 斜移，每轮回限一次 | — |
 | `fm` | — | 禁止移动，每轮回限一次 |
 
-牌组依据：用户提供的 `resources/data.xml` 手牌索引、FS / BTX 右上角牌表和对应牌面。
+牌组依据：用户提供的 `resources/data.xml` 手牌索引、FS / BTX / OF 右上角牌表和对应牌面。
 不使用“追加牌”中的不安 +2、希望、绝望等卡牌。
 
 ## 代码与验证
@@ -174,7 +178,7 @@ python -m unittest discover -v
 - `tragedy_sim/scenario.py`：JSON 剧本、严格校验、教学示例。
 - `tragedy_sim/game.py`：完整状态机、效果队列、选择、胜负、知识记录和存档。
 - `tragedy_sim/cli.py`：完整对局、行动练习、中文提示和自动演示。
-- `tests/test_actions.py`、`tests/test_game.py`：行动、能力、9 种事件、胜负、信息过滤、CLI、存档重放；含全部 114 种 X/Y 组合校验与固定种子对局。
+- `tests/test_actions.py`、`tests/test_game.py`、`tests/test_old_fashion.py`：行动、能力、事件、胜负、信息过滤、CLI/GUI、存档重放；覆盖 FS/BTX 的 114 种及 OF 的 105 种 X/Y 组合。
 - [完整对局规则说明](docs/rules-match.md)、[基础行动来源](docs/rules-actions.md)。
 
 引擎与界面分离，可直接调用：
