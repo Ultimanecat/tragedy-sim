@@ -557,7 +557,7 @@ class AbilityTests(unittest.TestCase):
 
 
 class RoleInteractionTests(unittest.TestCase):
-    def test_two_serial_killers_die_simultaneously_and_corpses_do_not_count(self):
+    def test_mastermind_orders_two_serial_killers_and_only_second_one_dies(self):
         game = make("BTX", subplots=["virus", "threads"])
         for c in game.state.characters.values():
             c.location = "hospital"
@@ -568,9 +568,15 @@ class RoleInteractionTests(unittest.TestCase):
         game.state.characters["rich"].alive = False
         game.state.phase = "incident"
         game.dispatch("m", "next")
-        self.assertFalse(game.state.characters["student"].alive)
+        self.assertEqual(game.state.phase, "decision")
+        self.assertEqual(game.options("a"), [])
+        self.assertNotIn("杀人狂", json.dumps(game.view(), ensure_ascii=False))
+        self.assertEqual(len([choice for choice in game.options("m") if "杀人狂" in choice["label"]]), 2)
+        target(game, "girl", "kill")
+        self.assertTrue(game.state.characters["student"].alive)
         self.assertFalse(game.state.characters["girl"].alive)
         self.assertEqual(game.state.phase, "day_end")
+        self.assertNotIn("杀人狂", json.dumps(game.view(), ensure_ascii=False))
 
     def test_serial_does_not_kill_if_two_other_living_characters(self):
         game = make()

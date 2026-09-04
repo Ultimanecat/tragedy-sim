@@ -196,6 +196,7 @@ log                           回看完整公开结算日志
 guess <座位> <角色> <身份ID>   支持最终猜测的规则集：为每个角色回答初始身份
 final <领队>                  规则集允许时，在轮回之间放弃余下轮回并最终猜测
 save <新文件路径>             保存完整对局（含秘密，不要在对局中分享）
+replay <新文件路径>           对局结束后导出纯文本完整信息回放（推荐 .tlr）
 help / quit                   帮助 / 退出；恢复存档用 --load <路径>
 
 本地热座/裁判工具，不是 AI 对手：由真人控制 m/a/b/c，单人也可调试全部座位。
@@ -425,7 +426,7 @@ def main(argv=None):
         try:
             counts = {"board": (0,), "status": (0,), "help": (0,), "quit": (0,), "hand": (1,),
                       "play": (3,), "view": (1,), "resolve": (0,), "options": (1,), "choose": (2,),
-                      "next": (0, 1), "log": (0,), "inspect": (1,), "rules": (0,), "save": (1,),
+                      "next": (0, 1), "log": (0,), "inspect": (1,), "rules": (0,), "save": (1,), "replay": (1,),
                       "guess": (3,), "final": (1,)}
             if cmd not in counts or len(values) not in counts[cmd]:
                 raise RuleError("命令或参数数量错误，请输入 help")
@@ -482,6 +483,9 @@ def main(argv=None):
             elif cmd == "save":
                 game.save(values[0])
                 print("已保存完整对局。文件包含剧本和暗牌秘密，请勿在对局中分享。")
+            elif cmd == "replay":
+                game.save_replay(values[0])
+                print("已导出纯文本回放。文件包含全部秘密，只应在对局结束后查看或分享。")
             if cmd in ("play", "resolve", "next", "choose", "guess", "final"):
                 events(game, start)
                 hint(game)

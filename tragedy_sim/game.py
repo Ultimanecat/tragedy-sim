@@ -12,7 +12,10 @@ from pathlib import Path
 from .cards import ACTORS, ACTOR_NAMES, COUNTER_NAMES, LOCATIONS, PROTAGONISTS, deck
 from .catalog import CHARACTERS, INCIDENT_NAMES, MODULES, MODULE_PLOTS, PLOTS, REFUSAL, ROLE_NAMES, TRAIT_NAMES
 from .engine import ActionGame, Character, RuleError, State
+from .flow import MATCH_FLOW
+from .model import DecisionRecord, PhaseCursor, ResolutionStep, SimulationResult
 from .scenario import example_scenario, validate_scenario
+from .transcript import describe_decision
 
 
 def op(kind, **kwargs):
@@ -43,6 +46,7 @@ class Game(ActionGame):
         self.incident_records = []
         self.winner = None
         self.history = []
+        self.decisions = []
         self.loss_reasons = []  # private diagnostic information
         self._queue = []
         self._pending = None
@@ -63,13 +67,7 @@ class Game(ActionGame):
 
     @property
     def controller(self):
-        if self.state.phase == "game_over":
-            return None
-        if self.next_actor:
-            return self.next_actor
-        if self.state.phase in ("goodwill", "final_guess"):
-            return self.state.leader
-        return "m"
+        return MATCH_FLOW.controller(self.state.phase, leader=self.state.leader, next_actor=self.next_actor)
 
     def name(self, target):
         return self.state.characters[target].name if target in self.state.characters else LOCATIONS.get(target, target)
@@ -79,10 +77,12 @@ class Game(ActionGame):
         self.state.events[-1]["phase"] = self.state.phase
 
     def dispatch(self, actor, action, **args):
-        shapes = {"play": {"card", "target"}, "resolve": set(), "next": set(),
-                  "choose": {"index"}, "guess": {"character", "role"}, "final": set()}
-        if actor not in ACTORS or action not in shapes or set(args) != shapes[action]:
+        if actor not in ACTORS:
             raise RuleError("未知玩家、命令或参数")
+        try:
+            MATCH_FLOW.validate_command(self.state.phase, action, args)
+        except ValueError as exc:
+            raise RuleError(str(exc)) from exc
         if action == "final":
             if (not MODULES[self.module].early_final_guess or self.state.phase != "loop_end"
                     or actor != self.state.leader):
@@ -90,6 +90,9 @@ class Game(ActionGame):
         elif actor != self.controller:
             raise RuleError(f"当前需要 {ACTOR_NAMES.get(self.controller, '无人')} 操作")
         snapshot = deepcopy(self.__dict__)
+        before = self.phase_cursor
+        event_start = len(self.state.events)
+        description = describe_decision(self, actor, action, args)
         try:
             if action == "play":
                 super().play(actor, args["card"], args["target"])
@@ -107,7 +110,68 @@ class Game(ActionGame):
             self.__dict__.clear()
             self.__dict__.update(snapshot)
             raise
-        self.history.append({"actor": actor, "action": action, **deepcopy(args)})
+        command = {"actor": actor, "action": action, **deepcopy(args)}
+        self.history.append(command)
+        steps = tuple(ResolutionStep.from_event(event) for event in self.state.events[event_start:])
+        self.decisions.append(DecisionRecord(
+            number=len(self.history), actor=actor, action=action,
+            arguments=deepcopy(args), description=description,
+            before=before, after=self.phase_cursor, steps=steps,
+        ))
+
+    @property
+    def phase_cursor(self):
+        return PhaseCursor.from_state(self.state)
+
+    def state_key(self, viewer="spectator"):
+        """Canonical information-state key for replay checks and future search."""
+        projection = self.view(viewer)
+        projection.pop("events", None)
+        return json.dumps(projection, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+    def legal_actions(self, actor):
+        """Enumerate complete command dictionaries without exposing other seats' secrets."""
+        if actor not in ACTORS:
+            raise RuleError("未知玩家")
+        phase = self.state.phase
+        if phase == "loop_end" and actor == self.state.leader and MODULES[self.module].early_final_guess:
+            return [{"actor": actor, "action": "final"}]
+        if actor != self.controller:
+            return []
+        if phase in ("mastermind", "protagonists"):
+            view = self.view(actor)
+            occupied = {p["target"] for p in view["pending"]
+                        if (p["actor"] == "m") == (actor == "m")}
+            targets = [target for target in (*view["characters"], *LOCATIONS)
+                       if target not in occupied and
+                       (target in LOCATIONS or view["characters"][target]["alive"])]
+            return [{"actor": actor, "action": "play", "card": card, "target": target}
+                    for card in view["hand"] for target in targets]
+        if phase in ("action_counters", "master_abilities", "goodwill", "day_end", "decision", "refusal"):
+            available = self.options(actor)
+            choices = [{"actor": actor, "action": "choose", "index": index}
+                       for index, choice in enumerate(available, 1) if not choice.get("finish")]
+            if phase not in ("decision", "refusal"):
+                choices.append({"actor": actor, "action": "next"})
+            return choices
+        if phase == "final_guess":
+            roles = {"ordinary"}
+            for plot in MODULES[self.module].plots:
+                roles.update(PLOTS[plot][2])
+            if "hideous" in MODULES[self.module].plots:
+                roles.add("curmudgeon")
+            return [{"actor": actor, "action": "guess", "character": character, "role": role}
+                    for character in self._guess_remaining for role in ROLE_NAMES if role in roles]
+        action = "resolve" if phase == "reveal" else "next"
+        if action in MATCH_FLOW.definition(phase).actions:
+            return [{"actor": actor, "action": action}]
+        return []
+
+    def simulate(self, actor, action, **args):
+        """Apply one action to a detached clone, leaving this world untouched."""
+        successor = deepcopy(self)
+        successor.dispatch(actor, action, **args)
+        return SimulationResult(successor, successor.decisions[-1])
 
     def next_round(self):
         raise RuleError("完整对局请使用 next 按阶段推进，不能跳过结算")
@@ -401,7 +465,7 @@ class Game(ActionGame):
 
     def _advance(self):
         if self._pending:
-            raise RuleError("当前有必须完成的目标选择，请使用 options 和 choose")
+            raise RuleError("当前有必须完成的结算顺序或目标选择，请使用 options 和 choose")
         s = self.state
         if s.phase == "day_start":
             order = self._protagonists_from(s.leader)
@@ -500,6 +564,10 @@ class Game(ActionGame):
             self._finish_loop(forced=True)
 
     def _reveal_role(self, target):
+        # Knowledge changes are an observable incident result even when no board
+        # counter or character state changes (notably Old Fashion's Confession).
+        if self._incident_before is not None:
+            self._incident_effect = True
         self.known_roles[target] = {"role": self.roles[target], "loop": self.state.loop, "day": self.state.round}
         self._event("role_revealed", f"公开信息：{self.name(target)}的身份为{ROLE_NAMES[self.roles[target]]}。",
                     character=target, role=self.roles[target])
@@ -609,10 +677,13 @@ class Game(ActionGame):
             elif kind == "trickster_mark":
                 self._mark(f"trickster:{effect['source']}", True)
                 self._trickster_targets.add(effect["target"])
-            elif kind == "next_trickster":
-                self._queue_next_trickster()
-            elif kind == "day_end_checks":
-                self._day_end_checks()
+            elif kind == "mark_mandatory":
+                self.day_used.add(effect["key"])
+            elif kind == "next_day_end_mandatory":
+                self._queue_next_day_end_mandatory()
+            elif kind == "loop_loss":
+                self.loss_reasons.append(effect["reason"])
+                self._finish_loop(forced=True)
             elif kind == "incident_done":
                 self._record_incident_end()
             elif kind == "night":
@@ -724,91 +795,71 @@ class Game(ActionGame):
         if self._night_forced_done:
             return
         self._night_forced_done = True
-        victims = []
-        for c in self._living():
-            if self._has(c.id, "serial"):
-                others = [t.id for t in self._living() if t.id != c.id and t.location == c.location]
-                if len(others) == 1:
-                    victims += others
-            if "of_doomsday" in self.scenario["subplots"] and c.paranoia >= 4:
-                victims.append(c.id)
-        self._kill(victims)
-        if self.state.phase != "day_end":
-            return
-
-        isolated = []
-        for c in self._living():
-            if self._has(c.id, "trickster"):
-                others = [t for t in self._living() if t.id != c.id and t.location == c.location]
-                if not others:
-                    isolated.append(c.id)
-        self._kill(isolated)
-        if self.state.phase != "day_end":
-            return
-
-        # Check once before Trickster choices and again afterwards, because a
-        # Friend can have died earlier or can be the Trickster's new victim.
-        if ("of_grandfather" in self.scenario["subplots"]
-                and any(self.roles[c.id] == "friend" and not c.alive
-                        for c in self.state.characters.values())):
-            self._kill([c.id for c in self._living() if self._has(c.id, "returner_enemy")])
-            if self.state.phase != "day_end":
-                return
-
-        self._queue = [op("next_trickster"), op("day_end_checks")]
         self._return_phase = "day_end"
+        self._queue = [op("next_day_end_mandatory")]
         self._drain()
 
-    def _queue_next_trickster(self):
-        # Recompute after each death: two selected plots can provide two
-        # Tricksters, and the first one's victim can alter the second's targets.
-        isolated = []
+    def _day_end_mandatory_options(self):
+        """Currently applicable mandatory effects, recomputed after each result."""
+        choices = []
         for c in self._living():
-            if self._has(c.id, "trickster"):
-                others = [t for t in self._living() if t.id != c.id and t.location == c.location]
-                if not others:
-                    isolated.append(c.id)
-        if isolated:
-            self._kill(isolated)
-            if self.state.phase != "day_end":
-                return
-
-        for c in self._living():
-            key = f"trickster:{c.id}"
-            if not self._has(c.id, "trickster") or not self._available_key(key, True):
-                continue
             others = [t for t in self._living() if t.id != c.id and t.location == c.location]
-            if len(others) < 3:
-                continue
-            choices = [option(f"{c.name}（捣蛋鬼）：使{target.name}死亡",
-                              [op("trickster_mark", source=c.id, target=target.id),
-                               op("kill", target=target.id)])
-                       for target in others if target.id not in self._trickster_targets]
-            if choices:
-                self._queue.insert(0, op("next_trickster"))
-                self._queue.insert(0, op("choice", prompt="捣蛋鬼必须指定一名同区域角色死亡",
-                                         options=choices))
-                return
+            serial_key = f"mandatory:serial:{c.id}"
+            if self._has(c.id, "serial") and serial_key not in self.day_used and len(others) == 1:
+                choices.append(option(f"{c.name}（杀人狂·强制）：使{others[0].name}死亡",
+                                      [op("mark_mandatory", key=serial_key),
+                                       op("kill", target=others[0].id)]))
+            doom_key = f"mandatory:doomsday:{c.id}"
+            if ("of_doomsday" in self.scenario["subplots"] and c.paranoia >= 4
+                    and doom_key not in self.day_used):
+                choices.append(option(f"破灭的预言（强制）：使{c.name}死亡",
+                                      [op("mark_mandatory", key=doom_key),
+                                       op("kill", target=c.id)]))
+            isolated_key = f"mandatory:trickster-alone:{c.id}"
+            if (self._has(c.id, "trickster") and not others and isolated_key not in self.day_used):
+                choices.append(option(f"{c.name}（捣蛋鬼·强制）：区域内没有其他角色，自身死亡",
+                                      [op("mark_mandatory", key=isolated_key),
+                                       op("kill", target=c.id)]))
+            if (self._has(c.id, "trickster") and len(others) >= 3
+                    and self._available_key(f"trickster:{c.id}", True)):
+                choices += [option(f"{c.name}（捣蛋鬼·强制）：使{target.name}死亡",
+                                   [op("trickster_mark", source=c.id, target=target.id),
+                                    op("kill", target=target.id)])
+                            for target in others if target.id not in self._trickster_targets]
 
-    def _day_end_checks(self):
-        if ("of_grandfather" in self.scenario["subplots"]
-                and any(self.roles[c.id] == "friend" and not c.alive
-                        for c in self.state.characters.values())):
-            self._kill([c.id for c in self._living() if self._has(c.id, "returner_enemy")])
-            if self.state.phase != "day_end":
-                return
+        grandfather_key = "mandatory:plot:of_grandfather"
+        enemies = [c.id for c in self._living() if self._has(c.id, "returner_enemy")]
+        if ("of_grandfather" in self.scenario["subplots"] and grandfather_key not in self.day_used
+                and enemies and any(self.roles[c.id] == "friend" and not c.alive
+                                    for c in self.state.characters.values())):
+            choices.append(option("祖父悖论（强制）：所有存活的归来者·敌死亡",
+                                  [op("mark_mandatory", key=grandfather_key),
+                                   op("kill_many", targets=enemies)]))
+
         if self.scenario["main_plot"] == "of_dream_beauty":
             brain_alive = any(self._has(c.id, "brain") for c in self.state.characters.values())
             key_ready = any(self._has(c.id, "key") and c.intrigue >= 2
                             for c in self.state.characters.values())
             if brain_alive and key_ready:
-                self.loss_reasons.append("规则 Y 失败条件")
-                self._finish_loop(forced=True)
-                return
+                choices.append(option("梦中的美人（强制）：满足规则 Y 的失败条件",
+                                      [op("loop_loss", reason="规则 Y 失败条件")]))
         if (self.scenario["main_plot"] == "of_retry"
                 and self.state.round >= self._current_loop_days()):
-            self.loss_reasons.append("规则 Y 最终日强制主人公死亡")
-            self._finish_loop(forced=True)
+            choices.append(option("重来（强制）：最终日使主人公失败",
+                                  [op("loop_loss", reason="规则 Y 最终日强制主人公死亡")]))
+        return choices
+
+    def _queue_next_day_end_mandatory(self):
+        choices = self._day_end_mandatory_options()
+        if not choices:
+            return
+        for choice in choices:
+            choice["effects"].append(op("next_day_end_mandatory"))
+        if len(choices) == 1:
+            self._queue = choices[0]["effects"] + self._queue
+        else:
+            self._queue.insert(0, op("choice", prompt="选择下一项日末强制效果；同类效果的顺序由剧作家决定",
+                                     options=choices))
 
     def _finish_loop(self, forced=False):
         s = self.state
@@ -962,6 +1013,11 @@ class Game(ActionGame):
         # Local trusted replay file contains secrets. Exclusive create prevents overwrite.
         with Path(path).open("x", encoding="utf-8") as stream:
             json.dump({"version": 1, "scenario": self.scenario, "commands": self.history}, stream, ensure_ascii=False, indent=2)
+
+    def save_replay(self, path):
+        """Export a completed match as a readable, deterministic text replay."""
+        from .replay import dump
+        dump(self, path)
 
     @classmethod
     def load(cls, path):

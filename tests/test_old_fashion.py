@@ -290,6 +290,9 @@ class OldFashionMainAndPlotRuleTests(unittest.TestCase):
         for cid in victims:
             game.state.characters[cid].paranoia = 4
         finish_day(game)
+        self.assertEqual(game.state.phase, "decision")
+        select(game, lambda choice: any(effect.get("target") == victims[0]
+                                         for effect in choice["effects"]))
         self.assertTrue(all(not game.state.characters[cid].alive for cid in victims))
 
     def test_grandfather_kills_returner_enemy_if_friend_is_dead(self):
@@ -302,7 +305,12 @@ class OldFashionMainAndPlotRuleTests(unittest.TestCase):
             if cid != trickster and char.location == "city":
                 char.location = "hospital"
         finish_day(game)
+        self.assertEqual(game.state.phase, "decision")
+        select(game, lambda choice: any(effect.get("kind") == "kill_many" and enemy in effect["targets"]
+                                         for effect in choice["effects"]))
         self.assertFalse(game.state.characters[enemy].alive)
+        if game.state.phase == "day_end":
+            game.dispatch("m", "next")
         self.assertEqual(game.state.phase, "loop_end")
 
 
@@ -495,6 +503,11 @@ class OldFashionIncidentAndActionTests(unittest.TestCase):
         game = self.incident_game("confession")
         fire_incident(game)
         self.assertEqual(game.known_roles["student"]["role"], game.roles["student"])
+        self.assertTrue(game.incident_records[-1]["effective"])
+        self.assertEqual(
+            [event for event in game.state.events if event["kind"] == "incident_ended"][-1]["message"],
+            "事件结算完成。",
+        )
         self.assertIn("student", game.view()["known_roles"])
         self.assertTrue(any(event["kind"] == "role_revealed" for event in game.view()["events"]))
 

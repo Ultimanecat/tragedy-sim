@@ -8,16 +8,11 @@ This is a local privacy curtain, not authentication against a malicious user.
 from .cards import ACTOR_NAMES, LOCATIONS, deck
 from .catalog import INCIDENT_NAMES, INCIDENT_RULES, MODULES, PLOTS, PLOT_RULES, ROLE_NAMES, ROLE_RULES
 from .engine import RuleError
+from .flow import PHASE_LABELS
 from .game import Game
 
 
-PHASE_NAMES = {
-    "day_start": "日初", "mastermind": "剧作家出牌", "protagonists": "主人公出牌",
-    "reveal": "统一揭示", "action_counters": "行动结算", "master_abilities": "剧作家能力",
-    "goodwill": "友好能力", "refusal": "确认友好能力", "incident": "事件结算",
-    "decision": "必要目标选择", "day_end": "日末结算", "loop_end": "轮回之间",
-    "final_guess": "最终猜测", "game_over": "对局结束",
-}
+PHASE_NAMES = PHASE_LABELS  # Historical frontend name retained for callers.
 NEXT_LABELS = {
     "day_start": "开始今天的行动", "action_counters": "结束能力窗口，结算行动牌",
     "master_abilities": "结束剧作家能力阶段", "goodwill": "结束友好能力阶段",

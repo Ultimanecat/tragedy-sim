@@ -13,6 +13,7 @@ from .hotseat import (HotseatSession, NEXT_LABELS, PHASE_NAMES, character_detail
                       module_capability, module_roles, public_knowledge, public_log,
                       public_rules, secret_dossier, target_name)
 from .scenario import example_scenario, load_scenario
+from .replay import ReplayArchive, ReplaySession
 
 
 BG = "#101722"
@@ -72,9 +73,9 @@ def set_text(widget, value, *, bottom=False):
 
 
 class TragedyApp:
-    def __init__(self, root, game=None):
+    def __init__(self, root, game=None, *, session=None):
         self.root = root
-        self.session = HotseatSession(game)
+        self.session = session if session is not None else HotseatSession(game)
         self.selected_target = None
         self.selected_card = None
         self.selected_option = None
@@ -136,7 +137,8 @@ class TragedyApp:
         tools = ttk.Frame(header, style="Header.TFrame")
         tools.pack(side="right")
         for title, command in (("新对局", self.new_game), ("载入剧本", lambda: self.open_file(True)),
-                               ("恢复存档", lambda: self.open_file(False)), ("另存对局", self.save)):
+                               ("恢复存档", lambda: self.open_file(False)), ("打开回放", self.open_replay),
+                               ("另存对局", self.save)):
             ttk.Button(tools, text=title, command=command).pack(side="left", padx=3)
         self.controls["hide"] = ttk.Button(tools, text="遮挡 / 交接  Esc", command=self.hide, style="Accent.TButton")
         self.controls["hide"].pack(side="left", padx=(10, 0))
@@ -207,11 +209,20 @@ class TragedyApp:
     def render(self):
         view = self.session.public_view()
         phase = PHASE_NAMES[view["phase"]]
-        self.root.title(f"悲剧轮回 · {view['module']} 本地热座")
-        self.match_title.configure(text=f"{view['title']}  /  {view['module']}")
+        replay = getattr(self.session, "replay_mode", False)
+        mode = "回放" if replay else "本地热座"
+        self.controls["hide"].configure(text="只读回放" if replay else "遮挡 / 交接  Esc",
+                                        state="disabled" if replay else "normal")
+        self.root.title(f"悲剧轮回 · {view['module']} {mode}")
+        self.match_title.configure(text=f"{view['title']}  /  {view['module']}" + ("  ·  只读回放" if replay else ""))
         self.turn_label.configure(text=f"轮回 {view['loop']}/{view['loops']}   第 {view['round']}/{view['days']} 天  ·  {phase}")
-        self.discussion.configure(text=f"领队：{ACTOR_NAMES[view['leader']]}   ·   讨论：{'允许' if view['table_talk'] else '受限（真人遵守）'}")
-        self.status.configure(text=self._error or ("存在未保存的操作  ·  Ctrl+S 另存对局" if self.session.dirty else "本地运行 · 无联网 · 存档包含秘密"),
+        self.discussion.configure(text=(f"回放位置：{self.session.index}/{self.session.length}"
+                                        if replay else
+                                        f"领队：{ACTOR_NAMES[view['leader']]}   ·   讨论：{'允许' if view['table_talk'] else '受限（真人遵守）'}"))
+        normal_status = (f"只读完整信息回放 · 第 {self.session.index}/{self.session.length} 个决策"
+                         if replay else
+                         ("存在未保存的操作  ·  Ctrl+S 另存对局" if self.session.dirty else "本地运行 · 无联网 · 存档包含秘密"))
+        self.status.configure(text=self._error or normal_status,
                               foreground=DANGER if self._error else MUTED)
         self._render_timeline(view)
         self._render_board(view)
@@ -301,6 +312,9 @@ class TragedyApp:
         self.selected_card = None
         self.selected_target = None
         self.selected_option = None
+        if getattr(self.session, "replay_mode", False):
+            self._render_replay_controls()
+            return
         seat = self.session.expected_seat
         if public["winner"]:
             winner = "主人公" if public["winner"] == "protagonists" else "剧作家"
@@ -309,6 +323,7 @@ class TragedyApp:
             ttk.Label(self.private, text=winner + "获胜", foreground=ACCENT, font=("Microsoft YaHei UI", 24, "bold")).pack(pady=(55, 20))
             ttk.Label(self.private, text="故事已经结束。\n可以保存完整记录，或开启新的轮回。", justify="center", style="Muted.TLabel").pack(pady=10)
             ttk.Button(self.private, text="另存完整对局", command=self.save, style="Accent.TButton").pack(pady=10)
+            ttk.Button(self.private, text="导出纯文本回放", command=self.export_replay).pack(pady=6)
             ttk.Button(self.private, text="开始新对局", command=self.new_game).pack(pady=6)
             return
         self.seat_title.configure(text=f"{'等待交接' if self.session.seat is None else '当前操作'}  ·  {ACTOR_NAMES[seat]}")
@@ -408,7 +423,7 @@ class TragedyApp:
         phase = view["phase"]
         ttk.Label(parent, text=PHASE_NAMES[phase], style="Section.TLabel").pack(anchor="w", pady=(2, 10))
         explanations = {"refusal": "领队已公开声明能力；请确认执行或拒绝。这里不能跳过。",
-                        "decision": "请完成必要的目标选择。不会自动代选或跳过。",
+                        "decision": "请选择强制效果的结算顺序或目标。不会自动代选或跳过。",
                         "reveal": (f"{view['action_counts']['mastermind'] + view['action_counts']['protagonists']} 张暗牌均已放置。"
                                    "揭示后所有牌及结算结果都会公开。"),
                         "day_start": "准备开始今天的行动。接下来由剧作家放置暗牌。",
@@ -482,6 +497,45 @@ class TragedyApp:
         self.controls["guess"] = ttk.Button(parent, text="确认提交这次猜测", state="disabled", style="Accent.TButton",
                                             command=lambda: self.perform(token, "guess", character=characters[char_box.current()], role=roles[role_box.current()]))
         self.controls["guess"].pack(fill="x", pady=10)
+
+    def _render_replay_controls(self):
+        session = self.session
+        self.seat_title.configure(text="完整对局回放")
+        self.seat_subtitle.configure(text="只读模式 · 回放包含所有玩家的暗牌和决策，请只在对局结束后观看。")
+        navigation = ttk.Frame(self.private)
+        navigation.pack(fill="x", pady=(8, 12))
+        for label, target in (("⏮ 开始", 0), ("◀ 上一步", session.index - 1),
+                              ("下一步 ▶", session.index + 1), ("结尾 ⏭", session.length)):
+            ttk.Button(navigation, text=label, command=lambda i=target: self.replay_seek(i),
+                       state="normal" if 0 <= target <= session.length and target != session.index else "disabled").pack(
+                           side="left", expand=True, fill="x", padx=2)
+        current = session.current_decision
+        if current is None:
+            detail = "初始状态：尚未执行任何玩家决策。"
+        else:
+            detail = f"第 {current.number} 个决策\n{current.description}"
+            if current.steps:
+                detail += "\n\n本步结算：\n" + "\n".join("• " + step.message for step in current.steps)
+        ttk.Label(self.private, text=detail, wraplength=385, justify="left",
+                  foreground=ACCENT).pack(fill="x", pady=(0, 12))
+        ttk.Label(self.private, text="全部决策", style="Section.TLabel").pack(anchor="w", pady=(4, 5))
+        frame, text = text_panel(self.private, 14)
+        frame.pack(fill="both", expand=True)
+        lines = []
+        for index, record in enumerate(session.decisions, 1):
+            marker = "▶" if index == session.index else " "
+            lines.append(f"{marker} {index:04d}  {record.description}")
+        set_text(text, "\n".join(lines))
+
+    def replay_seek(self, index):
+        try:
+            self.session.seek(max(0, min(self.session.length, index)))
+            self.inspect_target = None
+            self._error = ""
+            self.public_tabs.select(self.log_frame)
+        except ValueError as exc:
+            self._error = str(exc)
+        self.render()
 
     def inspect(self, target):
         # Inspecting public cards must not rebuild/erase an in-progress private choice.
@@ -575,7 +629,7 @@ class TragedyApp:
         def start(module):
             popup.destroy()
             if self._confirm_replace():
-                self.session.replace(Game(example_scenario(module)))
+                self.session = HotseatSession(Game(example_scenario(module)))
                 self.inspect_target = None
                 self._error = ""
                 self.render()
@@ -601,12 +655,34 @@ class TragedyApp:
             return
         if not self._confirm_replace():
             return
-        self.session.replace(loaded)
+        self.session = HotseatSession(loaded)
+        self.inspect_target = None
+        self._error = ""
+        self.render()
+
+    def open_replay(self):
+        self.hide()
+        path = filedialog.askopenfilename(parent=self.root, title="打开完整对局回放",
+                                          filetypes=[("悲剧轮回回放", "*.tlr"), ("文本文件", "*.txt"),
+                                                     ("所有文件", "*.*")])
+        if not path:
+            return
+        try:
+            session = ReplaySession(ReplayArchive.load(path))
+        except (ValueError, TypeError, OSError) as exc:
+            messagebox.showerror("无法打开回放", str(exc), parent=self.root)
+            return
+        if not self._confirm_replace():
+            return
+        self.session = session
         self.inspect_target = None
         self._error = ""
         self.render()
 
     def save(self):
+        if getattr(self.session, "replay_mode", False):
+            messagebox.showinfo("只读回放", "回放模式不能另存为可继续操作的对局。", parent=self.root)
+            return False
         self.hide()
         path = filedialog.asksaveasfilename(parent=self.root, title="另存对局（包含全部秘密；请选择新文件）",
                                             initialfile="tragedy-session.json", defaultextension=".json",
@@ -621,6 +697,25 @@ class TragedyApp:
         self._error = ""
         self.render()
         self.status.configure(text=f"已保存：{Path(path).name} · 文件含秘密，请勿分享给主人公", foreground=ACCENT)
+        return True
+
+    def export_replay(self):
+        self.hide()
+        if self.session.game.winner is None:
+            messagebox.showerror("不能导出回放", "完整对局结束后才能导出纯文本回放。", parent=self.root)
+            return False
+        path = filedialog.asksaveasfilename(parent=self.root, title="导出完整信息回放（请选择新文件）",
+                                            initialfile="tragedy-replay.tlr", defaultextension=".tlr",
+                                            filetypes=[("悲剧轮回回放", "*.tlr"), ("文本文件", "*.txt")],
+                                            confirmoverwrite=False)
+        if not path:
+            return False
+        try:
+            self.session.game.save_replay(path)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("未能导出回放", "请使用一个新的文件名；不会覆盖已有文件。\n\n" + str(exc), parent=self.root)
+            return False
+        self.status.configure(text=f"已导出回放：{Path(path).name} · 文件包含全部秘密", foreground=ACCENT)
         return True
 
     def close(self):
@@ -647,6 +742,7 @@ def main(argv=None, *, error_reporter=None):
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--script", help="载入 JSON 剧本")
     source.add_argument("--load", help="恢复 JSON 存档")
+    source.add_argument("--replay", help="打开 .tlr 完整对局回放")
     try:
         args = parser.parse_args(argv)
     except ValueError as exc:
@@ -659,12 +755,14 @@ def main(argv=None, *, error_reporter=None):
         return 1
     root.withdraw()
     try:
-        game = Game.load(args.load) if args.load else Game(load_scenario(args.script) if args.script else example_scenario(args.module))
+        session = ReplaySession(ReplayArchive.load(args.replay)) if args.replay else None
+        game = None if session else (Game.load(args.load) if args.load else
+                                     Game(load_scenario(args.script) if args.script else example_scenario(args.module)))
     except (ValueError, TypeError, OSError) as exc:
         messagebox.showerror("无法开始对局", str(exc), parent=root)
         root.destroy()
         return 1
-    TragedyApp(root, game)
+    TragedyApp(root, game, session=session)
     root.deiconify()
     root.mainloop()
     return 0

@@ -20,13 +20,21 @@ python -m tragedy_sim --gui --script examples/btx-tutorial.json
 python -m tragedy_sim --gui --load tragedy-session.json
 ```
 
+完整对局结束后可在 GUI 选择“导出纯文本回放”，并通过“打开回放”逐项查看每次决策和结算。也可以直接启动：
+
+```powershell
+python -m tragedy_sim --gui --replay tragedy-replay.tlr
+```
+
+`.tlr` 是 UTF-8 纯文本：正文逐项列出双方暗牌、能力选择、猜测及其结算，结构化字段可由程序确定性重演。它包含剧本与全部秘密，只应在对局结束后查看或分享。
+
 安装项目后也可以运行 `tragedy-sim-gui`。窗口提供：
 
 - 四区域公共棋盘、事件日程、公开留置牌、角色能力、完整公开日志和规则速查；
 - 手牌/目标选择、能力与事件选项、友好能力确认、最终猜测；
 - 剧作家专属的规则、身份、当事人和内部使用记录；
 - 换座位自动遮挡、`Esc` 手动遮挡、窗口失焦/最小化遮挡，以及旧按钮失效保护；
-- 新建 FS/BTX/OF 教学局、载入自定义剧本、恢复/保存任意中间状态。
+- 新建 FS/BTX/OF 教学局、载入自定义剧本、恢复/保存任意中间状态，以及打开只读回放。
 
 热座交接时，其他玩家应先移开视线，再由界面提示的玩家点击“我是该玩家”。
 公共棋盘永远从 `spectator` 视角渲染，不会因为私密操作区展开而改变。
@@ -111,6 +119,7 @@ next m
 | `guess <领队> <角色> <身份ID>` | BTX/OF 最终猜测：所有角色的初始身份必须猜对，一次错误即败 |
 | `final <领队>` | BTX/OF 轮回之间，放弃剩余轮回并提前猜测 |
 | `save "session.json"` | 保存到新文件；已存在的文件不会覆盖；路径可加双引号 |
+| `replay "finished.tlr"` | 正式结束后导出纯文本完整信息回放；不会覆盖已有文件 |
 | `help` / `quit` | 帮助 / 退出 |
 
 日常领队按 A → B → C 轮换；中途结束轮回不会额外轮换。
@@ -176,9 +185,11 @@ python -m unittest discover -v
 - `tragedy_sim/engine.py`：`ActionGame`、`Character`、出牌与结算、玩家视图。
 - `tragedy_sim/catalog.py`：角色、规则 X/Y、身份、事件及公开规则文案。
 - `tragedy_sim/scenario.py`：JSON 剧本、严格校验、教学示例。
-- `tragedy_sim/game.py`：完整状态机、效果队列、选择、胜负、知识记录和存档。
+- `tragedy_sim/flow.py`、`model.py`：显式阶段表、阶段位置、决策/结算记录，以及供搜索算法使用的状态转移接口。
+- `tragedy_sim/game.py`：完整流程编排、效果队列、选择、胜负、知识记录和存档。
+- `tragedy_sim/replay.py`、`transcript.py`：纯文本回放、确定性校验、只读时间线和人类可读决策说明。
 - `tragedy_sim/cli.py`：完整对局、行动练习、中文提示和自动演示。
-- `tests/test_actions.py`、`tests/test_game.py`、`tests/test_old_fashion.py`：行动、能力、事件、胜负、信息过滤、CLI/GUI、存档重放；覆盖 FS/BTX 的 114 种及 OF 的 105 种 X/Y 组合。
+- `tests/`：行动、能力、事件、胜负、信息过滤、CLI/GUI、存档及纯文本回放；覆盖 FS/BTX 的 114 种及 OF 的 105 种 X/Y 组合。
 - [完整对局规则说明](docs/rules-match.md)、[基础行动来源](docs/rules-actions.md)。
 
 引擎与界面分离，可直接调用：
@@ -189,6 +200,11 @@ from tragedy_sim import Game
 game = Game()  # 默认 FS 教学剧本，或传入经过校验的剧本字典
 game.dispatch("m", "next")
 game.dispatch("m", "play", card="i2", target="doctor")
+
+# AI/分析工具可以枚举合法动作，并在副本上模拟而不修改原局面：
+actions = game.legal_actions("m")
+candidate = dict(actions[0])
+result = game.simulate(candidate.pop("actor"), candidate.pop("action"), **candidate)
 print(game.view("a")["pending"])  # 可见 m 和 doctor，不可见 i2
 print(game.controller)             # 当前应操作的座位
 ```

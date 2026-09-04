@@ -266,6 +266,20 @@ class TkSmokeTests(unittest.TestCase):
                 for child in self.root.winfo_children():
                     child.destroy()
 
+    def test_replay_session_renders_and_steps_without_hotseat_controls(self):
+        from tragedy_sim.gui import TragedyApp
+        from tragedy_sim.replay import ReplayArchive, ReplaySession, dumps
+        from tests.test_replay import finish_neutral_match
+        session = ReplaySession(ReplayArchive.parse(dumps(finish_neutral_match())))
+        app = TragedyApp(self.root, session=session)
+        self.root.update_idletasks()
+        self.assertIn("完整对局回放", app.seat_title.cget("text"))
+        self.assertNotIn("unlock", app.controls)
+        app.replay_seek(1)
+        self.root.update_idletasks()
+        self.assertEqual(app.session.index, 1)
+        self.assertEqual(app.session.current_decision.number, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
