@@ -85,7 +85,7 @@ class TransitionRecordTests(unittest.TestCase):
 
 class ReplayTests(unittest.TestCase):
     def test_all_modules_export_parse_and_reach_identical_end_state(self):
-        for module in ("FS", "BTX", "OF"):
+        for module in ("FS", "BTX", "OF", "MZ"):
             with self.subTest(module=module):
                 game = finish_neutral_match(module)
                 text = dumps(game)

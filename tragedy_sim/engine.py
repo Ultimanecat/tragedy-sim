@@ -167,6 +167,10 @@ class ActionGame:
         return [p for index, p in enumerate(self.state.pending)
                 if index not in self._ignored_placement_indexes]
 
+    def _movement_is_forbidden(self, target: str, effects: set[str]) -> bool:
+        """Ruleset policy point for cards that also count as Forbid Movement."""
+        return "forbid_movement" in effects
+
     def _resolve_movements(self) -> None:
         s = self.state
         if s.phase != "action_counters" or not s.face_up:
@@ -184,7 +188,7 @@ class ActionGame:
             moves = effects & MOVES.keys()
             if not moves:
                 continue
-            if "forbid_movement" in effects:
+            if self._movement_is_forbidden(target, effects):
                 self._event("movement_blocked", f"{char.name}：移动被禁止。")
                 continue
             x, y = COORDS[char.location]

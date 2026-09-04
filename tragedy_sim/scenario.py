@@ -5,7 +5,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 
-from .catalog import CHARACTERS, MODULES, PLOTS, ROLE_NAMES
+from .catalog import CHARACTERS, INCIDENT_NAMES, MODULES, PLOTS, ROLE_NAMES
 from .engine import RuleError
 
 
@@ -61,19 +61,41 @@ def validate_scenario(data: dict) -> dict:
         raise RuleError("和我签订契约吧！要求关键人物具有少女属性")
     if not isinstance(data["incidents"], list):
         raise RuleError("incidents 必须是数组")
-    days, culprits = set(), set()
+    days = set()
+    culprit_kinds = {}
     for incident in data["incidents"]:
-        if not isinstance(incident, dict) or set(incident) != {"day", "kind", "culprit"}:
-            raise RuleError("事件需要 day / kind / culprit 三个字段")
+        if (not isinstance(incident, dict)
+                or set(incident) - {"day", "kind", "culprit", "public_kind"}
+                or {"day", "kind", "culprit"} - set(incident)):
+            raise RuleError("事件需要 day / kind / culprit；伪造事件另需 public_kind")
         day, kind, culprit = incident["day"], incident["kind"], incident["culprit"]
         if type(day) is not int or not 1 <= day <= data["days"] or day in days:
             raise RuleError("事件日期非法或一天安排了多起事件")
         if not isinstance(kind, str) or kind not in spec.incidents:
             raise RuleError("该模组不支持此事件")
-        if not isinstance(culprit, str) or culprit not in cast or culprit in culprits:
-            raise RuleError("事件当事人不存在或重复承担事件")
+        if not isinstance(culprit, str) or culprit not in cast:
+            raise RuleError("事件当事人不存在")
+        public_kind = incident.get("public_kind")
+        if kind == "fake_incident":
+            if not isinstance(public_kind, str) or public_kind not in INCIDENT_NAMES:
+                raise RuleError("伪造事件需要用 public_kind 指定一个公开事件名")
+        elif public_kind is not None:
+            raise RuleError("只有伪造事件可以设置 public_kind")
         days.add(day)
-        culprits.add(culprit)
+        culprit_kinds.setdefault(culprit, []).append(kind)
+    for culprit, kinds in culprit_kinds.items():
+        if len(kinds) > 1 and any(kind != "serial_murder" for kind in kinds):
+            raise RuleError("只有连续杀人允许同一角色重复担任事件当事人")
+    if "mz_battle" == data["main_plot"]:
+        ninjas = [cid for cid, role in cast.items() if role == "ninja"]
+        if any("man" not in CHARACTERS[cid].traits for cid in ninjas):
+            raise RuleError("男子汉的战争要求忍者具有男性属性，且不能是少年")
+    if "mz_doom_song" in data["subplots"] and not any(
+            incident["kind"] == "suicide" for incident in data["incidents"]):
+        raise RuleError("灭亡颂歌要求剧本中至少有一起自杀")
+    if any(role == "obsessive" for role in cast.values()) and not any(
+            cast[culprit] == "obsessive" for culprit in culprit_kinds):
+        raise RuleError("强迫症必须担任至少一起事件的当事人")
     if type(data.get("table_talk", False)) is not bool:
         raise RuleError("table_talk 必须是布尔值")
     result = deepcopy(data)
@@ -94,6 +116,11 @@ def example_scenario(module: str = "FS") -> dict:
         subplots = ["of_truman", "of_blue_cat"]
         cast = {"student": "puppet", "girl": "key", "doctor": "brain",
                 "worker": "returner_enemy", "maiden": "conspiracy", "patient": "friend"}
+    elif module == "MZ":
+        main_plot = "mz_secret_record"
+        subplots = ["mz_factor", "mz_doom_song"]
+        cast = {"student": "ordinary", "girl": "key", "doctor": "brain",
+                "worker": "conspiracy", "maiden": "factor", "patient": "prophet"}
     else:
         main_plot = "murder_plan"
         subplots = ["rumor"] if module == "FS" else ["rumor", "threads"]
@@ -103,6 +130,10 @@ def example_scenario(module: str = "FS") -> dict:
         "id": "silent-town-" + module.lower(), "title": "寂静小镇（原创教学剧本）", "module": module,
         "days": 3, "loops": 3, "main_plot": main_plot,
         "subplots": subplots, "cast": cast,
-        "incidents": [{"day": 2, "kind": "murder", "culprit": "doctor"},
-                      {"day": 3, "kind": "suicide", "culprit": "patient"}], "table_talk": True,
+        "incidents": ([{"day": 2, "kind": "serial_murder", "culprit": "doctor"},
+                       {"day": 3, "kind": "suicide", "culprit": "patient"}]
+                      if module == "MZ" else
+                      [{"day": 2, "kind": "murder", "culprit": "doctor"},
+                       {"day": 3, "kind": "suicide", "culprit": "patient"}]),
+        "table_talk": True,
     })

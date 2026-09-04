@@ -1,0 +1,33 @@
+{
+  "id": "silent-town-mz",
+  "title": "寂静小镇（原创教学剧本）",
+  "module": "MZ",
+  "days": 3,
+  "loops": 3,
+  "main_plot": "mz_secret_record",
+  "subplots": [
+    "mz_factor",
+    "mz_doom_song"
+  ],
+  "cast": {
+    "student": "ordinary",
+    "girl": "key",
+    "doctor": "brain",
+    "worker": "conspiracy",
+    "maiden": "factor",
+    "patient": "prophet"
+  },
+  "incidents": [
+    {
+      "day": 2,
+      "kind": "serial_murder",
+      "culprit": "doctor"
+    },
+    {
+      "day": 3,
+      "kind": "suicide",
+      "culprit": "patient"
+    }
+  ],
+  "table_talk": true
+}

@@ -1,4 +1,4 @@
-"""Base decks checked against resources/data.xml, FS/BTX sheets and card images."""
+"""Base decks checked against resources/data.xml and the implemented ruleset sheets."""
 
 from dataclasses import dataclass
 

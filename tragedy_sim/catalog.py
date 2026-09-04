@@ -1,4 +1,4 @@
-"""FS/BTX/OF content transcribed from the user's sheets; no executable script data."""
+"""Ruleset content transcribed from the user's sheets; no executable script data."""
 
 from dataclasses import dataclass
 
@@ -8,16 +8,21 @@ ROLE_NAMES = {"ordinary": "平民", "key": "关键人物", "killer": "杀手", "
               "witch": "魔女", "loved": "心上人", "lover": "求爱者", "factor": "不安定因子",
               "puppet": "傀儡", "assassin": "刺客", "terrorist": "恐怖分子",
               "returner_enemy": "归来者·敌", "returner_friend": "归来者·友",
-              "trickster": "捣蛋鬼"}
+              "trickster": "捣蛋鬼", "ninja": "忍者", "obsessive": "强迫症",
+              "magician": "魔术师", "immortal": "永生者", "prophet": "预言家"}
 REFUSAL = {"killer": "optional", "brain": "optional", "curmudgeon": "optional",
            "factor": "optional", "cultist": "mandatory", "witch": "mandatory",
            "puppet": "optional", "assassin": "optional", "terrorist": "optional",
            "returner_enemy": "optional", "trickster": "optional"}
+REFUSAL.update({"ninja": "optional", "obsessive": "mandatory"})
 INCIDENT_NAMES = {"murder": "谋杀", "unease": "不安扩散", "suicide": "自杀",
                   "hospital": "医院事故", "faraway": "远距离杀人", "missing": "失踪",
                   "spreading": "散播", "foul_play": "邪气污染", "butterfly": "蝴蝶效应",
                   "malicious_rumor": "恶意谣言", "poison_gas": "毒气扩散",
                   "exposure": "曝光", "time_distortion": "时空扭曲", "confession": "自白"}
+INCIDENT_NAMES.update({"serial_murder": "连续杀人", "covert_activity": "隐蔽活动",
+                       "riot": "暴乱", "breakthrough": "破局", "fake_suicide": "伪装自杀",
+                       "fake_incident": "伪造事件"})
 # id: (name, Y/X, required roles). Duplicate roles are capped by their printed maximum.
 PLOTS = {
     "murder_plan": ("谋杀计划", "Y", {"key": 1, "killer": 1, "brain": 1}),
@@ -49,6 +54,17 @@ PLOTS = {
     "of_grandfather": ("祖父悖论", "X", {"returner_enemy": 1, "friend": 1, "trickster": 1}),
     "of_time_war": ("时间战争", "X", {"puppet": 1, "returner_enemy": 1,
                                       "returner_friend": 1, "conspiracy": 1}),
+    "mz_secret_record": ("绝密报告", "Y", {"key": 1, "brain": 1, "conspiracy": 1}),
+    "mz_battle": ("男子汉的战争", "Y", {"ninja": 1}),
+    "mz_approaching": ("魔爪渐近", "Y", {"key": 1, "cultist": 1, "ninja": 1}),
+    "mz_causal": ("因果之绊", "Y", {"friend": 1, "serial": 1, "conspiracy": 1}),
+    "mz_love_hate": ("爱与恨的螺旋", "X", {"friend": 1, "obsessive": 1}),
+    "mz_witch_tea": ("魔女的茶会", "X", {"friend": 1, "conspiracy": 1, "witch": 2}),
+    "mz_gods_dice": ("诸神之骰", "X", {"serial": 1, "obsessive": 1}),
+    "mz_factor": ("X 异因子", "X", {"factor": 1}),
+    "mz_death_show": ("死亡真人秀", "X", {"magician": 1, "immortal": 1}),
+    "mz_clear_mind": ("心无重障", "X", {"conspiracy": 1, "magician": 1}),
+    "mz_doom_song": ("灭亡颂歌", "X", {"prophet": 1}),
 }
 
 
@@ -78,10 +94,15 @@ _BTX_PLOTS = ("murder_plan", "sealed", "sign", "change", "bomb", "friends", "lov
 _OF_PLOTS = ("of_dream_beauty", "of_retry", "of_endless", "of_time_patrol", "of_terminator",
              "of_truman", "of_delorean", "of_blue_cat", "of_lavender", "of_doomsday",
              "of_grandfather", "of_time_war")
+_MZ_PLOTS = ("sealed", "mz_secret_record", "mz_battle", "mz_approaching", "mz_causal",
+             "mz_love_hate", "mz_witch_tea", "mz_gods_dice", "mz_factor",
+             "mz_death_show", "mz_clear_mind", "mz_doom_song")
 _FS_INCIDENTS = ("murder", "unease", "suicide", "hospital", "faraway", "missing", "spreading")
 _BTX_INCIDENTS = (*_FS_INCIDENTS, "foul_play", "butterfly")
 _OF_INCIDENTS = ("murder", "suicide", "malicious_rumor", "hospital", "poison_gas", "exposure",
                  "time_distortion", "confession")
+_MZ_INCIDENTS = ("serial_murder", "suicide", "unease", "missing", "covert_activity",
+                 "hospital", "riot", "confession", "breakthrough", "fake_suicide", "fake_incident")
 _OF_CHARACTERS = ("student", "girl", "rich", "class_rep", "maiden", "police", "worker",
                   "informer", "idol", "doctor", "patient")
 
@@ -93,6 +114,8 @@ MODULES = {
     "OF": ModuleSpec("OldFashion", _OF_PLOTS, 2, _OF_INCIDENTS,
                      {"returner_enemy": 1, "conspiracy": 1, "friend": 2}, True, True,
                      _OF_CHARACTERS, True, friend_gender_split=True),
+    "MZ": ModuleSpec("MidnightZone", _MZ_PLOTS, 2, _MZ_INCIDENTS,
+                     {"conspiracy": 1, "friend": 2}, True, True, _ALL_CHARACTERS, True),
 }
 
 # Historical public name retained for callers and saved-game compatibility.
@@ -124,6 +147,17 @@ PLOT_RULES = {
     "of_doomsday": "回合结束：任意角色不安 ≥4 时，该角色强制死亡。",
     "of_grandfather": "回合结束阶段（含本阶段）：存在死去的亲友时，所有归来者·敌强制死亡。",
     "of_time_war": "无追加规则。",
+    "mz_secret_record": "轮回结束：本轮曾公开主谋、不安定因子或魔术师中的任一身份名，主人公失败。",
+    "mz_battle": "制作剧本：忍者必须具有男性属性（不能是少年）；轮回结束：忍者（无论生死）密谋 ≥2，主人公失败。",
+    "mz_approaching": "轮回开始：给一名上轮结束时死亡的角色放置一张 Ex 牌；不与因果之绊重复发动。",
+    "mz_causal": "轮回开始：给一名上轮结束时死亡的角色放置一张 Ex 牌；有 Ex 牌的角色变为关键人物并失去原身份。",
+    "mz_love_hate": "无追加规则。",
+    "mz_witch_tea": "无追加规则。",
+    "mz_gods_dice": "轮回开始：给一名上轮结束时死亡的角色放置一张 Ex 牌；不与因果之绊重复发动。",
+    "mz_factor": "剧作家能力阶段：给一名存活不安定因子所在版图密谋 +1，每轮一次。",
+    "mz_death_show": "轮回结束：存活角色不多于 6 名，主人公失败。",
+    "mz_clear_mind": "行动结算：禁止友好也同时具有禁止移动的效果。",
+    "mz_doom_song": "制作剧本时必须有至少一起自杀；事件阶段：平民为当事人且预言家存活时，该当事人的不安临界 -1。",
 }
 ROLE_RULES = {
     "ordinary": "没有身份能力。",
@@ -146,6 +180,11 @@ ROLE_RULES = {
     "returner_enemy": "可拒绝自身友好能力。行动结算阶段可无效化同区域主人公放置的一张行动牌，每轮一次。上轮结束时若存活且友好 ≥3，本轮继承全部计数物。人数上限 1。",
     "returner_friend": "轮回开始时，若上轮结束时存活且友好 ≥3，本轮继承上轮结束时的所有计数物。",
     "trickster": "可拒绝自身友好能力。回合结束时，同区域除自身外有至少三名角色，可选择一名死亡（每轮一次、每名角色全局至多被指定一次）；若同区域没有其他角色则自身死亡。",
+    "ninja": "可拒绝自身友好能力。日末可杀死同区域密谋 ≥2 的一名角色；公开自身身份时可改为宣称本剧本中的任意非平民身份。",
+    "obsessive": "必须拒绝自身友好能力。制作剧本时必须担任至少一起事件的当事人；其作为当事人的事件必定发生。",
+    "magician": "剧作家能力阶段可将同区域友好 ≥1 的角色移至相邻版图，所有魔术师合计每轮一次；死亡时强制移除自身全部友好。",
+    "immortal": "不会死亡。",
+    "prophet": "剧作家不能在其身上放置行动牌；同区域的其他角色不会引发事件。",
 }
 INCIDENT_RULES = {
     "murder": "同当事人一个区域的另一名存活角色死亡。",
@@ -162,6 +201,12 @@ INCIDENT_RULES = {
     "exposure": "选择其一：从当事人所在区域的角色合计移除 2 友好，或合计放置 2 友好；可分给两名角色。",
     "time_distortion": "下一日行动阶段剧作家放置四张行动牌，主人公合计只能放置两张，领队不能放置。",
     "confession": "公开当事人的身份。",
+    "serial_murder": "与当事人同区域的另一名存活角色死亡；一名角色可以担任多起连续杀人的当事人。",
+    "covert_activity": "选择此前已经发生的一起事件，执行该事件的效果。",
+    "riot": "医院密谋 ≥1：医院所有角色死亡；≥2：主人公死亡。学校密谋 ≥1：学校所有角色死亡。都市密谋 ≥1：都市所有角色死亡。",
+    "breakthrough": "领队选择一名角色或一个版图，移除其 2 枚密谋（不足则减至 0）。",
+    "fake_suicide": "在当事人身上放置一张 Ex 牌。",
+    "fake_incident": "在当事人身上放置一张 Ex 牌；本轮余下时间主人公不能在有 Ex 牌的角色上放置行动牌；若当事人密谋 ≥2，主人公失败。公开事件表可使用任意事件名。",
 }
 
 

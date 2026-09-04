@@ -1,11 +1,11 @@
-# 基础行动牌结算（FS / BTX / OF 共用）
+# 基础行动牌结算（FS / BTX / OF / MZ 共用）
 
 本文记录独立 `ActionGame` / `--practice` 的规则与最初里程碑。
 默认命令行现已切换为完整对局；能力、事件和胜负的新增实现见 [完整对局](rules-match.md)。
 
 ## 依据优先级
 
-1. 用户提供的 FS、BTX、OF 模组图片；作为模组内容的第一优先级。
+1. 用户提供的 FS、BTX、OF、MZ 模组图片；作为模组内容的第一优先级。
 2. `resources/data.xml` 的牌组索引及对应中文牌面；确认独立副本、限次标记和冲突效果。
 3. 对图片没有列出的通用放牌/回收流程，补查英文《Player's Handbook》第 21–22 页
    （[手册镜像](https://cdn.1j1ju.com/medias/4a/87/06-tragedy-looper-rulebook.pdf)）。
@@ -18,6 +18,7 @@
 | FirstSteps(FS) | [FS](../resources/rulebooks/0b2d84f17c995d604bf04e818f20af880a5e5a4d388d87450e5969933f33a90b.png) |
 | BasicTragedyX(BTX) | [BTX](../resources/rulebooks/52184bc7f3f57b2166130ecfe1d3579412161208d72faff5f1164fab99a4bf64.png) |
 | OldFashion(OF) | [OF](../resources/rulebooks/3fa84bd5c4510724dee88df812473d947da2b1b2e27a9e67ccfa04662756bf76.png) |
+| MidnightZone(MZ) | [MZ](../resources/rulebooks/0ff7d26db6b6234412c4724b887be22711797a8ca01221ea158dc6008a5b6ad5.png) |
 | 主人公禁止密谋 | [牌面](../resources/4ecef910e3551883a48b174eadb3e9eb92b8d3b1d61f7d404dfc89b3c12e0f23.png) |
 | 主人公纵向移动 | [牌面](../resources/c78d47c868ea8c38b52295758384b40bd14109fdebe0070fecc402c5b42d9551.png) |
 | 主人公移动禁止 | [牌面](../resources/90449762e653bc0c8db066cfbb7e9ba580a24e8cca9b01435373d635a928106a.png) |

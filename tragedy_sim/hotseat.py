@@ -139,9 +139,13 @@ def public_log(view):
 
 
 def public_knowledge(view):
-    lines = ["已公开的信息会跨轮回保留；历史身份不一定等于当前身份。", ""]
+    caveat = ("MZ 的身份公开是公开宣称：除忍者身份名外，其他宣称也可能来自忍者。"
+              if view["module"] == "MZ" else
+              "已公开的信息会跨轮回保留；历史身份不一定等于当前身份。")
+    lines = [caveat, ""]
     for cid, fact in view["known_roles"].items():
-        lines.append(f"{target_name(view, cid)}：{ROLE_NAMES[fact['role']]}（轮回 {fact['loop']} / 第 {fact['day']} 天确认）")
+        verb = "宣称" if view["module"] == "MZ" else "确认"
+        lines.append(f"{target_name(view, cid)}：{ROLE_NAMES[fact['role']]}（轮回 {fact['loop']} / 第 {fact['day']} 天{verb}）")
     for day, cid in view["known_culprits"].items():
         lines.append(f"第 {day} 天事件当事人：{target_name(view, cid)}")
     for plot in view["known_plots"]:
@@ -167,10 +171,11 @@ def public_knowledge(view):
 
 def character_details(view, cid):
     c = view["characters"][cid]
+    ex = f"　Ex {c.get('ex_cards', 0)}" if view["module"] == "MZ" else ""
     lines = [f"{c['name']}  ·  {' / '.join(c['traits'])}",
              f"初始：{LOCATIONS[c['initial_location']]}　当前：{LOCATIONS[c['location']]}",
              f"禁行：{'、'.join(LOCATIONS[t] for t in c['forbidden']) or '无'}",
-             f"{'存活' if c['alive'] else '尸体'}　友好 {c['goodwill']}　不安临界 {c['paranoia']}/{c['paranoia_limit']}　密谋 {c['intrigue']}　护卫 {c['guard']}", ""]
+             f"{'存活' if c['alive'] else '尸体'}　友好 {c['goodwill']}　不安临界 {c['paranoia']}/{c['paranoia_limit']}　密谋 {c['intrigue']}　护卫 {c['guard']}{ex}", ""]
     for a in c["abilities"]:
         limit = "每轮一次" if a["once"] else "每日一次"
         lines.append(f"友好 ≥{a['threshold']} · {limit}\n{a['text']}\n")
@@ -229,7 +234,8 @@ def secret_dossier(view):
         lines += [f"{target_name(view, cid)}：{ROLE_NAMES[role]}（初始 {ROLE_NAMES[s['initial_roles'][cid]]}）", ROLE_RULES[role], ""]
     lines.append("事件当事人")
     for item in s["incidents"]:
-        lines.append(f"第 {item['day']} 天 · {INCIDENT_NAMES[item['kind']]}：{target_name(view, item['culprit'])}")
+        public_name = (f"（公开名：{INCIDENT_NAMES[item['public_kind']]}）" if "public_kind" in item else "")
+        lines.append(f"第 {item['day']} 天 · {INCIDENT_NAMES[item['kind']]}{public_name}：{target_name(view, item['culprit'])}")
     if s["loss_reasons"]:
         lines += ["", "累计失败诊断：" + "；".join(s["loss_reasons"])]
     if s["ability_day_used"]:

@@ -289,7 +289,8 @@ class TragedyApp:
                                       bg=CARD, fg=INK if c["alive"] else MUTED, anchor="w")
                 name_label.pack(fill="x")
                 panic = " !" if c["alive"] and c["paranoia"] >= c["paranoia_limit"] else ""
-                counts = tk.Label(shell, text=f"友好 {c['goodwill']}   不安 {c['paranoia']}/{c['paranoia_limit']}{panic}   密谋 {c['intrigue']}   护卫 {c['guard']}",
+                ex = f"   Ex {c['ex_cards']}" if c.get("ex_cards") else ""
+                counts = tk.Label(shell, text=f"友好 {c['goodwill']}   不安 {c['paranoia']}/{c['paranoia_limit']}{panic}   密谋 {c['intrigue']}   护卫 {c['guard']}{ex}",
                                   bg=CARD, fg=DANGER if panic else MUTED, font=("Microsoft YaHei UI", 10), anchor="w")
                 counts.pack(fill="x", pady=(4, 0))
                 placements = self._placements(view, c["id"])

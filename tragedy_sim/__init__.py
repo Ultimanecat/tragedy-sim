@@ -1,4 +1,4 @@
-"""FS/BTX/OF deterministic local game and action-card practice engine."""
+"""FS/BTX/OF/MZ deterministic local game and action-card practice engine."""
 
 from .engine import ActionGame, Character, RuleError
 from .game import Game

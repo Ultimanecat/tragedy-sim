@@ -217,9 +217,10 @@ def match_board(game, viewer="spectator"):
         for c in v["characters"].values():
             if c["location"] == loc:
                 panic = " 达临界" if c["alive"] and c["paranoia"] >= c["paranoia_limit"] else ""
+                ex = f" · Ex {c.get('ex_cards', 0)}" if v["module"] == "MZ" else ""
                 print(f"    {c['name']} [{c['id']}] {'存活' if c['alive'] else '尸体'} | "
                       f"友好 {c['goodwill']} · 不安 {c['paranoia']}/{c['paranoia_limit']}{panic} · "
-                      f"密谋 {c['intrigue']} · 护卫 {c['guard']}")
+                      f"密谋 {c['intrigue']} · 护卫 {c['guard']}{ex}")
     for p in v["pending"]:
         label = deck(p["actor"])[p["card"]].name if p["card"] else "暗牌"
         print(f"  {ACTOR_NAMES[p['actor']]} → {game.name(p['target'])}：{label}")
@@ -240,7 +241,8 @@ def match_board(game, viewer="spectator"):
         else:
             print(f"  第 {day} 天：无预定事件")
     for cid, fact in v["known_roles"].items():
-        print(f"历史确认：{game.name(cid)} → {ROLE_NAMES[fact['role']]}（轮回 {fact['loop']} / 第 {fact['day']} 天）")
+        verb = "公开宣称" if v["module"] == "MZ" else "历史确认"
+        print(f"{verb}：{game.name(cid)} → {ROLE_NAMES[fact['role']]}（轮回 {fact['loop']} / 第 {fact['day']} 天）")
     for day, cid in v["known_culprits"].items():
         print(f"已公开：第 {day} 天事件当事人是{game.name(cid)}。")
     for plot in v["known_plots"]:
@@ -259,7 +261,8 @@ def match_board(game, viewer="spectator"):
         for cid, role in secret["roles"].items():
             print(f"  {game.name(cid)}：{ROLE_NAMES[role]}（初始 {ROLE_NAMES[secret['initial_roles'][cid]]}）")
         for i in secret["incidents"]:
-            print(f"  第 {i['day']} 天事件当事人：{game.name(i['culprit'])}")
+            public_name = f"，公开名 {INCIDENT_NAMES[i['public_kind']]}" if "public_kind" in i else ""
+            print(f"  第 {i['day']} 天{INCIDENT_NAMES[i['kind']]}{public_name}当事人：{game.name(i['culprit'])}")
         if secret["loss_reasons"]:
             print("  内部失败诊断（累计，不对主人公公开）：" + "；".join(secret["loss_reasons"]))
         if secret["ability_day_used"]:
@@ -329,7 +332,7 @@ def show_rules(game):
     for role in ROLE_NAMES:
         if role in roles:
             print(f"  {ROLE_NAMES[role]} [{role}]：{ROLE_RULES[role]}")
-    print("事件发生条件：当事人仍存活且不安达到临界。发生/未发生均公开；发生但无有效目标也算发生。目标由剧作家选择。")
+    print("事件通常要求当事人存活且不安达到临界；模组能力可能改变判定。发生/未发生均公开；发生但无有效目标也算发生。目标由规则指定的玩家选择。")
     for kind in spec.incidents:
         print(f"  {INCIDENT_NAMES[kind]} [{kind}]：{INCIDENT_RULES[kind]}")
     print("角色能力和被动特性请用 inspect <角色ID> 查看；护卫消耗一枚替代一次死亡，军人的保护持续整轮。")
@@ -355,7 +358,12 @@ def match_demo(module):
                 plays = (("p1a", "doctor"), ("p1b", "patient"),
                          ("d", "girl") if game.state.round == 1 else ("h", "shrine"))
             for card, target in plays:
-                game.dispatch("m", "play", card=card, target=target)
+                legal = game.legal_actions("m")
+                command = next((item for item in legal
+                                if item.get("card") == card and item.get("target") == target), None)
+                if command is None:
+                    command = next(item for item in legal if item.get("card") == card)
+                game.dispatch(command.pop("actor"), command.pop("action"), **command)
         elif phase == "protagonists":
             count = sum(p.actor != "m" for p in game.state.pending)
             game.dispatch(actor, "play", card="g1", target=("school", "city", "shrine")[count])
