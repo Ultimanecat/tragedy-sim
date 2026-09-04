@@ -1,0 +1,33 @@
+{
+  "id": "silent-town-mc",
+  "title": "寂静小镇（原创教学剧本）",
+  "module": "MC",
+  "days": 3,
+  "loops": 3,
+  "main_plot": "mc_event_web",
+  "subplots": [
+    "mc_detective",
+    "mc_absolute"
+  ],
+  "cast": {
+    "student": "detective",
+    "girl": "fool",
+    "doctor": "conspiracy",
+    "worker": "friend",
+    "maiden": "obsessive",
+    "patient": "ordinary"
+  },
+  "incidents": [
+    {
+      "day": 2,
+      "kind": "omen",
+      "culprit": "girl"
+    },
+    {
+      "day": 3,
+      "kind": "suicide",
+      "culprit": "maiden"
+    }
+  ],
+  "table_talk": true
+}

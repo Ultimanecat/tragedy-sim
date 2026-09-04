@@ -171,6 +171,10 @@ class ActionGame:
         """Ruleset policy point for cards that also count as Forbid Movement."""
         return "forbid_movement" in effects
 
+    def _movement_destination_allowed(self, target: str, destination: str) -> bool:
+        """Ruleset policy point for temporary borders and character locks."""
+        return True
+
     def _resolve_movements(self) -> None:
         s = self.state
         if s.phase != "action_counters" or not s.face_up:
@@ -197,8 +201,8 @@ class ActionGame:
                 dx, dy = MOVES[move]
                 x, y = x ^ dx, y ^ dy
             destination = next(loc for loc, coords in COORDS.items() if coords == (x, y))
-            if destination in char.forbidden:
-                self._event("movement_blocked", f"{char.name}：最终目的地是禁行区域，留在原地。")
+            if destination in char.forbidden or not self._movement_destination_allowed(target, destination):
+                self._event("movement_blocked", f"{char.name}：最终目的地当前不可进入，留在原地。")
             else:
                 char.location = destination
                 self._event("character_moved", f"{char.name} 移动到{LOCATIONS[destination]}。",

@@ -235,7 +235,7 @@ class TkSmokeTests(unittest.TestCase):
 
     def test_complete_gui_callback_flow_for_all_modules(self):
         from tragedy_sim.gui import TragedyApp
-        for module in ("FS", "BTX", "OF", "MZ"):
+        for module in ("FS", "BTX", "OF", "MZ", "MC"):
             with self.subTest(module=module):
                 app = TragedyApp(self.root, Game(example_scenario(module)))
                 for _ in range(180):
@@ -257,6 +257,11 @@ class TkSmokeTests(unittest.TestCase):
                     elif phase == "reveal":
                         self.assertIn("resolve", app.controls)
                         app.perform(token, "resolve")
+                    elif phase in ("decision", "refusal"):
+                        self.assertIn("choose", app.controls)
+                        app.controls["options"].selection_set(0)
+                        app.select_option()
+                        app.controls["choose"].invoke()
                     else:
                         self.assertIn("next", app.controls)
                         app.perform(token, "next")

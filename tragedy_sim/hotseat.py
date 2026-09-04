@@ -171,7 +171,7 @@ def public_knowledge(view):
 
 def character_details(view, cid):
     c = view["characters"][cid]
-    ex = f"　Ex {c.get('ex_cards', 0)}" if view["module"] == "MZ" else ""
+    ex = f"　Ex牌 {c.get('ex_cards', 0)}" if c.get("ex_cards", 0) else ""
     lines = [f"{c['name']}  ·  {' / '.join(c['traits'])}",
              f"初始：{LOCATIONS[c['initial_location']]}　当前：{LOCATIONS[c['location']]}",
              f"禁行：{'、'.join(LOCATIONS[t] for t in c['forbidden']) or '无'}",

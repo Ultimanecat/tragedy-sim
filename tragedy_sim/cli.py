@@ -210,6 +210,8 @@ def match_board(game, viewer="spectator"):
     print(f"\n【{v['title']} / {v['module']}】轮回 {v['loop']}/{v['loops']}，"
           f"第 {v['round']}/{v['days']} 天 · {MATCH_PHASES[v['phase']]}")
     print(f"领队：{ACTOR_NAMES[v['leader']]}；桌面讨论：{'允许' if v['table_talk'] else '出牌中不允许（真人遵守）'}")
+    if v["module"] == "MC":
+        print(f"Ex 槽：{v['ex_gauge']}（本轮已发生事件计数；猎奇杀人 +2，银色子弹 +0）")
     if v["winner"]:
         print("胜方：" + ("主人公" if v["winner"] == "protagonists" else "剧作家"))
     for loc, label in LOCATIONS.items():
@@ -217,7 +219,7 @@ def match_board(game, viewer="spectator"):
         for c in v["characters"].values():
             if c["location"] == loc:
                 panic = " 达临界" if c["alive"] and c["paranoia"] >= c["paranoia_limit"] else ""
-                ex = f" · Ex {c.get('ex_cards', 0)}" if v["module"] == "MZ" else ""
+                ex = f" · Ex牌 {c.get('ex_cards', 0)}" if c.get("ex_cards", 0) else ""
                 print(f"    {c['name']} [{c['id']}] {'存活' if c['alive'] else '尸体'} | "
                       f"友好 {c['goodwill']} · 不安 {c['paranoia']}/{c['paranoia_limit']}{panic} · "
                       f"密谋 {c['intrigue']} · 护卫 {c['guard']}{ex}")
@@ -249,6 +251,11 @@ def match_board(game, viewer="spectator"):
         print(f"已公开规则 X：{PLOTS[plot][0]}")
     if v["protected"]:
         print("公开保护：本轮主人公不会死亡，但仍可能因其他条件失败。")
+    for lock in v.get("sealed_boards", []):
+        print(f"公开封锁：{LOCATIONS[lock['board']]}至第 {lock['through']} 天不能通过移动进入或离开。")
+    for cid, day in v.get("movement_locks", {}).items():
+        if day == v["round"]:
+            print(f"公开限制：{game.name(cid)}今天不能移动。")
     for key in sorted(set(v["ability_day_used"]) | set(v["ability_loop_used"])):
         _, cid, aid = key.split(":")
         when = "今日已声明" if key in v["ability_day_used"] else "本轮已声明"

@@ -31,7 +31,7 @@ def make(module="FS", main=None, subplots=None, roles=None, kind=None, culprit="
                       else {"worker": "witch", "maiden": "conspiracy"})
     return Game({"id": "test", "title": "规则测试", "module": module, "days": days, "loops": loops,
                  "main_plot": main, "subplots": subplots,
-                 "cast": {c: roles.get(c, "ordinary") for c in CHARACTERS},
+                 "cast": {c: roles.get(c, "ordinary") for c in MODULES[module].characters},
                  "incidents": [] if kind is None else [{"day": 1, "kind": kind, "culprit": culprit}]})
 
 
@@ -817,7 +817,7 @@ class MatchAndVisibilityTests(unittest.TestCase):
             data = generated_scenario(module, main, chosen)
             allowed = list(MODULES[module].incidents)
             data["incidents"] = [{"day": n, "kind": rng.choice(allowed), "culprit": c}
-                                 for n, c in enumerate(rng.sample(list(CHARACTERS), 3), 1)]
+                                 for n, c in enumerate(rng.sample(list(MODULES[module].characters), 3), 1)]
             game = Game(data)
             for step in range(600):
                 if game.winner:
@@ -855,7 +855,7 @@ def generated_scenario(module, main, xs):
         needed[role] = min(needed[role], cap)
     roles = list(needed.elements())
     # A girl is first so Sign With Me gets a valid Key Person.
-    cast_order = ["girl", *[c for c in CHARACTERS if c != "girl"]]
+    cast_order = ["girl", *[c for c in MODULES[module].characters if c != "girl"]]
     cast = {cid: roles[i] if i < len(roles) else "ordinary" for i, cid in enumerate(cast_order)}
     return {"id": "generated", "title": "组合测试", "module": module, "days": 3, "loops": 2,
             "main_plot": main, "subplots": xs, "cast": cast, "incidents": []}

@@ -9,12 +9,15 @@ ROLE_NAMES = {"ordinary": "平民", "key": "关键人物", "killer": "杀手", "
               "puppet": "傀儡", "assassin": "刺客", "terrorist": "恐怖分子",
               "returner_enemy": "归来者·敌", "returner_friend": "归来者·友",
               "trickster": "捣蛋鬼", "ninja": "忍者", "obsessive": "强迫症",
-              "magician": "魔术师", "immortal": "永生者", "prophet": "预言家"}
+              "magician": "魔术师", "immortal": "永生者", "prophet": "预言家",
+              "poisoner": "投毒者", "fool": "愚者", "paranoid": "偏执狂",
+              "psychiatrist": "心理医生", "detective": "侦探", "twin": "双胞胎"}
 REFUSAL = {"killer": "optional", "brain": "optional", "curmudgeon": "optional",
            "factor": "optional", "cultist": "mandatory", "witch": "mandatory",
            "puppet": "optional", "assassin": "optional", "terrorist": "optional",
            "returner_enemy": "optional", "trickster": "optional"}
 REFUSAL.update({"ninja": "optional", "obsessive": "mandatory"})
+REFUSAL.update({"poisoner": "optional", "paranoid": "mandatory"})
 INCIDENT_NAMES = {"murder": "谋杀", "unease": "不安扩散", "suicide": "自杀",
                   "hospital": "医院事故", "faraway": "远距离杀人", "missing": "失踪",
                   "spreading": "散播", "foul_play": "邪气污染", "butterfly": "蝴蝶效应",
@@ -23,6 +26,9 @@ INCIDENT_NAMES = {"murder": "谋杀", "unease": "不安扩散", "suicide": "自�
 INCIDENT_NAMES.update({"serial_murder": "连续杀人", "covert_activity": "隐蔽活动",
                        "riot": "暴乱", "breakthrough": "破局", "fake_suicide": "伪装自杀",
                        "fake_incident": "伪造事件"})
+INCIDENT_NAMES.update({"terror_attack": "恐怖袭击", "omen": "前兆",
+                       "bizarre_murder": "猎奇杀人", "suspicious_letter": "可疑信件",
+                       "lockdown": "封锁", "silver_bullet": "银色子弹"})
 # id: (name, Y/X, required roles). Duplicate roles are capped by their printed maximum.
 PLOTS = {
     "murder_plan": ("谋杀计划", "Y", {"key": 1, "killer": 1, "brain": 1}),
@@ -65,6 +71,17 @@ PLOTS = {
     "mz_death_show": ("死亡真人秀", "X", {"magician": 1, "immortal": 1}),
     "mz_clear_mind": ("心无重障", "X", {"conspiracy": 1, "magician": 1}),
     "mz_doom_song": ("灭亡颂歌", "X", {"prophet": 1}),
+    "mc_event_web": ("事件交织的罗网", "Y", {"fool": 1, "conspiracy": 1}),
+    "mc_tightrope": ("命悬一线的计划", "Y", {"killer": 1, "brain": 1}),
+    "mc_dark_school": ("黑暗学园", "Y", {"brain": 1}),
+    "mc_strychnine": ("士的宁毒液", "Y", {"key": 1, "poisoner": 1, "fool": 1}),
+    "mc_isolation": ("隔离病房惊魂记", "X", {"conspiracy": 1, "paranoid": 1,
+                                                 "psychiatrist": 1}),
+    "mc_gunpowder": ("火药的味道", "X", {"serial": 1}),
+    "mc_detective": ("我是名侦探", "X", {"conspiracy": 1, "friend": 1, "detective": 1}),
+    "mc_fool_dance": ("愚者之舞", "X", {"fool": 1, "friend": 1}),
+    "mc_absolute": ("绝对意志", "X", {"obsessive": 1}),
+    "mc_twins": ("双子的诡计", "X", {"paranoid": 1, "twin": 1}),
 }
 
 
@@ -88,6 +105,7 @@ class ModuleSpec:
 _ALL_CHARACTERS = ("student", "girl", "rich", "class_rep", "teacher", "maiden", "outsider",
                    "police", "worker", "informer", "idol", "journalist", "forensic", "doctor",
                    "patient", "nurse", "soldier")
+_MC_CHARACTERS = (*_ALL_CHARACTERS[:-1], "henchman")
 _FS_PLOTS = ("murder_plan", "avenger", "protect", "ripper", "rumor", "hideous")
 _BTX_PLOTS = ("murder_plan", "sealed", "sign", "change", "bomb", "friends", "love",
               "lurking", "rumor", "virus", "threads", "unknown")
@@ -97,12 +115,17 @@ _OF_PLOTS = ("of_dream_beauty", "of_retry", "of_endless", "of_time_patrol", "of_
 _MZ_PLOTS = ("sealed", "mz_secret_record", "mz_battle", "mz_approaching", "mz_causal",
              "mz_love_hate", "mz_witch_tea", "mz_gods_dice", "mz_factor",
              "mz_death_show", "mz_clear_mind", "mz_doom_song")
+_MC_PLOTS = ("murder_plan", "mc_event_web", "mc_tightrope", "mc_dark_school",
+             "mc_strychnine", "lurking", "mc_isolation", "mc_gunpowder",
+             "mc_detective", "mc_fool_dance", "mc_absolute", "mc_twins")
 _FS_INCIDENTS = ("murder", "unease", "suicide", "hospital", "faraway", "missing", "spreading")
 _BTX_INCIDENTS = (*_FS_INCIDENTS, "foul_play", "butterfly")
 _OF_INCIDENTS = ("murder", "suicide", "malicious_rumor", "hospital", "poison_gas", "exposure",
                  "time_distortion", "confession")
 _MZ_INCIDENTS = ("serial_murder", "suicide", "unease", "missing", "covert_activity",
                  "hospital", "riot", "confession", "breakthrough", "fake_suicide", "fake_incident")
+_MC_INCIDENTS = ("serial_murder", "terror_attack", "hospital", "suicide", "unease", "omen",
+                 "bizarre_murder", "fake_suicide", "suspicious_letter", "lockdown", "silver_bullet")
 _OF_CHARACTERS = ("student", "girl", "rich", "class_rep", "maiden", "police", "worker",
                   "informer", "idol", "doctor", "patient")
 
@@ -116,6 +139,9 @@ MODULES = {
                      _OF_CHARACTERS, True, friend_gender_split=True),
     "MZ": ModuleSpec("MidnightZone", _MZ_PLOTS, 2, _MZ_INCIDENTS,
                      {"conspiracy": 1, "friend": 2}, True, True, _ALL_CHARACTERS, True),
+    "MC": ModuleSpec("MysteryCircle", _MC_PLOTS, 2, _MC_INCIDENTS,
+                     {"conspiracy": 1, "friend": 2, "fool": 1}, True, True,
+                     _MC_CHARACTERS, True),
 }
 
 # Historical public name retained for callers and saved-game compatibility.
@@ -158,6 +184,14 @@ PLOT_RULES = {
     "mz_death_show": "轮回结束：存活角色不多于 6 名，主人公失败。",
     "mz_clear_mind": "行动结算：禁止友好也同时具有禁止移动的效果。",
     "mz_doom_song": "制作剧本时必须有至少一起自杀；事件阶段：平民为当事人且预言家存活时，该当事人的不安临界 -1。",
+    "mc_event_web": "轮回结束：Ex 槽为 3 或以上，主人公失败。",
+    "mc_tightrope": "轮回结束：Ex 槽为 1 或以下，主人公失败。",
+    "mc_dark_school": "轮回结束：学校密谋不低于当前轮回数 - 1，主人公失败；第 1 轮必败。",
+    "mc_strychnine": "判定连续杀人或自杀是否发生时，密谋也视作不安。",
+    "mc_isolation": "轮回开始：若上一轮结束时 Ex 槽不高于 2，本轮 Ex 槽 +1。",
+    "mc_gunpowder": "轮回结束：所有存活角色身上的密谋合计不低于 12，主人公失败。",
+    "mc_detective": "无追加规则。", "mc_fool_dance": "无追加规则。",
+    "mc_absolute": "无追加规则。", "mc_twins": "无追加规则。",
 }
 ROLE_RULES = {
     "ordinary": "没有身份能力。",
@@ -185,6 +219,12 @@ ROLE_RULES = {
     "magician": "剧作家能力阶段可将同区域友好 ≥1 的角色移至相邻版图，所有魔术师合计每轮一次；死亡时强制移除自身全部友好。",
     "immortal": "不会死亡。",
     "prophet": "剧作家不能在其身上放置行动牌；同区域的其他角色不会引发事件。",
+    "poisoner": "可拒绝友好。日末 Ex 槽 ≥2 时强制使同区域一名角色死亡（每轮一次）；Ex 槽 ≥4 时强制使主人公死亡。",
+    "fool": "制作剧本时必须担任一起事件的当事人；其事件结算后强制移除自身全部不安。人数上限 1。",
+    "paranoid": "必须拒绝友好；剧作家能力阶段可给自身密谋 +1。",
+    "psychiatrist": "剧作家能力阶段 Ex 槽 ≥1 时，强制移除同区域另一名角色的 1 不安。",
+    "detective": "不会死亡且不能担任事件当事人；Ex 槽为 0 且与今日存活当事人同区域时，事件必定发生。",
+    "twin": "制作剧本时必须担任一起事件的当事人；结算其事件时，视为位于实际位置对角线的版图。",
 }
 INCIDENT_RULES = {
     "murder": "同当事人一个区域的另一名存活角色死亡。",
@@ -205,8 +245,14 @@ INCIDENT_RULES = {
     "covert_activity": "选择此前已经发生的一起事件，执行该事件的效果。",
     "riot": "医院密谋 ≥1：医院所有角色死亡；≥2：主人公死亡。学校密谋 ≥1：学校所有角色死亡。都市密谋 ≥1：都市所有角色死亡。",
     "breakthrough": "领队选择一名角色或一个版图，移除其 2 枚密谋（不足则减至 0）。",
-    "fake_suicide": "在当事人身上放置一张 Ex 牌。",
+    "fake_suicide": "在当事人身上放置一张 Ex 牌；MC 中，本轮余下时间主人公不能在有 Ex 牌的角色上放置行动牌。",
     "fake_incident": "在当事人身上放置一张 Ex 牌；本轮余下时间主人公不能在有 Ex 牌的角色上放置行动牌；若当事人密谋 ≥2，主人公失败。公开事件表可使用任意事件名。",
+    "terror_attack": "都市密谋 ≥1：都市所有角色死亡；都市密谋 ≥2：主人公死亡。",
+    "omen": "发生临界为当事人不安临界 -1；同区域一名角色不安 +1。",
+    "bizarre_murder": "发生临界为当事人不安临界 +1；Ex 槽改为增加 2；依次结算连续杀人和不安扩散。",
+    "suspicious_letter": "将同区域一名角色移至任意版图；若实际移动，次日该角色不能移动。",
+    "lockdown": "指定当事人所在版图；从当日起三天内，角色不能通过移动进入或离开该版图。",
+    "silver_bullet": "Ex 槽不增加；事件阶段结束时立即结束本轮。",
 }
 
 
@@ -278,6 +324,10 @@ CHARACTERS = {
     "soldier": CharacterDef("军人", "hospital", 3, ("adult", "man"),
                             (Ability("alarm", 2, "同区域角色不安 +2", "counter", "same", "paranoia", 2, True),
                              Ability("protect", 5, "本轮主人公不会死亡", "protect", once=True))),
+    "henchman": CharacterDef("手下", "school", 1, ("adult", "man"),
+                              (Ability("prevent_incident", 3, "阻止自身担任当事人的今日事件发生",
+                                       "prevent_incident", "self"),),
+                              passive="每轮开始时由剧作家决定初始区域。"),
 }
 
 TRAIT_NAMES = {"student": "学生", "boy": "少年", "girl": "少女", "adult": "成人", "man": "男性", "woman": "女性"}

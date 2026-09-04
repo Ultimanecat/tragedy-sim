@@ -96,6 +96,13 @@ def validate_scenario(data: dict) -> dict:
     if any(role == "obsessive" for role in cast.values()) and not any(
             cast[culprit] == "obsessive" for culprit in culprit_kinds):
         raise RuleError("强迫症必须担任至少一起事件的当事人")
+    if any(role == "detective" for role in cast.values()) and any(
+            cast[culprit] == "detective" for culprit in culprit_kinds):
+        raise RuleError("侦探不能担任事件的当事人")
+    for role, name in (("fool", "愚者"), ("twin", "双胞胎")):
+        if any(value == role for value in cast.values()) and not any(
+                cast[culprit] == role for culprit in culprit_kinds):
+            raise RuleError(f"{name}必须担任至少一起事件的当事人")
     if type(data.get("table_talk", False)) is not bool:
         raise RuleError("table_talk 必须是布尔值")
     result = deepcopy(data)
@@ -121,6 +128,11 @@ def example_scenario(module: str = "FS") -> dict:
         subplots = ["mz_factor", "mz_doom_song"]
         cast = {"student": "ordinary", "girl": "key", "doctor": "brain",
                 "worker": "conspiracy", "maiden": "factor", "patient": "prophet"}
+    elif module == "MC":
+        main_plot = "mc_event_web"
+        subplots = ["mc_detective", "mc_absolute"]
+        cast = {"student": "detective", "girl": "fool", "doctor": "conspiracy",
+                "worker": "friend", "maiden": "obsessive", "patient": "ordinary"}
     else:
         main_plot = "murder_plan"
         subplots = ["rumor"] if module == "FS" else ["rumor", "threads"]
@@ -130,7 +142,10 @@ def example_scenario(module: str = "FS") -> dict:
         "id": "silent-town-" + module.lower(), "title": "寂静小镇（原创教学剧本）", "module": module,
         "days": 3, "loops": 3, "main_plot": main_plot,
         "subplots": subplots, "cast": cast,
-        "incidents": ([{"day": 2, "kind": "serial_murder", "culprit": "doctor"},
+        "incidents": ([{"day": 2, "kind": "omen", "culprit": "girl"},
+                       {"day": 3, "kind": "suicide", "culprit": "maiden"}]
+                      if module == "MC" else
+                      [{"day": 2, "kind": "serial_murder", "culprit": "doctor"},
                        {"day": 3, "kind": "suicide", "culprit": "patient"}]
                       if module == "MZ" else
                       [{"day": 2, "kind": "murder", "culprit": "doctor"},

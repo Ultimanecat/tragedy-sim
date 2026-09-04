@@ -215,7 +215,8 @@ class TragedyApp:
                                         state="disabled" if replay else "normal")
         self.root.title(f"悲剧轮回 · {view['module']} {mode}")
         self.match_title.configure(text=f"{view['title']}  /  {view['module']}" + ("  ·  只读回放" if replay else ""))
-        self.turn_label.configure(text=f"轮回 {view['loop']}/{view['loops']}   第 {view['round']}/{view['days']} 天  ·  {phase}")
+        ex_status = f"  ·  Ex 槽 {view['ex_gauge']}" if view["module"] == "MC" else ""
+        self.turn_label.configure(text=f"轮回 {view['loop']}/{view['loops']}   第 {view['round']}/{view['days']} 天  ·  {phase}{ex_status}")
         self.discussion.configure(text=(f"回放位置：{self.session.index}/{self.session.length}"
                                         if replay else
                                         f"领队：{ACTOR_NAMES[view['leader']]}   ·   讨论：{'允许' if view['table_talk'] else '受限（真人遵守）'}"))
@@ -270,7 +271,10 @@ class TragedyApp:
         for i, (loc, name) in enumerate(LOCATIONS.items()):
             area = tk.Frame(self.board.body, bg=PANEL, highlightthickness=1, highlightbackground=LINE, padx=8, pady=8)
             area.grid(row=i // 2, column=i % 2, sticky="nsew", padx=6, pady=6)
-            title = tk.Button(area, text=f"{name}   ·   密谋 {view['locations'][loc]}", command=lambda t=loc: self.inspect(t),
+            sealed = next((item["through"] for item in view.get("sealed_boards", [])
+                           if item["board"] == loc), None)
+            seal_text = f"   ·   封锁至第 {sealed} 天" if sealed is not None else ""
+            title = tk.Button(area, text=f"{name}   ·   密谋 {view['locations'][loc]}{seal_text}", command=lambda t=loc: self.inspect(t),
                               bg=PANEL, fg=AREA_COLORS[loc], activebackground=CARD, activeforeground=INK, relief="flat",
                               anchor="w", font=("Microsoft YaHei UI", 12, "bold"), cursor="hand2")
             title.pack(fill="x")
@@ -290,7 +294,8 @@ class TragedyApp:
                 name_label.pack(fill="x")
                 panic = " !" if c["alive"] and c["paranoia"] >= c["paranoia_limit"] else ""
                 ex = f"   Ex {c['ex_cards']}" if c.get("ex_cards") else ""
-                counts = tk.Label(shell, text=f"友好 {c['goodwill']}   不安 {c['paranoia']}/{c['paranoia_limit']}{panic}   密谋 {c['intrigue']}   护卫 {c['guard']}{ex}",
+                locked = "   今日禁止移动" if view.get("movement_locks", {}).get(c["id"]) == view["round"] else ""
+                counts = tk.Label(shell, text=f"友好 {c['goodwill']}   不安 {c['paranoia']}/{c['paranoia_limit']}{panic}   密谋 {c['intrigue']}   护卫 {c['guard']}{ex}{locked}",
                                   bg=CARD, fg=DANGER if panic else MUTED, font=("Microsoft YaHei UI", 10), anchor="w")
                 counts.pack(fill="x", pady=(4, 0))
                 placements = self._placements(view, c["id"])
