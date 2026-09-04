@@ -30,6 +30,37 @@ quit                          退出
 """
 
 
+def _report_gui_error(message):
+    """Report startup failures even when a Windows GUI launcher has no console."""
+    stream = sys.stderr or sys.stdout
+    if stream is not None:
+        print(message, file=stream)
+        return
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, message, "悲剧轮回", 0x10)
+        except (AttributeError, OSError):
+            pass
+
+
+def _load_gui_main():
+    # Keep tkinter out of the console CLI and the installed GUI bootstrap.
+    from .gui import main as entrypoint
+    return entrypoint
+
+
+def gui_main(argv=None):
+    try:
+        entrypoint = _load_gui_main()
+    except ImportError as exc:
+        if exc.name not in ("tkinter", "_tkinter"):
+            raise
+        _report_gui_error("此 Python 没有安装 Tk，无法启动 GUI。请安装包含 Tcl/Tk 的 Python，或继续使用命令行。")
+        return 1
+    return entrypoint(argv, error_reporter=_report_gui_error)
+
+
 def board(game: ActionGame, viewer: str = "spectator") -> None:
     view = game.view(viewer)
     print(f"\n{view['module']} 出牌练习 | 轮回 {view['loop']} | 第 {view['round']} 次出牌 | "
@@ -314,13 +345,6 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if "--gui" in argv:
         argv.remove("--gui")
-        try:
-            from .gui import main as gui_main
-        except ImportError as exc:
-            if exc.name not in ("tkinter", "_tkinter"):
-                raise
-            print("此 Python 没有安装 Tk，无法启动 GUI。请安装包含 Tcl/Tk 的 Python，或继续使用命令行。")
-            return 1
         return gui_main(argv)
     if "--practice" in argv:
         argv.remove("--practice")

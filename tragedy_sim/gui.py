@@ -25,6 +25,11 @@ DANGER = "#ffabab"
 AREA_COLORS = {"hospital": "#a9d2ff", "shrine": "#e2b6de", "city": "#f0cc8d", "school": "#a5debb"}
 
 
+class GuiArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        raise ValueError(f"{message}\n{self.format_usage().strip()}")
+
+
 class ScrollFrame(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
@@ -618,28 +623,42 @@ class TragedyApp:
             self.root.destroy()
 
 
-def main(argv=None):
+def _console_error(message):
+    stream = sys.stderr or sys.stdout
+    if stream is not None:
+        print(message, file=stream)
+
+
+def main(argv=None, *, error_reporter=None):
+    error_reporter = error_reporter or _console_error
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
-    parser = argparse.ArgumentParser(description="悲剧轮回 FS/BTX 本地热座 GUI")
+    parser = GuiArgumentParser(description="悲剧轮回 FS/BTX 本地热座 GUI")
     parser.add_argument("--module", choices=("FS", "BTX"), default="FS")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--script", help="载入 JSON 剧本")
     source.add_argument("--load", help="恢复 JSON 存档")
-    args = parser.parse_args(argv)
     try:
-        game = Game.load(args.load) if args.load else Game(load_scenario(args.script) if args.script else example_scenario(args.module))
-    except (ValueError, TypeError, OSError) as exc:
-        print(f"无法开始对局：{exc}", file=sys.stderr)
-        return 1
+        args = parser.parse_args(argv)
+    except ValueError as exc:
+        error_reporter(f"无法解析 GUI 启动参数：{exc}")
+        return 2
     try:
         root = tk.Tk()
     except tk.TclError as exc:
-        print(f"无法打开桌面窗口：{exc}\n请在有图形桌面、安装了 Tk 的 Python 环境运行。", file=sys.stderr)
+        error_reporter(f"无法打开桌面窗口：{exc}\n请在有图形桌面、安装了 Tk 的 Python 环境运行。")
+        return 1
+    root.withdraw()
+    try:
+        game = Game.load(args.load) if args.load else Game(load_scenario(args.script) if args.script else example_scenario(args.module))
+    except (ValueError, TypeError, OSError) as exc:
+        messagebox.showerror("无法开始对局", str(exc), parent=root)
+        root.destroy()
         return 1
     TragedyApp(root, game)
+    root.deiconify()
     root.mainloop()
     return 0
 

@@ -13,7 +13,7 @@ dependencies = []
 tragedy-sim = "tragedy_sim.cli:main"
 
 [project.gui-scripts]
-tragedy-sim-gui = "tragedy_sim.gui:main"
+tragedy-sim-gui = "tragedy_sim.cli:gui_main"
 
 [tool.setuptools.packages.find]
 include = ["tragedy_sim*"]

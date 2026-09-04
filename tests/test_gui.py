@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 import unittest
+from unittest.mock import Mock, patch
 
 from tragedy_sim import Game, RuleError
 from tragedy_sim.hotseat import HotseatSession, character_details, public_knowledge, public_log, public_rules, secret_dossier
@@ -100,6 +101,32 @@ class HotseatSessionTests(unittest.TestCase):
         self.assertIn("不安临界", character_details(public, "girl"))
 
 
+class GuiBootstrapTests(unittest.TestCase):
+    def test_installed_launcher_reports_missing_tk(self):
+        from tragedy_sim import cli
+        missing = ImportError("No module named '_tkinter'", name="_tkinter")
+        reporter = Mock()
+        with patch.object(cli, "_load_gui_main", side_effect=missing), patch.object(cli, "_report_gui_error", reporter):
+            self.assertEqual(cli.gui_main([]), 1)
+        reporter.assert_called_once()
+        self.assertIn("没有安装 Tk", reporter.call_args.args[0])
+
+    def test_installed_launcher_does_not_swallow_unrelated_import_errors(self):
+        from tragedy_sim import cli
+        missing = ImportError("No module named 'unrelated'", name="unrelated")
+        with patch.object(cli, "_load_gui_main", side_effect=missing):
+            with self.assertRaises(ImportError):
+                cli.gui_main([])
+
+    def test_installed_launcher_passes_graphical_error_reporter(self):
+        from tragedy_sim import cli
+        entrypoint = Mock(return_value=7)
+        reporter = Mock()
+        with patch.object(cli, "_load_gui_main", return_value=entrypoint), patch.object(cli, "_report_gui_error", reporter):
+            self.assertEqual(cli.gui_main(["--module", "BTX"]), 7)
+        entrypoint.assert_called_once_with(["--module", "BTX"], error_reporter=reporter)
+
+
 class TkSmokeTests(unittest.TestCase):
     def setUp(self):
         try:
@@ -133,6 +160,34 @@ class TkSmokeTests(unittest.TestCase):
         app.hide()
         self.root.update_idletasks()
         self.assertNotIn("card:p1a", app.controls)
+
+    def test_startup_uses_reporter_when_tk_cannot_open(self):
+        from tragedy_sim import gui
+        reporter = Mock()
+        with patch.object(gui.tk, "Tk", side_effect=self.tk.TclError("no display")):
+            self.assertEqual(gui.main([], error_reporter=reporter), 1)
+        reporter.assert_called_once()
+        self.assertIn("无法打开桌面窗口", reporter.call_args.args[0])
+
+    def test_invalid_gui_arguments_use_reporter_before_opening_tk(self):
+        from tragedy_sim import gui
+        reporter = Mock()
+        with patch.object(gui.tk, "Tk") as make_root:
+            self.assertEqual(gui.main(["--unknown"], error_reporter=reporter), 2)
+        make_root.assert_not_called()
+        reporter.assert_called_once()
+        self.assertIn("无法解析 GUI 启动参数", reporter.call_args.args[0])
+
+    def test_load_failure_is_shown_in_a_dialog(self):
+        from tragedy_sim import gui
+        fake_root = Mock()
+        with patch.object(gui.tk, "Tk", return_value=fake_root), \
+                patch.object(gui.Game, "load", side_effect=RuleError("坏存档")), \
+                patch.object(gui.messagebox, "showerror") as showerror:
+            self.assertEqual(gui.main(["--load", "bad.json"]), 1)
+        fake_root.withdraw.assert_called_once_with()
+        fake_root.destroy.assert_called_once_with()
+        showerror.assert_called_once_with("无法开始对局", "坏存档", parent=fake_root)
 
     def test_selection_then_dispatch_uses_engine_and_handoff(self):
         from tragedy_sim.gui import TragedyApp
