@@ -35,6 +35,7 @@ class Game(ActionGame):
         self.roles = dict(self.scenario["cast"])
         self.ex_cards = dict.fromkeys(self.roles, 0)
         self.ex_gauge = 0
+        self.board_ex = dict.fromkeys(LOCATIONS, 0)
         self._apply_current_roles()
         self.known_roles = {}
         self.role_announcements = []
@@ -77,6 +78,9 @@ class Game(ActionGame):
         self._loop_initial_locations = {cid: CHARACTERS[cid].start for cid in self.roles}
         self._distort_next_day = False
         self._night_forced_done = False
+        self._hsa_monster_uses = 0
+        self._hsa_frenzied_night = False
+        self._hsa_frenzied_night_lethal = False
         self.state.phase = "day_start"
         self._event("loop_started", f"第 1 轮回开始，共 {self.scenario['loops']} 轮，每轮 {self.scenario['days']} 天。")
         self._start_loop_placements()
@@ -208,6 +212,8 @@ class Game(ActionGame):
             return False
         if actor != "m" and self._fake_incident_active and self.ex_cards.get(target, 0):
             return False
+        if actor == "m" and target in self.roles and self._has(target, "werewolf"):
+            return False
         return True
 
     def play(self, actor, card_id, target):
@@ -245,11 +251,19 @@ class Game(ActionGame):
                        for board, through in self._sealed_boards)
 
     def _has(self, cid, role):
-        if not self.state.characters[cid].alive:
+        if (not self.state.characters[cid].alive
+                and not (self.module == "HSA" and role in ("ghost", "zombie"))):
             return False
         return self.roles[cid] == role or (self.roles[cid] == "factor" and
                 ((role == "key" and self.state.locations["city"] >= 2) or
                  (role == "conspiracy" and self.state.locations["school"] >= 2)))
+
+    def _hsa_corpses(self, board):
+        return self.state.locations[board] + sum(
+            not c.alive for c in self.state.characters.values() if c.location == board)
+
+    def _hsa_curse_total(self):
+        return sum(self.ex_cards.values()) + sum(self.board_ex.values())
 
     def _counter_mutated(self, target, counter):
         if "virus" in self.scenario["subplots"]:
@@ -420,6 +434,16 @@ class Game(ActionGame):
                 factor_locations = sorted({c.location for c in self._living() if self._has(c.id, "factor")})
                 result += self._counter_options(None, "plot:mz_factor", factor_locations,
                                                 "intrigue", 1, "X 异因子（每轮一次）", True)
+            if ("hsa_monster_plot" in self.scenario["subplots"]
+                    and "plot:hsa_monster:day" not in self.day_used
+                    and self._hsa_monster_uses < 2):
+                locations = sorted({c.location for c in self._living()
+                                    if self.roles[c.id] in REFUSAL})
+                for location in locations:
+                    result.append(option(
+                        f"怪物们的阴谋：在{LOCATIONS[location]}放置一具尸体",
+                        [op("counter", target=location, counter="intrigue", amount=1),
+                         op("hsa_monster_used")], key="plot:hsa_monster:day"))
             if self.module == "MZ" and self._available_key("role:magician", True):
                 for magician in self._living():
                     if not self._has(magician.id, "magician"):
@@ -491,6 +515,52 @@ class Game(ActionGame):
                             if target.location == c.location and target.intrigue >= 2:
                                 result.append(option(f"{c.name}（忍者）：使{target.name}死亡",
                                                      [op("kill", target=target.id)], key=key))
+                if self._has(c.id, "vampire"):
+                    key = f"vampire:key:{c.id}"
+                    if self._available_key(key):
+                        for target in self._living():
+                            if (target.location == c.location and self._has(target.id, "key")
+                                    and target.intrigue >= 2):
+                                result.append(option(f"{c.name}（吸血鬼）：使{target.name}死亡",
+                                                     [op("kill", target=target.id)], key=key))
+                    key = f"vampire:heroes:{c.id}"
+                    if (self._hsa_corpses(self._loop_initial_locations[c.id]) >= 2
+                            and self._available_key(key)):
+                        result.append(option(f"{c.name}（吸血鬼）：使主人公死亡",
+                                             [op("heroes_die")], key=key))
+                if self._has(c.id, "werewolf") and self._hsa_frenzied_night:
+                    key = f"werewolf:{c.id}"
+                    if self._available_key(key):
+                        result.append(option(f"{c.name}（狼人）：使主人公死亡",
+                                             [op("heroes_die")], key=key))
+                if self._has(c.id, "nightmare"):
+                    key = f"nightmare:kill:{c.id}"
+                    if self._available_key(key):
+                        for target in self._living():
+                            if target.location == c.location:
+                                result.append(option(f"{c.name}（梦魇）：使{target.name}死亡",
+                                                     [op("kill", target=target.id)], key=key))
+                    key = f"nightmare:heroes:{c.id}"
+                    if self._hsa_curse_total() >= 3 and self._available_key(key):
+                        result.append(option(f"{c.name}（梦魇）：使主人公死亡",
+                                             [op("heroes_die")], key=key))
+            if (self.scenario["main_plot"] == "hsa_cursed_land"
+                    and any(self.board_ex[board] and not any(
+                        c.alive and c.location == board and not self.ex_cards[c.id]
+                        for c in self.state.characters.values()) for board in LOCATIONS)):
+                result.append(option("被诅咒的土地：无目标的版图诅咒使主人公死亡",
+                                     [op("heroes_die")], key="plot:hsa_cursed_land"))
+            if self.module == "HSA" and "zombie:move" not in self.day_used:
+                for c in self.state.characters.values():
+                    if c.alive or not self._has(c.id, "zombie"):
+                        continue
+                    x, y = COORDS[c.location]
+                    for location, coords in COORDS.items():
+                        if abs(x - coords[0]) + abs(y - coords[1]) == 1:
+                            result.append(option(
+                                f"丧尸：将{c.name}的尸体移至{LOCATIONS[location]}",
+                                [op("move_corpse", target=c.id, location=location)],
+                                key="zombie:move"))
         elif phase == "refusal":
             request = self._request
             if request.get("already_used"):
@@ -498,6 +568,9 @@ class Game(ActionGame):
             refusal = None if request["unrefusable"] else REFUSAL.get(self.roles[request["source"]])
             if (self.roles[request["source"]] == "puppet"
                     and self.state.characters[request["source"]].goodwill >= 4):
+                refusal = "mandatory"
+            if (self._has(request["source"], "paper_tiger")
+                    and self.state.characters[request["source"]].paranoia >= 2):
                 refusal = "mandatory"
             if refusal != "mandatory":
                 result.append(option("执行已声明的友好能力", request["effects"], accept=True))
@@ -641,7 +714,8 @@ class Game(ActionGame):
             if not c.alive:
                 continue
             if (self._has(target, "time_traveler") or self._has(target, "immortal")
-                    or self._has(target, "detective")):
+                    or self._has(target, "detective") or self._has(target, "vampire")
+                    or self._has(target, "nightmare") or self._has(target, "paper_tiger")):
                 self._event("death_prevented", f"{c.name}没有死亡。", target=target)
             elif self.guards[target]:
                 self.guards[target] -= 1
@@ -653,6 +727,9 @@ class Game(ActionGame):
                 killed.append(target)
         for target in killed:
             self.state.characters[target].alive = False
+            if (self.scenario["main_plot"] == "hsa_ancient_dead"
+                    and self.roles[target] in ("ordinary", "paper_tiger")):
+                self.roles[target] = "zombie"
             if self.roles[target] == "puppet":
                 self._permanent_dead.add(target)
             self._event("character_died", f"{self.name(target)}死亡；尸体留在原地，计数物保留。", target=target)
@@ -704,7 +781,8 @@ class Game(ActionGame):
     def _public_board(self):
         return {"characters": {c.id: asdict(c) for c in self.state.characters.values()},
                 "locations": dict(self.state.locations), "guards": dict(self.guards),
-                "ex_cards": dict(self.ex_cards), "ex_gauge": self.ex_gauge}
+                "ex_cards": dict(self.ex_cards), "board_ex": dict(self.board_ex),
+                "ex_gauge": self.ex_gauge}
 
     def _drain(self):
         while self._queue and self.state.phase not in ("loop_end", "final_guess", "game_over"):
@@ -762,6 +840,61 @@ class Game(ActionGame):
                 self._refresh_mz_ex_roles()
                 self._event("ex_added", f"{self.name(target)}获得一张 Ex 牌（现有 {self.ex_cards[target]} 张）。",
                             target=target, count=self.ex_cards[target])
+            elif kind == "hsa_add_curse":
+                target = effect["target"]
+                if target in LOCATIONS:
+                    self.board_ex[target] += 1
+                    count = self.board_ex[target]
+                else:
+                    self.ex_cards[target] += 1
+                    count = self.ex_cards[target]
+                self._incident_effect = True
+                self._event("curse_added", f"{self.name(target)}获得一张诅咒牌（现有 {count} 张）。",
+                            target=target, count=count)
+            elif kind == "hsa_attach_curse":
+                board, target = effect["board"], effect["target"]
+                self.board_ex[board] -= 1
+                self.ex_cards[target] += 1
+                self._event("curse_attached", f"{LOCATIONS[board]}的一张诅咒牌附身于{self.name(target)}。",
+                            board=board, target=target)
+            elif kind == "hsa_resolve_curse":
+                target = effect["target"]
+                board = self.state.characters[target].location
+                self.ex_cards[target] -= 1
+                self._kill([target])
+                self.board_ex[board] += 1
+                self._event("curse_returned", f"{self.name(target)}身上的诅咒牌移至{LOCATIONS[board]}。",
+                            target=target, board=board)
+            elif kind == "hsa_curse_batch":
+                remaining = list(effect["remaining"])
+                if remaining:
+                    choices = []
+                    for index, source in enumerate(remaining):
+                        rest = remaining[:index] + remaining[index + 1:]
+                        if source in self.roles:
+                            choices.append(option(
+                                f"结算{self.name(source)}身上的诅咒牌",
+                                [op("hsa_resolve_curse", target=source),
+                                 op("hsa_curse_batch", remaining=rest)]))
+                            continue
+                        targets = [c.id for c in self._living()
+                                   if c.location == source and not self.ex_cards[c.id]]
+                        choices += [option(
+                            f"{LOCATIONS[source]}的诅咒附身于{self.name(target)}",
+                            [op("hsa_attach_curse", board=source, target=target),
+                             op("hsa_curse_batch", remaining=rest)])
+                            for target in targets]
+                        if not targets:
+                            choices.append(option(
+                                f"结算{LOCATIONS[source]}无目标的诅咒牌",
+                                [op("hsa_curse_no_target", board=source),
+                                 op("hsa_curse_batch", remaining=rest)]))
+                    self._queue.insert(0, op("choice", prompt="选择下一张诅咒牌及其结算方式",
+                                             options=choices))
+            elif kind == "hsa_curse_no_target":
+                board = effect["board"]
+                self._event("curse_no_target", f"{LOCATIONS[board]}的诅咒牌没有可附身的角色。",
+                            board=board)
             elif kind == "place_ex":
                 target = effect["target"]
                 sources = [cid for cid, count in self.ex_cards.items() if count]
@@ -786,6 +919,25 @@ class Game(ActionGame):
                 self._fake_incident_active = True
                 self._incident_effect = True
                 self._event("action_restriction", "本轮余下时间，主人公不能在有 Ex 牌的角色上放置行动牌。")
+            elif kind == "hsa_monster_used":
+                self._hsa_monster_uses += 1
+            elif kind == "hsa_frenzied_night":
+                self._hsa_frenzied_night = True
+                self._hsa_frenzied_night_lethal = (
+                    sum(self._hsa_corpses(board) for board in LOCATIONS) >= 6)
+                self._incident_effect = True
+                self._event("frenzied_night_active", "疯狂之夜已经发生；将在日末检查尸体总数。")
+            elif kind == "hsa_apocalypse":
+                board = effect["board"]
+                self._kill([c.id for c in self._living() if c.location == board])
+                if self.state.phase not in ("loop_end", "final_guess", "game_over") \
+                        and self._hsa_corpses(board) >= 5:
+                    self._queue.insert(0, op("heroes_die"))
+            elif kind == "move_corpse":
+                target, location = effect["target"], effect["location"]
+                self.state.characters[target].location = location
+                self._event("corpse_moved", f"{self.name(target)}的尸体移至{LOCATIONS[location]}。",
+                            target=target, location=location)
             elif kind == "ex_gauge":
                 self._change_ex_gauge(effect["amount"])
             elif kind == "clear_paranoia":
@@ -957,6 +1109,9 @@ class Game(ActionGame):
             self._event("no_incident", "今日没有预定事件。")
             self._begin_night()
             return
+        if self.module == "HSA":
+            self._hsa_incident(incident)
+            return
         culprit = self.state.characters[incident["culprit"]]
         kind = incident["kind"]
         threshold = CHARACTERS[culprit.id].limit
@@ -1073,6 +1228,94 @@ class Game(ActionGame):
         if kind in ("murder", "faraway", "missing", "unease", "spreading", "butterfly",
                     "poison_gas", "exposure"):
             effects = [op("choice", prompt=f"结算{INCIDENT_NAMES[kind]}：选择合法目标", options=choices)]
+        self._queue = effects + [op("incident_done"), op("night")]
+        self._return_phase = "day_end"
+        self._drain()
+
+    def _hsa_incident(self, incident):
+        kind = incident["kind"]
+        group_requirements = {"frenzied_night": 0, "curse_awakening": 1,
+                              "filth_overflow": 2, "dead_apocalypse": 2}
+        group = kind in group_requirements
+        if group:
+            board = incident["culprit"]
+            happened = self._hsa_corpses(board) > group_requirements[kind]
+            culprit = None
+        else:
+            culprit = self.state.characters[incident["culprit"]]
+            board = culprit.location
+            threshold = CHARACTERS[culprit.id].limit - (kind == "funeral")
+            happened = culprit.alive and culprit.paranoia >= threshold
+        record = {"day": self.state.round, "kind": kind, "happened": happened, "effective": False}
+        if group:
+            record["board"] = board
+        self.incident_records.append(record)
+        self._event("incident_status", f"第 {self.state.round} 天「{INCIDENT_NAMES[kind]}」："
+                    + ("发生。" if happened else "未发生。"), incident=kind, happened=happened)
+        if not happened:
+            self._begin_night()
+            return
+        self._incident_before = self._public_board()
+        living = self._living()
+        effects = []
+        if kind == "frenzied_murder":
+            choices = [option(f"使{target.name}死亡", [op("kill", target=target.id)])
+                       for target in living if target.id != culprit.id and target.location == board]
+            choices.append(option(f"在{LOCATIONS[board]}放置一具尸体",
+                                  [op("counter", target=board, counter="intrigue", amount=1)]))
+            effects = [op("choice", prompt="结算癫狂杀人", options=choices)]
+        elif kind == "unease":
+            choices = []
+            for first in living:
+                follow = [option(f"{second.name}：密谋 +1",
+                                 [op("counter", target=second.id, counter="intrigue", amount=1)])
+                          for second in living if second.id != first.id]
+                choices.append(option(f"{first.name}：不安 +2",
+                                      [op("counter", target=first.id, counter="paranoia", amount=2),
+                                       op("choice", prompt="选择另一名角色密谋 +1", options=follow)]))
+            effects = [op("choice", prompt="结算不安扩散", options=choices)]
+        elif kind == "missing":
+            effects = [op("choice", prompt="结算失踪", options=[
+                option(f"将{culprit.name}移至{LOCATIONS[location]}，随后版图增加一具尸体",
+                       [op("move", target=culprit.id, location=location),
+                        op("missing_intrigue", target=culprit.id)])
+                for location in LOCATIONS if location not in culprit.forbidden])]
+        elif kind == "foul_play":
+            effects = [op("counter", target="shrine", counter="intrigue", amount=2)]
+        elif kind == "funeral":
+            effects = [op("choice", actor=self.state.leader, prompt="送葬：领队选择一名角色死亡",
+                          options=[option(f"使{target.name}死亡", [op("kill", target=target.id)])
+                                   for target in living])]
+        elif kind == "curse_declaration":
+            effects = [op("hsa_add_curse", target=culprit.id)]
+        elif kind == "barricade":
+            groups = []
+            for target in living:
+                if target.id == culprit.id or target.location != board:
+                    continue
+                groups.append({"prompt": f"孤守：移动{target.name}", "options": [
+                    option(f"将{target.name}移至{LOCATIONS[location]}",
+                           [op("move", target=target.id, location=location)])
+                    for location in LOCATIONS
+                    if location != board and location not in target.forbidden]})
+            effects = [op("mandatory_choice_batch", choices=groups)]
+        elif kind == "frenzied_night":
+            effects = [op("hsa_frenzied_night")]
+        elif kind == "curse_awakening":
+            effects = [op("hsa_add_curse", target=board)]
+        elif kind == "filth_overflow":
+            targets = [target for target in living if target.location == board]
+            effects = [op("choice", prompt="污秽溢出：选择不安目标", options=[
+                option(f"{target.name}不安 +2", [op("counter", target=target.id,
+                                                     counter="paranoia", amount=2),
+                                               op("choice", prompt="选择增加尸体的版图", options=[
+                                                   option(f"{LOCATIONS[location]}增加一具尸体",
+                                                          [op("counter", target=location,
+                                                              counter="intrigue", amount=1)])
+                                                   for location in LOCATIONS])])
+                for target in targets])]
+        elif kind == "dead_apocalypse":
+            effects = [op("hsa_apocalypse", board=board)]
         self._queue = effects + [op("incident_done"), op("night")]
         self._return_phase = "day_end"
         self._drain()
@@ -1226,34 +1469,72 @@ class Game(ActionGame):
         self._start_day_end_forced()
 
     def _start_master_abilities_forced(self):
-        """Activate MC's compulsory mastermind-phase abilities before optional ones."""
-        if self.module != "MC" or self.ex_gauge < 1:
-            return
-        sources = [c.id for c in self._living() if self._has(c.id, "psychiatrist")]
-        if not sources:
-            return
-        self._return_phase = "master_abilities"
-        self._queue = [op("mc_psychiatrist_batch", sources=sources)]
-        self._drain()
+        """Activate compulsory mastermind-phase abilities before optional ones."""
+        queue = []
+        if self.module == "MC" and self.ex_gauge >= 1:
+            sources = [c.id for c in self._living() if self._has(c.id, "psychiatrist")]
+            if sources:
+                queue.append(op("mc_psychiatrist_batch", sources=sources))
+        if self.module == "HSA":
+            groups = []
+            for c in self.state.characters.values():
+                if not c.alive and self._has(c.id, "ghost"):
+                    targets = [target.id for target in self._living()
+                               if target.location in {c.location, self._loop_initial_locations[c.id]}]
+                    if targets:
+                        groups.append({"prompt": "鬼魂强制能力：选择不安目标", "options": [
+                            option(f"{c.name}（鬼魂）：{self.name(target)}不安 +1",
+                                   [op("counter", target=target, counter="paranoia", amount=1)])
+                            for target in targets]})
+                if c.alive and self._has(c.id, "chicken") and c.paranoia >= 2:
+                    x, y = COORDS[c.location]
+                    destinations = [location for location, coords in COORDS.items()
+                                    if abs(x - coords[0]) + abs(y - coords[1]) == 1]
+                    groups.append({"prompt": "胆小鬼强制能力：选择移动目的地", "options": [
+                        option(f"{c.name}（胆小鬼）：移动至{LOCATIONS[location]}",
+                               [op("move", target=c.id, location=location)])
+                        for location in destinations]})
+            if groups:
+                queue.append(op("mandatory_choice_batch", choices=groups))
+        if queue:
+            self._return_phase = "master_abilities"
+            self._queue = queue
+            self._drain()
 
     def _start_loop_placements(self):
-        if self.module != "MC" or "henchman" not in self.state.characters:
-            return
-        self._return_phase = "day_start"
-        self._queue = [op(
-            "choice", prompt="轮回开始：剧作家决定手下的初始区域",
-            options=[option(f"手下从{LOCATIONS[location]}开始",
-                            [op("set_loop_initial_location", target="henchman", location=location)])
-                     for location in LOCATIONS],
-        )]
-        self._drain()
+        queue = []
+        if self.module == "MC" and "henchman" in self.state.characters:
+            queue.append(op(
+                "choice", prompt="轮回开始：剧作家决定手下的初始区域",
+                options=[option(f"手下从{LOCATIONS[location]}开始",
+                                [op("set_loop_initial_location", target="henchman", location=location)])
+                         for location in LOCATIONS]))
+        if self.module == "HSA":
+            curse_sources = []
+            if self.scenario["main_plot"] == "hsa_cursed_land":
+                curse_sources += [c.id for c in self.state.characters.values() if self._has(c.id, "ghost")]
+            if "hsa_witch_curse" in self.scenario["subplots"]:
+                curse_sources += [c.id for c in self.state.characters.values() if self._has(c.id, "witch")]
+            for source in curse_sources:
+                board = self._loop_initial_locations[source]
+                queue.append(op("choice", prompt=f"轮回开始：是否发动{self.name(source)}的诅咒放置能力",
+                                options=[option(f"在{LOCATIONS[board]}放置诅咒牌",
+                                                [op("hsa_add_curse", target=board)]),
+                                         option("不发动此能力", [])]))
+        if queue:
+            self._return_phase = "day_start"
+            self._queue = queue
+            self._drain()
 
     def _start_day_end_forced(self):
         if self._night_forced_done:
             return
         self._night_forced_done = True
         self._return_phase = "day_end"
-        self._queue = [op("next_day_end_mandatory")]
+        curses = ([target for target, count in (*self.ex_cards.items(), *self.board_ex.items())
+                   for _ in range(count)] if self.module == "HSA" else [])
+        self._queue = ([op("hsa_curse_batch", remaining=curses)] if curses else [])
+        self._queue.append(op("next_day_end_mandatory"))
         self._drain()
 
     def _queue_day_end_mandatory_batch(self):
@@ -1302,6 +1583,26 @@ class Game(ActionGame):
                 })
             if self._has(c.id, "poisoner") and self.ex_gauge >= 4:
                 loss_reasons.append("投毒者使主人公死亡")
+
+        if self.module == "HSA" and "zombie:kill" not in self.day_used:
+            zombie_options = []
+            for board in LOCATIONS:
+                zombies = [c for c in self.state.characters.values()
+                           if c.location == board and self._has(c.id, "zombie")]
+                non_zombies = [c for c in living
+                               if c.location == board and not self._has(c.id, "zombie")]
+                if len(zombies) > len(non_zombies) and non_zombies:
+                    zombie_options += [option(
+                        f"丧尸强制能力：使{target.name}死亡",
+                        [op("mandatory_poison_mark", source="zombie", target=target.id)])
+                        for target in non_zombies]
+            if zombie_options:
+                self.day_used.add("zombie:kill")
+                target_choices.append({"prompt": "丧尸强制能力已触发：选择一名角色死亡",
+                                       "options": zombie_options})
+
+        if self.module == "HSA" and self._hsa_frenzied_night_lethal:
+            loss_reasons.append("疯狂之夜使主人公死亡")
 
         grandfather_key = "mandatory:plot:of_grandfather"
         enemies = [c.id for c in living if self._has(c.id, "returner_enemy")]
@@ -1423,6 +1724,12 @@ class Game(ActionGame):
         self._loop_initial_locations = {cid: CHARACTERS[cid].start for cid in self.roles}
         if self.module == "MC":
             self.ex_cards = dict.fromkeys(self.ex_cards, 0)
+        if self.module == "HSA":
+            self.ex_cards = dict.fromkeys(self.ex_cards, 0)
+            self.board_ex = dict.fromkeys(self.board_ex, 0)
+            self._hsa_monster_uses = 0
+            self._hsa_frenzied_night = False
+            self._hsa_frenzied_night_lethal = False
         self._announced_roles.clear()
         self.incident_records = []
 
@@ -1521,13 +1828,18 @@ class Game(ActionGame):
                       role_announcements=deepcopy(self.role_announcements),
                       known_plots=list(self.known_plots), protected=self.protected,
                       ex_gauge=self.ex_gauge,
+                      board_ex=dict(self.board_ex),
                       movement_locks=dict(self._movement_locks),
                       sealed_boards=[{"board": board, "through": through}
                                      for board, through in self._sealed_boards
                                      if self.state.round <= through],
                       ability_day_used=sorted(self.public_day_used),
                       ability_loop_used=sorted(self.public_loop_used),
-                      schedule=[{"day": i["day"], "kind": i.get("public_kind", i["kind"])}
+                      schedule=[{"day": i["day"], "kind": i.get("public_kind", i["kind"]),
+                                 **({"board": i["culprit"]}
+                                    if self.module == "HSA" and i["kind"] in {
+                                        "frenzied_night", "curse_awakening", "filth_overflow",
+                                        "dead_apocalypse"} else {})}
                                 for i in self.scenario["incidents"]],
                       incidents=deepcopy(self.incident_records), guess_remaining=list(self._guess_remaining))
         if viewer == "m":

@@ -215,11 +215,15 @@ def match_board(game, viewer="spectator"):
     if v["winner"]:
         print("胜方：" + ("主人公" if v["winner"] == "protagonists" else "剧作家"))
     for loc, label in LOCATIONS.items():
-        print(f"  {label} [{loc}] 密谋={v['locations'][loc]}")
+        board_counter = "尸体标记" if v["module"] == "HSA" else "密谋"
+        curse = (f" · 诅咒牌={v['board_ex'][loc]}"
+                 if v["module"] == "HSA" and v["board_ex"][loc] else "")
+        print(f"  {label} [{loc}] {board_counter}={v['locations'][loc]}{curse}")
         for c in v["characters"].values():
             if c["location"] == loc:
                 panic = " 达临界" if c["alive"] and c["paranoia"] >= c["paranoia_limit"] else ""
-                ex = f" · Ex牌 {c.get('ex_cards', 0)}" if c.get("ex_cards", 0) else ""
+                special = "诅咒牌" if v["module"] == "HSA" else "Ex牌"
+                ex = f" · {special} {c.get('ex_cards', 0)}" if c.get("ex_cards", 0) else ""
                 print(f"    {c['name']} [{c['id']}] {'存活' if c['alive'] else '尸体'} | "
                       f"友好 {c['goodwill']} · 不安 {c['paranoia']}/{c['paranoia_limit']}{panic} · "
                       f"密谋 {c['intrigue']} · 护卫 {c['guard']}{ex}")
@@ -239,7 +243,8 @@ def match_board(game, viewer="spectator"):
             status = "未结算" if r is None else ("发生" if r["happened"] else "未发生")
             if r and r["happened"] and not r["effective"]:
                 status += "；结算中" if game.state.phase == "decision" and day == v["round"] else "；无效果"
-            print(f"  第 {day} 天：{INCIDENT_NAMES[item['kind']]}（{status}）")
+            board = f"·{LOCATIONS[item['board']]}" if "board" in item else ""
+            print(f"  第 {day} 天：{INCIDENT_NAMES[item['kind']]}{board}（{status}）")
         else:
             print(f"  第 {day} 天：无预定事件")
     for cid, fact in v["known_roles"].items():

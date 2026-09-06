@@ -1,14 +1,15 @@
 # tragedy-sim
 
-Python 版《悲剧轮回》本地热座模拟器。FS、BTX、OF、MZ、MC 对局现已串通：
+Python 版《悲剧轮回》本地热座模拟器。FS、BTX、OF、MZ、MC、HSA 对局现已串通：
 出牌、好感（界面称“友好”）能力、剧作家与身份能力、事件、日末、轮回与胜负。
 
 支持 FS 的全部 6 个规则 X/Y、7 种事件，BTX 的全部 12 个规则 X/Y、9 种事件，
 OldFashion（OF）的全部 12 个规则 X/Y、8 种事件和 11 名登场角色，
 MidnightZone（MZ）的全部 12 个规则 X/Y、11 种事件与 Ex / 身份宣称规则，
-以及 MysteryCircle（MC/MCX）的全部 12 个规则 X/Y、11 种事件、Ex 槽与事件移动限制。
+MysteryCircle（MC/MCX）的全部 12 个规则 X/Y、11 种事件、Ex 槽与事件移动限制，
+以及 HauntedStageAgain（HSA）的全部 12 个规则 X/Y、11 种事件、尸体/群聚事件与诅咒牌规则。
 内置各模组速查表对应的角色池及能力（MC 使用“手下”替换“军人”）。以用户提供的中文模组速查表为优先依据。
-这是由真人控制双方的热座/裁判工具，不含 AI 或联网。
+这是由真人控制双方的热座/裁判工具，不含 AI 或远程大厅。
 
 ## JSON 服务
 
@@ -33,6 +34,7 @@ python -m tragedy_sim --gui --module BTX
 python -m tragedy_sim --gui --module OF
 python -m tragedy_sim --gui --module MZ
 python -m tragedy_sim --gui --module MC
+python -m tragedy_sim --gui --module HSA
 python -m tragedy_sim --gui --script examples/btx-tutorial.json
 python -m tragedy_sim --gui --load tragedy-session.json
 ```
@@ -161,7 +163,8 @@ python -m tragedy_sim --load session.json
 ## 自定义剧本
 
 复制 [FS 示例](examples/fs-tutorial.json)、[BTX 示例](examples/btx-tutorial.json)、
-[OF 示例](examples/of-tutorial.json) 或 [MZ 示例](examples/mz-tutorial.json) 后修改。
+[OF 示例](examples/of-tutorial.json)、[MZ 示例](examples/mz-tutorial.json)、
+[MC 示例](examples/mc-tutorial.json) 或 [HSA 示例](examples/hsa-tutorial.json) 后修改。
 文件包含身份与当事人答案，主人公请勿提前阅读；这是原创教学剧本，不是官方剧本转录。
 
 `main_plot` 选一个规则 Y，`subplots` 在 FS 选一个 X，在 BTX/OF/MZ 选两个不同 X。

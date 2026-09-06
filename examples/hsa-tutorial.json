@@ -1,0 +1,33 @@
+{
+  "id": "silent-town-hsa",
+  "title": "寂静小镇（原创教学剧本）",
+  "module": "HSA",
+  "days": 3,
+  "loops": 3,
+  "main_plot": "hsa_noble",
+  "subplots": [
+    "love_hsa",
+    "hsa_monster_plot"
+  ],
+  "cast": {
+    "student": "ordinary",
+    "girl": "key",
+    "doctor": "vampire",
+    "worker": "conspiracy",
+    "maiden": "loved",
+    "patient": "lover"
+  },
+  "incidents": [
+    {
+      "day": 2,
+      "kind": "frenzied_murder",
+      "culprit": "doctor"
+    },
+    {
+      "day": 3,
+      "kind": "curse_declaration",
+      "culprit": "patient"
+    }
+  ],
+  "table_talk": true
+}

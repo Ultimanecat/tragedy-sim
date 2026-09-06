@@ -233,7 +233,9 @@ class TragedyApp:
             set_text(self.details_text, character_details(view, self.inspect_target))
         elif self.inspect_target in LOCATIONS:
             loc = self.inspect_target
-            set_text(self.details_text, f"{LOCATIONS[loc]}\n\n密谋：{view['locations'][loc]}\n\n任何行动牌都可放在地点佯攻；只有密谋及其禁止在地点上有效。")
+            counter_name = "尸体标记" if view["module"] == "HSA" else "密谋"
+            curse = f"\n诅咒牌：{view['board_ex'][loc]}" if view["module"] == "HSA" else ""
+            set_text(self.details_text, f"{LOCATIONS[loc]}\n\n{counter_name}：{view['locations'][loc]}{curse}\n\n任何行动牌都可放在地点佯攻；只有密谋及其禁止在地点上有效。")
         else:
             set_text(self.details_text, "点击棋盘上的角色，查看其初始位置、禁行区域、属性与完整能力。\n\n这里始终只显示公开信息。")
         self._render_private(view)
@@ -252,7 +254,8 @@ class TragedyApp:
         for day in range(1, view["days"] + 1):
             days.columnconfigure(day - 1, weight=1, uniform="day")
             item, record = schedule.get(day), records.get(day)
-            name = INCIDENT_NAMES[item["kind"]] if item else "无预定事件"
+            name = (INCIDENT_NAMES[item["kind"]]
+                    + (f"·{LOCATIONS[item['board']]}" if "board" in item else "")) if item else "无预定事件"
             status = "待结算" if item else "—"
             if record:
                 status = "已发生" if record["happened"] else "未发生"
@@ -272,7 +275,10 @@ class TragedyApp:
             sealed = next((item["through"] for item in view.get("sealed_boards", [])
                            if item["board"] == loc), None)
             seal_text = f"   ·   封锁至第 {sealed} 天" if sealed is not None else ""
-            title = tk.Button(area, text=f"{name}   ·   密谋 {view['locations'][loc]}{seal_text}", command=lambda t=loc: self.inspect(t),
+            counter_name = "尸体" if view["module"] == "HSA" else "密谋"
+            curse = (f"   ·   诅咒 {view['board_ex'][loc]}"
+                     if view["module"] == "HSA" and view["board_ex"][loc] else "")
+            title = tk.Button(area, text=f"{name}   ·   {counter_name} {view['locations'][loc]}{curse}{seal_text}", command=lambda t=loc: self.inspect(t),
                               bg=PANEL, fg=AREA_COLORS[loc], activebackground=CARD, activeforeground=INK, relief="flat",
                               anchor="w", font=("Microsoft YaHei UI", 12, "bold"), cursor="hand2")
             title.pack(fill="x")
@@ -291,7 +297,8 @@ class TragedyApp:
                                       bg=CARD, fg=INK if c["alive"] else MUTED, anchor="w")
                 name_label.pack(fill="x")
                 panic = " !" if c["alive"] and c["paranoia"] >= c["paranoia_limit"] else ""
-                ex = f"   Ex {c['ex_cards']}" if c.get("ex_cards") else ""
+                ex_name = "诅咒" if view["module"] == "HSA" else "Ex"
+                ex = f"   {ex_name} {c['ex_cards']}" if c.get("ex_cards") else ""
                 locked = "   今日禁止移动" if view.get("movement_locks", {}).get(c["id"]) == view["round"] else ""
                 counts = tk.Label(shell, text=f"友好 {c['goodwill']}   不安 {c['paranoia']}/{c['paranoia_limit']}{panic}   密谋 {c['intrigue']}   护卫 {c['guard']}{ex}{locked}",
                                   bg=CARD, fg=DANGER if panic else MUTED, font=("Microsoft YaHei UI", 10), anchor="w")

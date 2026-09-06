@@ -9,6 +9,9 @@ from .catalog import CHARACTERS, INCIDENT_NAMES, MODULES, PLOTS, ROLE_NAMES
 from .engine import RuleError
 
 
+HSA_GROUP_INCIDENTS = {"frenzied_night", "curse_awakening", "filth_overflow", "dead_apocalypse"}
+
+
 def validate_scenario(data: dict) -> dict:
     required = {"id", "title", "module", "days", "loops", "main_plot", "subplots", "cast", "incidents"}
     if not isinstance(data, dict) or set(data) - required - {"table_talk"} or required - set(data):
@@ -59,6 +62,17 @@ def validate_scenario(data: dict) -> dict:
             raise RuleError(f"{module} 的亲友最多男女各一名")
     if "sign" in plots and any("girl" not in CHARACTERS[c].traits for c, r in cast.items() if r == "key"):
         raise RuleError("和我签订契约吧！要求关键人物具有少女属性")
+    if "hsa_girl_crisis" in plots and any(
+            "girl" not in CHARACTERS[c].traits for c, r in cast.items() if r == "key"):
+        raise RuleError("少女大危机要求关键人物具有少女属性")
+    if data["main_plot"] == "hsa_noble":
+        key = next(c for c, role in cast.items() if role == "key")
+        vampire = next(c for c, role in cast.items() if role == "vampire")
+        def gender(cid):
+            traits = CHARACTERS[cid].traits
+            return "male" if "boy" in traits or "man" in traits else "female"
+        if gender(key) == gender(vampire):
+            raise RuleError("高贵的血族要求关键人物与吸血鬼为异性")
     if not isinstance(data["incidents"], list):
         raise RuleError("incidents 必须是数组")
     days = set()
@@ -73,8 +87,11 @@ def validate_scenario(data: dict) -> dict:
             raise RuleError("事件日期非法或一天安排了多起事件")
         if not isinstance(kind, str) or kind not in spec.incidents:
             raise RuleError("该模组不支持此事件")
-        if not isinstance(culprit, str) or culprit not in cast:
-            raise RuleError("事件当事人不存在")
+        group_incident = module == "HSA" and kind in HSA_GROUP_INCIDENTS
+        if (not isinstance(culprit, str)
+                or (culprit not in {"hospital", "shrine", "city", "school"}
+                    if group_incident else culprit not in cast)):
+            raise RuleError("群聚事件必须指定版图" if group_incident else "事件当事人不存在")
         public_kind = incident.get("public_kind")
         if kind == "fake_incident":
             if not isinstance(public_kind, str) or public_kind not in INCIDENT_NAMES:
@@ -82,7 +99,8 @@ def validate_scenario(data: dict) -> dict:
         elif public_kind is not None:
             raise RuleError("只有伪造事件可以设置 public_kind")
         days.add(day)
-        culprit_kinds.setdefault(culprit, []).append(kind)
+        if not group_incident:
+            culprit_kinds.setdefault(culprit, []).append(kind)
     for culprit, kinds in culprit_kinds.items():
         if len(kinds) > 1 and any(kind != "serial_murder" for kind in kinds):
             raise RuleError("只有连续杀人允许同一角色重复担任事件当事人")
@@ -133,6 +151,11 @@ def example_scenario(module: str = "FS") -> dict:
         subplots = ["mc_detective", "mc_absolute"]
         cast = {"student": "detective", "girl": "fool", "doctor": "conspiracy",
                 "worker": "friend", "maiden": "obsessive", "patient": "ordinary"}
+    elif module == "HSA":
+        main_plot = "hsa_noble"
+        subplots = ["love_hsa", "hsa_monster_plot"]
+        cast = {"student": "ordinary", "girl": "key", "doctor": "vampire",
+                "worker": "conspiracy", "maiden": "loved", "patient": "lover"}
     else:
         main_plot = "murder_plan"
         subplots = ["rumor"] if module == "FS" else ["rumor", "threads"]
@@ -142,7 +165,10 @@ def example_scenario(module: str = "FS") -> dict:
         "id": "silent-town-" + module.lower(), "title": "寂静小镇（原创教学剧本）", "module": module,
         "days": 3, "loops": 3, "main_plot": main_plot,
         "subplots": subplots, "cast": cast,
-        "incidents": ([{"day": 2, "kind": "omen", "culprit": "girl"},
+        "incidents": ([{"day": 2, "kind": "frenzied_murder", "culprit": "doctor"},
+                       {"day": 3, "kind": "curse_declaration", "culprit": "patient"}]
+                      if module == "HSA" else
+                      [{"day": 2, "kind": "omen", "culprit": "girl"},
                        {"day": 3, "kind": "suicide", "culprit": "maiden"}]
                       if module == "MC" else
                       [{"day": 2, "kind": "serial_murder", "culprit": "doctor"},

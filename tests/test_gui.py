@@ -235,7 +235,7 @@ class TkSmokeTests(unittest.TestCase):
 
     def test_complete_gui_callback_flow_for_all_modules(self):
         from tragedy_sim.gui import TragedyApp
-        for module in ("FS", "BTX", "OF", "MZ", "MC"):
+        for module in ("FS", "BTX", "OF", "MZ", "MC", "HSA"):
             with self.subTest(module=module):
                 app = TragedyApp(self.root, Game(example_scenario(module)))
                 for _ in range(180):
