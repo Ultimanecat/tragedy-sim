@@ -413,9 +413,19 @@ def main(argv=None):
     source.add_argument("--demo", action="store_true", help="演示事件、失败、重置和获胜的完整对局")
     source.add_argument("--script", help="加载 JSON 剧本；以文件的 module 为准")
     source.add_argument("--load", help="恢复完整对局存档")
+    source.add_argument("--serve", action="store_true", help="启动版本化 JSON/HTTP 游戏服务")
+    parser.add_argument("--host", default="127.0.0.1", help="HTTP 服务监听地址（默认仅本机）")
+    parser.add_argument("--port", type=int, default=8765, help="HTTP 服务端口")
+    parser.add_argument("--allow-origin", action="append", default=[], help="允许的浏览器 Origin，可重复指定")
     parser.add_argument("--practice", action="store_true", help="仅练习出牌（独立模式）")
     parser.add_argument("--gui", action="store_true", help="打开本地热座桌面窗口")
     args = parser.parse_args(argv)
+    if args.serve:
+        if not 1 <= args.port <= 65535:
+            parser.error("--port 必须在 1–65535 之间")
+        from .server import serve
+        serve(args.host, args.port, allowed_origins=args.allow_origin)
+        return 0
     if args.demo:
         return match_demo(args.module)
     try:

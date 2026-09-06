@@ -9,7 +9,8 @@ from .cards import ACTOR_NAMES, LOCATIONS, deck
 from .catalog import INCIDENT_NAMES, INCIDENT_RULES, MODULES, PLOTS, PLOT_RULES, ROLE_NAMES, ROLE_RULES
 from .engine import RuleError
 from .flow import PHASE_LABELS
-from .game import Game
+from .scenario import example_scenario, load_scenario
+from .service import LocalGameClient
 
 
 PHASE_NAMES = PHASE_LABELS  # Historical frontend name retained for callers.
@@ -23,19 +24,37 @@ NEXT_LABELS = {
 
 class HotseatSession:
     def __init__(self, game=None):
-        self.game = game if game is not None else Game()
+        self.client = game if isinstance(game, LocalGameClient) else LocalGameClient.from_game(game)
         self.seat = None
         self.intent = None
         self.token = 0
-        self.saved_commands = len(self.game.history)
+        self.saved_revision = self.client.revision
+
+    @classmethod
+    def new(cls, module="FS"):
+        return cls(LocalGameClient.from_scenario(example_scenario(module)))
+
+    @classmethod
+    def from_scenario_file(cls, path):
+        return cls(LocalGameClient.from_scenario(load_scenario(path)))
+
+    @classmethod
+    def from_save_file(cls, path):
+        return cls(LocalGameClient.from_snapshot_file(path))
+
+    @property
+    def game(self):
+        """Legacy test/debug escape hatch; GUI code uses the JSON client methods."""
+        return self.client.game
 
     @property
     def expected_seat(self):
-        return self.game.state.leader if self.intent == "final" else self.game.controller
+        view = self.public_view()
+        return view["leader"] if self.intent == "final" else view["controller"]
 
     @property
     def dirty(self):
-        return len(self.game.history) != self.saved_commands
+        return self.client.revision != self.saved_revision
 
     def hide(self):
         self.seat = None
@@ -49,25 +68,26 @@ class HotseatSession:
 
     def public_view(self):
         # Never use the open private seat to render the shared board or journal.
-        return self.game.view("spectator")
+        return self.client.view("spectator")
 
     def private_view(self):
         if self.seat is None or self.seat != self.expected_seat:
             return None
-        return self.game.view(self.seat)
+        return self.client.view(self.seat)
 
     def options(self):
         if self.private_view() is None or self.intent:
             return []
-        return self.game.options(self.seat)
+        return [{"id": action["id"], "label": action["label"]}
+                for action in self.client.actions(self.seat) if action["type"] == "choose"]
 
     def legal_targets(self):
         view = self.private_view()
         if view is None or view["phase"] not in ("mastermind", "protagonists"):
             return []
-        occupied = {p["target"] for p in view["pending"] if (p["actor"] == "m") == (self.seat == "m")}
-        return [t for t in [*view["characters"], *LOCATIONS]
-                if t not in occupied and (t in LOCATIONS or view["characters"][t]["alive"])]
+        return list(dict.fromkeys(action["parameters"]["target"]
+                                  for action in self.client.actions(self.seat)
+                                  if action["type"] == "play"))
 
     def act(self, token, action, **args):
         if token != self.token or self.private_view() is None:
@@ -75,10 +95,14 @@ class HotseatSession:
         if (self.intent == "final") != (action == "final"):
             raise RuleError("请先完成或取消当前交接")
         previous_seat = self.seat
-        self.game.dispatch(self.seat, action, **args)
+        action_id = args.pop("action_id", None)
+        if action_id is not None:
+            self.client.dispatch_id(self.seat, action_id)
+        else:
+            self.client.dispatch(self.seat, action, **args)
         self.intent = None
         self.token += 1
-        if self.game.controller != previous_seat:
+        if self.public_view()["controller"] != previous_seat:
             self.hide()
 
     def request_final_guess(self):
@@ -93,14 +117,21 @@ class HotseatSession:
         self.hide()
 
     def replace(self, game):
-        self.game = game
+        self.client = game if isinstance(game, LocalGameClient) else LocalGameClient.from_game(game)
         self.intent = None
-        self.saved_commands = len(game.history)
+        self.saved_revision = self.client.revision
         self.hide()
 
     def save(self, path):
-        self.game.save(path)
-        self.saved_commands = len(self.game.history)
+        self.client.save(path)
+        self.saved_revision = self.client.revision
+
+    @property
+    def finished(self):
+        return self.public_view()["winner"] is not None
+
+    def save_replay(self, path):
+        self.client.save_replay(path)
 
 
 def target_name(view, target):

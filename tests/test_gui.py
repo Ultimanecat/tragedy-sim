@@ -193,7 +193,7 @@ class TkSmokeTests(unittest.TestCase):
         from tragedy_sim import gui
         fake_root = Mock()
         with patch.object(gui.tk, "Tk", return_value=fake_root), \
-                patch.object(gui.Game, "load", side_effect=RuleError("坏存档")), \
+                patch.object(gui.HotseatSession, "from_save_file", side_effect=RuleError("坏存档")), \
                 patch.object(gui.messagebox, "showerror") as showerror:
             self.assertEqual(gui.main(["--load", "bad.json"]), 1)
         fake_root.withdraw.assert_called_once_with()

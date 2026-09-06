@@ -4,13 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tragedy-sim"
-version = "0.6.0"
-description = "Local FS/BTX/OF/MZ simulator with CLI and native hotseat GUI"
+version = "0.7.0"
+description = "Deterministic Tragedy Looper simulator with CLI, hotseat GUI and JSON service"
 requires-python = ">=3.11"
 dependencies = []
 
 [project.scripts]
 tragedy-sim = "tragedy_sim.cli:main"
+tragedy-sim-server = "tragedy_sim.server:main"
 
 [project.gui-scripts]
 tragedy-sim-gui = "tragedy_sim.cli:gui_main"

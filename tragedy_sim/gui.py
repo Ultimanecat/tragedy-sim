@@ -8,11 +8,9 @@ from tkinter import filedialog, messagebox, ttk
 
 from .cards import ACTOR_NAMES, LOCATIONS, deck
 from .catalog import INCIDENT_NAMES, MODULES, ROLE_NAMES
-from .game import Game
 from .hotseat import (HotseatSession, NEXT_LABELS, PHASE_NAMES, character_details,
                       module_capability, module_roles, public_knowledge, public_log,
                       public_rules, secret_dossier, target_name)
-from .scenario import example_scenario, load_scenario
 from .replay import ReplayArchive, ReplaySession
 
 
@@ -438,7 +436,7 @@ class TragedyApp:
         ttk.Label(parent, text=explanations.get(phase, "可以依次使用合法能力，也可以结束本阶段。强制效果由引擎自动结算。"),
                   wraplength=345, style="Muted.TLabel").pack(fill="x", pady=(0, 12))
         options = self.session.options()
-        self.option_items = [(i, c) for i, c in enumerate(options, 1) if not c.get("finish")]
+        self.option_items = [(c["id"], c) for c in options]
         if self.option_items:
             list_frame = ttk.Frame(parent)
             list_frame.pack(fill="both", expand=True)
@@ -449,14 +447,14 @@ class TragedyApp:
             box.configure(yscrollcommand=bar.set)
             box.pack(side="left", fill="both", expand=True)
             bar.pack(side="right", fill="y")
-            for index, choice in self.option_items:
-                box.insert("end", f"{index}. {choice['label']}")
+            for number, (_, choice) in enumerate(self.option_items, 1):
+                box.insert("end", f"{number}. {choice['label']}")
             self.controls["options"] = box
             self.choice_summary = ttk.Label(parent, text="选择一项，查看完整说明。", wraplength=345, foreground=ACCENT)
             self.choice_summary.pack(fill="x", pady=12)
             box.bind("<<ListboxSelect>>", self.select_option)
             self.controls["choose"] = ttk.Button(parent, text="确认执行所选项", state="disabled", style="Accent.TButton",
-                                                  command=lambda: self.perform(token, "choose", index=self.selected_option))
+                                                  command=lambda: self.perform(token, "choose", action_id=self.selected_option))
             self.controls["choose"].pack(fill="x", pady=(0, 10))
         elif phase in ("master_abilities", "goodwill", "action_counters", "day_end"):
             ttk.Label(parent, text="当前没有可发动的能力。", style="Muted.TLabel").pack(pady=18)
@@ -473,8 +471,8 @@ class TragedyApp:
     def select_option(self, event=None):
         selection = self.controls["options"].curselection()
         if selection:
-            index, item = self.option_items[selection[0]]
-            self.selected_option = index
+            action_id, item = self.option_items[selection[0]]
+            self.selected_option = action_id
             self.choice_summary.configure(text=item["label"])
             self.controls["choose"].configure(state="normal")
 
@@ -636,7 +634,7 @@ class TragedyApp:
         def start(module):
             popup.destroy()
             if self._confirm_replace():
-                self.session = HotseatSession(Game(example_scenario(module)))
+                self.session = HotseatSession.new(module)
                 self.inspect_target = None
                 self._error = ""
                 self.render()
@@ -656,13 +654,14 @@ class TragedyApp:
         if not path:
             return
         try:
-            loaded = Game(load_scenario(path)) if scenario else Game.load(path)
+            loaded = (HotseatSession.from_scenario_file(path) if scenario
+                      else HotseatSession.from_save_file(path))
         except (ValueError, TypeError, OSError) as exc:
             messagebox.showerror("无法载入", str(exc), parent=self.root)
             return
         if not self._confirm_replace():
             return
-        self.session = HotseatSession(loaded)
+        self.session = loaded
         self.inspect_target = None
         self._error = ""
         self.render()
@@ -708,7 +707,7 @@ class TragedyApp:
 
     def export_replay(self):
         self.hide()
-        if self.session.game.winner is None:
+        if not self.session.finished:
             messagebox.showerror("不能导出回放", "完整对局结束后才能导出纯文本回放。", parent=self.root)
             return False
         path = filedialog.asksaveasfilename(parent=self.root, title="导出完整信息回放（请选择新文件）",
@@ -718,7 +717,7 @@ class TragedyApp:
         if not path:
             return False
         try:
-            self.session.game.save_replay(path)
+            self.session.save_replay(path)
         except (OSError, ValueError) as exc:
             messagebox.showerror("未能导出回放", "请使用一个新的文件名；不会覆盖已有文件。\n\n" + str(exc), parent=self.root)
             return False
@@ -763,8 +762,11 @@ def main(argv=None, *, error_reporter=None):
     root.withdraw()
     try:
         session = ReplaySession(ReplayArchive.load(args.replay)) if args.replay else None
-        game = None if session else (Game.load(args.load) if args.load else
-                                     Game(load_scenario(args.script) if args.script else example_scenario(args.module)))
+        game = None
+        if session is None:
+            session = (HotseatSession.from_save_file(args.load) if args.load else
+                       HotseatSession.from_scenario_file(args.script) if args.script else
+                       HotseatSession.new(args.module))
     except (ValueError, TypeError, OSError) as exc:
         messagebox.showerror("无法开始对局", str(exc), parent=root)
         root.destroy()
