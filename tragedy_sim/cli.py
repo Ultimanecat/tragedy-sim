@@ -210,8 +210,10 @@ def match_board(game, viewer="spectator"):
     print(f"\n【{v['title']} / {v['module']}】轮回 {v['loop']}/{v['loops']}，"
           f"第 {v['round']}/{v['days']} 天 · {MATCH_PHASES[v['phase']]}")
     print(f"领队：{ACTOR_NAMES[v['leader']]}；桌面讨论：{'允许' if v['table_talk'] else '出牌中不允许（真人遵守）'}")
-    if v["module"] == "MC":
-        print(f"Ex 槽：{v['ex_gauge']}（本轮已发生事件计数；猎奇杀人 +2，银色子弹 +0）")
+    if v["module"] in ("MC", "WM"):
+        detail = ("本轮已发生事件计数；猎奇杀人 +2，银色子弹 +0"
+                  if v["module"] == "MC" else "跨轮回保留；驱动旧日支配者与规则能力")
+        print(f"Ex 槽：{v['ex_gauge']}（{detail}）")
     if v["winner"]:
         print("胜方：" + ("主人公" if v["winner"] == "protagonists" else "剧作家"))
     for loc, label in LOCATIONS.items():

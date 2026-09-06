@@ -213,7 +213,7 @@ class TragedyApp:
                                         state="disabled" if replay else "normal")
         self.root.title(f"悲剧轮回 · {view['module']} {mode}")
         self.match_title.configure(text=f"{view['title']}  /  {view['module']}" + ("  ·  只读回放" if replay else ""))
-        ex_status = f"  ·  Ex 槽 {view['ex_gauge']}" if view["module"] == "MC" else ""
+        ex_status = f"  ·  Ex 槽 {view['ex_gauge']}" if view["module"] in ("MC", "WM") else ""
         self.turn_label.configure(text=f"轮回 {view['loop']}/{view['loops']}   第 {view['round']}/{view['days']} 天  ·  {phase}{ex_status}")
         self.discussion.configure(text=(f"回放位置：{self.session.index}/{self.session.length}"
                                         if replay else

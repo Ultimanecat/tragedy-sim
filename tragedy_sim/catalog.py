@@ -14,7 +14,8 @@ ROLE_NAMES = {"ordinary": "平民", "key": "关键人物", "killer": "杀手", "
               "psychiatrist": "心理医生", "detective": "侦探", "twin": "双胞胎",
               "vampire": "吸血鬼", "werewolf": "狼人", "nightmare": "梦魇",
               "ghost": "鬼魂", "paper_tiger": "纸老虎", "chicken": "胆小鬼",
-              "zombie": "丧尸"}
+              "zombie": "丧尸", "sacrifice": "祭品", "deep_one": "深潜者",
+              "wizard": "巫师", "witness": "目击者", "faceless": "无面者"}
 REFUSAL = {"killer": "optional", "brain": "optional", "curmudgeon": "optional",
            "factor": "optional", "cultist": "mandatory", "witch": "mandatory",
            "puppet": "optional", "assassin": "optional", "terrorist": "optional",
@@ -23,6 +24,7 @@ REFUSAL.update({"ninja": "optional", "obsessive": "mandatory"})
 REFUSAL.update({"poisoner": "optional", "paranoid": "mandatory"})
 REFUSAL.update({"vampire": "optional", "werewolf": "optional", "nightmare": "optional",
                 "witch": "mandatory"})
+REFUSAL.update({"deep_one": "optional", "paranoid": "mandatory", "faceless": "optional"})
 INCIDENT_NAMES = {"murder": "谋杀", "unease": "不安扩散", "suicide": "自杀",
                   "hospital": "医院事故", "faraway": "远距离杀人", "missing": "失踪",
                   "spreading": "散播", "foul_play": "邪气污染", "butterfly": "蝴蝶效应",
@@ -38,6 +40,8 @@ INCIDENT_NAMES.update({"frenzied_murder": "癫狂杀人", "funeral": "送葬",
                        "curse_declaration": "宣告诅咒", "barricade": "孤守",
                        "frenzied_night": "疯狂之夜", "curse_awakening": "诅咒活化",
                        "filth_overflow": "污秽溢出", "dead_apocalypse": "死者默示录"})
+INCIDENT_NAMES.update({"mass_suicide": "集体自杀", "extinction": "灭绝之灾",
+                       "dagon_whisper": "达贡黑井之息", "discovery": "发现"})
 # id: (name, Y/X, required roles). Duplicate roles are capped by their printed maximum.
 PLOTS = {
     "murder_plan": ("谋杀计划", "Y", {"key": 1, "killer": 1, "brain": 1}),
@@ -104,6 +108,18 @@ PLOTS = {
     "hsa_fear_delusion": ("恐慌与妄想", "X", {"serial": 1, "chicken": 1, "witch": 1}),
     "hsa_unlistening": ("不听劝的人", "X", {"paper_tiger": 1, "conspiracy": 1,
                                                    "chicken": 1}),
+    "wm_outer_chorus": ("外神合唱曲", "Y", {"key": 1, "sacrifice": 1, "immortal": 1}),
+    "wm_gospel": ("达贡的福音书", "Y", {"key": 1, "cultist": 1, "deep_one": 1}),
+    "wm_yellow_king": ("黄衣之王", "Y", {"sacrifice": 1, "cultist": 1}),
+    "wm_bomb": ("巨大定时炸弹 Y", "Y", {"witch": 1, "deep_one": 1}),
+    "wm_blood_ritual": ("染血的仪式", "Y", {"witch": 1, "immortal": 1}),
+    "wm_rumor": ("流言四起", "X", {"conspiracy": 1}),
+    "wm_resistance": ("抗争者", "X", {"conspiracy": 1, "wizard": 1, "serial": 1}),
+    "wm_witness_terror": ("见证恐惧", "X", {"conspiracy": 1, "witness": 1}),
+    "wm_great_race": ("伊斯之伟大种族", "X", {"serial": 1, "time_traveler": 1}),
+    "wm_deep_whisper": ("深渊之都的私语", "X", {"deep_one": 1, "paranoid": 1}),
+    "wm_faceless_god": ("无貌之神", "X", {"wizard": 1, "faceless": 1}),
+    "wm_mad_truth": ("疯狂的真相", "X", {"paranoid": 1}),
 }
 
 
@@ -143,6 +159,9 @@ _MC_PLOTS = ("murder_plan", "mc_event_web", "mc_tightrope", "mc_dark_school",
 _HSA_PLOTS = ("hsa_noble", "hsa_moon_beast", "hsa_fog_nightmare", "hsa_ancient_dead",
               "hsa_cursed_land", "hsa_panic_party", "love_hsa", "hsa_witch_curse",
               "hsa_girl_crisis", "hsa_monster_plot", "hsa_fear_delusion", "hsa_unlistening")
+_WM_PLOTS = ("wm_outer_chorus", "wm_gospel", "wm_yellow_king", "wm_bomb", "wm_blood_ritual",
+             "wm_rumor", "wm_resistance", "wm_witness_terror", "wm_great_race",
+             "wm_deep_whisper", "wm_faceless_god", "wm_mad_truth")
 _FS_INCIDENTS = ("murder", "unease", "suicide", "hospital", "faraway", "missing", "spreading")
 _BTX_INCIDENTS = (*_FS_INCIDENTS, "foul_play", "butterfly")
 _OF_INCIDENTS = ("murder", "suicide", "malicious_rumor", "hospital", "poison_gas", "exposure",
@@ -154,6 +173,8 @@ _MC_INCIDENTS = ("serial_murder", "terror_attack", "hospital", "suicide", "uneas
 _HSA_INCIDENTS = ("frenzied_murder", "unease", "missing", "foul_play", "funeral",
                   "curse_declaration", "barricade", "frenzied_night", "curse_awakening",
                   "filth_overflow", "dead_apocalypse")
+_WM_INCIDENTS = ("frenzied_murder", "mass_suicide", "unease", "missing", "foul_play",
+                 "hospital", "riot", "extinction", "dagon_whisper", "discovery", "funeral")
 _OF_CHARACTERS = ("student", "girl", "rich", "class_rep", "maiden", "police", "worker",
                   "informer", "idol", "doctor", "patient")
 
@@ -172,6 +193,9 @@ MODULES = {
                      _MC_CHARACTERS, True),
     "HSA": ModuleSpec("HauntedStageAgain", _HSA_PLOTS, 2, _HSA_INCIDENTS,
                       {"ghost": 1, "conspiracy": 1}, True, True, _ALL_CHARACTERS, True),
+    "WM": ModuleSpec("WeirdMythology", _WM_PLOTS, 2, _WM_INCIDENTS,
+                     {"deep_one": 1, "conspiracy": 1, "wizard": 1}, True, True,
+                     _ALL_CHARACTERS, True),
 }
 
 # Historical public name retained for callers and saved-game compatibility.
@@ -232,6 +256,17 @@ PLOT_RULES = {
     "hsa_girl_crisis": "剧本制作：关键人物必须具有少女属性。",
     "hsa_monster_plot": "剧作家能力阶段可在具有无视友好身份的角色所在版图放置一具尸体；每日一次、每轮两次。",
     "hsa_fear_delusion": "无追加规则。", "hsa_unlistening": "无追加规则。",
+    "wm_outer_chorus": "轮回结束：至少 5 名存活角色各有至少 1 密谋，主人公失败。",
+    "wm_gospel": "轮回结束：神社密谋不低于 Ex 槽，主人公失败。",
+    "wm_yellow_king": "轮回结束：本轮 Ex 槽没有增加，主人公失败。",
+    "wm_bomb": "轮回结束：魔女初始版图密谋不少于 2，主人公失败。",
+    "wm_blood_ritual": "轮回结束：尸体数不少于 Ex 槽，主人公失败。",
+    "wm_rumor": "剧作家能力阶段可给任意版图密谋 +1，每轮一次。",
+    "wm_resistance": "无追加规则。", "wm_witness_terror": "无追加规则。",
+    "wm_great_race": "无追加规则。",
+    "wm_deep_whisper": "偏执狂获得关键人物能力，身份不变。",
+    "wm_faceless_god": "无追加规则。",
+    "wm_mad_truth": "轮回开始时 Ex 槽不少于 2，本轮规则 Y 失败条件替换为剧本指定的另一条规则 Y。",
 }
 ROLE_RULES = {
     "ordinary": "没有身份能力。",
@@ -272,6 +307,11 @@ ROLE_RULES = {
     "paper_tiger": "不会死亡；不安不少于 2 时必须拒绝友好。",
     "chicken": "剧作家能力阶段不安不少于 2 时，强制移动至相邻版图。",
     "zombie": "日末强制：在丧尸数多于非丧尸角色数且有活人的版图杀死一人（每日一次）；尸体状态下可移动至相邻版图（每日一次）。",
+    "sacrifice": "不会死亡；事件判定时密谋也视作不安。剧本制作时必须是第一个事件的当事人；日末密谋和不安均不少于 2 时可使所有角色与主人公死亡。",
+    "deep_one": "可拒绝友好；剧作家能力阶段可给同区域角色或所在版图密谋 +1。上限 1。",
+    "wizard": "可正常死亡；轮回结束时若已死亡，主人公失败。友好能力结算后公开身份，领队可选择令 Ex 槽 +1。上限 1。",
+    "witness": "日末不安不少于 4 时强制死亡，并令 Ex 槽 +1。",
+    "faceless": "不会死亡且可拒绝友好。Ex 槽不少于 1/2 时分别获得传谣人/深潜者能力，身份不变。",
 }
 INCIDENT_RULES = {
     "murder": "同当事人一个区域的另一名存活角色死亡。",
@@ -308,6 +348,10 @@ INCIDENT_RULES = {
     "curse_awakening": "群聚事件，要求版图尸体数 >1；在当事版图放置一张诅咒牌。",
     "filth_overflow": "群聚事件，要求版图尸体数 >2；同区域一名角色不安 +2，任意版图增加一具尸体。",
     "dead_apocalypse": "群聚事件，要求版图尸体数 >2；该版图所有角色死亡，之后若该版图尸体不少于五具，主人公死亡。",
+    "mass_suicide": "当事人密谋不少于 1 时，其所在区域所有角色死亡。",
+    "extinction": "本局游戏中首次发生时，所有角色与主人公死亡；之后再次发生没有效果。",
+    "dagon_whisper": "改用当事人的密谋判定发生；本轮之后若有其他事件发生，主人公在该事件阶段结束时死亡。",
+    "discovery": "Ex 槽 +1。",
 }
 
 

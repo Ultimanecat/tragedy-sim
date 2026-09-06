@@ -14,7 +14,9 @@ HSA_GROUP_INCIDENTS = {"frenzied_night", "curse_awakening", "filth_overflow", "d
 
 def validate_scenario(data: dict) -> dict:
     required = {"id", "title", "module", "days", "loops", "main_plot", "subplots", "cast", "incidents"}
-    if not isinstance(data, dict) or set(data) - required - {"table_talk"} or required - set(data):
+    if (not isinstance(data, dict)
+            or set(data) - required - {"table_talk", "wm_replacement_plot"}
+            or required - set(data)):
         raise RuleError("剧本字段不完整或含不支持的字段；请参考 examples 中的 JSON")
     if any(not isinstance(data[k], str) or not data[k] for k in ("id", "title", "module", "main_plot")):
         raise RuleError("剧本名称、ID、模组、规则 Y 必须是非空字符串")
@@ -31,6 +33,13 @@ def validate_scenario(data: dict) -> dict:
         raise RuleError("剧本使用了不属于该模组的规则")
     if len(set(plots)) != len(plots) or PLOTS[plots[0]][1] != "Y" or any(PLOTS[p][1] != "X" for p in plots[1:]):
         raise RuleError("规则 X/Y 类型错误或重复")
+    replacement = data.get("wm_replacement_plot")
+    if "wm_mad_truth" in plots:
+        if (not isinstance(replacement, str) or replacement == data["main_plot"]
+                or replacement not in spec.plots or PLOTS[replacement][1] != "Y"):
+            raise RuleError("疯狂的真相需要 wm_replacement_plot 指定另一条 WM 规则 Y")
+    elif replacement is not None:
+        raise RuleError("只有疯狂的真相可以设置 wm_replacement_plot")
     cast = data["cast"]
     if not isinstance(cast, dict) or not 3 <= len(cast) <= len(spec.characters):
         raise RuleError("剧本需要至少三名已支持角色")
@@ -121,6 +130,11 @@ def validate_scenario(data: dict) -> dict:
         if any(value == role for value in cast.values()) and not any(
                 cast[culprit] == role for culprit in culprit_kinds):
             raise RuleError(f"{name}必须担任至少一起事件的当事人")
+    sacrifices = [cid for cid, role in cast.items() if role == "sacrifice"]
+    if sacrifices:
+        first = min(data["incidents"], key=lambda item: item["day"], default=None)
+        if first is None or first["culprit"] not in sacrifices:
+            raise RuleError("祭品必须担任剧本中第一起事件的当事人")
     if type(data.get("table_talk", False)) is not bool:
         raise RuleError("table_talk 必须是布尔值")
     result = deepcopy(data)
@@ -156,6 +170,11 @@ def example_scenario(module: str = "FS") -> dict:
         subplots = ["love_hsa", "hsa_monster_plot"]
         cast = {"student": "ordinary", "girl": "key", "doctor": "vampire",
                 "worker": "conspiracy", "maiden": "loved", "patient": "lover"}
+    elif module == "WM":
+        main_plot = "wm_gospel"
+        subplots = ["wm_rumor", "wm_great_race"]
+        cast = {"student": "serial", "girl": "key", "doctor": "deep_one",
+                "worker": "conspiracy", "maiden": "cultist", "patient": "time_traveler"}
     else:
         main_plot = "murder_plan"
         subplots = ["rumor"] if module == "FS" else ["rumor", "threads"]
@@ -165,7 +184,10 @@ def example_scenario(module: str = "FS") -> dict:
         "id": "silent-town-" + module.lower(), "title": "寂静小镇（原创教学剧本）", "module": module,
         "days": 3, "loops": 3, "main_plot": main_plot,
         "subplots": subplots, "cast": cast,
-        "incidents": ([{"day": 2, "kind": "frenzied_murder", "culprit": "doctor"},
+        "incidents": ([{"day": 2, "kind": "discovery", "culprit": "doctor"},
+                       {"day": 3, "kind": "mass_suicide", "culprit": "patient"}]
+                      if module == "WM" else
+                      [{"day": 2, "kind": "frenzied_murder", "culprit": "doctor"},
                        {"day": 3, "kind": "curse_declaration", "culprit": "patient"}]
                       if module == "HSA" else
                       [{"day": 2, "kind": "omen", "culprit": "girl"},

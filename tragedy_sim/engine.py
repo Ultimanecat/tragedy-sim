@@ -215,6 +215,9 @@ class ActionGame:
     def _ignore_forbid(self, counter: str, target: str) -> bool:
         return False
 
+    def _intrigue_forbids_cancel(self, count: int) -> bool:
+        return count >= 2
+
     def _counter_mutated(self, target: str, counter: str) -> None:
         """Hook for mandatory constant effects in a complete game."""
 
@@ -229,7 +232,7 @@ class ActionGame:
 
         # 3. Other forbids: multiple Forbid Intrigue cards cancel GLOBALLY, even bluffs.
         intrigue_forbids = sum(deck(p.actor)[p.card].effect == "forbid_intrigue" for p in active)
-        if intrigue_forbids >= 2:
+        if self._intrigue_forbids_cancel(intrigue_forbids):
             self._event("forbids_cancelled", "本次打出了多张禁止密谋牌，所有禁止密谋牌失效。")
         # 4. Remaining counters. Add before remove; never below zero.
         for target, cards in by_target.items():
@@ -245,7 +248,7 @@ class ActionGame:
                     continue
                 blocked = f"forbid_{counter}" in effects
                 if counter == "intrigue":
-                    blocked = blocked and intrigue_forbids == 1
+                    blocked = blocked and not self._intrigue_forbids_cancel(intrigue_forbids)
                 blocked = blocked and not self._ignore_forbid(counter, target)
                 if blocked:
                     self._event("counter_blocked", f"{self.name(target)}：{COUNTER_NAMES[counter]}变更被禁止。")

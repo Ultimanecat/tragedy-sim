@@ -1,0 +1,22 @@
+{
+  "id": "silent-town-wm",
+  "title": "寂静小镇（原创教学剧本）",
+  "module": "WM",
+  "days": 3,
+  "loops": 3,
+  "main_plot": "wm_gospel",
+  "subplots": ["wm_rumor", "wm_great_race"],
+  "cast": {
+    "student": "serial",
+    "girl": "key",
+    "doctor": "deep_one",
+    "worker": "conspiracy",
+    "maiden": "cultist",
+    "patient": "time_traveler"
+  },
+  "incidents": [
+    {"day": 2, "kind": "discovery", "culprit": "doctor"},
+    {"day": 3, "kind": "mass_suicide", "culprit": "patient"}
+  ],
+  "table_talk": true
+}
