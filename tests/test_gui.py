@@ -78,17 +78,6 @@ class HotseatSessionTests(unittest.TestCase):
         self.assertEqual(session.seat, "a")
         self.assertIsNone(session.intent)
 
-    def test_old_fashion_exposes_rules_and_early_final_capability(self):
-        from tragedy_sim.hotseat import public_rules
-        game = Game(example_scenario("OF"))
-        session = HotseatSession(game)
-        game.state.phase = "loop_end"
-        session.request_final_guess()
-        self.assertEqual(session.intent, "final")
-        rules = public_rules("OF")
-        self.assertIn("OldFashion", rules)
-        self.assertIn("时空扭曲", rules)
-
     def test_savepoint_and_replace_privacy(self):
         session = HotseatSession(Game())
         session.unlock("m")
@@ -217,25 +206,9 @@ class TkSmokeTests(unittest.TestCase):
         self.assertEqual(len(app.session.public_view()["pending"]), 3)
         self.assertTrue(all(item["card"] is None for item in app.session.public_view()["pending"]))
 
-    def test_old_fashion_four_card_day_stays_with_mastermind_until_fourth_card(self):
-        from tragedy_sim.gui import TragedyApp
-        game = Game(example_scenario("OF"))
-        game.configure_actions(mastermind=4, protagonists=("b", "c"))
-        game.state.phase = "mastermind"
-        app = TragedyApp(self.root, game)
-        app.unlock("m")
-        for number, (card, target) in enumerate(
-                (("p1a", "student"), ("p1b", "city"), ("h", "shrine"), ("v", "hospital")), 1):
-            app.perform(app.session.token, "play", card=card, target=target)
-            if number < 4:
-                self.assertEqual(app.session.expected_seat, "m")
-                self.assertEqual(app.session.seat, "m")
-        self.assertEqual(app.session.expected_seat, "b")
-        self.assertIsNone(app.session.seat)
-
     def test_complete_gui_callback_flow_for_all_modules(self):
         from tragedy_sim.gui import TragedyApp
-        for module in ("FS", "BTX", "OF", "MZ", "MC", "HSA"):
+        for module in ("FS", "BTX", "MZ", "MC", "HSA"):
             with self.subTest(module=module):
                 app = TragedyApp(self.root, Game(example_scenario(module)))
                 for _ in range(180):

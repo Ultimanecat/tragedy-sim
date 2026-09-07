@@ -192,12 +192,7 @@ def load_scenario(path: str | Path) -> dict:
 def example_scenario(module: str = "FS") -> dict:
     if module not in MODULES:
         raise RuleError("不支持的模组；当前支持 " + " / ".join(MODULES))
-    if module == "OF":
-        main_plot = "of_dream_beauty"
-        subplots = ["of_truman", "of_blue_cat"]
-        cast = {"student": "puppet", "girl": "key", "doctor": "brain",
-                "worker": "returner_enemy", "maiden": "conspiracy", "patient": "friend"}
-    elif module == "MZ":
+    if module == "MZ":
         main_plot = "mz_secret_record"
         subplots = ["mz_factor", "mz_doom_song"]
         cast = {"student": "ordinary", "girl": "key", "doctor": "brain",

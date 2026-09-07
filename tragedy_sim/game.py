@@ -73,9 +73,6 @@ class Game(ActionGame):
         self._incident_before = None
         self._incident_effect = False
         self._guess_remaining = []
-        self._permanent_dead = set()
-        self._returner_carry = {}
-        self._trickster_targets = set()
         self._mandatory_victims = []
         self._previous_dead = set()
         self._occurred_incidents = []
@@ -86,7 +83,6 @@ class Game(ActionGame):
         self._sealed_boards = []
         self._prevented_incident_culprits = set()
         self._loop_initial_locations = {cid: CHARACTERS[cid].start for cid in self.roles}
-        self._distort_next_day = False
         self._night_forced_done = False
         self._hsa_monster_uses = 0
         self._hsa_frenzied_night = False
@@ -250,10 +246,6 @@ class Game(ActionGame):
         super().play(actor, card_id, target)
 
     def _apply_current_roles(self):
-        if "of_truman" in self.scenario["subplots"]:
-            for cid, role in self.scenario["cast"].items():
-                if role == "ordinary":
-                    self.roles[cid] = "puppet"
         if self.scenario["main_plot"] == "mz_causal":
             for cid, count in self.ex_cards.items():
                 if count:
@@ -381,15 +373,9 @@ class Game(ActionGame):
                 (counter == "goodwill" and target in self.roles and self._has(target, "time_traveler")))
 
     def resolve(self):
-        if self.module == "OF":
-            # The Returner Enemy cancels a revealed card before that card can move its target.
-            self._reveal_cards()
-        else:
-            self._reveal_and_move()
+        self._reveal_and_move()
         self._ignore_intrigue.clear()
-        detail = ("行动牌已揭示。请剧作家确认行动结算中的能力，再继续结算移动和计数物。"
-                  if self.module == "OF" else
-                  "移动已结算。请剧作家确认行动结算中的能力，再继续结算计数物。")
+        detail = "移动已结算。请剧作家确认行动结算中的能力，再继续结算计数物。"
         # Always pause here, not only when a relevant role exists; the public phase reveals no role.
         self._event("resolution_window", detail)
 
@@ -501,20 +487,6 @@ class Game(ActionGame):
                 if self.roles[c.id] == "cultist" and self._available_key(key):
                     result.append(option(f"{c.name}（邪教徒）：忽略{LOCATIONS[c.location]}及该区域角色的禁止密谋",
                                          [op("ignore_intrigue", location=c.location)], key=key))
-                key = f"returner_enemy:{c.id}"
-                if self._has(c.id, "returner_enemy") and self._available_key(key, True):
-                    for index, placement in enumerate(self.state.pending):
-                        if placement.actor == "m" or index in self._ignored_placement_indexes:
-                            continue
-                        location = (self.state.characters[placement.target].location
-                                    if placement.target in self.state.characters else placement.target)
-                        if location == c.location:
-                            card = self._deck(placement.actor)[placement.card]
-                            result.append(option(
-                                f"{c.name}（归来者·敌）：无效化{ACTOR_NAMES[placement.actor]}在"
-                                f"{self.name(placement.target)}的「{card.name}」",
-                                [op("ignore_card", index=index)], key=key, once=True,
-                                source=c.id, ability="cancel_card"))
         elif phase == "master_abilities":
             for c in self._living():
                 if self._has(c.id, "brain"):
@@ -534,10 +506,6 @@ class Game(ActionGame):
             if "rumor" in self.scenario["subplots"]:
                 result += self._counter_options(None, "plot:rumor", list(LOCATIONS), "intrigue", 1,
                                                 "流言四起（每轮一次）", True)
-            if "of_blue_cat" in self.scenario["subplots"]:
-                result += self._counter_options(None, "plot:of_blue_cat",
-                                                [*LOCATIONS, *(c.id for c in self._living())],
-                                                "intrigue", 1, "蓝色狸猫的阴谋（每轮一次）", True)
             if "mz_factor" in self.scenario["subplots"]:
                 factor_locations = sorted({c.location for c in self._living() if self._has(c.id, "factor")})
                 result += self._counter_options(None, "plot:mz_factor", factor_locations,
@@ -634,7 +602,7 @@ class Game(ActionGame):
                     key = f"lover:{c.id}"
                     if self._available_key(key):
                         result.append(option(f"{c.name}（求爱者）：使主人公死亡",
-                                             [op("heroes_die", hidden=self.module == "OF")], key=key))
+                                             [op("heroes_die")], key=key))
                 traveler_ready = (all(getattr(c, counter) <= 2 for counter in STANDARD_COUNTERS)
                                   if self.module == "WM" else c.goodwill <= 2)
                 if (self._has(c.id, "time_traveler") and self.state.round == self.scenario["days"]
@@ -642,30 +610,6 @@ class Game(ActionGame):
                     key = f"time_traveler:{c.id}"
                     if self._available_key(key):
                         result.append(option(f"{c.name}（时间旅行者）：使主人公失败", [op("lose")], key=key))
-                if self._has(c.id, "puppet"):
-                    key = f"puppet:{c.id}"
-                    if self._available_key(key):
-                        for target in self._living():
-                            if target.location == c.location and target.goodwill >= 4:
-                                result.append(option(f"{c.name}（傀儡）：使{target.name}死亡",
-                                                     [op("kill", target=target.id)], key=key))
-                if self._has(c.id, "assassin") and c.intrigue >= 3:
-                    key = f"assassin:{c.id}"
-                    if self._available_key(key):
-                        result.append(option(f"{c.name}（刺客）：使主人公死亡",
-                                             [op("heroes_die", hidden=True)], key=key))
-                if self._has(c.id, "terrorist"):
-                    board_intrigue = self.state.locations[c.location]
-                    key = f"terrorist:heroes:{c.id}"
-                    if board_intrigue >= 3 and self._available_key(key):
-                        result.append(option(f"{c.name}（恐怖分子）：使主人公死亡",
-                                             [op("heroes_die", hidden=True)], key=key))
-                    key = f"terrorist:character:{c.id}"
-                    if board_intrigue >= 2 and self._available_key(key):
-                        for target in self._living():
-                            if target.location == c.location:
-                                result.append(option(f"{c.name}（恐怖分子）：使{target.name}死亡",
-                                                     [op("kill", target=target.id)], key=key))
                 if self._has(c.id, "ninja"):
                     key = f"ninja:{c.id}"
                     if self._available_key(key):
@@ -742,9 +686,6 @@ class Game(ActionGame):
             if request.get("already_used"):
                 return [option("本日已结算此能力；公开宣布本次没有效果", refuse=True)]
             refusal = None if request["unrefusable"] else REFUSAL.get(self.roles[request["source"]])
-            if (self.roles[request["source"]] == "puppet"
-                    and self.state.characters[request["source"]].goodwill >= 4):
-                refusal = "mandatory"
             if (self._has(request["source"], "paper_tiger")
                     and self.state.characters[request["source"]].paranoia >= 2):
                 refusal = "mandatory"
@@ -820,11 +761,7 @@ class Game(ActionGame):
                 if self.module == "WM":
                     self._change_ex_gauge(1)
                 self.state.phase = "goodwill"
-                if self.roles[request["source"]] == "puppet":
-                    self._return_phase = "goodwill"
-                    self._queue = [op("puppet_refusal", target=request["source"])]
-                    self._drain()
-                elif self.module == "LL":
+                if self.module == "LL":
                     self._return_phase = "goodwill"
                     self._queue = (([op("ll_internet_celeb", source=request["source"])]
                                     if self._has(request["source"], "internet_celeb") else [])
@@ -869,19 +806,11 @@ class Game(ActionGame):
             if self.module == "LL" and self._ll_restricted_day == s.round:
                 self.configure_actions(mastermind=1, protagonists=order)
                 self._event("mastermind_restricted", "秘钥已经公开：今日剧作家只能放置 1 张行动牌。")
-            elif self._distort_next_day:
-                self.configure_actions(mastermind=4,
-                                       protagonists=tuple(actor for actor in order if actor != s.leader))
-                self._distort_next_day = False
-                self._event("time_distortion_active",
-                            "时空扭曲生效：剧作家放置 4 张牌；主人公合计放置 2 张，领队不能放置。")
             else:
                 self.configure_actions(mastermind=3, protagonists=order)
             s.phase = "mastermind"
             self._event("day_started", f"第 {s.round} 天开始，领队为{ACTOR_NAMES[s.leader]}。")
         elif s.phase == "action_counters":
-            if self.module == "OF":
-                self._resolve_movements()
             self._resolve_counters()
             s.phase = "master_abilities"
             s.events[-1]["message"] = "行动牌结算完毕，普通牌回手，限次牌公开留置。进入剧作家能力阶段。"
@@ -989,8 +918,6 @@ class Game(ActionGame):
             if (self.scenario["main_plot"] == "hsa_ancient_dead"
                     and self.roles[target] in ("ordinary", "paper_tiger")):
                 self.roles[target] = "zombie"
-            if self.roles[target] == "puppet":
-                self._permanent_dead.add(target)
             self._event("character_died", f"{self.name(target)}死亡；尸体留在原地，计数物保留。", target=target)
         for target in dying_magicians:
             goodwill = self.state.characters[target].goodwill
@@ -1433,29 +1360,10 @@ class Game(ActionGame):
                 self._event("card_ignored", f"{ACTOR_NAMES[placement.actor]}在{self.name(placement.target)}的"
                             f"「{self._deck(placement.actor)[placement.card].name}」被无效化。",
                             actor=placement.actor, card=placement.card, target=placement.target)
-            elif kind == "puppet_refusal":
-                target = effect["target"]
-                self._kill([target])
-                if not self.state.characters[target].alive:
-                    self._permanent_dead.add(target)
-            elif kind == "time_distortion":
-                self._distort_next_day = True
-                self._incident_effect = True
-                self._event("time_distortion_set", "时空扭曲将在下一日的行动阶段生效。")
-            elif kind == "trickster_mark":
-                self._trickster_targets.add(effect["target"])
-                self._mandatory_victims.append(effect["target"])
             elif kind == "mandatory_poison_mark":
                 self._mandatory_victims.append(effect["target"])
             elif kind == "mandatory_choice_batch":
-                groups = []
-                for group in effect["choices"]:
-                    available = [item for item in group["options"] if not any(
-                        nested.get("kind") == "trickster_mark"
-                        and nested.get("target") in self._trickster_targets
-                        for nested in item["effects"])]
-                    if available:
-                        groups.append({**group, "options": available})
+                groups = effect["choices"]
                 choices = []
                 for group_index, group in enumerate(groups):
                     remaining = groups[:group_index] + groups[group_index + 1:]
@@ -1598,8 +1506,6 @@ class Game(ActionGame):
                         choices.append(option(f"移除 2 友好：{first.name}、{second.name}",
                                               [op("counter", target=first.id, counter="goodwill", amount=-1),
                                                op("counter", target=second.id, counter="goodwill", amount=-1)]))
-        elif kind == "time_distortion":
-            effects = [op("time_distortion")]
         elif kind == "confession":
             effects = [op("reveal", target=culprit.id)]
         elif kind == "missing":
@@ -2204,27 +2110,6 @@ class Game(ActionGame):
             if self._has(c.id, "serial") and serial_key not in self.day_used and len(others) == 1:
                 self.day_used.add(serial_key)
                 victims.append(others[0].id)
-            doom_key = f"mandatory:doomsday:{c.id}"
-            if ("of_doomsday" in self.scenario["subplots"] and c.paranoia >= 4
-                    and doom_key not in self.day_used):
-                self.day_used.add(doom_key)
-                victims.append(c.id)
-            isolated_key = f"mandatory:trickster-alone:{c.id}"
-            if (self._has(c.id, "trickster") and not others and isolated_key not in self.day_used):
-                self.day_used.add(isolated_key)
-                victims.append(c.id)
-            trickster_key = f"trickster:{c.id}"
-            if (self._has(c.id, "trickster") and len(others) >= 3
-                    and self._available_key(trickster_key, True)):
-                # Activation is mandatory and fixed now; only its target still
-                # requires human input. A later death of the source cannot undo it.
-                self._mark(trickster_key, True)
-                target_choices.append({
-                    "prompt": "捣蛋鬼已触发：选择一名同区域角色死亡",
-                    "options": [option(f"{c.name}（捣蛋鬼·强制）：使{target.name}死亡",
-                                       [op("trickster_mark", source=c.id, target=target.id)])
-                                for target in others if target.id not in self._trickster_targets],
-                })
             poison_key = f"mandatory:poisoner:{c.id}"
             if (self._has(c.id, "poisoner") and self.ex_gauge >= 2
                     and self._available_key(poison_key, True)):
@@ -2273,24 +2158,6 @@ class Game(ActionGame):
                         and self.state.round == self.scenario["days"]):
                     loss_reasons.append("公开的秘钥在最终日使主人公死亡")
 
-        grandfather_key = "mandatory:plot:of_grandfather"
-        enemies = [c.id for c in living if self._has(c.id, "returner_enemy")]
-        if ("of_grandfather" in self.scenario["subplots"] and grandfather_key not in self.day_used
-                and enemies and any(self.roles[c.id] == "friend" and not c.alive
-                                    for c in self.state.characters.values())):
-            self.day_used.add(grandfather_key)
-            victims.extend(enemies)
-
-        if self.scenario["main_plot"] == "of_dream_beauty":
-            brain_alive = any(self._has(c.id, "brain") for c in self.state.characters.values())
-            key_ready = any(self._has(c.id, "key") and c.intrigue >= 2
-                            for c in self.state.characters.values())
-            if brain_alive and key_ready:
-                loss_reasons.append("规则 Y 失败条件")
-        if (self.scenario["main_plot"] == "of_retry"
-                and self.state.round >= self._current_loop_days()):
-            loss_reasons.append("规则 Y 最终日强制主人公死亡")
-
         if not victims and not target_choices and not loss_reasons:
             return
         self._mandatory_victims.extend(victims)
@@ -2322,19 +2189,14 @@ class Game(ActionGame):
                      (main == "mz_battle" and any(
                          self.roles[c.id] == "ninja" and c.intrigue >= 2
                          for c in s.characters.values())) or
-                     (main == "of_endless" and s.locations["shrine"] >= 2) or
                      (main == "sign" and any(c.intrigue >= 2 and self.roles[c.id] == "key" for c in s.characters.values())) or
                      (main == "change" and any(r["kind"] == "butterfly" and r["happened"] for r in self.incident_records)) or
-                     (main == "of_time_patrol" and any(c.intrigue >= 2 and self.roles[c.id] == "terrorist"
-                                                       for c in s.characters.values())) or
                      (main == "mc_event_web" and self.ex_gauge >= 3) or
                      (main == "mc_tightrope" and self.ex_gauge <= 1) or
                      (main == "mc_dark_school"
                       and s.locations["school"] >= s.loop - 1) or
                      ("mc_gunpowder" in self.scenario["subplots"]
                       and sum(c.intrigue for c in self._living()) >= 12) or
-                     ("of_delorean" in self.scenario["subplots"]
-                      and any(c.goodwill >= 3 and self.roles[c.id] == "loved" for c in s.characters.values())) or
                      ("mz_death_show" in self.scenario["subplots"]
                       and len(self._living()) <= 6) or
                      (self.module == "WM" and self._wm_plot_loss(main)) or
@@ -2396,13 +2258,6 @@ class Game(ActionGame):
         self._previous_fragment_friendly = {c.id for c in s.characters.values()
                                             if self.roles[c.id] == "fragment" and c.alive
                                             and c.goodwill >= 2}
-        self._returner_carry = {
-            c.id: {**{counter: getattr(c, counter) for counter in STANDARD_COUNTERS},
-                   "guard": self.guards[c.id]}
-            for c in s.characters.values()
-            if c.alive and c.goodwill >= 3
-            and self.roles[c.id] in ("returner_enemy", "returner_friend")
-        }
         if not loss:
             self._win("protagonists", "本轮全部日期已结束，未触发失败条件。主人公获胜！")
         else:
@@ -2425,8 +2280,6 @@ class Game(ActionGame):
         self.roles = dict(self.scenario["cast"])
         if apply_loop_rules:
             self._apply_current_roles()
-            for cid in self._permanent_dead:
-                self.state.characters[cid].alive = False
         self.guards = dict.fromkeys(self.roles, 0)
         self.protected = False
         self.day_used.clear()
@@ -2438,7 +2291,6 @@ class Game(ActionGame):
         self._mandatory_victims.clear()
         self.mastermind_plays = 3
         self.protagonist_order = self._protagonists_from(self.state.leader)
-        self._distort_next_day = False
         self._night_forced_done = False
         self._fake_incident_active = False
         self.ex_gauge = 0
@@ -2469,7 +2321,6 @@ class Game(ActionGame):
         self.incident_records = []
 
     def _new_loop(self):
-        carry = deepcopy(self._returner_carry)
         wm_ex = self.ex_gauge
         self._restore_board(apply_loop_rules=True)
         if self.module == "WM":
@@ -2520,16 +2371,6 @@ class Game(ActionGame):
         for cid, role in self.scenario["cast"].items():
             if role == "friend" and self.known_roles.get(cid, {}).get("role") == "friend":
                 self._change(cid, "goodwill", 1)
-        for cid, counters in carry.items():
-            if cid in self.roles and self.roles[cid] in ("returner_enemy", "returner_friend"):
-                for counter, amount in counters.items():
-                    if amount:
-                        if counter == "guard":
-                            self.guards[cid] = amount
-                            self._event("guard_inherited", f"{self.name(cid)}继承 {amount} 个护卫标记。",
-                                        target=cid, amount=amount)
-                        else:
-                            self._change(cid, counter, amount)
         if (self.module == "MZ" and self._previous_dead
                 and (self.scenario["main_plot"] in ("mz_approaching", "mz_causal")
                      or "mz_gods_dice" in self.scenario["subplots"])):
