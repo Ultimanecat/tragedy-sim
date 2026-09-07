@@ -1,6 +1,6 @@
 # tragedy-sim
 
-Python 版《悲剧轮回》本地热座模拟器。FS、BTX、OF、MZ、MC、HSA、WM 对局现已串通：
+Python 版《悲剧轮回》本地热座模拟器。FS、BTX、OF、MZ、MC、HSA、WM、AHR 对局现已串通：
 出牌、好感（界面称“友好”）能力、剧作家与身份能力、事件、日末、轮回与胜负。
 
 支持 FS 的全部 6 个规则 X/Y、7 种事件，BTX 的全部 12 个规则 X/Y、9 种事件，
@@ -8,7 +8,8 @@ OldFashion（OF）的全部 12 个规则 X/Y、8 种事件和 11 名登场角色
 MidnightZone（MZ）的全部 12 个规则 X/Y、11 种事件与 Ex / 身份宣称规则，
 MysteryCircle（MC/MCX）的全部 12 个规则 X/Y、11 种事件、Ex 槽与事件移动限制，
 HauntedStageAgain（HSA）的全部 12 个规则 X/Y、11 种事件、尸体/群聚事件与诅咒牌规则，
-以及 WeirdMythology（WM）的全部 12 个规则 X/Y、11 种事件与跨轮回 Ex 槽规则（拒绝友好时 Ex +1）。
+WeirdMythology（WM）的全部 12 个规则 X/Y、11 种事件与跨轮回 Ex 槽规则（拒绝友好时 Ex +1），
+以及 AnotherHorizonRevised（AHR）的表里世界、双身份最终猜测、希望/绝望牌和全部规则/事件。
 内置各模组速查表对应的角色池及能力（MC 使用“手下”替换“军人”）。以用户提供的中文模组速查表为优先依据。
 这是由真人控制双方的热座/裁判工具，不含 AI 或远程大厅。
 

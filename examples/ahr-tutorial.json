@@ -1,0 +1,32 @@
+{
+  "id": "silent-town-ahr",
+  "title": "寂静小镇（原创教学剧本）",
+  "module": "AHR",
+  "days": 3,
+  "loops": 3,
+  "main_plot": "ahr_closed_future",
+  "subplots": ["ahr_puppet_lines", "ahr_beyond_worldline"],
+  "cast": {
+    "student": "obsessive",
+    "girl": "key",
+    "doctor": "ahr_puppet",
+    "worker": "fragment",
+    "maiden": "piper",
+    "patient": "alice",
+    "nurse": "piper"
+  },
+  "hidden_cast": {
+    "student": "obsessive",
+    "girl": "key",
+    "doctor": "ahr_puppet",
+    "worker": "fragment",
+    "maiden": "piper",
+    "patient": "alice",
+    "nurse": "piper"
+  },
+  "incidents": [
+    {"day": 1, "kind": "dimension_swap", "culprit": "student"},
+    {"day": 3, "kind": "hope_light", "culprit": "patient"}
+  ],
+  "table_talk": true
+}

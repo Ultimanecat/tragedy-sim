@@ -151,7 +151,7 @@ class GameService:
                             "traits": [{"id": trait, "name": TRAIT_NAMES[trait]}
                                        for trait in CHARACTERS[cid].traits]}
                            for cid in spec.characters],
-            "cards": {actor: [{"id": cid, **asdict(card)} for cid, card in deck(actor).items()]
+            "cards": {actor: [{"id": cid, **asdict(card)} for cid, card in deck(actor, module).items()]
                       for actor in SEATS},
         })
 
@@ -229,7 +229,7 @@ class GameService:
             index = command["index"]
             return options[index - 1]["label"]
         if action == "play":
-            return f"{deck(command['actor'])[command['card']].name} → {game.name(command['target'])}"
+            return f"{deck(command['actor'], game.module)[command['card']].name} → {game.name(command['target'])}"
         if action == "guess":
             return f"{game.name(command['character'])}是{ROLE_NAMES[command['role']]}"
         if action == "final":

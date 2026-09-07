@@ -20,6 +20,8 @@ class Character:
     paranoia: int = 0
     goodwill: int = 0
     intrigue: int = 0
+    hope: int = 0
+    despair: int = 0
     alive: bool = True
 
 
@@ -82,6 +84,10 @@ class ActionGame:
         self._ignored_placement_indexes = set()
         self._initial = deepcopy({c.id: c for c in characters})
         self.state = State(characters=deepcopy(self._initial), leader=leader)
+        self.state.hands = {actor: list(deck(actor, module)) for actor in ACTORS}
+
+    def _deck(self, actor):
+        return deck(actor, self.module)
 
     @staticmethod
     def _protagonists_from(leader: str) -> tuple[str, ...]:
@@ -181,7 +187,7 @@ class ActionGame:
             raise RuleError("必须先揭示行动牌，才能结算移动")
         by_target = {}
         for p in self._active_placements():
-            by_target.setdefault(p.target, []).append(deck(p.actor)[p.card])
+            by_target.setdefault(p.target, []).append(self._deck(p.actor)[p.card])
 
         # 1. Forbid movement; 2. all movements. Cards on characters travel with them.
         for target, cards in by_target.items():
@@ -228,10 +234,10 @@ class ActionGame:
         by_target = {}
         active = self._active_placements()
         for p in active:
-            by_target.setdefault(p.target, []).append(deck(p.actor)[p.card])
+            by_target.setdefault(p.target, []).append(self._deck(p.actor)[p.card])
 
         # 3. Other forbids: multiple Forbid Intrigue cards cancel GLOBALLY, even bluffs.
-        intrigue_forbids = sum(deck(p.actor)[p.card].effect == "forbid_intrigue" for p in active)
+        intrigue_forbids = sum(self._deck(p.actor)[p.card].effect == "forbid_intrigue" for p in active)
         if self._intrigue_forbids_cancel(intrigue_forbids):
             self._event("forbids_cancelled", "本次打出了多张禁止密谋牌，所有禁止密谋牌失效。")
         # 4. Remaining counters. Add before remove; never below zero.
@@ -274,7 +280,7 @@ class ActionGame:
 
         # Return ordinary cards NOW. Limited cards are public discards even if blocked.
         for p in s.pending:
-            if deck(p.actor)[p.card].once_per_loop:
+            if self._deck(p.actor)[p.card].once_per_loop:
                 s.discarded[p.actor].append(p.card)
             else:
                 s.hands[p.actor].append(p.card)
@@ -320,7 +326,7 @@ class ActionGame:
                          "protagonist_order": list(self.protagonist_order),
                          "characters": {cid: asdict(c) for cid, c in s.characters.items()},
                          "locations": s.locations, "discarded": s.discarded,
-                         "hand": [cid for cid in deck(viewer) if cid in s.hands[viewer]] if viewer in ACTORS else [],
+                         "hand": [cid for cid in self._deck(viewer) if cid in s.hands[viewer]] if viewer in ACTORS else [],
                          "pending": [{"actor": p.actor, "target": p.target,
                                       "card": p.card if p.actor == viewer or s.face_up else None} for p in s.pending],
                          "events": s.events})

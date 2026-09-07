@@ -13,7 +13,7 @@ def describe_decision(game: Any, actor: str, action: str, args: dict[str, Any]) 
     """Describe a command before applying it, while choice labels are available."""
     who = ACTOR_NAMES[actor]
     if action == "play":
-        definition = deck(actor).get(args["card"])
+        definition = deck(actor, game.module).get(args["card"])
         card = definition.name if definition else args["card"]
         return f"{who}将「{card}」暗置于{game.name(args['target'])}"
     if action == "resolve":

@@ -213,7 +213,9 @@ class TragedyApp:
                                         state="disabled" if replay else "normal")
         self.root.title(f"悲剧轮回 · {view['module']} {mode}")
         self.match_title.configure(text=f"{view['title']}  /  {view['module']}" + ("  ·  只读回放" if replay else ""))
-        ex_status = f"  ·  Ex 槽 {view['ex_gauge']}" if view["module"] in ("MC", "WM") else ""
+        ex_status = f"  ·  Ex 槽 {view['ex_gauge']}" if view["module"] in ("MC", "WM", "AHR") else ""
+        if view["module"] == "AHR":
+            ex_status += "（表世界）" if view["world"] == "surface" else "（里世界）"
         self.turn_label.configure(text=f"轮回 {view['loop']}/{view['loops']}   第 {view['round']}/{view['days']} 天  ·  {phase}{ex_status}")
         self.discussion.configure(text=(f"回放位置：{self.session.index}/{self.session.length}"
                                         if replay else
@@ -300,7 +302,8 @@ class TragedyApp:
                 ex_name = "诅咒" if view["module"] == "HSA" else "Ex"
                 ex = f"   {ex_name} {c['ex_cards']}" if c.get("ex_cards") else ""
                 locked = "   今日禁止移动" if view.get("movement_locks", {}).get(c["id"]) == view["round"] else ""
-                counts = tk.Label(shell, text=f"友好 {c['goodwill']}   不安 {c['paranoia']}/{c['paranoia_limit']}{panic}   密谋 {c['intrigue']}   护卫 {c['guard']}{ex}{locked}",
+                mind = f"   希望 {c['hope']}   绝望 {c['despair']}" if view["module"] == "AHR" else ""
+                counts = tk.Label(shell, text=f"友好 {c['goodwill']}   不安 {c['paranoia']}/{c['paranoia_limit']}{panic}   密谋 {c['intrigue']}{mind}   护卫 {c['guard']}{ex}{locked}",
                                   bg=CARD, fg=DANGER if panic else MUTED, font=("Microsoft YaHei UI", 10), anchor="w")
                 counts.pack(fill="x", pady=(4, 0))
                 placements = self._placements(view, c["id"])
@@ -312,7 +315,7 @@ class TragedyApp:
 
     @staticmethod
     def _placements(view, target):
-        return "  /  ".join(f"{ACTOR_NAMES[p['actor']]} · {deck(p['actor'])[p['card']].name if p['card'] else '暗牌'}"
+        return "  /  ".join(f"{ACTOR_NAMES[p['actor']]} · {deck(p['actor'], view['module'])[p['card']].name if p['card'] else '暗牌'}"
                             for p in view["pending"] if p["target"] == target)
 
     def _render_private(self, public):
@@ -388,14 +391,14 @@ class TragedyApp:
         scroll = ScrollFrame(parent)
         scroll.pack(fill="both", expand=True)
         for i, cid in enumerate(view["hand"]):
-            c = deck(seat)[cid]
+            c = deck(seat, view["module"])[cid]
             button = ttk.Button(scroll.body, text=c.name + ("\n每轮一次" if c.once_per_loop else "\n每日回手"),
                                 command=lambda card=cid: self.select_card(card))
             button.grid(row=i // 2, column=i % 2, sticky="ew", padx=3, pady=4)
             self.controls[f"card:{cid}"] = button
         scroll.body.columnconfigure((0, 1), weight=1, uniform="hand")
         if own_plays:
-            placed = "\n".join(f"{deck(seat)[p['card']].name} → {target_name(view, p['target'])}" for p in own_plays)
+            placed = "\n".join(f"{deck(seat, view['module'])[p['card']].name} → {target_name(view, p['target'])}" for p in own_plays)
             ttk.Label(scroll.body, text="你已经放置（私密）：\n" + placed, style="Muted.TLabel", wraplength=335).grid(row=(len(view["hand"]) + 1) // 2, column=0, columnspan=2, sticky="ew", padx=5, pady=10)
         ttk.Separator(parent).pack(fill="x", pady=10)
         self.card_summary = ttk.Label(parent, text="尚未选择手牌", foreground=ACCENT, wraplength=350)
@@ -415,7 +418,8 @@ class TragedyApp:
         if self.session.private_view() is None:
             return
         self.selected_card = cid
-        c = deck(self.session.seat)[cid]
+        view = self.session.private_view()
+        c = deck(self.session.seat, view["module"])[cid]
         self.card_summary.configure(text="已选：" + c.name + ("（每轮一次，即使无效也消耗）" if c.once_per_loop else ""))
         for key, button in self.controls.items():
             if key.startswith("card:"):

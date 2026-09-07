@@ -15,7 +15,7 @@ HSA_GROUP_INCIDENTS = {"frenzied_night", "curse_awakening", "filth_overflow", "d
 def validate_scenario(data: dict) -> dict:
     required = {"id", "title", "module", "days", "loops", "main_plot", "subplots", "cast", "incidents"}
     if (not isinstance(data, dict)
-            or set(data) - required - {"table_talk", "wm_replacement_plot"}
+            or set(data) - required - {"table_talk", "wm_replacement_plot", "hidden_cast"}
             or required - set(data)):
         raise RuleError("剧本字段不完整或含不支持的字段；请参考 examples 中的 JSON")
     if any(not isinstance(data[k], str) or not data[k] for k in ("id", "title", "module", "main_plot")):
@@ -46,6 +46,19 @@ def validate_scenario(data: dict) -> dict:
     if any(c not in spec.characters or not isinstance(r, str) or r not in ROLE_NAMES
            for c, r in cast.items()):
         raise RuleError("剧本包含未知角色或无效身份")
+    hidden_cast = data.get("hidden_cast")
+    if module == "AHR":
+        if hidden_cast is None:
+            hidden_cast = dict(cast)
+        ahr_roles = {"ordinary"}
+        for plot in spec.plots:
+            ahr_roles.update(PLOTS[plot][2])
+        if (not isinstance(hidden_cast, dict) or set(hidden_cast) != set(cast)
+                or any(not isinstance(role, str) or role not in ahr_roles
+                       for role in hidden_cast.values())):
+            raise RuleError("AHR 的 hidden_cast 必须为同一批角色指定合法的里世界身份")
+    elif hidden_cast is not None:
+        raise RuleError("只有 AHR 可以设置 hidden_cast")
     expected = Counter()
     for p in plots:
         expected.update(PLOTS[p][2])
@@ -138,6 +151,8 @@ def validate_scenario(data: dict) -> dict:
     if type(data.get("table_talk", False)) is not bool:
         raise RuleError("table_talk 必须是布尔值")
     result = deepcopy(data)
+    if module == "AHR":
+        result["hidden_cast"] = deepcopy(hidden_cast)
     result["incidents"].sort(key=lambda i: i["day"])
     result.setdefault("table_talk", False)
     return result
@@ -175,6 +190,12 @@ def example_scenario(module: str = "FS") -> dict:
         subplots = ["wm_rumor", "wm_great_race"]
         cast = {"student": "serial", "girl": "key", "doctor": "deep_one",
                 "worker": "conspiracy", "maiden": "cultist", "patient": "time_traveler"}
+    elif module == "AHR":
+        main_plot = "ahr_closed_future"
+        subplots = ["ahr_puppet_lines", "ahr_beyond_worldline"]
+        cast = {"student": "obsessive", "girl": "key", "doctor": "ahr_puppet",
+                "worker": "fragment", "maiden": "piper", "patient": "alice",
+                "nurse": "piper"}
     else:
         main_plot = "murder_plan"
         subplots = ["rumor"] if module == "FS" else ["rumor", "threads"]
@@ -184,7 +205,10 @@ def example_scenario(module: str = "FS") -> dict:
         "id": "silent-town-" + module.lower(), "title": "寂静小镇（原创教学剧本）", "module": module,
         "days": 3, "loops": 3, "main_plot": main_plot,
         "subplots": subplots, "cast": cast,
-        "incidents": ([{"day": 2, "kind": "discovery", "culprit": "doctor"},
+        "incidents": ([{"day": 1, "kind": "dimension_swap", "culprit": "student"},
+                       {"day": 3, "kind": "hope_light", "culprit": "patient"}]
+                      if module == "AHR" else
+                      [{"day": 2, "kind": "discovery", "culprit": "doctor"},
                        {"day": 3, "kind": "mass_suicide", "culprit": "patient"}]
                       if module == "WM" else
                       [{"day": 2, "kind": "frenzied_murder", "culprit": "doctor"},

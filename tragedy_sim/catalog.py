@@ -15,7 +15,9 @@ ROLE_NAMES = {"ordinary": "平民", "key": "关键人物", "killer": "杀手", "
               "vampire": "吸血鬼", "werewolf": "狼人", "nightmare": "梦魇",
               "ghost": "鬼魂", "paper_tiger": "纸老虎", "chicken": "胆小鬼",
               "zombie": "丧尸", "sacrifice": "祭品", "deep_one": "深潜者",
-              "wizard": "巫师", "witness": "目击者", "faceless": "无面者"}
+              "wizard": "巫师", "witness": "目击者", "faceless": "无面者",
+              "ahr_puppet": "提线木偶", "narrator": "叙述者", "fragment": "碎片",
+              "piper": "吹笛人", "preacher": "布道者", "alice": "爱丽丝"}
 REFUSAL = {"killer": "optional", "brain": "optional", "curmudgeon": "optional",
            "factor": "optional", "cultist": "mandatory", "witch": "mandatory",
            "puppet": "optional", "assassin": "optional", "terrorist": "optional",
@@ -25,6 +27,7 @@ REFUSAL.update({"poisoner": "optional", "paranoid": "mandatory"})
 REFUSAL.update({"vampire": "optional", "werewolf": "optional", "nightmare": "optional",
                 "witch": "mandatory"})
 REFUSAL.update({"deep_one": "optional", "paranoid": "mandatory", "faceless": "optional"})
+REFUSAL.update({"ahr_puppet": "optional", "piper": "optional"})
 INCIDENT_NAMES = {"murder": "谋杀", "unease": "不安扩散", "suicide": "自杀",
                   "hospital": "医院事故", "faraway": "远距离杀人", "missing": "失踪",
                   "spreading": "散播", "foul_play": "邪气污染", "butterfly": "蝴蝶效应",
@@ -42,6 +45,11 @@ INCIDENT_NAMES.update({"frenzied_murder": "癫狂杀人", "funeral": "送葬",
                        "filth_overflow": "污秽溢出", "dead_apocalypse": "死者默示录"})
 INCIDENT_NAMES.update({"mass_suicide": "集体自杀", "extinction": "灭绝之灾",
                        "dagon_whisper": "达贡黑井之息", "discovery": "发现"})
+INCIDENT_NAMES.update({"impulsive_murder": "冲动杀人", "dimension_swap": "次元转换",
+                       "dimension_distortion": "次元歪曲", "dimension_break": "次元断层",
+                       "lost_property": "遗失之物", "imaginary_incident": "空想事件",
+                       "will": "遗言", "singularity": "奇点", "hope_light": "隙间阳光",
+                       "despair_dark": "绝望之暗"})
 # id: (name, Y/X, required roles). Duplicate roles are capped by their printed maximum.
 PLOTS = {
     "murder_plan": ("谋杀计划", "Y", {"key": 1, "killer": 1, "brain": 1}),
@@ -120,6 +128,19 @@ PLOTS = {
     "wm_deep_whisper": ("深渊之都的私语", "X", {"deep_one": 1, "paranoid": 1}),
     "wm_faceless_god": ("无貌之神", "X", {"wizard": 1, "faceless": 1}),
     "wm_mad_truth": ("疯狂的真相", "X", {"paranoid": 1}),
+    "ahr_closed_future": ("闭锁的未来", "Y", {"key": 1, "obsessive": 1, "ahr_puppet": 1}),
+    "ahr_legendary_killer": ("传说中的杀人鬼", "Y", {"key": 1, "narrator": 1, "serial": 1}),
+    "ahr_crane_tale": ("鹤妈妈奇谭", "Y", {"obsessive": 1, "ahr_puppet": 1}),
+    "ahr_fusion": ("次元融合计划", "Y", {"ahr_puppet": 1, "time_traveler": 1, "fragment": 1}),
+    "ahr_illusory_world": ("虚幻世界", "Y", {"obsessive": 1, "ahr_puppet": 1, "serial": 1}),
+    "ahr_jekyll": ("化身博士", "X", {"key": 1, "ahr_puppet": 1, "brain": 1}),
+    "ahr_plague": ("瘟疫使者", "X", {"fragment": 1, "conspiracy": 1, "alice": 1}),
+    "ahr_puppet_lines": ("人偶之线", "X", {"fragment": 1, "piper": 1, "alice": 1}),
+    "ahr_love_encounter": ("爱情丝线中奇遇", "X", {"fragment": 1, "conspiracy": 1,
+                                                       "preacher": 1, "alice": 1}),
+    "ahr_beyond_worldline": ("超越世界线", "X", {"piper": 1}),
+    "ahr_unspeakable": ("难以言喻的怪物", "X", {"obsessive": 1, "preacher": 1, "alice": 1}),
+    "ahr_imaginary_virus": ("空想扩大病毒", "X", {"fragment": 1, "preacher": 1, "alice": 1}),
 }
 
 
@@ -162,6 +183,10 @@ _HSA_PLOTS = ("hsa_noble", "hsa_moon_beast", "hsa_fog_nightmare", "hsa_ancient_d
 _WM_PLOTS = ("wm_outer_chorus", "wm_gospel", "wm_yellow_king", "wm_bomb", "wm_blood_ritual",
              "wm_rumor", "wm_resistance", "wm_witness_terror", "wm_great_race",
              "wm_deep_whisper", "wm_faceless_god", "wm_mad_truth")
+_AHR_PLOTS = ("ahr_closed_future", "ahr_legendary_killer", "ahr_crane_tale", "ahr_fusion",
+              "ahr_illusory_world", "ahr_jekyll", "ahr_plague", "ahr_puppet_lines",
+              "ahr_love_encounter", "ahr_beyond_worldline", "ahr_unspeakable",
+              "ahr_imaginary_virus")
 _FS_INCIDENTS = ("murder", "unease", "suicide", "hospital", "faraway", "missing", "spreading")
 _BTX_INCIDENTS = (*_FS_INCIDENTS, "foul_play", "butterfly")
 _OF_INCIDENTS = ("murder", "suicide", "malicious_rumor", "hospital", "poison_gas", "exposure",
@@ -175,6 +200,9 @@ _HSA_INCIDENTS = ("frenzied_murder", "unease", "missing", "foul_play", "funeral"
                   "filth_overflow", "dead_apocalypse")
 _WM_INCIDENTS = ("frenzied_murder", "mass_suicide", "unease", "missing", "foul_play",
                  "hospital", "riot", "extinction", "dagon_whisper", "discovery", "funeral")
+_AHR_INCIDENTS = ("impulsive_murder", "dimension_swap", "dimension_distortion",
+                  "dimension_break", "lost_property", "imaginary_incident", "hospital",
+                  "will", "singularity", "hope_light", "despair_dark")
 _OF_CHARACTERS = ("student", "girl", "rich", "class_rep", "maiden", "police", "worker",
                   "informer", "idol", "doctor", "patient")
 
@@ -196,6 +224,9 @@ MODULES = {
     "WM": ModuleSpec("WeirdMythology", _WM_PLOTS, 2, _WM_INCIDENTS,
                      {"deep_one": 1, "conspiracy": 1, "wizard": 1}, True, True,
                      _ALL_CHARACTERS, True),
+    "AHR": ModuleSpec("AnotherHorizonRevised", _AHR_PLOTS, 2, _AHR_INCIDENTS,
+                      {"conspiracy": 1, "preacher": 1}, True, True,
+                      _ALL_CHARACTERS, True),
 }
 
 # Historical public name retained for callers and saved-game compatibility.
@@ -267,6 +298,18 @@ PLOT_RULES = {
     "wm_deep_whisper": "偏执狂获得关键人物能力，身份不变。",
     "wm_faceless_god": "无追加规则。",
     "wm_mad_truth": "轮回开始时 Ex 槽不少于 2，本轮规则 Y 失败条件替换为剧本指定的另一条规则 Y。",
+    "ahr_closed_future": "轮回结束时若位于表世界，主人公失败。",
+    "ahr_legendary_killer": "轮回结束时尸体数不少于当前轮回数（最多按 3 计算），主人公失败。",
+    "ahr_crane_tale": "无追加规则。",
+    "ahr_fusion": "轮回结束时若本轮发生过遗言或遗失之物，主人公失败。",
+    "ahr_illusory_world": "轮回结束时本规则强迫症（含尸体）的密谋与 Ex 合计不少于 3，主人公失败。",
+    "ahr_jekyll": "常驻：提线木偶的傀儡无视友好改为绝对无视友好。",
+    "ahr_plague": "剧本制作：指定的表里身份必须配给同一角色。",
+    "ahr_puppet_lines": "常驻：所有无视友好均视作傀儡无视友好。",
+    "ahr_love_encounter": "剧本制作：指定的表里身份必须配给同一角色。",
+    "ahr_beyond_worldline": "偶数轮开始剧作家获得绝望 +1；最终轮开始主人公获得希望 +1。",
+    "ahr_unspeakable": "剧作家能力阶段可在存活强迫症初始版图放置密谋 +1，每轮一次。",
+    "ahr_imaginary_virus": "存活平民同时拥有至少 2 希望与 2 绝望时，身份变为杀人狂。",
 }
 ROLE_RULES = {
     "ordinary": "没有身份能力。",
@@ -312,6 +355,12 @@ ROLE_RULES = {
     "wizard": "可正常死亡；轮回结束时若已死亡，主人公失败。友好能力结算后公开身份，领队可选择令 Ex 槽 +1。上限 1。",
     "witness": "日末不安不少于 4 时强制死亡，并令 Ex 槽 +1。",
     "faceless": "不会死亡且可拒绝友好。Ex 槽不少于 1/2 时分别获得传谣人/深潜者能力，身份不变。",
+    "ahr_puppet": "傀儡无视友好；剧作家可在能力阶段使用其已满足条件的友好能力。友好能力结算后若身上有至少两种指示物则触发世界线变动。",
+    "narrator": "不会死亡；剧作家能力阶段 Ex≥1 时可在两名同区域角色间移动一个指示物。",
+    "fragment": "上轮死亡则本轮开始剧作家获得绝望 +1；上轮存活且友好≥2 则主人公获得希望 +1。",
+    "piper": "无视友好；日末 Ex≥2 时每轮一次使同区域一名角色死亡；可给同区域尸体密谋 +1，尸体密谋合计≥3 时主人公死亡。",
+    "preacher": "剧作家能力阶段可给同区域一名角色友好 +1；死亡时同区域一名角色绝望 +1 并触发世界线变动。上限 1。",
+    "alice": "轮回结束时若处于里世界则主人公失败；友好能力结算后 Ex≥1 时可令同区域另一角色希望 +1（每轮一次）。",
 }
 INCIDENT_RULES = {
     "murder": "同当事人一个区域的另一名存活角色死亡。",
@@ -352,6 +401,16 @@ INCIDENT_RULES = {
     "extinction": "本局游戏中首次发生时，所有角色与主人公死亡；之后再次发生没有效果。",
     "dagon_whisper": "改用当事人的密谋判定发生；本轮之后若有其他事件发生，主人公在该事件阶段结束时死亡。",
     "discovery": "Ex 槽 +1。",
+    "impulsive_murder": "发生临界为当事人不安临界 -1；同区域另一名角色死亡。",
+    "dimension_swap": "当事人存活即发生；触发世界线变动。",
+    "dimension_distortion": "可触发世界线变动；任意角色不安 +2，随后另一名角色友好 +2。",
+    "dimension_break": "可触发世界线变动；结算后当事人指示物种类不少于 3 时主人公死亡。",
+    "lost_property": "将同区域另一名角色移至任意版图，随后当事人移回其初始版图。",
+    "imaginary_incident": "改用密谋判定发生；选择冲动杀人、次元歪曲或遗失之物的一种效果。",
+    "will": "当事人死亡；下一轮开始主人公获得希望 +1。",
+    "singularity": "表世界首次发生时主人公死亡，否则触发世界线变动；里世界给同区域所有角色密谋 +1，若当事人初始版图有密谋则主人公死亡。",
+    "hope_light": "改用友好判定发生；领队选择一名角色希望 +1。",
+    "despair_dark": "任意一名角色绝望 +1。",
 }
 
 

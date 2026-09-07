@@ -76,11 +76,12 @@ def board(game: ActionGame, viewer: str = "spectator") -> None:
         print(f"  {loc} {name}（密谋 {view['locations'][loc]}）")
         for char in view["characters"].values():
             if char["location"] == loc:
+                mind = f" / 希望 {char['hope']} / 绝望 {char['despair']}" if game.module == "AHR" else ""
                 print(f"    {char['id']:<9} {char['name']}：友好 {char['goodwill']} / "
-                      f"不安 {char['paranoia']} / 密谋 {char['intrigue']}"
+                      f"不安 {char['paranoia']} / 密谋 {char['intrigue']}{mind}"
                       + (" [死亡]" if not char["alive"] else ""))
     for p in view["pending"]:
-        label = deck(p["actor"])[p["card"]].name if p["card"] else "暗牌"
+        label = deck(p["actor"], game.module)[p["card"]].name if p["card"] else "暗牌"
         print(f"  {ACTOR_NAMES[p['actor']]} → {p['target']}：{label}")
     for actor, discarded in view["discarded"].items():
         if discarded:
@@ -210,9 +211,11 @@ def match_board(game, viewer="spectator"):
     print(f"\n【{v['title']} / {v['module']}】轮回 {v['loop']}/{v['loops']}，"
           f"第 {v['round']}/{v['days']} 天 · {MATCH_PHASES[v['phase']]}")
     print(f"领队：{ACTOR_NAMES[v['leader']]}；桌面讨论：{'允许' if v['table_talk'] else '出牌中不允许（真人遵守）'}")
-    if v["module"] in ("MC", "WM"):
+    if v["module"] in ("MC", "WM", "AHR"):
         detail = ("本轮已发生事件计数；猎奇杀人 +2，银色子弹 +0"
-                  if v["module"] == "MC" else "跨轮回保留；驱动旧日支配者与规则能力")
+                  if v["module"] == "MC" else
+                  "跨轮回保留；驱动旧日支配者与规则能力" if v["module"] == "WM" else
+                  f"偶数为表世界、奇数为里世界；当前为{'表' if v['world'] == 'surface' else '里'}世界")
         print(f"Ex 槽：{v['ex_gauge']}（{detail}）")
     if v["winner"]:
         print("胜方：" + ("主人公" if v["winner"] == "protagonists" else "剧作家"))
@@ -226,15 +229,17 @@ def match_board(game, viewer="spectator"):
                 panic = " 达临界" if c["alive"] and c["paranoia"] >= c["paranoia_limit"] else ""
                 special = "诅咒牌" if v["module"] == "HSA" else "Ex牌"
                 ex = f" · {special} {c.get('ex_cards', 0)}" if c.get("ex_cards", 0) else ""
+                mind = f" · 希望 {c['hope']} · 绝望 {c['despair']}" if v["module"] == "AHR" else ""
                 print(f"    {c['name']} [{c['id']}] {'存活' if c['alive'] else '尸体'} | "
                       f"友好 {c['goodwill']} · 不安 {c['paranoia']}/{c['paranoia_limit']}{panic} · "
-                      f"密谋 {c['intrigue']} · 护卫 {c['guard']}{ex}")
+                      f"密谋 {c['intrigue']}{mind} · 护卫 {c['guard']}{ex}")
     for p in v["pending"]:
-        label = deck(p["actor"])[p["card"]].name if p["card"] else "暗牌"
+        label = deck(p["actor"], game.module)[p["card"]].name if p["card"] else "暗牌"
         print(f"  {ACTOR_NAMES[p['actor']]} → {game.name(p['target'])}：{label}")
     for actor, cards in v["discarded"].items():
         if cards:
-            print(f"  {ACTOR_NAMES[actor]}公开留置：" + "、".join(f"{deck(actor)[c].name}[{c}]" for c in cards))
+            print(f"  {ACTOR_NAMES[actor]}公开留置：" + "、".join(
+                f"{deck(actor, game.module)[c].name}[{c}]" for c in cards))
     records = {r["day"]: r for r in v["incidents"]}
     from .catalog import INCIDENT_NAMES
     print("事件日程：")
@@ -352,7 +357,8 @@ def show_rules(game):
     print("角色能力和被动特性请用 inspect <角色ID> 查看；护卫消耗一枚替代一次死亡，军人的保护持续整轮。")
     for actor, label in (("m", "剧作家"), ("a", "每位主人公")):
         print(label + "初始牌组（公开固定清单，不是当前私密手牌）：")
-        print("  " + "；".join(f"{c.name}[{c.id}]" + ("（每轮一次）" if c.once_per_loop else "") for c in deck(actor).values()))
+        print("  " + "；".join(f"{c.name}[{c.id}]" + ("（每轮一次）" if c.once_per_loop else "")
+                                 for c in deck(actor, game.module).values()))
 
 
 def match_demo(module):
@@ -474,7 +480,7 @@ def main(argv=None):
                 if values[0] == "m":
                     print("【剧作家私密手牌】")
                 for cid in game.view(values[0])["hand"]:
-                    card = deck(values[0])[cid]
+                    card = deck(values[0], game.module)[cid]
                     print(f"  {cid:<4} {card.name}" + (" [每轮限一次]" if card.once_per_loop else ""))
             elif cmd == "play":
                 game.dispatch(values[0], "play", card=values[1], target=values[2])
