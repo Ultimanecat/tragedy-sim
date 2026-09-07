@@ -99,10 +99,12 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = ())
                     self._send_json(200, {"protocol_version": PROTOCOL_VERSION, "status": "ok"})
                     return
                 if parts == ["v1", "modules"]:
-                    self._send_json(200, service.list_modules())
+                    language = parse_qs(parsed.query).get("lang", ["zh"])[0]
+                    self._send_json(200, service.list_modules(language))
                     return
                 if len(parts) == 3 and parts[:2] == ["v1", "catalog"]:
-                    self._send_json(200, service.get_catalog(parts[2]))
+                    language = parse_qs(parsed.query).get("lang", ["zh"])[0]
+                    self._send_json(200, service.get_catalog(parts[2], language))
                     return
                 if len(parts) != 4 or parts[:2] != ["v1", "games"]:
                     raise ServiceError("ROUTE_NOT_FOUND", "接口不存在", status=404)
@@ -110,7 +112,8 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = ())
                 query = parse_qs(parsed.query)
                 if resource == "view":
                     viewer = query.get("viewer", ["spectator"])[0]
-                    result = service.get_view(session_id, viewer, token=self._token())
+                    language = query.get("lang", ["zh"])[0]
+                    result = service.get_view(session_id, viewer, token=self._token(), language=language)
                     self._send_json(200, result)
                 elif resource == "actions":
                     actor = query.get("actor", [""])[0]
@@ -118,7 +121,8 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = ())
                 elif resource == "snapshot":
                     self._send_json(200, service.get_snapshot(session_id, token=self._token()))
                 elif resource == "replay":
-                    self._send_text(200, service.get_replay(session_id, token=self._token()))
+                    language = query.get("lang", ["zh"])[0]
+                    self._send_text(200, service.get_replay(session_id, token=self._token(), language=language))
                 else:
                     raise ServiceError("ROUTE_NOT_FOUND", "接口不存在", status=404)
             except Exception as exc:

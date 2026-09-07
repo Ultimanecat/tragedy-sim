@@ -13,8 +13,10 @@ import random
 from .cards import ACTORS, ACTOR_NAMES, COORDS, COUNTER_NAMES, LOCATIONS, PROTAGONISTS, STANDARD_COUNTERS, deck
 from .catalog import CHARACTERS, INCIDENT_NAMES, MODULES, MODULE_PLOTS, PLOTS, REFUSAL, ROLE_NAMES, TRAIT_NAMES
 from .engine import ActionGame, Character, RuleError, State
-from .flow import MATCH_FLOW
-from .model import DecisionRecord, PhaseCursor, ResolutionStep, SimulationResult
+from .flow import MATCH_FLOW, phase_label
+from .i18n import format_timepoint, label, normalize_language
+from .model import (DecisionRecord, PhaseCursor, ResolutionStep, SimulationResult,
+                    TimingId, timing_for_phase)
 from .scenario import example_scenario, validate_scenario
 from .transcript import describe_decision
 
@@ -100,8 +102,10 @@ class Game(ActionGame):
         self._ll_friended_once = set()
         self._ll_restricted_day = None
         self._ll_will_pending = False
+        self._at_loop_end = False
         self.state.phase = "day_start"
-        self._event("loop_started", f"第 1 轮回开始，共 {self.scenario['loops']} 轮，每轮 {self.scenario['days']} 天。")
+        self._event("loop_started", f"第 1 轮回开始，共 {self.scenario['loops']} 轮，每轮 {self.scenario['days']} 天。",
+                    timing=TimingId.LOOP_START)
         self._start_loop_placements()
 
     @property
@@ -116,9 +120,24 @@ class Game(ActionGame):
             return f"{self.state.characters[cid].name}（{'表' if side == 'surface' else '里'}身份）"
         return self.state.characters[target].name if target in self.state.characters else LOCATIONS.get(target, target)
 
-    def _event(self, kind, message, **data):
-        super()._event(kind, message, **data)
+    def _event(self, kind, message, *, timing=None, **data):
+        phase = self.state.phase
+        public_phase = phase
+        if phase == "decision":
+            public_phase = self._decision_public_phase or self._return_phase
+        if timing is None:
+            timing = TimingId.LOOP_END if self._at_loop_end else timing_for_phase(public_phase)
+        timing = TimingId(timing)
+        super()._event(kind, message, timing=timing.value, **data)
         self.state.events[-1]["phase"] = self.state.phase
+
+    def _current_timing(self):
+        if self._at_loop_end:
+            return TimingId.LOOP_END
+        phase = self.state.phase
+        if phase == "decision":
+            phase = self._decision_public_phase or self._return_phase
+        return timing_for_phase(phase)
 
     def dispatch(self, actor, action, **args):
         if actor not in ACTORS:
@@ -135,6 +154,7 @@ class Game(ActionGame):
             raise RuleError(f"当前需要 {ACTOR_NAMES.get(self.controller, '无人')} 操作")
         snapshot = deepcopy(self.__dict__)
         before = self.phase_cursor
+        decision_timing = self._current_timing()
         event_start = len(self.state.events)
         description = describe_decision(self, actor, action, args)
         try:
@@ -160,7 +180,7 @@ class Game(ActionGame):
         self.decisions.append(DecisionRecord(
             number=len(self.history), actor=actor, action=action,
             arguments=deepcopy(args), description=description,
-            before=before, after=self.phase_cursor, steps=steps,
+            before=before, after=self.phase_cursor, timing=decision_timing, steps=steps,
         ))
 
     @property
@@ -809,7 +829,8 @@ class Game(ActionGame):
             else:
                 self.configure_actions(mastermind=3, protagonists=order)
             s.phase = "mastermind"
-            self._event("day_started", f"第 {s.round} 天开始，领队为{ACTOR_NAMES[s.leader]}。")
+            self._event("day_started", f"第 {s.round} 天开始，领队为{ACTOR_NAMES[s.leader]}。",
+                        timing=TimingId.DAY_START)
         elif s.phase == "action_counters":
             self._resolve_counters()
             s.phase = "master_abilities"
@@ -960,7 +981,7 @@ class Game(ActionGame):
 
     def _publish_role(self, target, role):
         # Knowledge changes are an observable incident result even when no board
-        # counter or character state changes (notably Old Fashion's Confession).
+        # counter or character state changes (notably identity-reveal incidents).
         if self._incident_before is not None:
             self._incident_effect = True
         self.known_roles[target] = {"role": role, "loop": self.state.loop, "day": self.state.round}
@@ -1026,6 +1047,7 @@ class Game(ActionGame):
                     self._finish_loop(forced=True)
             elif kind == "lose":
                 self.loss_reasons.append("时间旅行者日末能力")
+                self._event("protagonists_lost", "主人公失败。")
                 self._finish_loop(forced=True)
             elif kind == "move":
                 c = self.state.characters[effect["target"]]
@@ -2008,7 +2030,8 @@ class Game(ActionGame):
     def _begin_night(self):
         s = self.state
         s.leader = PROTAGONISTS[(PROTAGONISTS.index(s.leader) + 1) % 3]
-        self._event("leader_changed", f"领队轮换为{ACTOR_NAMES[s.leader]}。")
+        self._event("leader_changed", f"领队轮换为{ACTOR_NAMES[s.leader]}。",
+                    timing=TimingId.LEADER_CHANGE)
         s.phase = "day_end"
         self._event("phase_changed", "进入日末结算：先结算强制效果，再由剧作家选择可选效果。")
         self._start_day_end_forced()
@@ -2171,8 +2194,15 @@ class Game(ActionGame):
         self._queue = choice_batch + follow + self._queue
 
     def _finish_loop(self, forced=False):
-        s = self.state
         self._record_incident_end()
+        self._at_loop_end = True
+        try:
+            self._resolve_loop_end(forced)
+        finally:
+            self._at_loop_end = False
+
+    def _resolve_loop_end(self, forced=False):
+        s = self.state
         loss = forced
         for c in s.characters.values():
             if self.roles[c.id] == "friend" and not c.alive:
@@ -2331,7 +2361,8 @@ class Game(ActionGame):
         s = self.state
         s.loop += 1
         s.phase = "day_start"
-        self._event("loop_started", f"第 {s.loop} 轮回开始：位置、存活、计数物、手牌、护卫及本轮效果已重置；历史日志和已公开信息保留。")
+        self._event("loop_started", f"第 {s.loop} 轮回开始：位置、存活、计数物、手牌、护卫及本轮效果已重置；历史日志和已公开信息保留。",
+                    timing=TimingId.LOOP_START)
         if self.module == "AHR":
             give_despair = bool(getattr(self, "_previous_fragment_dead", set()))
             give_despair |= ("ahr_beyond_worldline" in self.scenario["subplots"] and s.loop % 2 == 0)
@@ -2425,23 +2456,32 @@ class Game(ActionGame):
                 self._win("protagonists", "所有身份猜测正确，主人公获胜！")
 
     def _win(self, winner, message):
+        timing = self._current_timing()
         self.winner = winner
         self.state.phase = "game_over"
         self._queue, self._pending, self._request = [], None, None
         self._decision_public_phase = None
-        self._event("game_ended", message, winner=winner)
+        self._event("game_ended", message, winner=winner, timing=timing)
 
-    def view(self, viewer="spectator"):
-        result = super().view(viewer)
+    def view(self, viewer="spectator", language="zh"):
+        language = normalize_language(language)
+        result = super().view(viewer, language)
         # `decision` is an internal pause. Showing it publicly can reveal that
         # several hidden abilities are simultaneously applicable. Other seats
         # continue to see the surrounding public rules phase instead.
         if viewer != "m" and result["phase"] == "decision" and self._decision_public_phase:
             result["phase"] = self._decision_public_phase
+        timing = (TimingId(result["events"][-1]["timing"]) if result["phase"] == "game_over" and result["events"]
+                  else self._current_timing())
+        result.update(language=language, phase_name=phase_label(result["phase"], language),
+                      timing=timing.value,
+                      timepoint=format_timepoint(timing.value, result["loop"], result["round"], language))
         spec = MODULES[self.module]
         for cid, char in result["characters"].items():
             definition = CHARACTERS[cid]
-            char.update(paranoia_limit=definition.limit, traits=[TRAIT_NAMES[t] for t in definition.traits],
+            char.update(name=label("characters", cid, language, fallback=definition.name),
+                        paranoia_limit=definition.limit,
+                        traits=[label("traits", t, language, fallback=TRAIT_NAMES[t]) for t in definition.traits],
                         guard=self.guards[cid], abilities=[asdict(a) for a in definition.abilities],
                         passive=definition.passive,
                         initial_location=self._loop_initial_locations.get(cid, definition.start),
@@ -2450,7 +2490,13 @@ class Game(ActionGame):
                         death_token=(self.module == "LL" and cid in self._ll_dead_once))
         result.update(title=self.scenario["title"], days=self.scenario["days"], loops=self.scenario["loops"],
                       table_talk=self.scenario["table_talk"], controller=self.controller, winner=self.winner,
-                      module_name=spec.name,
+                      module_name=label("modules", self.module, language, fallback=spec.name),
+                      labels={"actors": {actor: label("actors", actor, language, fallback=ACTOR_NAMES[actor])
+                                         for actor in ACTORS},
+                              "locations": {location: label("locations", location, language, fallback=name)
+                                            for location, name in LOCATIONS.items()},
+                              "counters": {counter: label("counters", counter, language, fallback=name)
+                                           for counter, name in COUNTER_NAMES.items()}},
                       capabilities={"final_guess": spec.final_guess,
                                     "early_final_guess": spec.early_final_guess},
                       known_roles=deepcopy(self.known_roles), known_culprits=dict(self.known_culprits),
@@ -2490,10 +2536,10 @@ class Game(ActionGame):
         with Path(path).open("x", encoding="utf-8") as stream:
             json.dump({"version": 1, "scenario": self.scenario, "commands": self.history}, stream, ensure_ascii=False, indent=2)
 
-    def save_replay(self, path):
+    def save_replay(self, path, language=None):
         """Export a completed match as a readable, deterministic text replay."""
         from .replay import dump
-        dump(self, path)
+        dump(self, path, language or getattr(self, "language", "zh"))
 
     @classmethod
     def load(cls, path):

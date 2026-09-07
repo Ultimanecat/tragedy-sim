@@ -11,6 +11,8 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import Any, Hashable, Protocol
 
+from .i18n import format_timepoint
+
 
 class PhaseId(StrEnum):
     DAY_START = "day_start"
@@ -28,6 +30,49 @@ class PhaseId(StrEnum):
     LOOP_END = "loop_end"
     FINAL_GUESS = "final_guess"
     GAME_OVER = "game_over"
+
+
+class TimingId(StrEnum):
+    """Rules timing, intentionally independent from the UI's current phase."""
+
+    LOOP_START = "loop_start"
+    DAY_START = "day_start"
+    MASTERMIND_ACTION = "mastermind_action"
+    PROTAGONIST_ACTION = "protagonist_action"
+    ACTION_RESOLUTION = "action_resolution"
+    MASTERMIND_ABILITY = "mastermind_ability"
+    PROTAGONIST_ABILITY = "protagonist_ability"
+    INCIDENT = "incident"
+    LEADER_CHANGE = "leader_change"
+    DAY_END = "day_end"
+    LOOP_END = "loop_end"
+    FINAL_GUESS = "final_guess"
+    GAME_END = "game_end"
+
+
+PHASE_TIMINGS = {
+    PhaseId.DAY_START: TimingId.DAY_START,
+    PhaseId.MASTERMIND: TimingId.MASTERMIND_ACTION,
+    PhaseId.PROTAGONISTS: TimingId.PROTAGONIST_ACTION,
+    PhaseId.REVEAL: TimingId.ACTION_RESOLUTION,
+    PhaseId.ACTION_COUNTERS: TimingId.ACTION_RESOLUTION,
+    PhaseId.RESOLVED: TimingId.ACTION_RESOLUTION,
+    PhaseId.MASTER_ABILITIES: TimingId.MASTERMIND_ABILITY,
+    PhaseId.GOODWILL: TimingId.PROTAGONIST_ABILITY,
+    PhaseId.REFUSAL: TimingId.PROTAGONIST_ABILITY,
+    PhaseId.INCIDENT: TimingId.INCIDENT,
+    PhaseId.DAY_END: TimingId.DAY_END,
+    PhaseId.LOOP_END: TimingId.LOOP_END,
+    PhaseId.FINAL_GUESS: TimingId.FINAL_GUESS,
+    PhaseId.GAME_OVER: TimingId.GAME_END,
+}
+
+
+def timing_for_phase(phase: str | PhaseId) -> TimingId:
+    phase = PhaseId(phase)
+    if phase == PhaseId.DECISION:
+        raise ValueError("内部选择阶段必须提供其所属的公开规则阶段")
+    return PHASE_TIMINGS[phase]
 
 
 class Visibility(StrEnum):
@@ -82,12 +127,13 @@ class ResolutionStep:
     cursor: PhaseCursor
     kind: str
     message: str
+    timing: TimingId
     data: dict[str, Any] = field(default_factory=dict)
     visibility: Visibility = Visibility.PUBLIC
 
     @classmethod
     def from_event(cls, event: dict[str, Any]) -> "ResolutionStep":
-        known = {"loop", "round", "phase", "kind", "message"}
+        known = {"loop", "round", "phase", "timing", "kind", "message"}
         return cls(
             cursor=PhaseCursor(
                 phase=PhaseId(event["phase"]),
@@ -96,6 +142,7 @@ class ResolutionStep:
             ),
             kind=event["kind"],
             message=event["message"],
+            timing=TimingId(event["timing"]),
             data={key: value for key, value in event.items() if key not in known},
         )
 
@@ -104,9 +151,15 @@ class ResolutionStep:
             "cursor": self.cursor.to_dict(),
             "kind": self.kind,
             "message": self.message,
+            "timing": self.timing.value,
+            "timepoint": self.timepoint,
             "data": self.data,
             "visibility": self.visibility.value,
         }
+
+    @property
+    def timepoint(self) -> str:
+        return format_timepoint(self.timing.value, self.cursor.loop, self.cursor.day)
 
 
 @dataclass(frozen=True)
@@ -120,6 +173,7 @@ class DecisionRecord:
     description: str
     before: PhaseCursor
     after: PhaseCursor
+    timing: TimingId
     steps: tuple[ResolutionStep, ...] = ()
 
     @property
@@ -133,6 +187,8 @@ class DecisionRecord:
             "description": self.description,
             "before": self.before.to_dict(),
             "after": self.after.to_dict(),
+            "timing": self.timing.value,
+            "timepoint": format_timepoint(self.timing.value, self.before.loop, self.before.day),
             "steps": [step.to_dict() for step in self.steps],
         }
 
@@ -157,7 +213,7 @@ class GameModel(Protocol):
 
     def dispatch(self, actor: str, action: str, **args: Any) -> None: ...
 
-    def view(self, viewer: str = "spectator") -> dict[str, Any]: ...
+    def view(self, viewer: str = "spectator", language: str = "zh") -> dict[str, Any]: ...
 
     def state_key(self, viewer: str = "spectator") -> Hashable: ...
 

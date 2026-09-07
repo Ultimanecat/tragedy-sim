@@ -23,10 +23,11 @@ python -m tragedy_sim --serve --allow-origin http://localhost:5173
 前端可以先读取公开内容目录：
 
 ```text
-GET /v1/modules
-GET /v1/catalog/{module}
+GET /v1/modules?lang=zh
+GET /v1/catalog/{module}?lang=en
 ```
 
+`lang` 支持 `zh`、`en`、`ja`，省略时为中文；不支持的值返回 `UNSUPPORTED_LANGUAGE`。
 目录包含模块能力、地点、计数物、规则、身份、事件、角色和双方行动牌定义，前端不需要导入 Python 目录。
 
 创建教学对局：
@@ -51,11 +52,20 @@ Content-Type: application/json
 
 ```http
 GET /v1/games/{session_id}/view?viewer=spectator
-GET /v1/games/{session_id}/view?viewer=m
+GET /v1/games/{session_id}/view?viewer=m&lang=ja
 Authorization: Bearer {mastermind_token}
 ```
 
 旁观者视图不需要令牌。私密视图只能使用相同座位的令牌或管理令牌。
+
+视图顶层包含 `phase` / `phase_name` 和 `timing` / `timepoint`。每条 `events[]` 也包含：
+
+```json
+{"timing":"day_end","timepoint":"第 3 天结束时","kind":"protagonists_lost","message":"主人公失败。"}
+```
+
+`timing` 是供程序、AI 与规则检查使用的稳定 ID；`timepoint` 是按 `lang` 生成的显示文本。
+前端不得根据 `message` 或当前 `phase` 反推效果时点。内部必要选择会继承外层规则时间点。
 
 读取合法行动：
 
@@ -83,7 +93,7 @@ revision 不匹配返回 HTTP 409 与 `STALE_REVISION`，客户端应刷新视�
 
 ```text
 GET    /v1/games/{session_id}/snapshot
-GET    /v1/games/{session_id}/replay
+GET    /v1/games/{session_id}/replay?lang=zh
 DELETE /v1/games/{session_id}
 ```
 

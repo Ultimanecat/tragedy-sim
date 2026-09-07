@@ -1,0 +1,32 @@
+{
+  "meta": {"name": "日本語"},
+  "actors": {"m": "脚本家", "a": "主人公 A", "b": "主人公 B", "c": "主人公 C", "protagonists": "主人公"},
+  "phases": {
+    "day_start": "ターン開始", "mastermind": "脚本家行動", "protagonists": "主人公行動",
+    "reveal": "行動公開", "action_counters": "行動解決", "resolved": "行動解決完了",
+    "master_abilities": "脚本家能力", "goodwill": "主人公能力", "refusal": "友好能力の拒否",
+    "incident": "事件", "decision": "必要な選択", "day_end": "ターン終了",
+    "loop_end": "ループ終了", "final_guess": "最後の戦い", "game_over": "ゲーム終了"
+  },
+  "timepoints": {
+    "loop_start": "第 {loop} ループ開始時", "day_start": "{day} 日目開始時",
+    "mastermind_action": "{day} 日目・脚本家行動フェイズ", "protagonist_action": "{day} 日目・主人公行動フェイズ",
+    "action_resolution": "{day} 日目・行動解決", "mastermind_ability": "{day} 日目・脚本家能力フェイズ",
+    "protagonist_ability": "{day} 日目・主人公能力フェイズ", "incident": "{day} 日目・事件フェイズ",
+    "leader_change": "{day} 日目・リーダー交代",
+    "day_end": "{day} 日目ターン終了時", "loop_end": "第 {loop} ループ終了時",
+    "final_guess": "最後の戦い", "game_end": "ゲーム終了時"
+  },
+  "terms": {
+    "game": "惨劇RoopeR", "mastermind": "脚本家", "protagonist": "主人公", "leader": "リーダー",
+    "script": "脚本", "main_plot": "ルール Y", "subplot": "ルール X", "role": "役職",
+    "incident": "事件", "culprit": "犯人", "character": "キャラクター", "cast": "登場人物",
+    "ruleset": "惨劇セット", "final_guess": "最後の戦い", "goodwill": "友好", "paranoia": "不安",
+    "paranoia_limit": "不安臨界", "intrigue": "暗躍", "mandatory": "強制", "optional": "任意",
+    "ability": "能力", "refusal": "拒否", "location": "ボード", "loop": "ループ", "day": "日"
+  },
+  "locations": {"hospital": "病院", "shrine": "神社", "city": "都市", "school": "学校"},
+  "counters": {"paranoia": "不安", "goodwill": "友好", "intrigue": "暗躍", "hope": "希望", "despair": "絶望", "guard": "護衛"},
+  "traits": {"student": "学生", "boy": "少年", "girl": "少女", "adult": "大人", "man": "男性", "woman": "女性"},
+  "modules": {"FS": "First Steps", "BTX": "Basic Tragedy X", "MZ": "Midnight Zone", "MC": "Mystery Circle Χ", "HSA": "Haunted Stage Again", "WM": "Weird Mythology", "AHR": "Another Horizon Revised", "LL": "Last Liar"}
+}

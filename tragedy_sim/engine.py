@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass, field
 
 from .cards import ACTORS, ACTOR_NAMES, COORDS, COUNTER_NAMES, LOCATIONS, MOVES, PROTAGONISTS, deck
 from .catalog import MODULES
+from .i18n import format_timepoint
+from .model import TimingId, timing_for_phase
 
 
 class RuleError(ValueError):
@@ -120,9 +122,11 @@ class ActionGame:
             return self.protagonist_order[already_played] if already_played < len(self.protagonist_order) else None
         return None
 
-    def _event(self, kind: str, message: str, **data) -> None:
+    def _event(self, kind: str, message: str, *, timing=None, **data) -> None:
         s = self.state
-        s.events.append(dict(loop=s.loop, round=s.round, kind=kind, message=message, **data))
+        timing = TimingId(timing) if timing is not None else timing_for_phase(s.phase)
+        s.events.append(dict(loop=s.loop, round=s.round, timing=timing.value,
+                             kind=kind, message=message, **data))
 
     def name(self, target: str) -> str:
         return self.state.characters[target].name if target in self.state.characters else LOCATIONS.get(target, target)
@@ -314,12 +318,12 @@ class ActionGame:
         self._ignored_placement_indexes.clear()
         self._event("practice_reset", "练习控制：还原初始棋盘，收回所有限次牌；不判定胜负。")
 
-    def view(self, viewer: str = "spectator") -> dict:
+    def view(self, viewer: str = "spectator", language: str = "zh") -> dict:
         """Detached projection; only the owner can see their unexposed cards."""
         if viewer not in (*ACTORS, "spectator"):
             raise RuleError("视角必须是 m / a / b / c / spectator")
         s = self.state
-        return deepcopy({"module": self.module, "loop": s.loop, "round": s.round,
+        result = deepcopy({"module": self.module, "loop": s.loop, "round": s.round,
                          "phase": s.phase, "leader": s.leader, "next_actor": self.next_actor,
                          "action_counts": {"mastermind": self.mastermind_plays,
                                            "protagonists": len(self.protagonist_order)},
@@ -330,3 +334,6 @@ class ActionGame:
                          "pending": [{"actor": p.actor, "target": p.target,
                                       "card": p.card if p.actor == viewer or s.face_up else None} for p in s.pending],
                          "events": s.events})
+        for event in result["events"]:
+            event["timepoint"] = format_timepoint(event["timing"], event["loop"], event["round"], language)
+        return result

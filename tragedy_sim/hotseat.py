@@ -9,6 +9,7 @@ from .cards import ACTOR_NAMES, LOCATIONS, deck
 from .catalog import INCIDENT_NAMES, INCIDENT_RULES, MODULES, PLOTS, PLOT_RULES, ROLE_NAMES, ROLE_RULES
 from .engine import RuleError
 from .flow import PHASE_LABELS
+from .i18n import label
 from .scenario import example_scenario, load_scenario
 from .service import LocalGameClient
 
@@ -23,24 +24,25 @@ NEXT_LABELS = {
 
 
 class HotseatSession:
-    def __init__(self, game=None):
+    def __init__(self, game=None, language="zh"):
         self.client = game if isinstance(game, LocalGameClient) else LocalGameClient.from_game(game)
+        self.client.language = language
         self.seat = None
         self.intent = None
         self.token = 0
         self.saved_revision = self.client.revision
 
     @classmethod
-    def new(cls, module="FS"):
-        return cls(LocalGameClient.from_scenario(example_scenario(module)))
+    def new(cls, module="FS", language="zh"):
+        return cls(LocalGameClient.from_scenario(example_scenario(module)), language)
 
     @classmethod
-    def from_scenario_file(cls, path):
-        return cls(LocalGameClient.from_scenario(load_scenario(path)))
+    def from_scenario_file(cls, path, language="zh"):
+        return cls(LocalGameClient.from_scenario(load_scenario(path)), language)
 
     @classmethod
-    def from_save_file(cls, path):
-        return cls(LocalGameClient.from_snapshot_file(path))
+    def from_save_file(cls, path, language="zh"):
+        return cls(LocalGameClient.from_snapshot_file(path), language)
 
     @property
     def game(self):
@@ -135,7 +137,8 @@ class HotseatSession:
 
 
 def target_name(view, target):
-    return view["characters"][target]["name"] if target in view["characters"] else LOCATIONS[target]
+    return (view["characters"][target]["name"] if target in view["characters"] else
+            view.get("labels", {}).get("locations", {}).get(target, LOCATIONS[target]))
 
 
 def module_capability(view, name):
@@ -162,10 +165,11 @@ def module_roles(module):
 def public_log(view):
     lines = []
     for event in view["events"]:
-        lines.append(f"轮回 {event['loop']} · 第 {event['round']} 天   {event['message']}")
+        lines.append(f"[{event['timepoint']}] {event['message']}")
         if event["kind"] == "cards_revealed":
             for p in event["cards"]:
-                lines.append(f"    {ACTOR_NAMES[p['actor']]}：{deck(p['actor'])[p['card']].name} → {target_name(view, p['target'])}")
+                actor = view.get("labels", {}).get("actors", {}).get(p["actor"], ACTOR_NAMES[p["actor"]])
+                lines.append(f"    {actor}：{deck(p['actor'])[p['card']].name} → {target_name(view, p['target'])}")
     return "\n".join(lines)
 
 
@@ -176,7 +180,8 @@ def public_knowledge(view):
     lines = [caveat, ""]
     for cid, fact in view["known_roles"].items():
         verb = "宣称" if view["module"] == "MZ" else "确认"
-        lines.append(f"{target_name(view, cid)}：{ROLE_NAMES[fact['role']]}（轮回 {fact['loop']} / 第 {fact['day']} 天{verb}）")
+        role = label("roles", fact["role"], view.get("language", "zh"), fallback=ROLE_NAMES[fact["role"]])
+        lines.append(f"{target_name(view, cid)}：{role}（轮回 {fact['loop']} / 第 {fact['day']} 天{verb}）")
     for day, cid in view["known_culprits"].items():
         lines.append(f"第 {day} 天事件当事人：{target_name(view, cid)}")
     for plot in view["known_plots"]:
@@ -204,9 +209,10 @@ def character_details(view, cid):
     c = view["characters"][cid]
     special = "诅咒牌" if view["module"] == "HSA" else "Ex牌"
     ex = f"　{special} {c.get('ex_cards', 0)}" if c.get("ex_cards", 0) else ""
+    locations = view.get("labels", {}).get("locations", LOCATIONS)
     lines = [f"{c['name']}  ·  {' / '.join(c['traits'])}",
-             f"初始：{LOCATIONS[c['initial_location']]}　当前：{LOCATIONS[c['location']]}",
-             f"禁行：{'、'.join(LOCATIONS[t] for t in c['forbidden']) or '无'}",
+             f"初始：{locations[c['initial_location']]}　当前：{locations[c['location']]}",
+             f"禁行：{'、'.join(locations[t] for t in c['forbidden']) or '无'}",
              f"{'存活' if c['alive'] else '尸体'}　友好 {c['goodwill']}　不安临界 {c['paranoia']}/{c['paranoia_limit']}　密谋 {c['intrigue']}　护卫 {c['guard']}{ex}", ""]
     for a in c["abilities"]:
         limit = "每轮一次" if a["once"] else "每日一次"
@@ -258,16 +264,22 @@ def secret_dossier(view):
     if "secret" not in view:
         raise RuleError("该视角没有剧作家资料")
     s = view["secret"]
+    language = view.get("language", "zh")
     lines = ["只供剧作家阅读 · 换人前请遮挡", "", "规则 Y：" + PLOTS[s["main_plot"]][0],
              PLOT_RULES[s["main_plot"]], ""]
     for p in s["subplots"]:
         lines += ["规则 X：" + PLOTS[p][0], PLOT_RULES[p], ""]
     for cid, role in s["roles"].items():
-        lines += [f"{target_name(view, cid)}：{ROLE_NAMES[role]}（初始 {ROLE_NAMES[s['initial_roles'][cid]]}）", ROLE_RULES[role], ""]
+        role_name = label("roles", role, language, fallback=ROLE_NAMES[role])
+        initial_name = label("roles", s["initial_roles"][cid], language,
+                             fallback=ROLE_NAMES[s["initial_roles"][cid]])
+        lines += [f"{target_name(view, cid)}：{role_name}（初始 {initial_name}）", ROLE_RULES[role], ""]
     lines.append("事件当事人")
     for item in s["incidents"]:
-        public_name = (f"（公开名：{INCIDENT_NAMES[item['public_kind']]}）" if "public_kind" in item else "")
-        lines.append(f"第 {item['day']} 天 · {INCIDENT_NAMES[item['kind']]}{public_name}：{target_name(view, item['culprit'])}")
+        public_name = (f"（公开名：{label('incidents', item['public_kind'], language, fallback=INCIDENT_NAMES[item['public_kind']])}）"
+                       if "public_kind" in item else "")
+        incident_name = label("incidents", item["kind"], language, fallback=INCIDENT_NAMES[item["kind"]])
+        lines.append(f"第 {item['day']} 天 · {incident_name}{public_name}：{target_name(view, item['culprit'])}")
     if s["loss_reasons"]:
         lines += ["", "累计失败诊断：" + "；".join(s["loss_reasons"])]
     if s["ability_day_used"]:

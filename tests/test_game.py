@@ -659,6 +659,16 @@ class RoleInteractionTests(unittest.TestCase):
         select(game, lambda c: c.get("key") == "time_traveler:doctor")
         self.assertEqual(game.state.phase, "loop_end")
         self.assertFalse(any(e["kind"] == "heroes_died" for e in game.state.events))
+        failure = next(e for e in game.state.events if e["kind"] == "protagonists_lost")
+        loop_loss = next(e for e in game.state.events if e["kind"] == "loop_lost")
+        self.assertEqual(failure["timing"], "day_end")
+        self.assertEqual(loop_loss["timing"], "loop_end")
+        view_events = game.view()["events"]
+        self.assertEqual(next(e for e in view_events if e["kind"] == "protagonists_lost")["timepoint"],
+                         "第 3 天结束时")
+        self.assertEqual(next(e for e in view_events if e["kind"] == "loop_lost")["timepoint"],
+                         "第 1 轮回结束时")
+        self.assertEqual(game.decisions[-1].steps[0].timing.value, "day_end")
 
     def test_cultist_after_movement_and_time_traveler_ignore_forbids(self):
         game = make("BTX", "change", roles={"doctor": "cultist", "girl": "time_traveler", "maiden": "conspiracy"})

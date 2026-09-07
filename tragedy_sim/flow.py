@@ -6,26 +6,16 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from .i18n import label
 from .model import PhaseId
 
 
-PHASE_LABELS = {
-    PhaseId.DAY_START.value: "日初",
-    PhaseId.MASTERMIND.value: "剧作家出牌",
-    PhaseId.PROTAGONISTS.value: "主人公出牌",
-    PhaseId.REVEAL.value: "统一揭示",
-    PhaseId.ACTION_COUNTERS.value: "行动结算",
-    PhaseId.RESOLVED.value: "行动结算完成",
-    PhaseId.MASTER_ABILITIES.value: "剧作家能力",
-    PhaseId.GOODWILL.value: "友好能力",
-    PhaseId.REFUSAL.value: "确认友好能力",
-    PhaseId.INCIDENT.value: "事件结算",
-    PhaseId.DECISION.value: "必要结算选择",
-    PhaseId.DAY_END.value: "日末结算",
-    PhaseId.LOOP_END.value: "轮回之间",
-    PhaseId.FINAL_GUESS.value: "最终猜测",
-    PhaseId.GAME_OVER.value: "对局结束",
-}
+PHASE_LABELS = {phase.value: label("phases", phase.value) for phase in PhaseId}
+
+
+def phase_label(phase: str | PhaseId, language: str = "zh") -> str:
+    phase_id = PhaseId(phase).value
+    return label("phases", phase_id, language, fallback=PHASE_LABELS[phase_id])
 
 
 class ControllerPolicy(StrEnum):

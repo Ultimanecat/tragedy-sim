@@ -7,8 +7,9 @@
 
 1. 用户提供的各模组图片；作为模组内容的第一优先级。
 2. `resources/data.xml` 的牌组索引及对应中文牌面；确认独立副本、限次标记和冲突效果。
-3. 对图片没有列出的通用放牌/回收流程，补查英文《Player's Handbook》第 21–22 页
-   （[手册镜像](https://cdn.1j1ju.com/medias/4a/87/06-tragedy-looper-rulebook.pdf)）。
+3. 对图片没有列出的通用放牌/回收流程，补查英文《Player's Handbook》第 21–22 页。
+   核对副本保存为 `references/tragedy-looper-player-handbook-en.pdf`，原始下载地址为
+   [规则书镜像](https://cdn.1j1ju.com/medias/4a/87/06-tragedy-looper-rulebook.pdf)。`references/` 已加入 `.gitignore`，只作本地研究资料。
    仅补充基础流程，不引入英文 Basic Tragedy 的身份或事件覆盖 BTX。
 
 本次直接查看的主要本地资料：
@@ -48,13 +49,14 @@
 | 所有移动先于其他计数物结算；角色牌上的行动仍作用于该角色 | `test_movement_resolves_before_counters_and_counters_stay_with_target` |
 | 结算后普通牌立即回手；限次牌即使无效也公开留置 | `test_hands_return_on_resolve_and_limited_cards_are_independent` |
 
-阶段结构：`mastermind → protagonists → reveal → resolved`。
+阶段结构：`mastermind → protagonists → reveal → resolved`。日志另使用稳定规则时点
+`mastermind_action → protagonist_action → action_resolution`，不要求调用者解析阶段中文名。
 完整游戏在行动结算之后还有其他步骤，本阶段刻意停在 `resolved`。
 
 ## 独立练习模式的边界
 
 - 任何身份、角色能力或模组特殊规则；包括会影响行动结算的邪教徒、时间旅行者等。
-- 好感/友好能力、剧作家能力、事件、死亡触发、胜负及最终猜测。
+- 友好能力、剧作家能力、事件、死亡触发、胜负及最终猜测。
 - 不同人数的座位分配、通信限制、联机及 AI。
 - 正式的日末/轮回开始结算；`next` 和 `reset` 只是反复验证出牌用的练习按钮。
 

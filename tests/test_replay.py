@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from tragedy_sim import Game, MATCH_FLOW, PhaseId, ReplayArchive, ReplaySession, RuleError
+from tragedy_sim import Game, MATCH_FLOW, PhaseId, ReplayArchive, ReplaySession, RuleError, TimingId
 from tragedy_sim.replay import MAGIC, dumps
 from tragedy_sim.scenario import example_scenario
 
@@ -45,8 +45,11 @@ class TransitionRecordTests(unittest.TestCase):
         self.assertEqual(record.before.phase, PhaseId.DAY_START)
         self.assertEqual(record.after.phase, PhaseId.MASTERMIND)
         self.assertEqual(record.command, {"actor": "m", "action": "next"})
+        self.assertEqual(record.timing, TimingId.DAY_START)
         self.assertIn("结束", record.description)
         self.assertEqual(record.steps[-1].kind, "day_started")
+        self.assertEqual(record.steps[-1].timing, TimingId.DAY_START)
+        self.assertEqual(record.steps[-1].timepoint, "第 1 天开始时")
 
     def test_failed_dispatch_is_atomic_and_does_not_create_record(self):
         game = Game()
@@ -92,6 +95,9 @@ class ReplayTests(unittest.TestCase):
                 self.assertTrue(text.startswith(MAGIC + "\t1\n"))
                 self.assertIn("完整信息回放", text)
                 self.assertIn("剧作家将", text)
+                self.assertIn("[第 1 天剧作家出牌阶段]", text)
+                self.assertTrue(all(event["timing"] in {timing.value for timing in TimingId}
+                                    for event in game.state.events))
                 archive = ReplayArchive.parse(text)
                 restored = archive.verify()
                 self.assertEqual(restored.view("m"), game.view("m"))

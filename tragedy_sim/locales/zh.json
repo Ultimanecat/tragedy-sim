@@ -1,0 +1,32 @@
+{
+  "meta": {"name": "简体中文"},
+  "actors": {"m": "剧作家", "a": "主人公 A", "b": "主人公 B", "c": "主人公 C", "protagonists": "主人公"},
+  "phases": {
+    "day_start": "日初", "mastermind": "剧作家出牌", "protagonists": "主人公出牌",
+    "reveal": "统一揭示", "action_counters": "行动结算", "resolved": "行动结算完成",
+    "master_abilities": "剧作家能力", "goodwill": "友好能力", "refusal": "确认友好能力",
+    "incident": "事件结算", "decision": "必要结算选择", "day_end": "日终结算",
+    "loop_end": "轮回结束", "final_guess": "最终猜测", "game_over": "对局结束"
+  },
+  "timepoints": {
+    "loop_start": "第 {loop} 轮回开始时", "day_start": "第 {day} 天开始时",
+    "mastermind_action": "第 {day} 天剧作家出牌阶段", "protagonist_action": "第 {day} 天主人公出牌阶段",
+    "action_resolution": "第 {day} 天行动牌结算阶段", "mastermind_ability": "第 {day} 天剧作家能力阶段",
+    "protagonist_ability": "第 {day} 天主人公能力阶段", "incident": "第 {day} 天事件阶段",
+    "leader_change": "第 {day} 天领队轮换时",
+    "day_end": "第 {day} 天结束时", "loop_end": "第 {loop} 轮回结束时",
+    "final_guess": "最终猜测时", "game_end": "对局结束时"
+  },
+  "terms": {
+    "game": "悲剧轮回", "mastermind": "剧作家", "protagonist": "主人公", "leader": "领队",
+    "script": "剧本", "main_plot": "规则 Y", "subplot": "规则 X", "role": "身份",
+    "incident": "事件", "culprit": "当事人", "character": "角色", "cast": "登场角色",
+    "ruleset": "规则集", "final_guess": "最终猜测", "goodwill": "友好", "paranoia": "不安",
+    "paranoia_limit": "不安临界", "intrigue": "密谋", "mandatory": "强制", "optional": "可选",
+    "ability": "能力", "refusal": "拒绝", "location": "版图", "loop": "轮回", "day": "天"
+  },
+  "locations": {"hospital": "医院", "shrine": "神社", "city": "都市", "school": "学校"},
+  "counters": {"paranoia": "不安", "goodwill": "友好", "intrigue": "密谋", "hope": "希望", "despair": "绝望", "guard": "护卫"},
+  "traits": {"student": "学生", "boy": "少年", "girl": "少女", "adult": "成人", "man": "男性", "woman": "女性"},
+  "modules": {"FS": "First Steps", "BTX": "Basic Tragedy X", "MZ": "Midnight Zone", "MC": "Mystery Circle X", "HSA": "Haunted Stage Again", "WM": "Weird Mythology", "AHR": "Another Horizon Revised", "LL": "Last Liar"}
+}

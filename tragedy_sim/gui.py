@@ -206,7 +206,7 @@ class TragedyApp:
 
     def render(self):
         view = self.session.public_view()
-        phase = PHASE_NAMES[view["phase"]]
+        phase = view.get("phase_name", PHASE_NAMES[view["phase"]])
         replay = getattr(self.session, "replay_mode", False)
         mode = "回放" if replay else "本地热座"
         self.controls["hide"].configure(text="只读回放" if replay else "遮挡 / 交接  Esc",
@@ -216,7 +216,7 @@ class TragedyApp:
         ex_status = f"  ·  Ex 槽 {view['ex_gauge']}" if view["module"] in ("MC", "WM", "AHR") else ""
         if view["module"] == "AHR":
             ex_status += "（表世界）" if view["world"] == "surface" else "（里世界）"
-        self.turn_label.configure(text=f"轮回 {view['loop']}/{view['loops']}   第 {view['round']}/{view['days']} 天  ·  {phase}{ex_status}")
+        self.turn_label.configure(text=f"轮回 {view['loop']}/{view['loops']}   第 {view['round']}/{view['days']} 天  ·  {phase}{ex_status}\n{view.get('timepoint', '')}")
         self.discussion.configure(text=(f"回放位置：{self.session.index}/{self.session.length}"
                                         if replay else
                                         f"领队：{ACTOR_NAMES[view['leader']]}   ·   讨论：{'允许' if view['table_talk'] else '受限（真人遵守）'}"))
@@ -535,7 +535,8 @@ class TragedyApp:
         else:
             detail = f"第 {current.number} 个决策\n{current.description}"
             if current.steps:
-                detail += "\n\n本步结算：\n" + "\n".join("• " + step.message for step in current.steps)
+                detail += "\n\n本步结算：\n" + "\n".join(
+                    f"• [{step.timepoint}] {step.message}" for step in current.steps)
         ttk.Label(self.private, text=detail, wraplength=385, justify="left",
                   foreground=ACCENT).pack(fill="x", pady=(0, 12))
         ttk.Label(self.private, text="全部决策", style="Section.TLabel").pack(anchor="w", pady=(4, 5))
@@ -760,6 +761,7 @@ def main(argv=None, *, error_reporter=None):
         sys.stderr.reconfigure(encoding="utf-8")
     parser = GuiArgumentParser(description="悲剧轮回本地热座 GUI")
     parser.add_argument("--module", choices=tuple(m for m, spec in MODULES.items() if spec.gui_supported), default="FS")
+    parser.add_argument("--lang", choices=("zh", "en", "ja"), default="zh", help="术语与时间点语言")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--script", help="载入 JSON 剧本")
     source.add_argument("--load", help="恢复 JSON 存档")
@@ -776,12 +778,12 @@ def main(argv=None, *, error_reporter=None):
         return 1
     root.withdraw()
     try:
-        session = ReplaySession(ReplayArchive.load(args.replay)) if args.replay else None
+        session = ReplaySession(ReplayArchive.load(args.replay), args.lang) if args.replay else None
         game = None
         if session is None:
-            session = (HotseatSession.from_save_file(args.load) if args.load else
-                       HotseatSession.from_scenario_file(args.script) if args.script else
-                       HotseatSession.new(args.module))
+            session = (HotseatSession.from_save_file(args.load, args.lang) if args.load else
+                       HotseatSession.from_scenario_file(args.script, args.lang) if args.script else
+                       HotseatSession.new(args.module, args.lang))
     except (ValueError, TypeError, OSError) as exc:
         messagebox.showerror("无法开始对局", str(exc), parent=root)
         root.destroy()

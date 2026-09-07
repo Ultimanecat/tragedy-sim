@@ -1,0 +1,32 @@
+{
+  "meta": {"name": "English"},
+  "actors": {"m": "Mastermind", "a": "Protagonist A", "b": "Protagonist B", "c": "Protagonist C", "protagonists": "Protagonists"},
+  "phases": {
+    "day_start": "Day Start", "mastermind": "Mastermind Actions", "protagonists": "Protagonist Actions",
+    "reveal": "Reveal", "action_counters": "Action Resolution", "resolved": "Actions Resolved",
+    "master_abilities": "Mastermind Abilities", "goodwill": "Goodwill Abilities", "refusal": "Goodwill Refusal",
+    "incident": "Incident", "decision": "Required Choice", "day_end": "Day End",
+    "loop_end": "Loop End", "final_guess": "Final Guess", "game_over": "Game End"
+  },
+  "timepoints": {
+    "loop_start": "At the start of Loop {loop}", "day_start": "At the start of Day {day}",
+    "mastermind_action": "Day {day} — Mastermind Action Phase", "protagonist_action": "Day {day} — Protagonist Action Phase",
+    "action_resolution": "Day {day} — Action Resolution", "mastermind_ability": "Day {day} — Mastermind Ability Phase",
+    "protagonist_ability": "Day {day} — Protagonist Ability Phase", "incident": "Day {day} — Incident Phase",
+    "leader_change": "Day {day} — Switch Leader",
+    "day_end": "At the end of Day {day}", "loop_end": "At the end of Loop {loop}",
+    "final_guess": "During the Final Guess", "game_end": "At game end"
+  },
+  "terms": {
+    "game": "Tragedy Looper", "mastermind": "Mastermind", "protagonist": "Protagonist", "leader": "Leader",
+    "script": "Script", "main_plot": "Main Plot", "subplot": "Subplot", "role": "Role",
+    "incident": "Incident", "culprit": "Culprit", "character": "Character", "cast": "Cast",
+    "ruleset": "Tragedy Set", "final_guess": "Final Guess", "goodwill": "Goodwill", "paranoia": "Paranoia",
+    "paranoia_limit": "Paranoia Limit", "intrigue": "Intrigue", "mandatory": "Mandatory", "optional": "Optional",
+    "ability": "Ability", "refusal": "Refusal", "location": "Location", "loop": "Loop", "day": "Day"
+  },
+  "locations": {"hospital": "Hospital", "shrine": "Shrine", "city": "City", "school": "School"},
+  "counters": {"paranoia": "Paranoia", "goodwill": "Goodwill", "intrigue": "Intrigue", "hope": "Hope", "despair": "Despair", "guard": "Guard"},
+  "traits": {"student": "Student", "boy": "Boy", "girl": "Girl", "adult": "Adult", "man": "Man", "woman": "Woman"},
+  "modules": {"FS": "First Steps", "BTX": "Basic Tragedy X", "MZ": "Midnight Zone", "MC": "Mystery Circle X", "HSA": "Haunted Stage Again", "WM": "Weird Mythology", "AHR": "Another Horizon Revised", "LL": "Last Liar"}
+}

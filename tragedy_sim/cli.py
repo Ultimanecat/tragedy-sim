@@ -91,15 +91,16 @@ def board(game: ActionGame, viewer: str = "spectator") -> None:
 
 
 def events(game: ActionGame, start: int = 0) -> None:
-    for event in game.view()["events"][start:]:
-        print(f"  [轮回{event['loop']}/第{event['round']}天] {event['message']}")
+    for event in game.view(language=getattr(game, "language", "zh"))["events"][start:]:
+        print(f"  [{event['timepoint']}] {event['message']}")
         if event["kind"] == "cards_revealed":
             for p in event["cards"]:
                 print(f"    {ACTOR_NAMES[p['actor']]}：{deck(p['actor'])[p['card']].name} → {game.name(p['target'])}")
 
 
-def demo(module: str) -> int:
+def demo(module: str, language="zh") -> int:
     game = ActionGame(module=module)
+    game.language = language
     print("演示：相同方向只移动一次；一张禁止密谋有效；友好直接增加。")
     placements = [("m", "h", "student"), ("m", "i2", "hospital"),
                   ("m", "p1a", "doctor"), ("a", "h", "student"),
@@ -125,11 +126,13 @@ def practice_main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="悲剧轮回基础出牌练习器")
     parser.add_argument("--module", choices=_supported_modules("cli_supported"), default="FS",
                         help="选择规则集；练习模式只结算各规则集共用的基础行动牌")
+    parser.add_argument("--lang", choices=("zh", "en", "ja"), default="zh", help="术语与时间点语言")
     parser.add_argument("--demo", action="store_true", help="自动演示一次双方出牌及结算")
     args = parser.parse_args(argv)
     if args.demo:
-        return demo(args.module)
+        return demo(args.module, args.lang)
     game = ActionGame(module=args.module)
+    game.language = args.lang
     print(HELP)
     board(game)
     while True:
@@ -366,10 +369,11 @@ def show_rules(game):
                                  for c in deck(actor, game.module).values()))
 
 
-def match_demo(module):
+def match_demo(module, language="zh"):
     from .game import Game
     from .scenario import example_scenario
     game = Game(example_scenario(module))
+    game.language = language
     print("完整对局演示：自动走完出牌、事件、轮回与最终胜负。固定演示行动，不是 AI 对手。")
     for _ in range(1000):
         if game.winner is not None:
@@ -427,6 +431,7 @@ def main(argv=None):
     from .scenario import example_scenario, load_scenario
     parser = argparse.ArgumentParser(description="悲剧轮回完整本地热座对局")
     parser.add_argument("--module", choices=_supported_modules("cli_supported"), default="FS")
+    parser.add_argument("--lang", choices=("zh", "en", "ja"), default="zh", help="术语与时间点语言")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--demo", action="store_true", help="演示事件、失败、重置和获胜的完整对局")
     source.add_argument("--script", help="加载 JSON 剧本；以文件的 module 为准")
@@ -445,9 +450,10 @@ def main(argv=None):
         serve(args.host, args.port, allowed_origins=args.allow_origin)
         return 0
     if args.demo:
-        return match_demo(args.module)
+        return match_demo(args.module, args.lang)
     try:
         game = Game.load(args.load) if args.load else Game(load_scenario(args.script) if args.script else example_scenario(args.module))
+        game.language = args.lang
     except (ValueError, OSError, TypeError) as exc:
         print(f"无法开始对局：{exc}")
         return 1

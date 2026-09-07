@@ -1,7 +1,7 @@
 # tragedy-sim
 
 Python 版《悲剧轮回》本地热座模拟器。FS、BTX、MZ、MC、HSA、WM、AHR、LL 对局现已串通：
-出牌、好感（界面称“友好”）能力、剧作家与身份能力、事件、日末、轮回与胜负。
+出牌、友好能力、剧作家与身份能力、事件、日终、轮回与胜负。
 
 支持 FS 的全部 6 个规则 X/Y、7 种事件，BTX 的全部 12 个规则 X/Y、9 种事件，
 MidnightZone（MZ）的全部 12 个规则 X/Y、11 种事件与 Ex / 身份宣称规则，
@@ -25,6 +25,7 @@ python -m tragedy_sim --serve
 
 默认仅监听 `127.0.0.1:8765`。接口采用按座位访问令牌、稳定行动 ID 和乐观 revision，
 可作为后续 React 前端及远程联机大厅的基础。完整端点和安全说明见 [JSON 游戏服务协议](docs/json-api.md)。
+公开事件同时提供稳定的 `timing` ID 和本地化 `timepoint`；前端无需从中文消息猜测结算时点。
 
 ## 本地热座 GUI
 
@@ -36,6 +37,8 @@ python -m tragedy_sim --gui --module BTX
 python -m tragedy_sim --gui --module MZ
 python -m tragedy_sim --gui --module MC
 python -m tragedy_sim --gui --module HSA
+python -m tragedy_sim --gui --module BTX --lang en
+python -m tragedy_sim --gui --module BTX --lang ja
 python -m tragedy_sim --gui --script examples/btx-tutorial.json
 python -m tragedy_sim --gui --load tragedy-session.json
 ```
@@ -46,7 +49,7 @@ python -m tragedy_sim --gui --load tragedy-session.json
 python -m tragedy_sim --gui --replay tragedy-replay.tlr
 ```
 
-`.tlr` 是 UTF-8 纯文本：正文逐项列出双方暗牌、能力选择、猜测及其结算，结构化字段可由程序确定性重演。它包含剧本与全部秘密，只应在对局结束后查看或分享。
+`.tlr` 是 UTF-8 纯文本：正文逐项列出双方暗牌、能力选择、猜测，以及每项结算的明确时间点；结构化字段可由程序确定性重演。它包含剧本与全部秘密，只应在对局结束后查看或分享。
 
 安装项目后也可以运行 `tragedy-sim-gui`。窗口提供：
 
@@ -72,6 +75,7 @@ python -m tragedy_sim --demo --module BTX
 python -m tragedy_sim --demo --module MZ
 python -m tragedy_sim --demo --module MC
 python -m tragedy_sim --module FS
+python -m tragedy_sim --module BTX --lang ja
 python -m tragedy_sim --script examples/btx-tutorial.json
 ```
 
@@ -134,7 +138,7 @@ next m
 | `rules` | 本模组所有可能规则、身份能力、事件效果和固定初始牌组；不显示剧本答案 |
 | `resolve` | 本日要求的牌齐全后统一揭示，进入行动能力窗口 |
 | `options <座位>` | 合法能力或必要目标选项；`options m` 是私密窗口 |
-| `choose <座位> <编号>` | 选择当前选项；好感能力声明后须由剧作家确认执行或拒绝 |
+| `choose <座位> <编号>` | 选择当前选项；友好能力声明后须由剧作家确认执行或拒绝 |
 | `log` | 已揭示行动及公开结算日志 |
 | `next [座位]` | 依次推进阶段；不代打行动牌，不跳过强制效果或必要选择 |
 | `guess <领队> <角色> <身份ID>` | 支持最终决战的模组中猜测角色身份；一次错误即败 |
@@ -174,7 +178,7 @@ python -m tragedy_sim --load session.json
 伪造事件还必须用 `public_kind` 填写主人公看到的已知事件 ID（可来自其他模组），实际类型只在剧作家资料中出现。
 身份数量、上限、少女条件、模组、日期和重复当事人会在开始前检查。
 
-当前接受 1–8 天、1–8 轮和各模组速查表允许的角色。暂不支持任意额外剧本规则、延迟登场、其余模组或扩展角色；
+当前接受 1–8 天、1–8 轮和各模组速查表允许的角色。暂不支持任意额外剧本规则、延迟登场或目录外扩展角色；
 不支持的字段会明确报错，不会静默忽略。也不自动 OCR 或导入整个资源包。
 后续规则集采用 Haunted Stage Again（HSA）与 Another Horizon Revised（AHR）；旧版 HS / AH 不列入实现范围。
 
@@ -210,6 +214,7 @@ python -m unittest discover -v
 - `tragedy_sim/catalog.py`：角色、规则 X/Y、身份、事件及公开规则文案。
 - `tragedy_sim/scenario.py`：JSON 剧本、严格校验、教学示例。
 - `tragedy_sim/flow.py`、`model.py`：显式阶段表、阶段位置、决策/结算记录，以及供搜索算法使用的状态转移接口。
+- `tragedy_sim/i18n.py`、`locales/*.json`：中英日术语、阶段与规则时间点配置；默认简体中文。
 - `tragedy_sim/game.py`：完整流程编排、效果队列、选择、胜负、知识记录和存档。
 - `tragedy_sim/replay.py`、`transcript.py`：纯文本回放、确定性校验、只读时间线和人类可读决策说明。
 - `tragedy_sim/cli.py`：完整对局、行动练习、中文提示和自动演示。
@@ -234,8 +239,10 @@ print(game.controller)             # 当前应操作的座位
 ```
 
 完整对局统一通过 `dispatch` 修改，非法命令回滚，成功命令进入存档历史。
+每个公开事件含 `timing`（稳定规则时点 ID）与视图生成的 `timepoint`（人类文本）。例如时间旅行者在最后一日发动时，失败记录属于“第 X 天结束时”；随后轮回失败记录才属于“第 X 轮回结束时”。
 `state`、`roles` 等内部状态仅供引擎或测试使用；直接修改这些字段不会记录到存档。
 独立出牌练习的 `ActionGame` API 保持兼容。
 
 资源图片和 XML 保持用户提供的原样，没有打包进 Python 分发文件；代码运行不依赖资源。
+本地核对用 PDF 等资料放在被 Git 忽略的 `references/`，不会随仓库或 Python 包发布。
 不在本仓库替这些社区翻译或游戏图片声明新的授权。

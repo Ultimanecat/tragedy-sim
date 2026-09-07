@@ -22,6 +22,7 @@ from .catalog import (CHARACTERS, INCIDENT_NAMES, INCIDENT_RULES, MODULES, PLOTS
                       PLOT_RULES, ROLE_NAMES, ROLE_RULES, TRAIT_NAMES)
 from .engine import RuleError
 from .game import Game
+from .i18n import label, normalize_language
 from .replay import dumps as replay_dumps
 from .scenario import example_scenario, validate_scenario
 
@@ -63,6 +64,13 @@ def _json_copy(value: Any) -> Any:
 
 def _canonical(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _language(value: str) -> str:
+    try:
+        return normalize_language(value)
+    except (AttributeError, ValueError) as exc:
+        raise ServiceError("UNSUPPORTED_LANGUAGE", str(exc)) from exc
 
 
 class GameService:
@@ -112,10 +120,12 @@ class GameService:
             "view": self._view_payload(session_id, record, "spectator"),
         })
 
-    def list_modules(self) -> dict[str, Any]:
+    def list_modules(self, language: str = "zh") -> dict[str, Any]:
+        language = _language(language)
         return _json_copy({
             "protocol_version": PROTOCOL_VERSION,
-            "modules": [{"id": module, "name": spec.name,
+            "language": language,
+            "modules": [{"id": module, "name": label("modules", module, language, fallback=spec.name),
                          "cli_supported": spec.cli_supported,
                          "gui_supported": spec.gui_supported,
                          "final_guess": spec.final_guess,
@@ -123,9 +133,10 @@ class GameService:
                         for module, spec in MODULES.items()],
         })
 
-    def get_catalog(self, module: str) -> dict[str, Any]:
+    def get_catalog(self, module: str, language: str = "zh") -> dict[str, Any]:
         if module not in MODULES:
             raise ServiceError("MODULE_NOT_FOUND", "规则集不存在", status=404)
+        language = _language(language)
         spec = MODULES[module]
         role_ids = {"ordinary"}
         for plot in spec.plots:
@@ -134,21 +145,23 @@ class GameService:
             role_ids.add("curmudgeon")
         return _json_copy({
             "protocol_version": PROTOCOL_VERSION,
-            "module": {"id": module, "name": spec.name,
+            "language": language,
+            "module": {"id": module, "name": label("modules", module, language, fallback=spec.name),
                        "subplot_count": spec.subplot_count,
                        "capabilities": {"final_guess": spec.final_guess,
                                         "early_final_guess": spec.early_final_guess}},
-            "locations": [{"id": key, "name": value} for key, value in LOCATIONS.items()],
-            "counters": [{"id": key, "name": value} for key, value in COUNTER_NAMES.items()],
+            "locations": [{"id": key, "name": label("locations", key, language, fallback=value)} for key, value in LOCATIONS.items()],
+            "counters": [{"id": key, "name": label("counters", key, language, fallback=value)} for key, value in COUNTER_NAMES.items()],
             "plots": [{"id": plot, "name": PLOTS[plot][0], "type": PLOTS[plot][1],
                        "rule": PLOT_RULES[plot], "roles": PLOTS[plot][2]}
                       for plot in spec.plots],
-            "roles": [{"id": role, "name": ROLE_NAMES[role], "rule": ROLE_RULES[role]}
+            "roles": [{"id": role, "name": label("roles", role, language, fallback=ROLE_NAMES[role]), "rule": ROLE_RULES[role]}
                       for role in ROLE_NAMES if role in role_ids],
-            "incidents": [{"id": kind, "name": INCIDENT_NAMES[kind],
+            "incidents": [{"id": kind, "name": label("incidents", kind, language, fallback=INCIDENT_NAMES[kind]),
                            "rule": INCIDENT_RULES[kind]} for kind in spec.incidents],
             "characters": [{"id": cid, **asdict(CHARACTERS[cid]),
-                            "traits": [{"id": trait, "name": TRAIT_NAMES[trait]}
+                            "name": label("characters", cid, language, fallback=CHARACTERS[cid].name),
+                            "traits": [{"id": trait, "name": label("traits", trait, language, fallback=TRAIT_NAMES[trait])}
                                        for trait in CHARACTERS[cid].traits]}
                            for cid in spec.characters],
             "cards": {actor: [{"id": cid, **asdict(card)} for cid, card in deck(actor, module).items()]
@@ -208,19 +221,21 @@ class GameService:
         raise ServiceError("FORBIDDEN", "访问令牌无权执行此操作", status=403)
 
     @staticmethod
-    def _view_payload(session_id: str, record: _Session, viewer: str) -> dict[str, Any]:
+    def _view_payload(session_id: str, record: _Session, viewer: str, language: str = "zh") -> dict[str, Any]:
         return {"protocol_version": PROTOCOL_VERSION, "session_id": session_id,
                 "revision": record.revision, "viewer": viewer,
-                "state": record.game.view(viewer)}
+                "state": record.game.view(viewer, language)}
 
-    def get_view(self, session_id: str, viewer="spectator", *, token: str | None = None) -> dict[str, Any]:
+    def get_view(self, session_id: str, viewer="spectator", *, token: str | None = None,
+                 language: str = "zh") -> dict[str, Any]:
+        language = _language(language)
         record = self._session(session_id)
         if viewer != "spectator":
             if viewer not in SEATS:
                 raise ServiceError("INVALID_VIEWER", "viewer 必须是 spectator 或有效座位")
             self._require(record, token, viewer)
         with record.lock:
-            return _json_copy(self._view_payload(session_id, record, viewer))
+            return _json_copy(self._view_payload(session_id, record, viewer, language))
 
     def _action_label(self, game: Game, command: dict[str, Any]) -> str:
         action = command["action"]
@@ -301,12 +316,13 @@ class GameService:
                                "session_id": session_id, "revision": record.revision,
                                "snapshot": snapshot})
 
-    def get_replay(self, session_id: str, *, token: str | None) -> str:
+    def get_replay(self, session_id: str, *, token: str | None, language: str = "zh") -> str:
+        language = _language(language)
         record = self._session(session_id)
         self._require(record, token, admin=True)
         with record.lock:
             try:
-                return replay_dumps(record.game)
+                return replay_dumps(record.game, language)
             except RuleError as exc:
                 raise ServiceError("REPLAY_NOT_READY", str(exc), status=409) from exc
 
@@ -326,12 +342,13 @@ class GameService:
 class LocalGameClient:
     """Python frontend client using exactly the same JSON service contract."""
 
-    def __init__(self, service: GameService, created: dict[str, Any]):
+    def __init__(self, service: GameService, created: dict[str, Any], language: str = "zh"):
         self.service = service
         self.session_id = created["session_id"]
         self.admin_token = created["credentials"]["admin"]
         self.seat_tokens = dict(created["credentials"]["seats"])
         self.revision = created["revision"]
+        self.language = normalize_language(language)
 
     @classmethod
     def from_game(cls, game: Game | None = None) -> "LocalGameClient":
@@ -355,7 +372,7 @@ class LocalGameClient:
 
     def view(self, viewer="spectator") -> dict[str, Any]:
         token = None if viewer == "spectator" else self.seat_tokens[viewer]
-        payload = self.service.get_view(self.session_id, viewer, token=token)
+        payload = self.service.get_view(self.session_id, viewer, token=token, language=self.language)
         self.revision = payload["revision"]
         return payload["state"]
 
@@ -389,6 +406,6 @@ class LocalGameClient:
             json.dump(snapshot, stream, ensure_ascii=False, indent=2)
 
     def save_replay(self, path: str | Path) -> None:
-        text = self.service.get_replay(self.session_id, token=self.admin_token)
+        text = self.service.get_replay(self.session_id, token=self.admin_token, language=self.language)
         with Path(path).open("x", encoding="utf-8", newline="\n") as stream:
             stream.write(text)

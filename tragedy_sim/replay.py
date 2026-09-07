@@ -13,8 +13,9 @@ from pathlib import Path
 from typing import Any
 
 from .engine import RuleError
-from .flow import PHASE_LABELS
+from .flow import phase_label
 from .game import Game
+from .i18n import format_timepoint, normalize_language
 from .transcript import describe_decision
 
 
@@ -36,7 +37,8 @@ def _payload(line: str, label: str) -> Any:
         raise RuleError(f"回放的 {label} 记录损坏") from exc
 
 
-def dumps(game: Game) -> str:
+def dumps(game: Game, language: str = "zh") -> str:
+    language = normalize_language(language)
     if game.winner is None or game.state.phase != "game_over":
         raise RuleError("只能导出已经正式结束的完整对局回放")
     if len(game.decisions) != len(game.history):
@@ -51,18 +53,20 @@ def dumps(game: Game) -> str:
     ]
     for record in game.decisions:
         command = _json(record.command)
-        position = f"轮回 {record.before.loop} 第 {record.before.day} 天 · {PHASE_LABELS[record.before.phase.value]}"
-        lines.append(f"ACTION\t{command}\t# {record.number:04d} | {position} | {record.description}")
+        position = format_timepoint(record.timing.value, record.before.loop, record.before.day, language)
+        phase = phase_label(record.before.phase, language)
+        lines.append(f"ACTION\t{command}\t# {record.number:04d} | {position} · {phase} | {record.description}")
         for step in record.steps:
-            lines.append(f"#        => {step.message}")
+            timepoint = format_timepoint(step.timing.value, step.cursor.loop, step.cursor.day, language)
+            lines.append(f"#        => [{timepoint}] {step.message}")
     result = {"winner": game.winner, "commands": len(game.history)}
     lines.append(f"RESULT\t{_json(result)}\t# 回放终点")
     return "\n".join(lines) + "\n"
 
 
-def dump(game: Game, path: str | Path) -> None:
+def dump(game: Game, path: str | Path, language: str = "zh") -> None:
     with Path(path).open("x", encoding="utf-8", newline="\n") as stream:
-        stream.write(dumps(game))
+        stream.write(dumps(game, language))
 
 
 @dataclass(frozen=True)
@@ -118,13 +122,14 @@ class ReplaySession:
     expected_seat = None
     dirty = False
 
-    def __init__(self, archive: ReplayArchive):
+    def __init__(self, archive: ReplayArchive, language="zh"):
         self.archive = archive
         final = archive.verify()
         self.decisions = tuple(final.decisions)
         self._game = Game(archive.scenario)
         self.index = 0
         self.token = 0
+        self.language = normalize_language(language)
 
     @property
     def game(self) -> Game:
@@ -139,7 +144,7 @@ class ReplaySession:
         return None if self.index == 0 else self.decisions[self.index - 1]
 
     def public_view(self):
-        return self.game.view("spectator")
+        return self.game.view("spectator", self.language)
 
     def private_view(self):
         return None
