@@ -76,7 +76,7 @@ def board(game: ActionGame, viewer: str = "spectator") -> None:
         print(f"  {loc} {name}（密谋 {view['locations'][loc]}）")
         for char in view["characters"].values():
             if char["location"] == loc:
-                mind = f" / 希望 {char['hope']} / 绝望 {char['despair']}" if game.module == "AHR" else ""
+                mind = f" / 希望 {char['hope']} / 绝望 {char['despair']}" if game.module in ("AHR", "LL") else ""
                 print(f"    {char['id']:<9} {char['name']}：友好 {char['goodwill']} / "
                       f"不安 {char['paranoia']} / 密谋 {char['intrigue']}{mind}"
                       + (" [死亡]" if not char["alive"] else ""))
@@ -218,7 +218,10 @@ def match_board(game, viewer="spectator"):
                   f"偶数为表世界、奇数为里世界；当前为{'表' if v['world'] == 'surface' else '里'}世界")
         print(f"Ex 槽：{v['ex_gauge']}（{detail}）")
     if v["winner"]:
-        print("胜方：" + ("主人公" if v["winner"] == "protagonists" else "剧作家"))
+        winner = ("主人公" if v["winner"] == "protagonists" else "剧作家"
+                  if v["winner"] == "mastermind" else
+                  f"背叛者（{ACTOR_NAMES[v['winner'].split(':')[1]]}）")
+        print("胜方：" + winner)
     for loc, label in LOCATIONS.items():
         board_counter = "尸体标记" if v["module"] == "HSA" else "密谋"
         curse = (f" · 诅咒牌={v['board_ex'][loc]}"
@@ -229,10 +232,12 @@ def match_board(game, viewer="spectator"):
                 panic = " 达临界" if c["alive"] and c["paranoia"] >= c["paranoia_limit"] else ""
                 special = "诅咒牌" if v["module"] == "HSA" else "Ex牌"
                 ex = f" · {special} {c.get('ex_cards', 0)}" if c.get("ex_cards", 0) else ""
-                mind = f" · 希望 {c['hope']} · 绝望 {c['despair']}" if v["module"] == "AHR" else ""
+                mind = f" · 希望 {c['hope']} · 绝望 {c['despair']}" if v["module"] in ("AHR", "LL") else ""
+                tokens = ((" · 交友完毕" if c.get("friended_token") else "")
+                          + (" · 死亡完毕" if c.get("death_token") else ""))
                 print(f"    {c['name']} [{c['id']}] {'存活' if c['alive'] else '尸体'} | "
                       f"友好 {c['goodwill']} · 不安 {c['paranoia']}/{c['paranoia_limit']}{panic} · "
-                      f"密谋 {c['intrigue']}{mind} · 护卫 {c['guard']}{ex}")
+                      f"密谋 {c['intrigue']}{mind} · 护卫 {c['guard']}{ex}{tokens}")
     for p in v["pending"]:
         label = deck(p["actor"], game.module)[p["card"]].name if p["card"] else "暗牌"
         print(f"  {ACTOR_NAMES[p['actor']]} → {game.name(p['target'])}：{label}")

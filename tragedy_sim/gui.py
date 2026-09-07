@@ -302,8 +302,10 @@ class TragedyApp:
                 ex_name = "诅咒" if view["module"] == "HSA" else "Ex"
                 ex = f"   {ex_name} {c['ex_cards']}" if c.get("ex_cards") else ""
                 locked = "   今日禁止移动" if view.get("movement_locks", {}).get(c["id"]) == view["round"] else ""
-                mind = f"   希望 {c['hope']}   绝望 {c['despair']}" if view["module"] == "AHR" else ""
-                counts = tk.Label(shell, text=f"友好 {c['goodwill']}   不安 {c['paranoia']}/{c['paranoia_limit']}{panic}   密谋 {c['intrigue']}{mind}   护卫 {c['guard']}{ex}{locked}",
+                mind = f"   希望 {c['hope']}   绝望 {c['despair']}" if view["module"] in ("AHR", "LL") else ""
+                tokens = (("   交友完毕" if c.get("friended_token") else "")
+                          + ("   死亡完毕" if c.get("death_token") else ""))
+                counts = tk.Label(shell, text=f"友好 {c['goodwill']}   不安 {c['paranoia']}/{c['paranoia_limit']}{panic}   密谋 {c['intrigue']}{mind}   护卫 {c['guard']}{ex}{tokens}{locked}",
                                   bg=CARD, fg=DANGER if panic else MUTED, font=("Microsoft YaHei UI", 10), anchor="w")
                 counts.pack(fill="x", pady=(4, 0))
                 placements = self._placements(view, c["id"])
@@ -331,7 +333,9 @@ class TragedyApp:
             return
         seat = self.session.expected_seat
         if public["winner"]:
-            winner = "主人公" if public["winner"] == "protagonists" else "剧作家"
+            winner = ("主人公" if public["winner"] == "protagonists" else "剧作家"
+                      if public["winner"] == "mastermind" else
+                      f"背叛者（{ACTOR_NAMES[public['winner'].split(':')[1]]}）")
             self.seat_title.configure(text="对局结束")
             self.seat_subtitle.configure(text="结算记录与已知信息仍可查看。")
             ttk.Label(self.private, text=winner + "获胜", foreground=ACCENT, font=("Microsoft YaHei UI", 24, "bold")).pack(pady=(55, 20))

@@ -59,4 +59,6 @@ def deck(actor: str, module: str | None = None) -> dict[str, Card]:
     cards = MASTER_CARDS if actor == "m" else HERO_CARDS
     if module == "AHR":
         cards += AHR_MASTER_CARDS if actor == "m" else AHR_HERO_CARDS
+    elif module == "LL":
+        cards += ((AHR_MASTER_CARDS[1],) if actor == "m" else (AHR_HERO_CARDS[1],))
     return {card.id: card for card in cards}

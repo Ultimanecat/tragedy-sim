@@ -41,10 +41,12 @@ def dumps(game: Game) -> str:
         raise RuleError("只能导出已经正式结束的完整对局回放")
     if len(game.decisions) != len(game.history):
         raise RuleError("决策轨迹不完整，无法导出回放")
+    winner_label = ("主人公" if game.winner == "protagonists" else "剧作家"
+                    if game.winner == "mastermind" else "背叛者")
     lines = [
         f"{MAGIC}\t{VERSION}",
         "# 完整信息回放：包含所有暗牌、身份、事件当事人与玩家选择，只应在对局结束后查看。",
-        f"# {game.scenario['title']} / {game.module} / 胜方：{'主人公' if game.winner == 'protagonists' else '剧作家'}",
+        f"# {game.scenario['title']} / {game.module} / 胜方：{winner_label}",
         f"SCENARIO\t{_json(game.scenario)}\t# 剧本与全部秘密",
     ]
     for record in game.decisions:
@@ -81,7 +83,8 @@ class ReplayArchive:
         command_lines = lines[2:-1]
         commands = tuple(_payload(line, "ACTION") for line in command_lines)
         if (not isinstance(result, dict) or set(result) != {"winner", "commands"}
-                or result["winner"] not in ("mastermind", "protagonists")
+                or (result["winner"] not in ("mastermind", "protagonists")
+                    and result["winner"] not in {f"traitor:{seat}" for seat in ("a", "b", "c")})
                 or type(result["commands"]) is not int or result["commands"] != len(commands)):
             raise RuleError("回放终点记录无效")
         archive = cls(scenario=scenario, commands=commands, winner=result["winner"])

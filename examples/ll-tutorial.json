@@ -1,0 +1,22 @@
+{
+  "id": "silent-town-ll",
+  "title": "寂静小镇（原创教学剧本）",
+  "module": "LL",
+  "days": 3,
+  "loops": 3,
+  "main_plot": "ll_final_plan",
+  "subplots": ["ll_beyond_worldline", "ll_x_citizen"],
+  "cast": {
+    "student": "ordinary",
+    "girl": "key",
+    "doctor": "brain",
+    "worker": "killer",
+    "maiden": "factor",
+    "patient": "ordinary"
+  },
+  "incidents": [
+    {"day": 2, "kind": "murder", "culprit": "doctor"},
+    {"day": 3, "kind": "cocoon", "culprit": "patient"}
+  ],
+  "table_talk": false
+}

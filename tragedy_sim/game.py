@@ -8,6 +8,7 @@ from copy import deepcopy
 from dataclasses import asdict
 import json
 from pathlib import Path
+import random
 
 from .cards import ACTORS, ACTOR_NAMES, COORDS, COUNTER_NAMES, LOCATIONS, PROTAGONISTS, STANDARD_COUNTERS, deck
 from .catalog import CHARACTERS, INCIDENT_NAMES, MODULES, MODULE_PLOTS, PLOTS, REFUSAL, ROLE_NAMES, TRAIT_NAMES
@@ -35,6 +36,12 @@ class Game(ActionGame):
         if self.module == "AHR":
             for actor in PROTAGONISTS:
                 self.state.hands[actor].remove("ahr_h1")
+        if self.module == "LL":
+            self.state.hands["m"].remove("ahr_d1")
+            for actor in PROTAGONISTS:
+                self.state.hands[actor].remove("ahr_h1")
+            if "ll_secret_order" not in self.scenario:
+                self.scenario["ll_secret_order"] = random.SystemRandom().sample(["A", "B", "C"], 3)
         self.roles = dict(self.scenario["cast"])
         self.ex_cards = dict.fromkeys(self.roles, 0)
         self.ex_gauge = 0
@@ -91,6 +98,12 @@ class Game(ActionGame):
         self._ahr_world_shift_pending = False
         self._ahr_will_pending = False
         self._ahr_singularity_occurred = False
+        self._ll_secrets = (dict(zip(PROTAGONISTS, self.scenario["ll_secret_order"]))
+                            if self.module == "LL" else {})
+        self._ll_dead_once = set()
+        self._ll_friended_once = set()
+        self._ll_restricted_day = None
+        self._ll_will_pending = False
         self.state.phase = "day_start"
         self._event("loop_started", f"第 1 轮回开始，共 {self.scenario['loops']} 轮，每轮 {self.scenario['days']} 天。")
         self._start_loop_placements()
@@ -281,6 +294,8 @@ class Game(ActionGame):
                          or (role == "deep_one" and self.ex_gauge >= 2)))
                 or (self.module == "WM" and self.roles[cid] == "paranoid"
                     and "wm_deep_whisper" in self.scenario["subplots"] and role == "key")
+                or (self.module == "LL" and self.roles[cid] == "clown"
+                    and self.state.round % 3 == 0 and role in ("conspiracy", "brain", "killer"))
                 or (self.roles[cid] == "factor" and
                 ((role == "key" and self.state.locations["city"] >= 2) or
                  (role == "conspiracy" and self.state.locations["school"] >= 2))))
@@ -294,6 +309,40 @@ class Game(ActionGame):
         if self.module == "AHR":
             source = self.scenario["cast"] if self.ex_gauge % 2 == 0 else self.scenario["hidden_cast"]
             self.roles = dict(source)
+
+    def _ll_traitor_labels(self):
+        if self.scenario["main_plot"] == "ll_final_plan" and any(
+                self.roles[c.id] == "key" and c.hope >= 1
+                for c in self.state.characters.values()):
+            return set()
+        plots = self.scenario["subplots"]
+        result = set()
+        if "ll_true_monster" in plots:
+            result.add("A")
+        if "ll_myth_collector" in plots or "ll_sns_panic" in plots:
+            result.add("B")
+        if "ll_detective" in plots:
+            result.add("C")
+        return result
+
+    def _ll_seat_for_secret(self, label):
+        return next((seat for seat, secret in self._ll_secrets.items() if secret == label), None)
+
+    def _ll_traitor_seats(self):
+        return {self._ll_seat_for_secret(label) for label in self._ll_traitor_labels()}
+
+    def _count(self, character, counter):
+        """Return a counter's rules value after hope/despair modifiers."""
+        value = getattr(character, counter)
+        if self.module not in ("AHR", "LL"):
+            return value
+        if counter == "goodwill":
+            return value + character.hope
+        if counter == "paranoia":
+            return value + character.despair
+        if counter == "intrigue":
+            return max(0, value + character.despair - character.hope)
+        return value
 
     def _hsa_corpses(self, board):
         return self.state.locations[board] + sum(
@@ -387,7 +436,9 @@ class Game(ActionGame):
         key = f"goodwill:{source}:{ability.id}"
         used_day = self.day_used if private else self.public_day_used
         used_loop = self.loop_used if private else self.public_loop_used
-        ability_counter = c.paranoia if self.module == "AHR" and self.ex_gauge % 2 else c.goodwill
+        ability_counter = (self._count(c, "paranoia")
+                           if self.module == "AHR" and self.ex_gauge % 2
+                           else self._count(c, "goodwill"))
         if not c.alive or ability_counter < ability.threshold or key in used_day or (ability.once and key in used_loop):
             return []
         targets = self._scoped_targets(source, ability.scope)
@@ -540,6 +591,12 @@ class Game(ActionGame):
                                  if self._has(c.id, "obsessive")})
                 result += self._counter_options(None, "plot:ahr_unspeakable", boards, "intrigue", 1,
                                                 "难以言喻的怪物（每轮一次）", True)
+            if (self.module == "LL" and "ll_x_citizen" in self.scenario["subplots"]
+                    and self._available_key("plot:ll_x_citizen", True)):
+                boards = sorted({self._loop_initial_locations[c.id] for c in self._living()
+                                 if self.roles[c.id] == "factor"})
+                result += self._counter_options(None, "plot:ll_x_citizen", boards, "intrigue", 1,
+                                                "X 民周至（每轮一次）", True)
             if self.module == "MZ" and self._available_key("role:magician", True):
                 for magician in self._living():
                     if not self._has(magician.id, "magician"):
@@ -566,10 +623,12 @@ class Game(ActionGame):
                     if self._available_key(key):
                         for t in self._living():
                             # Factor borrows a death ability, not the Key Person identity.
-                            if self.roles[t.id] == "key" and t.location == c.location and t.intrigue >= 2:
+                            if ((self.module == "LL" or self.roles[t.id] == "key")
+                                    and t.id != c.id and t.location == c.location
+                                    and self._count(t, "intrigue") >= 2):
                                 result.append(option(f"{c.name}（杀手）：使{t.name}死亡", [op("kill", target=t.id)], key=key))
                     key = f"killer:heroes:{c.id}"
-                    if c.intrigue >= 4 and self._available_key(key):
+                    if self._count(c, "intrigue") >= 4 and self._available_key(key):
                         result.append(option(f"{c.name}（杀手）：使主人公死亡", [op("heroes_die")], key=key))
                 if self._has(c.id, "lover") and c.paranoia >= 3 and c.intrigue >= 1:
                     key = f"lover:{c.id}"
@@ -689,11 +748,18 @@ class Game(ActionGame):
             if (self._has(request["source"], "paper_tiger")
                     and self.state.characters[request["source"]].paranoia >= 2):
                 refusal = "mandatory"
-            if self.module == "AHR" and self.state.characters[request["source"]].despair:
-                refusal = "mandatory"
             if (self.module == "AHR" and "ahr_jekyll" in self.scenario["subplots"]
                     and self._has(request["source"], "ahr_puppet")):
                 refusal = "mandatory"
+            if (self.module == "LL" and "ll_fabricated_secret" in self.scenario["subplots"]
+                    and self._has(request["source"], "secret_key")):
+                refusal = "optional"
+            if (self.module in ("AHR", "LL")
+                    and self.state.characters[request["source"]].despair):
+                refusal = "mandatory"
+            if (self.module in ("AHR", "LL")
+                    and self.state.characters[request["source"]].hope and refusal == "optional"):
+                refusal = None
             if refusal != "mandatory":
                 result.append(option("执行已声明的友好能力", request["effects"], accept=True))
             if refusal:
@@ -725,6 +791,16 @@ class Game(ActionGame):
             self.public_day_used.add(selected["key"])
             if selected.get("once"):
                 self.public_loop_used.add(selected["key"])
+            if self.module == "LL" and selected["source"] not in self._ll_friended_once:
+                self._ll_friended_once.add(selected["source"])
+                self._event("friended_token_placed",
+                            f"{self.name(selected['source'])}首次被声明使用友好能力，放置交友完毕标志。",
+                            target=selected["source"])
+                if ("ll_myth_collector" in self.scenario["subplots"]
+                        and len(self._ll_friended_once) >= 6):
+                    seat = self._ll_seat_for_secret("B")
+                    self._win(f"traitor:{seat}", "主人公 B 达成神话收集者的特殊胜利条件。")
+                    return
             self._request = selected
             self.state.phase = "refusal"
             self._event("goodwill_requested", f"领队声明：{selected['label']}。")
@@ -733,13 +809,27 @@ class Game(ActionGame):
             request = self._request
             self._request = None
             if selected.get("refuse"):
-                self._event("ability_no_effect", "这项友好能力没有效果；次数已使用，友好不消耗。")
+                rei_once = self.module in ("AHR", "LL") and request.get("once")
+                if rei_once:
+                    for used in (self.day_used, self.loop_used,
+                                 self.public_day_used, self.public_loop_used):
+                        used.discard(request["key"])
+                detail = ("本轮一次能力被拒绝，不计为已使用；友好不消耗。" if rei_once
+                          else "这项友好能力没有效果；次数已使用，友好不消耗。")
+                self._event("ability_no_effect", detail)
                 if self.module == "WM":
                     self._change_ex_gauge(1)
                 self.state.phase = "goodwill"
                 if self.roles[request["source"]] == "puppet":
                     self._return_phase = "goodwill"
                     self._queue = [op("puppet_refusal", target=request["source"])]
+                    self._drain()
+                elif self.module == "LL":
+                    self._return_phase = "goodwill"
+                    self._queue = (([op("ll_internet_celeb", source=request["source"])]
+                                    if self._has(request["source"], "internet_celeb") else [])
+                                   + ([op("reveal", target=request["source"])]
+                                      if self._has(request["source"], "secret_key") else []))
                     self._drain()
                 return
             self._return_phase = "goodwill"
@@ -752,6 +842,12 @@ class Game(ActionGame):
             if self.module == "AHR" and self._has(request["source"], "alice"):
                 selected["effects"] = list(selected["effects"]) + [
                     op("ahr_alice", source=request["source"])]
+            if self.module == "LL" and self._has(request["source"], "internet_celeb"):
+                selected["effects"] = list(selected["effects"]) + [
+                    op("ll_internet_celeb", source=request["source"])]
+            if self.module == "LL" and self._has(request["source"], "secret_key"):
+                selected["effects"] = list(selected["effects"]) + [
+                    op("reveal", target=request["source"])]
             if self._has(request["source"], "wizard"):
                 selected["effects"] = list(selected["effects"]) + [
                     op("reveal", target=request["source"]),
@@ -770,7 +866,10 @@ class Game(ActionGame):
         s = self.state
         if s.phase == "day_start":
             order = self._protagonists_from(s.leader)
-            if self._distort_next_day:
+            if self.module == "LL" and self._ll_restricted_day == s.round:
+                self.configure_actions(mastermind=1, protagonists=order)
+                self._event("mastermind_restricted", "秘钥已经公开：今日剧作家只能放置 1 张行动牌。")
+            elif self._distort_next_day:
                 self.configure_actions(mastermind=4,
                                        protagonists=tuple(actor for actor in order if actor != s.leader))
                 self._distort_next_day = False
@@ -852,6 +951,8 @@ class Game(ActionGame):
         dying_magicians = []
         dying_wm_conspirators = []
         dying_preachers = []
+        dying_celebrities = []
+        dying_secret_keys = []
         for target in dict.fromkeys(targets):
             c = self.state.characters[target]
             if not c.alive:
@@ -860,7 +961,8 @@ class Game(ActionGame):
                     or self._has(target, "detective") or self._has(target, "vampire")
                     or self._has(target, "nightmare") or self._has(target, "paper_tiger")
                     or self._has(target, "sacrifice") or self._has(target, "faceless")
-                    or self._has(target, "narrator")):
+                    or self._has(target, "narrator") or self._has(target, "watcher")
+                    or self._has(target, "clown")):
                 self._event("death_prevented", f"{c.name}没有死亡。", target=target)
             elif self.guards[target]:
                 self.guards[target] -= 1
@@ -873,9 +975,17 @@ class Game(ActionGame):
                     dying_wm_conspirators.append(target)
                 if self.module == "AHR" and self._has(target, "preacher"):
                     dying_preachers.append(target)
+                if self.module == "LL" and self._has(target, "internet_celeb"):
+                    dying_celebrities.append(target)
+                if self.module == "LL" and self._has(target, "secret_key"):
+                    dying_secret_keys.append(target)
                 killed.append(target)
         for target in killed:
             self.state.characters[target].alive = False
+            if self.module == "LL" and target not in self._ll_dead_once:
+                self._ll_dead_once.add(target)
+                self._event("death_token_placed", f"{self.name(target)}首次死亡，放置死亡完毕标志。",
+                            target=target)
             if (self.scenario["main_plot"] == "hsa_ancient_dead"
                     and self.roles[target] in ("ordinary", "paper_tiger")):
                 self.roles[target] = "zombie"
@@ -898,6 +1008,13 @@ class Game(ActionGame):
             if options:
                 self._queue.insert(0, op("choice", prompt="布道者死亡：选择同区域一名角色绝望 +1",
                                          options=options))
+        for target in dying_celebrities:
+            initial = self._loop_initial_locations[target]
+            for c in self._living():
+                if c.id != target and self._loop_initial_locations[c.id] == initial:
+                    self._change(c.id, "paranoia", 1)
+        for target in dying_secret_keys:
+            self._publish_role(target, self.roles[target])
         for target in killed:
             partner = {"lover": "loved", "loved": "lover"}.get(self.roles[target])
             if partner:
@@ -920,6 +1037,10 @@ class Game(ActionGame):
         if self._incident_before is not None:
             self._incident_effect = True
         self.known_roles[target] = {"role": role, "loop": self.state.loop, "day": self.state.round}
+        if self.module == "LL" and role == "secret_key":
+            c = self.state.characters[target]
+            if c.hope >= 1 or c.despair >= 2:
+                self._ll_restricted_day = self.state.round + 1
         self.role_announcements.append({"character": target, "role": role, "loop": self.state.loop,
                                         "day": self.state.round,
                                         "may_be_ninja_claim": (self.module == "MZ" and role != "ninja"
@@ -1126,7 +1247,8 @@ class Game(ActionGame):
                         self._queue.insert(0, op("choice", prompt="爱丽丝：选择同区域另一名角色希望 +1",
                                                  options=choices))
             elif kind == "ahr_corpse_intrigue_check":
-                if sum(c.intrigue for c in self.state.characters.values() if not c.alive) >= 3:
+                if sum(self._count(c, "intrigue") for c in self.state.characters.values()
+                       if not c.alive) >= 3:
                     self._queue.insert(0, op("heroes_die"))
             elif kind == "ahr_dimension_break":
                 c = self.state.characters[effect["target"]]
@@ -1141,6 +1263,59 @@ class Game(ActionGame):
                 cid = effect["target"]
                 if self.state.locations[self._loop_initial_locations[cid]] >= 1:
                     self._queue.insert(0, op("heroes_die"))
+            elif kind == "ll_internet_celeb":
+                source = self.state.characters[effect["source"]]
+                key = f"internet_celeb:{source.id}"
+                if self._available_key(key, True):
+                    self._mark(key, True)
+                    choices = [option(f"{c.name}不安、友好各 +1",
+                                      [op("counter", target=c.id, counter="paranoia", amount=1),
+                                       op("counter", target=c.id, counter="goodwill", amount=1)])
+                               for c in self._living()
+                               if c.id != source.id and c.location == source.location]
+                    if choices:
+                        self._queue.insert(0, op("choice", prompt="网络红人：选择同区域另一名角色",
+                                                 options=choices))
+            elif kind == "ll_will":
+                self._ll_will_pending = True
+                self._event("hope_card_scheduled", "遗言已发生：下一轮开始主人公获得一张「希望 +1」。")
+            elif kind == "ll_declare_traitor":
+                traitors = self._ll_traitor_seats()
+                labels = "、".join(ACTOR_NAMES[seat] for seat in sorted(traitors))
+                self._event("traitor_declared",
+                            "剧作家公开：" + (f"{labels}是背叛者。" if traitors else "本局没有背叛者。"),
+                            seats=sorted(traitors))
+                sns_traitor = self._ll_seat_for_secret("B")
+                if ("ll_sns_panic" in self.scenario["subplots"] and sns_traitor
+                        and sum(c.alive and c.location != self._loop_initial_locations[c.id]
+                                for c in self.state.characters.values())
+                        > len(self._living()) / 2):
+                    self._win(f"traitor:{sns_traitor}", "主人公 B 达成 SNS 恐慌的特殊胜利条件。")
+                elif "C" in self._ll_traitor_labels() and self.scenario["incidents"]:
+                    self._queue.insert(0, op("ll_culprit_guess", index=0, correct=True))
+                else:
+                    self._queue.insert(0, op("ll_begin_role_guess"))
+            elif kind == "ll_culprit_guess":
+                index = effect["index"]
+                if index >= len(self.scenario["incidents"]):
+                    if effect["correct"]:
+                        self._win(f"traitor:{self._ll_seat_for_secret('C')}",
+                                  "主人公 C 正确猜中所有事件当事人，单独获胜。")
+                    else:
+                        self._queue.insert(0, op("ll_begin_role_guess"))
+                else:
+                    incident = self.scenario["incidents"][index]
+                    options = [option(self.name(cid), [op("ll_culprit_guess", index=index + 1,
+                        correct=effect["correct"] and cid == incident["culprit"])]) for cid in self.roles]
+                    self._queue.insert(0, op("choice", actor=self._ll_seat_for_secret("C"),
+                                             prompt=f"主人公 C：猜测第 {incident['day']} 天事件当事人",
+                                             options=options))
+            elif kind == "ll_begin_role_guess":
+                traitors = self._ll_traitor_seats()
+                if self.state.leader in traitors:
+                    self.state.leader = next(actor for actor in PROTAGONISTS if actor not in traitors)
+                self.state.phase = "final_guess"
+                self._return_phase = "final_guess"
             elif kind == "move_corpse":
                 target, location = effect["target"], effect["location"]
                 self.state.characters[target].location = location
@@ -1325,6 +1500,9 @@ class Game(ActionGame):
             return
         if self.module == "AHR":
             self._ahr_incident(incident)
+            return
+        if self.module == "LL":
+            self._ll_incident(incident)
             return
         culprit = self.state.characters[incident["culprit"]]
         kind = incident["kind"]
@@ -1611,9 +1789,10 @@ class Game(ActionGame):
         kind = incident["kind"]
         culprit = self.state.characters[incident["culprit"]]
         threshold = CHARACTERS[culprit.id].limit - (kind == "impulsive_murder")
-        score = (culprit.intrigue if kind == "imaginary_incident" else
-                 culprit.goodwill if (self.ex_gauge % 2 or kind == "hope_light") else
-                 culprit.paranoia)
+        score = (self._count(culprit, "intrigue") if kind == "imaginary_incident" else
+                 self._count(culprit, "goodwill")
+                 if (self.ex_gauge % 2 or kind == "hope_light") else
+                 self._count(culprit, "paranoia"))
         happened = culprit.alive and (kind == "dimension_swap" or self._has(culprit.id, "obsessive")
                                       or score >= threshold)
         self.incident_records.append({"day": self.state.round, "kind": kind,
@@ -1697,6 +1876,83 @@ class Game(ActionGame):
                                    for c in living])]
         else:
             effects = [op("choice", prompt="绝望之暗：选择绝望目标", options=[
+                option(f"{c.name}绝望 +1", [op("counter", target=c.id, counter="despair", amount=1)])
+                for c in living])]
+        self._queue = effects + [op("incident_done"), op("night")]
+        self._return_phase = "day_end"
+        self._drain()
+
+    def _ll_incident(self, incident):
+        kind = incident["kind"]
+        culprit = self.state.characters[incident["culprit"]]
+        score = (self._count(culprit, "goodwill") if kind == "hope_light"
+                 else self._count(culprit, "paranoia"))
+        watcher_forces = (culprit.despair >= 1 and any(
+            self._has(c.id, "watcher") and c.location == culprit.location for c in self._living()))
+        happened = culprit.alive and (watcher_forces or score >= CHARACTERS[culprit.id].limit)
+        self.incident_records.append({"day": self.state.round, "kind": kind,
+                                      "happened": happened, "effective": False})
+        self._event("incident_status", f"第 {self.state.round} 天「{INCIDENT_NAMES[kind]}」："
+                    + ("发生。" if happened else "未发生。"), incident=kind, happened=happened)
+        if not happened:
+            self._begin_night()
+            return
+        self._incident_before = self._public_board()
+        living = self._living()
+        if kind == "murder":
+            effects = [op("choice", prompt="谋杀：选择同区域另一名角色死亡", options=[
+                option(f"使{c.name}死亡", [op("kill", target=c.id)]) for c in living
+                if c.id != culprit.id and c.location == culprit.location])]
+        elif kind == "unease":
+            effects = [op("choice", prompt="不安扩散：选择不安目标", options=[
+                option(f"{first.name}不安 +2", [op("counter", target=first.id, counter="paranoia", amount=2),
+                    op("choice", prompt="选择另一名角色密谋 +1", options=[
+                        option(f"{second.name}密谋 +1",
+                               [op("counter", target=second.id, counter="intrigue", amount=1)])
+                        for second in living if second.id != first.id])]) for first in living])]
+        elif kind == "missing":
+            effects = [op("choice", prompt="失踪：选择当事人的目的地", options=[
+                option(f"移至{LOCATIONS[board]}", [op("move", target=culprit.id, location=board),
+                    op("counter", target=self._loop_initial_locations[culprit.id],
+                       counter="intrigue", amount=1)])
+                for board in LOCATIONS if board not in culprit.forbidden])]
+        elif kind == "hospital":
+            effects = []
+            if self.state.locations["hospital"] >= 1:
+                effects.append(op("kill_many", targets=[c.id for c in living if c.location == "hospital"]))
+            if self.state.locations["hospital"] >= 2:
+                effects.append(op("heroes_die"))
+        elif kind == "executor":
+            effects = [op("choice", prompt="执行者：剧作家选择一位主人公", options=[
+                option(f"由{ACTOR_NAMES[actor]}选择", [op("choice", actor=actor,
+                    prompt="执行者：选择一名角色死亡", options=[
+                        option(f"使{c.name}死亡", [op("kill", target=c.id)]) for c in living])])
+                for actor in PROTAGONISTS])]
+        elif kind == "metamorphosis":
+            effects = ([op("kill", target=culprit.id)]
+                       if self.state.locations[self._loop_initial_locations[culprit.id]] >= 2 else [])
+        elif kind == "cocoon":
+            board = self._loop_initial_locations[culprit.id]
+            effects = ([op("counter", target=board, counter="intrigue", amount=2)]
+                       if self.state.locations[board] <= 1 else [])
+        elif kind == "will":
+            effects = [op("kill", target=culprit.id), op("ll_will")]
+        elif kind == "confession":
+            effects = [op("reveal", target=culprit.id)]
+        elif kind == "spreading":
+            effects = [op("choice", prompt="散播：选择移除友好的角色", options=[
+                option(f"{first.name}友好 -2", [op("counter", target=first.id, counter="goodwill", amount=-2),
+                    op("choice", prompt="选择另一名角色友好 +2", options=[
+                        option(f"{second.name}友好 +2",
+                               [op("counter", target=second.id, counter="goodwill", amount=2)])
+                        for second in living if second.id != first.id])]) for first in living])]
+        elif kind == "hope_light":
+            effects = [op("choice", actor=self.state.leader, prompt="希望之光：领队选择一名角色",
+                          options=[option(f"{c.name}希望 +1",
+                                          [op("counter", target=c.id, counter="hope", amount=1)])
+                                   for c in living])]
+        else:
+            effects = [op("choice", prompt="绝望之暗：选择一名角色", options=[
                 option(f"{c.name}绝望 +1", [op("counter", target=c.id, counter="despair", amount=1)])
                 for c in living])]
         self._queue = effects + [op("incident_done"), op("night")]
@@ -1933,6 +2189,11 @@ class Game(ActionGame):
     def _queue_day_end_mandatory_batch(self):
         """Activate every mandatory effect on one snapshot, then resolve the batch."""
         living = self._living()
+        if (self.module == "LL" and "ll_true_monster" in self.scenario["subplots"]
+                and len(self._ll_dead_once) >= 5 and self._ll_seat_for_secret("A")):
+            self._win(f"traitor:{self._ll_seat_for_secret('A')}",
+                      "主人公 A 达成真正的怪物特殊胜利条件。")
+            return
         victims = []
         target_choices = []
         loss_reasons = []
@@ -2005,6 +2266,12 @@ class Game(ActionGame):
             loss_reasons.append("疯狂之夜使主人公死亡")
         if self.module == "WM" and self.ex_gauge >= 4:
             loss_reasons.append("旧日魔术·发狂使主人公死亡")
+        if self.module == "LL":
+            for cid, known in self.known_roles.items():
+                c = self.state.characters[cid]
+                if (known["role"] == "secret_key" and (c.hope >= 1 or c.despair >= 2)
+                        and self.state.round == self.scenario["days"]):
+                    loss_reasons.append("公开的秘钥在最终日使主人公死亡")
 
         grandfather_key = "mandatory:plot:of_grandfather"
         enemies = [c.id for c in living if self._has(c.id, "returner_enemy")]
@@ -2079,8 +2346,28 @@ class Game(ActionGame):
                              record["kind"] in ("will", "lost_property") and record["happened"]
                              for record in self.incident_records))
                          or (main == "ahr_illusory_world" and any(
-                             self.roles[c.id] == "obsessive" and c.intrigue + self.ex_gauge >= 3
+                             self.roles[c.id] == "obsessive"
+                             and self._count(c, "intrigue") + self.ex_gauge >= 3
                              for c in self.state.characters.values())))) or
+                     (self.module == "LL" and (
+                         (main == "ll_sealed_end" and
+                          s.locations["shrine"] + sum(
+                              c.hope + c.despair for c in s.characters.values()
+                              if c.location == "shrine") >= 2)
+                         or (main == "ll_treacherous_world" and any(
+                             self.roles[c.id] == "key" and self._count(c, "intrigue") >= 2
+                             for c in s.characters.values()))
+                         or (main == "ll_malicious_script" and (
+                             any(record["kind"] in ("will", "executor") and record["happened"]
+                                 for record in self.incident_records)
+                             or (s.loop == self.scenario["loops"] and any(
+                                 self.roles[c.id] == "watcher"
+                                 and sum(getattr(c, counter) for counter in COUNTER_NAMES) <= 1
+                                 for c in s.characters.values()))))
+                         or (main == "ll_bomb_z" and any(
+                             self.roles[c.id] == "witch"
+                             and s.locations[self._loop_initial_locations[c.id]] >= 2
+                             for c in s.characters.values())))) or
                      (main in ("avenger", "bomb") and any(s.locations[CHARACTERS[c.id].start] >= 2
                         for c in s.characters.values() if self.roles[c.id] == ("brain" if main == "avenger" else "witch"))))
         if plot_loss:
@@ -2161,6 +2448,11 @@ class Game(ActionGame):
             if old.loop >= 1:
                 self.state.hands["m"].remove("ahr_d1")
             self._ahr_world_shift_pending = False
+        if self.module == "LL":
+            self.state.hands["m"].remove("ahr_d1")
+            for actor in PROTAGONISTS:
+                self.state.hands[actor].remove("ahr_h1")
+            self._ll_restricted_day = None
         self._movement_locks.clear()
         self._sealed_boards.clear()
         self._prevented_incident_culprits.clear()
@@ -2198,10 +2490,26 @@ class Game(ActionGame):
             if give_despair and "ahr_d1" not in self.state.hands["m"]:
                 self.state.hands["m"].append("ahr_d1")
                 self._event("special_card_gained", "剧作家获得「绝望 +1」。")
-            if give_hope and "ahr_h1" not in self.state.hands[s.leader]:
-                self.state.hands[s.leader].append("ahr_h1")
-                self._event("special_card_gained", f"{ACTOR_NAMES[s.leader]}获得「希望 +1」。")
+            if give_hope:
+                for actor in PROTAGONISTS:
+                    if "ahr_h1" not in self.state.hands[actor]:
+                        self.state.hands[actor].append("ahr_h1")
+                self._event("special_card_gained", "三位主人公各获得一张「希望 +1」。")
             self._ahr_will_pending = False
+        if self.module == "LL":
+            give_despair = bool(getattr(self, "_previous_fragment_dead", set()))
+            give_despair |= ("ll_beyond_worldline" in self.scenario["subplots"] and s.loop % 2 == 0)
+            give_hope = bool(getattr(self, "_previous_fragment_friendly", set())) or self._ll_will_pending
+            give_hope |= ("ll_beyond_worldline" in self.scenario["subplots"]
+                          and s.loop == self.scenario["loops"])
+            if give_despair:
+                self.state.hands["m"].append("ahr_d1")
+                self._event("special_card_gained", "剧作家获得「绝望 +1」。")
+            if give_hope:
+                for actor in PROTAGONISTS:
+                    self.state.hands[actor].append("ahr_h1")
+                self._event("special_card_gained", "三位主人公各获得一张「希望 +1」。")
+            self._ll_will_pending = False
         if ("mc_isolation" in self.scenario["subplots"]
                 and self._previous_ex_gauge is not None and self._previous_ex_gauge <= 2):
             self._change_ex_gauge(1)
@@ -2249,6 +2557,11 @@ class Game(ActionGame):
         detail = "；AHR 必须分别猜中每名角色的表、里身份" if self.module == "AHR" else ""
         self._event("final_guess_started", "进入最终猜测：棋盘还原，身份恢复剧本初始分配。"
                     f"领队逐个声明角色身份，全部正确才获胜，答错即失败{detail}。")
+        if self.module == "LL":
+            self._return_phase = "final_guess"
+            self.state.phase = "decision"
+            self._queue = [op("ll_declare_traitor")]
+            self._drain()
 
     def _guess(self, cid, role):
         if self.state.phase != "final_guess" or cid not in self._guess_remaining or role not in ROLE_NAMES:
@@ -2291,7 +2604,9 @@ class Game(ActionGame):
                         guard=self.guards[cid], abilities=[asdict(a) for a in definition.abilities],
                         passive=definition.passive,
                         initial_location=self._loop_initial_locations.get(cid, definition.start),
-                        ex_cards=self.ex_cards.get(cid, 0))
+                        ex_cards=self.ex_cards.get(cid, 0),
+                        friended_token=(self.module == "LL" and cid in self._ll_friended_once),
+                        death_token=(self.module == "LL" and cid in self._ll_dead_once))
         result.update(title=self.scenario["title"], days=self.scenario["days"], loops=self.scenario["loops"],
                       table_talk=self.scenario["table_talk"], controller=self.controller, winner=self.winner,
                       module_name=spec.name,
@@ -2317,6 +2632,8 @@ class Game(ActionGame):
                                         "dead_apocalypse"} else {})}
                                 for i in self.scenario["incidents"]],
                       incidents=deepcopy(self.incident_records), guess_remaining=list(self._guess_remaining))
+        if self.module == "LL" and viewer in PROTAGONISTS:
+            result["protagonist_secret"] = self._ll_secrets[viewer]
         if viewer == "m":
             result["secret"] = {"roles": dict(self.roles), "initial_roles": dict(self.scenario["cast"]),
                                 "main_plot": self.scenario["main_plot"], "subplots": list(self.scenario["subplots"]),

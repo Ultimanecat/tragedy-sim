@@ -15,7 +15,8 @@ HSA_GROUP_INCIDENTS = {"frenzied_night", "curse_awakening", "filth_overflow", "d
 def validate_scenario(data: dict) -> dict:
     required = {"id", "title", "module", "days", "loops", "main_plot", "subplots", "cast", "incidents"}
     if (not isinstance(data, dict)
-            or set(data) - required - {"table_talk", "wm_replacement_plot", "hidden_cast"}
+            or set(data) - required - {"table_talk", "wm_replacement_plot", "hidden_cast",
+                                       "ll_secret_order"}
             or required - set(data)):
         raise RuleError("剧本字段不完整或含不支持的字段；请参考 examples 中的 JSON")
     if any(not isinstance(data[k], str) or not data[k] for k in ("id", "title", "module", "main_plot")):
@@ -59,6 +60,13 @@ def validate_scenario(data: dict) -> dict:
             raise RuleError("AHR 的 hidden_cast 必须为同一批角色指定合法的里世界身份")
     elif hidden_cast is not None:
         raise RuleError("只有 AHR 可以设置 hidden_cast")
+    secret_order = data.get("ll_secret_order")
+    if module == "LL":
+        if secret_order is not None and (not isinstance(secret_order, list)
+                                         or sorted(secret_order) != ["A", "B", "C"]):
+            raise RuleError("LL 的 ll_secret_order 必须是 A/B/C 的一个排列")
+    elif secret_order is not None:
+        raise RuleError("只有 LL 可以设置 ll_secret_order")
     expected = Counter()
     for p in plots:
         expected.update(PLOTS[p][2])
@@ -70,7 +78,15 @@ def validate_scenario(data: dict) -> dict:
         if actual.get("curmudgeon", 0) > 2:
             raise RuleError("最黑暗的剧本允许 0–2 名暴徒")
         actual.pop("curmudgeon", None)
-    if +actual != +expected:
+    valid_roles = [+expected]
+    if "ll_fabricated_secret" in plots and expected["secret_key"] == 0:
+        valid_roles = []
+        for extra in ("killer", "brain", "fragment"):
+            if expected[extra] == 0:
+                candidate = +expected
+                candidate[extra] += 1
+                valid_roles.append(candidate)
+    if +actual not in valid_roles:
         raise RuleError("角色身份数量与规则 X/Y 的身份槽位不符")
     if spec.friend_gender_split:
         genders = Counter()
@@ -148,8 +164,19 @@ def validate_scenario(data: dict) -> dict:
         first = min(data["incidents"], key=lambda item: item["day"], default=None)
         if first is None or first["culprit"] not in sacrifices:
             raise RuleError("祭品必须担任剧本中第一起事件的当事人")
+    clowns = [cid for cid, role in cast.items() if role == "clown"]
+    if clowns:
+        first = min(data["incidents"], key=lambda item: item["day"], default=None)
+        if first is None or first["culprit"] not in clowns:
+            raise RuleError("小丑必须担任剧本中第一起事件的当事人")
+    if data["main_plot"] == "ll_treacherous_world" and any(
+            "girl" not in CHARACTERS[cid].traits
+            for cid, role in cast.items() if role in ("key", "fragment")):
+        raise RuleError("叛逆的世界要求关键人物与碎片都具有少女属性")
     if type(data.get("table_talk", False)) is not bool:
         raise RuleError("table_talk 必须是布尔值")
+    if module == "LL" and data.get("table_talk", False):
+        raise RuleError("Last Liar 在轮回过程中禁止主人公讨论")
     result = deepcopy(data)
     if module == "AHR":
         result["hidden_cast"] = deepcopy(hidden_cast)
@@ -196,6 +223,11 @@ def example_scenario(module: str = "FS") -> dict:
         cast = {"student": "obsessive", "girl": "key", "doctor": "ahr_puppet",
                 "worker": "fragment", "maiden": "piper", "patient": "alice",
                 "nurse": "piper"}
+    elif module == "LL":
+        main_plot = "ll_final_plan"
+        subplots = ["ll_beyond_worldline", "ll_x_citizen"]
+        cast = {"student": "ordinary", "girl": "key", "doctor": "brain",
+                "worker": "killer", "maiden": "factor", "patient": "ordinary"}
     else:
         main_plot = "murder_plan"
         subplots = ["rumor"] if module == "FS" else ["rumor", "threads"]
@@ -205,7 +237,10 @@ def example_scenario(module: str = "FS") -> dict:
         "id": "silent-town-" + module.lower(), "title": "寂静小镇（原创教学剧本）", "module": module,
         "days": 3, "loops": 3, "main_plot": main_plot,
         "subplots": subplots, "cast": cast,
-        "incidents": ([{"day": 1, "kind": "dimension_swap", "culprit": "student"},
+        "incidents": ([{"day": 2, "kind": "murder", "culprit": "doctor"},
+                       {"day": 3, "kind": "cocoon", "culprit": "patient"}]
+                      if module == "LL" else
+                      [{"day": 1, "kind": "dimension_swap", "culprit": "student"},
                        {"day": 3, "kind": "hope_light", "culprit": "patient"}]
                       if module == "AHR" else
                       [{"day": 2, "kind": "discovery", "culprit": "doctor"},
@@ -222,5 +257,5 @@ def example_scenario(module: str = "FS") -> dict:
                       if module == "MZ" else
                       [{"day": 2, "kind": "murder", "culprit": "doctor"},
                        {"day": 3, "kind": "suicide", "culprit": "patient"}]),
-        "table_talk": True,
+        "table_talk": module != "LL",
     })

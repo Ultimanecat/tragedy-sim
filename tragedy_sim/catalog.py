@@ -17,7 +17,9 @@ ROLE_NAMES = {"ordinary": "平民", "key": "关键人物", "killer": "杀手", "
               "zombie": "丧尸", "sacrifice": "祭品", "deep_one": "深潜者",
               "wizard": "巫师", "witness": "目击者", "faceless": "无面者",
               "ahr_puppet": "提线木偶", "narrator": "叙述者", "fragment": "碎片",
-              "piper": "吹笛人", "preacher": "布道者", "alice": "爱丽丝"}
+              "piper": "吹笛人", "preacher": "布道者", "alice": "爱丽丝",
+              "watcher": "监视者", "internet_celeb": "网络红人", "secret_key": "秘钥",
+              "clown": "小丑"}
 REFUSAL = {"killer": "optional", "brain": "optional", "curmudgeon": "optional",
            "factor": "optional", "cultist": "mandatory", "witch": "mandatory",
            "puppet": "optional", "assassin": "optional", "terrorist": "optional",
@@ -28,6 +30,7 @@ REFUSAL.update({"vampire": "optional", "werewolf": "optional", "nightmare": "opt
                 "witch": "mandatory"})
 REFUSAL.update({"deep_one": "optional", "paranoid": "mandatory", "faceless": "optional"})
 REFUSAL.update({"ahr_puppet": "optional", "piper": "optional"})
+REFUSAL.update({"internet_celeb": "optional", "clown": "mandatory"})
 INCIDENT_NAMES = {"murder": "谋杀", "unease": "不安扩散", "suicide": "自杀",
                   "hospital": "医院事故", "faraway": "远距离杀人", "missing": "失踪",
                   "spreading": "散播", "foul_play": "邪气污染", "butterfly": "蝴蝶效应",
@@ -50,6 +53,7 @@ INCIDENT_NAMES.update({"impulsive_murder": "冲动杀人", "dimension_swap": "�
                        "lost_property": "遗失之物", "imaginary_incident": "空想事件",
                        "will": "遗言", "singularity": "奇点", "hope_light": "隙间阳光",
                        "despair_dark": "绝望之暗"})
+INCIDENT_NAMES.update({"executor": "执行者", "metamorphosis": "蜕变", "cocoon": "茧"})
 # id: (name, Y/X, required roles). Duplicate roles are capped by their printed maximum.
 PLOTS = {
     "murder_plan": ("谋杀计划", "Y", {"key": 1, "killer": 1, "brain": 1}),
@@ -141,6 +145,18 @@ PLOTS = {
     "ahr_beyond_worldline": ("超越世界线", "X", {"piper": 1}),
     "ahr_unspeakable": ("难以言喻的怪物", "X", {"obsessive": 1, "preacher": 1, "alice": 1}),
     "ahr_imaginary_virus": ("空想扩大病毒", "X", {"fragment": 1, "preacher": 1, "alice": 1}),
+    "ll_final_plan": ("最终计划", "Y", {"key": 1, "killer": 1, "brain": 1}),
+    "ll_sealed_end": ("封印的终末", "Y", {"fragment": 1, "factor": 1}),
+    "ll_treacherous_world": ("叛逆的世界", "Y", {"key": 1, "fragment": 1}),
+    "ll_malicious_script": ("恶意的剧本", "Y", {"watcher": 1, "internet_celeb": 1}),
+    "ll_bomb_z": ("巨大定时炸弹 Z", "Y", {"brain": 1, "witch": 1}),
+    "ll_true_monster": ("真正的怪物", "X", {"watcher": 1, "secret_key": 1, "clown": 1}),
+    "ll_myth_collector": ("神话收集者", "X", {"internet_celeb": 1, "secret_key": 1, "clown": 1}),
+    "ll_detective": ("我才是名侦探", "X", {"watcher": 1, "secret_key": 1, "clown": 1}),
+    "ll_beyond_worldline": ("超越世界线", "X", {}),
+    "ll_x_citizen": ("X 民周至", "X", {"factor": 1}),
+    "ll_sns_panic": ("SNS 恐慌", "X", {"watcher": 1, "internet_celeb": 1, "secret_key": 1}),
+    "ll_fabricated_secret": ("捏造的秘密", "X", {"conspiracy": 1}),
 }
 
 
@@ -187,6 +203,9 @@ _AHR_PLOTS = ("ahr_closed_future", "ahr_legendary_killer", "ahr_crane_tale", "ah
               "ahr_illusory_world", "ahr_jekyll", "ahr_plague", "ahr_puppet_lines",
               "ahr_love_encounter", "ahr_beyond_worldline", "ahr_unspeakable",
               "ahr_imaginary_virus")
+_LL_PLOTS = ("ll_final_plan", "ll_sealed_end", "ll_treacherous_world", "ll_malicious_script",
+             "ll_bomb_z", "ll_true_monster", "ll_myth_collector", "ll_detective",
+             "ll_beyond_worldline", "ll_x_citizen", "ll_sns_panic", "ll_fabricated_secret")
 _FS_INCIDENTS = ("murder", "unease", "suicide", "hospital", "faraway", "missing", "spreading")
 _BTX_INCIDENTS = (*_FS_INCIDENTS, "foul_play", "butterfly")
 _OF_INCIDENTS = ("murder", "suicide", "malicious_rumor", "hospital", "poison_gas", "exposure",
@@ -203,6 +222,8 @@ _WM_INCIDENTS = ("frenzied_murder", "mass_suicide", "unease", "missing", "foul_p
 _AHR_INCIDENTS = ("impulsive_murder", "dimension_swap", "dimension_distortion",
                   "dimension_break", "lost_property", "imaginary_incident", "hospital",
                   "will", "singularity", "hope_light", "despair_dark")
+_LL_INCIDENTS = ("murder", "unease", "missing", "hospital", "executor", "metamorphosis",
+                 "cocoon", "will", "confession", "spreading", "hope_light", "despair_dark")
 _OF_CHARACTERS = ("student", "girl", "rich", "class_rep", "maiden", "police", "worker",
                   "informer", "idol", "doctor", "patient")
 
@@ -227,6 +248,9 @@ MODULES = {
     "AHR": ModuleSpec("AnotherHorizonRevised", _AHR_PLOTS, 2, _AHR_INCIDENTS,
                       {"conspiracy": 1, "preacher": 1}, True, True,
                       _ALL_CHARACTERS, True),
+    "LL": ModuleSpec("LastLiar", _LL_PLOTS, 2, _LL_INCIDENTS,
+                     {"serial": 1, "watcher": 1, "conspiracy": 1, "clown": 1},
+                     True, False, _ALL_CHARACTERS, True),
 }
 
 # Historical public name retained for callers and saved-game compatibility.
@@ -310,6 +334,18 @@ PLOT_RULES = {
     "ahr_beyond_worldline": "偶数轮开始剧作家获得绝望 +1；最终轮开始主人公获得希望 +1。",
     "ahr_unspeakable": "剧作家能力阶段可在存活强迫症初始版图放置密谋 +1，每轮一次。",
     "ahr_imaginary_virus": "存活平民同时拥有至少 2 希望与 2 绝望时，身份变为杀人狂。",
+    "ll_final_plan": "关键人物（即使死亡）有希望时，全部主人公不再是背叛者；最终轮仍照常最终决战。",
+    "ll_sealed_end": "轮回结束时神社密谋不少于 2，可使主人公死亡；神社上的希望与绝望也视作密谋。",
+    "ll_treacherous_world": "剧本制作：关键人物与碎片必须是少女；轮回结束时关键人物密谋不少于 2，主人公失败。",
+    "ll_malicious_script": "轮回结束时本轮发生过遗言或执行者则失败；最终轮监视者指示物不多于 1 时可使主人公死亡。",
+    "ll_bomb_z": "轮回结束时魔女初始版图密谋不少于 2，主人公失败。",
+    "ll_true_monster": "主人公 A 背叛条件：日末累计放置至少 5 个死亡标志。",
+    "ll_myth_collector": "主人公 B 背叛条件：主人公能力阶段累计至少 6 个交友完毕标志。",
+    "ll_detective": "主人公 C 背叛条件：最终决战正确猜中所有事件当事人。",
+    "ll_beyond_worldline": "偶数轮开始剧作家获得绝望 +1；最终轮开始主人公获得希望 +1。",
+    "ll_x_citizen": "剧作家能力阶段可在存活不安定因子初始版图密谋 +1，每轮一次。",
+    "ll_sns_panic": "背叛条件：最终决战时多数存活角色不在初始版图。",
+    "ll_fabricated_secret": "秘钥必须拒绝友好；剧本若没有秘钥，额外加入尚未被所选规则使用的杀手、主谋或碎片之一。",
 }
 ROLE_RULES = {
     "ordinary": "没有身份能力。",
@@ -361,6 +397,10 @@ ROLE_RULES = {
     "piper": "无视友好；日末 Ex≥2 时每轮一次使同区域一名角色死亡；可给同区域尸体密谋 +1，尸体密谋合计≥3 时主人公死亡。",
     "preacher": "剧作家能力阶段可给同区域一名角色友好 +1；死亡时同区域一名角色绝望 +1 并触发世界线变动。上限 1。",
     "alice": "轮回结束时若处于里世界则主人公失败；友好能力结算后 Ex≥1 时可令同区域另一角色希望 +1（每轮一次）。",
+    "watcher": "不会死亡；事件阶段若与存活当事人同区域且当事人有绝望，则该事件必定发生。上限 1。",
+    "internet_celeb": "可拒绝友好；死亡时同初始版图其他角色不安 +1；友好能力结算后可给同区域另一角色不安、友好各 +1（每轮一次）。",
+    "secret_key": "死亡或友好能力结算后公开身份；公开后若希望≥1或绝望≥2，剧作家次日只能出一张牌，最终日则主人公死亡。",
+    "clown": "必须拒绝友好且不会死亡；必须是第一起事件当事人。日期为 3 的倍数时获得传谣人、主谋与杀手能力，身份不变。上限 1。",
 }
 INCIDENT_RULES = {
     "murder": "同当事人一个区域的另一名存活角色死亡。",
@@ -411,6 +451,9 @@ INCIDENT_RULES = {
     "singularity": "表世界首次发生时主人公死亡，否则触发世界线变动；里世界给同区域所有角色密谋 +1，若当事人初始版图有密谋则主人公死亡。",
     "hope_light": "改用友好判定发生；领队选择一名角色希望 +1。",
     "despair_dark": "任意一名角色绝望 +1。",
+    "executor": "剧作家选择一位主人公，该主人公选择一名角色死亡。",
+    "metamorphosis": "当事人初始版图密谋不少于 2 时，当事人死亡。",
+    "cocoon": "当事人初始版图密谋不多于 1 时，在该版图放置 2 密谋。",
 }
 
 
