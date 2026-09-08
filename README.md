@@ -220,6 +220,7 @@ python -m unittest discover -v
 - `tragedy_sim/cli.py`：完整对局、行动练习、中文提示和自动演示。
 - `tests/`：行动、能力、事件、胜负、信息过滤、CLI/GUI、存档及纯文本回放；覆盖全部支持模组的规则组合与专项规则。
 - [完整对局规则说明](docs/rules-match.md)、[基础行动来源](docs/rules-actions.md)。
+- [Web 前端与局域网联机实施计划](docs/web-and-lan-roadmap.md)。
 
 引擎与界面分离，可直接调用：
 
