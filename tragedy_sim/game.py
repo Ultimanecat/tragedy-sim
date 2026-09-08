@@ -18,6 +18,7 @@ from .flow import MATCH_FLOW, phase_label
 from .i18n import format_timepoint, label, normalize_language
 from .model import (DecisionRecord, PhaseCursor, ResolutionStep, SimulationResult,
                     TimingId, timing_for_phase)
+from .phases import PHASE_RESOLVERS
 from .scenario import example_scenario, validate_scenario
 from .transcript import describe_decision
 
@@ -111,9 +112,7 @@ class Game(ActionGame):
 
     @property
     def controller(self):
-        if self.state.phase == "decision" and self._decision_actor:
-            return self._decision_actor
-        return MATCH_FLOW.controller(self.state.phase, leader=self.state.leader, next_actor=self.next_actor)
+        return PHASE_RESOLVERS.resolve(self.state.phase).controller(self)
 
     def name(self, target):
         if target.endswith("@surface") or target.endswith("@hidden"):
@@ -147,30 +146,15 @@ class Game(ActionGame):
             MATCH_FLOW.validate_command(self.state.phase, action, args)
         except ValueError as exc:
             raise RuleError(str(exc)) from exc
-        if action == "final":
-            if (not MODULES[self.module].early_final_guess or self.state.phase != "loop_end"
-                    or actor != self.state.leader):
-                raise RuleError("当前规则集或阶段不允许领队提前进入最终猜测")
-        elif actor != self.controller:
-            raise RuleError(f"当前需要 {ACTOR_NAMES.get(self.controller, '无人')} 操作")
+        resolver = PHASE_RESOLVERS.resolve(self.state.phase)
+        resolver.authorize(self, actor, action)
         snapshot = deepcopy(self.__dict__)
         before = self.phase_cursor
         decision_timing = self._current_timing()
         event_start = len(self.state.events)
         description = describe_decision(self, actor, action, args)
         try:
-            if action == "play":
-                self.play(actor, args["card"], args["target"])
-            elif action == "resolve":
-                self.resolve()
-            elif action == "next":
-                self._advance()
-            elif action == "choose":
-                self._choose(actor, args["index"])
-            elif action == "guess":
-                self._guess(args["character"], args["role"])
-            else:
-                self._start_final_guess()
+            resolver.execute(self, actor, action, args)
         except Exception:
             self.__dict__.clear()
             self.__dict__.update(snapshot)
@@ -198,40 +182,7 @@ class Game(ActionGame):
         """Enumerate complete command dictionaries without exposing other seats' secrets."""
         if actor not in ACTORS:
             raise RuleError("未知玩家")
-        phase = self.state.phase
-        if phase == "loop_end" and actor == self.state.leader and MODULES[self.module].early_final_guess:
-            return [{"actor": actor, "action": "final"}]
-        if actor != self.controller:
-            return []
-        if phase in ("mastermind", "protagonists"):
-            view = self.view(actor)
-            occupied = {p["target"] for p in view["pending"]
-                        if (p["actor"] == "m") == (actor == "m")}
-            targets = [target for target in (*view["characters"], *LOCATIONS)
-                       if target not in occupied and
-                       (target in LOCATIONS or view["characters"][target]["alive"])
-                       and self._can_target_action(actor, target)]
-            return [{"actor": actor, "action": "play", "card": card, "target": target}
-                    for card in view["hand"] for target in targets]
-        if phase in ("action_counters", "master_abilities", "goodwill", "day_end", "decision", "refusal"):
-            available = self.options(actor)
-            choices = [{"actor": actor, "action": "choose", "index": index}
-                       for index, choice in enumerate(available, 1) if not choice.get("finish")]
-            if phase not in ("decision", "refusal"):
-                choices.append({"actor": actor, "action": "next"})
-            return choices
-        if phase == "final_guess":
-            roles = {"ordinary"}
-            for plot in MODULES[self.module].plots:
-                roles.update(PLOTS[plot][2])
-            if "hideous" in MODULES[self.module].plots:
-                roles.add("curmudgeon")
-            return [{"actor": actor, "action": "guess", "character": character, "role": role}
-                    for character in self._guess_remaining for role in ROLE_NAMES if role in roles]
-        action = "resolve" if phase == "reveal" else "next"
-        if action in MATCH_FLOW.definition(phase).actions:
-            return [{"actor": actor, "action": action}]
-        return []
+        return PHASE_RESOLVERS.resolve(self.state.phase).legal_actions(self, actor)
 
     def action_offers(self, actor):
         """Typed legal actions for rulesets, network clients, and future MCTS."""
@@ -750,7 +701,7 @@ class Game(ActionGame):
             self._drain()
             return
         if selected.get("finish"):
-            self._advance()
+            PHASE_RESOLVERS.resolve(self.state.phase).execute(self, actor, "next", {})
             return
         already_used = "key" in selected and selected["key"] in self.day_used
         if "key" in selected:
@@ -824,55 +775,6 @@ class Game(ActionGame):
             self._return_phase = self.state.phase
         self._queue = list(selected["effects"])
         self._drain()
-
-    def _advance(self):
-        if self._pending:
-            raise RuleError("当前有必须完成的目标或效果选择，请使用 options 和 choose")
-        s = self.state
-        if s.phase == "day_start":
-            order = self._protagonists_from(s.leader)
-            if self.module == "LL" and self._ll_restricted_day == s.round:
-                self.configure_actions(mastermind=1, protagonists=order)
-                self._event("mastermind_restricted", "秘钥已经公开：今日剧作家只能放置 1 张行动牌。")
-            else:
-                self.configure_actions(mastermind=3, protagonists=order)
-            s.phase = "mastermind"
-            self._event("day_started", f"第 {s.round} 天开始，领队为{ACTOR_NAMES[s.leader]}。",
-                        timing=TimingId.DAY_START)
-        elif s.phase == "action_counters":
-            self._resolve_counters()
-            s.phase = "master_abilities"
-            s.events[-1]["message"] = "行动牌结算完毕，普通牌回手，限次牌公开留置。进入剧作家能力阶段。"
-            self._start_master_abilities_forced()
-        elif s.phase == "master_abilities":
-            s.phase = "goodwill"
-            self._event("phase_changed", "进入友好能力阶段，由当日领队选择；友好值不消耗。")
-        elif s.phase == "goodwill":
-            s.phase = "incident"
-            self._event("phase_changed", "友好能力阶段结束，进入事件阶段。")
-        elif s.phase == "incident":
-            self._incident()
-        elif s.phase == "day_end":
-            if not self._night_forced_done:
-                self._start_day_end_forced()
-                if self.state.phase != "day_end" or self._pending:
-                    return
-                s = self.state
-            self._event("day_ended", f"第 {s.round} 天结束。")
-            if s.round >= self._current_loop_days():
-                self._finish_loop()
-            else:
-                s.round += 1
-                self.day_used.clear()
-                self.public_day_used.clear()
-                self._prevented_incident_culprits.clear()
-                self._ignore_intrigue.clear()
-                self._night_forced_done = False
-                s.phase = "day_start"
-        elif s.phase == "loop_end":
-            self._new_loop()
-        else:
-            raise RuleError("本阶段不能直接跳过：请出牌、resolve、choose 或 guess")
 
     def _current_loop_days(self):
         return self.scenario["days"]

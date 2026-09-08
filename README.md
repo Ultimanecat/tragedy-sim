@@ -214,8 +214,10 @@ python -m unittest discover -v
 - `tragedy_sim/catalog.py`：角色、规则 X/Y、身份、事件及公开规则文案。
 - `tragedy_sim/scenario.py`：JSON 剧本、严格校验、教学示例。
 - `tragedy_sim/flow.py`、`model.py`：显式阶段表、阶段位置、决策/结算记录，以及供搜索算法使用的状态转移接口。
+- `tragedy_sim/domain/`：类型化行动、能力触发、效果、观察、状态组件及可扩展流程契约。
+- `tragedy_sim/phases/`：各阶段的控制权、合法行动、命令执行和阶段推进解析器。
 - `tragedy_sim/i18n.py`、`locales/*.json`：中英日术语、阶段与规则时间点配置；默认简体中文。
-- `tragedy_sim/game.py`：完整流程编排、效果队列、选择、胜负、知识记录和存档。
+- `tragedy_sim/game.py`：稳定游戏门面、兼容效果队列、规则选择、胜负、知识记录和存档。
 - `tragedy_sim/replay.py`、`transcript.py`：纯文本回放、确定性校验、只读时间线和人类可读决策说明。
 - `tragedy_sim/cli.py`：完整对局、行动练习、中文提示和自动演示。
 - `tests/`：行动、能力、事件、胜负、信息过滤、CLI/GUI、存档及纯文本回放；覆盖全部支持模组的规则组合与专项规则。
