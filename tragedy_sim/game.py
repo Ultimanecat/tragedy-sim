@@ -13,6 +13,7 @@ import random
 from .cards import ACTORS, ACTOR_NAMES, COORDS, COUNTER_NAMES, LOCATIONS, PROTAGONISTS, STANDARD_COUNTERS, deck
 from .catalog import CHARACTERS, INCIDENT_NAMES, MODULES, MODULE_PLOTS, PLOTS, REFUSAL, ROLE_NAMES, TRAIT_NAMES
 from .engine import ActionGame, Character, RuleError, State
+from .domain import ActionOffer, RuleSource, normalize_effect
 from .flow import MATCH_FLOW, phase_label
 from .i18n import format_timepoint, label, normalize_language
 from .model import (DecisionRecord, PhaseCursor, ResolutionStep, SimulationResult,
@@ -231,6 +232,13 @@ class Game(ActionGame):
         if action in MATCH_FLOW.definition(phase).actions:
             return [{"actor": actor, "action": action}]
         return []
+
+    def action_offers(self, actor):
+        """Typed legal actions for rulesets, network clients, and future MCTS."""
+        timing = self._current_timing()
+        return [ActionOffer.from_command(command, timing=timing,
+                                         source=RuleSource("core.legal_action"))
+                for command in self.legal_actions(actor)]
 
     def simulate(self, actor, action, **args):
         """Apply one action to a detached clone, leaving this world untouched."""
@@ -1016,7 +1024,7 @@ class Game(ActionGame):
 
     def _drain(self):
         while self._queue and self.state.phase not in ("loop_end", "final_guess", "game_over"):
-            effect = self._queue.pop(0)
+            effect = normalize_effect(self._queue.pop(0))
             kind = effect["kind"]
             if kind == "choice":
                 if effect["options"]:

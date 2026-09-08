@@ -113,9 +113,11 @@ class Observation:
     message: str
     visibility: Visibility = Visibility.PUBLIC
     data: dict[str, Any] = field(default_factory=dict)
+    timing: TimingId | None = None
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
+        data["timing"] = self.timing.value if self.timing else None
         data["visibility"] = self.visibility.value
         return data
 
@@ -210,6 +212,8 @@ class GameModel(Protocol):
     def options(self, actor: str) -> list[dict[str, Any]]: ...
 
     def legal_actions(self, actor: str) -> list[dict[str, Any]]: ...
+
+    def action_offers(self, actor: str) -> list[Any]: ...
 
     def dispatch(self, actor: str, action: str, **args: Any) -> None: ...
 
