@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 from ..model import Observation
 from .actions import ActionOffer
+from .keys import RuleSource
 
 
 class Effect(ABC):
@@ -21,6 +22,14 @@ class Effect(ABC):
     @abstractmethod
     def to_legacy(self) -> dict[str, Any]:
         """Temporary adapter used until the old resolver has been migrated."""
+
+
+@dataclass(frozen=True)
+class SourcedEffect:
+    """Queue envelope preserving causal source without putting it in observations."""
+
+    effect: Effect
+    source: RuleSource
 
 
 @dataclass(frozen=True)
@@ -98,6 +107,14 @@ def normalize_effect(effect: Effect | Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(result.get("kind"), str) or not result["kind"]:
         raise ValueError("内部效果缺少 kind")
     return result
+
+
+def legacy_effect(effect: Mapping[str, Any]) -> LegacyEffect:
+    """Convert a legacy mapping into an inspectable Effect object."""
+
+    normalized = normalize_effect(effect)
+    kind = normalized.pop("kind")
+    return LegacyEffect(kind, normalized)
 
 
 @dataclass(frozen=True)

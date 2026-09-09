@@ -8,7 +8,8 @@ from tragedy_sim import Game, Observation, TimingId, Visibility
 from tragedy_sim.domain import (
     ActionOffer, Activation, ActivationMode, ComponentStore, CORE_PHASES,
     CounterChange, CustomEffect, FlowPlan, LegacyEffect, PhaseKey,
-    ResolutionTrace, RuleSource, StateComponent, normalize_effect,
+    ResolutionTrace, RuleContext, RuleSource, SourcedEffect, StateComponent,
+    TimingResolver, normalize_effect,
 )
 
 
@@ -26,6 +27,37 @@ class HsaCurseState(StateComponent):
 
 
 class DomainContractTests(unittest.TestCase):
+    def test_mandatory_window_freezes_triggers_before_optional_requery(self):
+        state = {"enabled": True}
+        context = RuleContext(state, {}, "test", CORE_PHASES["day_end"],
+                              TimingId.DAY_END, ComponentStore())
+
+        class ExampleRule:
+            def activations(self, current):
+                if not current.state["enabled"]:
+                    return ()
+                return (
+                    Activation(RuleSource("test.first"), current.timing,
+                               ActivationMode.MANDATORY, "m",
+                               (CounterChange("student", "paranoia", 1),)),
+                    Activation(RuleSource("test.second"), current.timing,
+                               ActivationMode.MANDATORY, "m",
+                               (CounterChange("girl", "paranoia", 1),)),
+                    Activation(RuleSource("test.optional"), current.timing,
+                               ActivationMode.OPTIONAL, "m"),
+                )
+
+        resolver = TimingResolver()
+        window = resolver.begin(context, (ExampleRule(),))
+        state["enabled"] = False  # Mandatory triggers were already fixed together.
+        self.assertEqual([item.source.value for item in window.ordered((1, 0))],
+                         ["test.second", "test.first"])
+        self.assertEqual([effect.target for effect in window.effects((1, 0))],
+                         ["girl", "student"])
+        self.assertEqual(resolver.optional(context, (ExampleRule(),)), ())
+        with self.assertRaises(ValueError):
+            window.ordered((0, 0))
+
     def test_namespaced_keys_and_replaceable_flow(self):
         with self.assertRaises(ValueError):
             PhaseKey("day_end")
@@ -67,6 +99,19 @@ class DomainContractTests(unittest.TestCase):
         self.assertEqual(game.state.characters["student"].goodwill, before + 1)
         self.assertEqual(normalize_effect(LegacyEffect("kill", {"target": "girl"})),
                          {"kind": "kill", "target": "girl"})
+
+    def test_sourced_effect_creates_private_causal_trace_only(self):
+        game = Game()
+        game._queue = [SourcedEffect(CounterChange("student", "goodwill", 1),
+                                     RuleSource("test.goodwill"))]
+        game._return_phase = game.state.phase
+        game._drain()
+        trace = game.resolution_traces[-1]
+        self.assertEqual(trace.source.value, "test.goodwill")
+        self.assertEqual(trace.observations[0].kind, "counter_changed")
+        public_json = json.dumps(game.view("spectator"), ensure_ascii=False)
+        self.assertNotIn("test.goodwill", public_json)
+        self.assertNotIn("resolution_traces", game.view("m"))
 
     def test_wm_spell_is_an_extra_offer_at_the_same_timing(self):
         offer = ActionOffer.create(

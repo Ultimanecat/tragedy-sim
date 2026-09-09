@@ -13,10 +13,11 @@ import random
 from .cards import ACTORS, ACTOR_NAMES, COORDS, COUNTER_NAMES, LOCATIONS, PROTAGONISTS, STANDARD_COUNTERS, deck
 from .catalog import CHARACTERS, INCIDENT_NAMES, MODULES, MODULE_PLOTS, PLOTS, REFUSAL, ROLE_NAMES, TRAIT_NAMES
 from .engine import ActionGame, Character, RuleError, State
-from .domain import ActionOffer, RuleSource, normalize_effect
+from .domain import (ActionOffer, Effect, LegacyEffect, ResolutionTrace, RuleSource,
+                     SourcedEffect, legacy_effect, normalize_effect)
 from .flow import MATCH_FLOW, phase_label
 from .i18n import format_timepoint, label, normalize_language
-from .model import (DecisionRecord, PhaseCursor, ResolutionStep, SimulationResult,
+from .model import (DecisionRecord, Observation, PhaseCursor, ResolutionStep, SimulationResult,
                     TimingId, timing_for_phase)
 from .phases import PHASE_RESOLVERS
 from .scenario import example_scenario, validate_scenario
@@ -66,6 +67,7 @@ class Game(ActionGame):
         self.history = []
         self.decisions = []
         self.loss_reasons = []  # private diagnostic information
+        self._resolution_traces = []  # private causal information; never projected by view()
         self._queue = []
         self._pending = None
         self._decision_actor = None
@@ -924,9 +926,42 @@ class Game(ActionGame):
                 "ex_cards": dict(self.ex_cards), "board_ex": dict(self.board_ex),
                 "ex_gauge": self.ex_gauge}
 
+    @property
+    def resolution_traces(self):
+        """Full private effect causality for diagnostics and deterministic replay checks."""
+        return tuple(self._resolution_traces)
+
+    def _record_effect_trace(self, source, resolved_effect, timing, event_start):
+        known = {"loop", "round", "phase", "timing", "kind", "message"}
+        observations = []
+        for event in self.state.events[event_start:]:
+            observations.append(Observation(
+                kind=event["kind"], message=event["message"],
+                data={key: deepcopy(value) for key, value in event.items() if key not in known},
+                timing=TimingId(event["timing"]),
+            ))
+        self._resolution_traces.append(ResolutionTrace(
+            source=source, timing=timing, effect=resolved_effect,
+            observations=tuple(observations),
+            details={"compatibility_adapter": isinstance(resolved_effect, LegacyEffect)},
+        ))
+
     def _drain(self):
         while self._queue and self.state.phase not in ("loop_end", "final_guess", "game_over"):
-            effect = normalize_effect(self._queue.pop(0))
+            queued = self._queue.pop(0)
+            if isinstance(queued, SourcedEffect):
+                resolved_effect = queued.effect
+                source = queued.source
+            elif isinstance(queued, Effect):
+                resolved_effect = queued
+                namespace = resolved_effect.kind if "." in resolved_effect.kind else f"core.{resolved_effect.kind}"
+                source = RuleSource(namespace)
+            else:
+                resolved_effect = legacy_effect(queued)
+                source = RuleSource(f"legacy.{resolved_effect.kind}")
+            effect = normalize_effect(resolved_effect)
+            trace_timing = self._current_timing()
+            event_start = len(self.state.events)
             kind = effect["kind"]
             if kind == "choice":
                 if effect["options"]:
@@ -937,6 +972,7 @@ class Game(ActionGame):
                         origin = self._return_phase
                     self._decision_public_phase = origin
                     self.state.phase = "decision"
+                    self._record_effect_trace(source, resolved_effect, trace_timing, event_start)
                     return
                 self._event("no_effect", "没有可作用的目标，这部分效果未产生变化。")
             elif kind == "counter":
@@ -1320,6 +1356,7 @@ class Game(ActionGame):
                 self._begin_night()
             else:
                 raise RuleError("不支持的内部效果；停止结算")
+            self._record_effect_trace(source, resolved_effect, trace_timing, event_start)
         if not self._pending and self.state.phase not in ("loop_end", "final_guess", "game_over"):
             self.state.phase = self._return_phase
             self._decision_public_phase = None
