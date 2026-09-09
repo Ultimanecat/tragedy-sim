@@ -15,6 +15,7 @@ from .catalog import CHARACTERS, INCIDENT_NAMES, MODULES, MODULE_PLOTS, PLOTS, R
 from .engine import ActionGame, Character, RuleError, State
 from .domain import (ActionOffer, Effect, LegacyEffect, ResolutionTrace, RuleSource,
                      SourcedEffect, legacy_effect, normalize_effect)
+from .effect_resolver import CORE_EFFECT_HANDLERS
 from .flow import MATCH_FLOW, phase_label
 from .i18n import format_timepoint, label, normalize_language
 from .model import (DecisionRecord, Observation, PhaseCursor, ResolutionStep, SimulationResult,
@@ -975,13 +976,8 @@ class Game(ActionGame):
                     self._record_effect_trace(source, resolved_effect, trace_timing, event_start)
                     return
                 self._event("no_effect", "没有可作用的目标，这部分效果未产生变化。")
-            elif kind == "counter":
-                self._change(effect["target"], effect["counter"], effect["amount"],
-                             silent_noop=effect.get("silent_noop", False))
-            elif kind == "kill":
-                self._kill([effect["target"]])
-            elif kind == "kill_many":
-                self._kill(effect["targets"])
+            elif CORE_EFFECT_HANDLERS.handles(kind):
+                CORE_EFFECT_HANDLERS.resolve(self, effect)
             elif kind == "heroes_die":
                 if self.protected:
                     self._event("heroes_protected", "主人公的死亡被本轮保护效果阻止。")
