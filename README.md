@@ -216,6 +216,7 @@ python -m unittest discover -v
 - `tragedy_sim/flow.py`、`model.py`：显式阶段表、阶段位置、决策/结算记录，以及供搜索算法使用的状态转移接口。
 - `tragedy_sim/domain/`：类型化行动、能力触发、效果、观察、状态组件及可扩展流程契约。
 - `tragedy_sim/effect_resolver.py`：显式、不可变且可组合的效果处理器注册表。
+- `tragedy_sim/effects/`：移动、知识公开、胜负、批处理以及各规则集的效果处理函数；目前通过兼容接口访问游戏状态。
 - `tragedy_sim/phases/`：各阶段的控制权、合法行动、命令执行和阶段推进解析器。
 - `tragedy_sim/i18n.py`、`locales/*.json`：中英日术语、阶段与规则时间点配置；默认简体中文。
 - `tragedy_sim/game.py`：稳定游戏门面、兼容效果队列、规则选择、胜负、知识记录和存档。
@@ -245,7 +246,7 @@ print(game.controller)             # 当前应操作的座位
 
 完整对局统一通过 `dispatch` 修改，非法命令回滚，成功命令进入存档历史。
 每个公开事件含 `timing`（稳定规则时点 ID）与视图生成的 `timepoint`（人类文本）。例如时间旅行者在最后一日发动时，失败记录属于“第 X 天结束时”；随后轮回失败记录才属于“第 X 轮回结束时”。
-内部效果同时生成带规则来源的 `ResolutionTrace`，供规则调试和后续 AI 推理验证；该因果记录不会进入任何玩家 `view` 或 JSON 响应。
+队列效果同时生成私有 `ResolutionTrace`，供规则调试；旧效果记录兼容处理器来源，迁移后的调用方可提供精确规则来源。该记录不进入玩家 `view` 或 JSON 响应。完整因果链及面向 AI 的观察接口仍在重构中。
 `state`、`roles` 等内部状态仅供引擎或测试使用；直接修改这些字段不会记录到存档。
 独立出牌练习的 `ActionGame` API 保持兼容。
 

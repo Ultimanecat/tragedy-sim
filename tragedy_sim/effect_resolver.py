@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, TYPE_CHECKING
 
+from .effects import ahr, board, flow, hsa, knowledge, ll, mc, movement, mz, outcomes, wm
+
 if TYPE_CHECKING:
     from .game import Game
 
@@ -63,3 +65,18 @@ CORE_EFFECT_HANDLERS = EffectHandlerRegistry({
     "kill": _kill_character,
     "kill_many": _kill_many,
 })
+
+# Explicit compatibility composition. Individual ruleset definitions will select
+# their own handler sets when they migrate; no registration happens by callback.
+MATCH_EFFECT_HANDLERS = (CORE_EFFECT_HANDLERS
+    .extended(board.HANDLERS)
+    .extended(movement.HANDLERS)
+    .extended(knowledge.HANDLERS)
+    .extended(outcomes.HANDLERS)
+    .extended(flow.HANDLERS)
+    .extended(mz.HANDLERS)
+    .extended(mc.HANDLERS)
+    .extended(hsa.HANDLERS)
+    .extended(wm.HANDLERS)
+    .extended(ahr.HANDLERS)
+    .extended(ll.HANDLERS))
