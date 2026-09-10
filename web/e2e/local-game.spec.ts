@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { fileURLToPath } from "node:url";
 
 async function createGame(page: Page, module = "BTX") {
   await page.goto("/");
@@ -58,6 +59,33 @@ test("session survives reload and narrow screens retain all controls", async ({ 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
+test("snapshot download restores the exact intermediate game", async ({ page }) => {
+  await createBtxGame(page);
+  await page.getByRole("button", { name: "剧作家", exact: true }).click();
+  await selectFirstAction(page);
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "保存 JSON" }).click();
+  const snapshot = await download;
+  expect(snapshot.suggestedFilename()).toBe("tragedy-sim-save.json");
+  const snapshotPath = await snapshot.path();
+  expect(snapshotPath).not.toBeNull();
+
+  await createGame(page, "FS");
+  await expect(page.locator(".status-strip")).toContainText("First Steps");
+  await page.locator('input[type="file"]').setInputFiles(snapshotPath!);
+  await expect(page.locator(".status-strip")).toContainText("Basic Tragedy X");
+  await expect(page.getByText(/第 1 天剧作家出牌阶段/, { exact: true })).toBeVisible();
+});
+
+test("custom scenario JSON loads through the same isolated protocol", async ({ page }) => {
+  await page.goto("/");
+  const scenario = fileURLToPath(new URL("../../examples/ll-tutorial.json", import.meta.url));
+  await page.locator('input[type="file"]').setInputFiles(scenario);
+  await expect(page.locator(".status-strip")).toContainText("Last Liar");
+  await page.getByRole("button", { name: "主人公 A", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "你的 Last Liar 秘密" })).toBeVisible();
+});
+
 test("a deterministic legal-action walk reaches a result and opens replay", async ({ page }) => {
   test.setTimeout(60_000);
   await createBtxGame(page);
@@ -72,6 +100,10 @@ test("a deterministic legal-action walk reaches a result and opens replay", asyn
   await page.getByRole("button", { name: "查看回放" }).click();
   await expect(page.getByRole("dialog", { name: "只读回放" })).toBeVisible();
   await expect(page.locator(".replay pre")).toContainText("第 1 天");
+  await page.getByRole("button", { name: "关闭" }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "导出回放" }).click();
+  await expect((await download).suggestedFilename()).toBe("tragedy-sim-replay.tlr");
 });
 
 test("stale controls are rejected and refreshed to authoritative state", async ({ page }) => {

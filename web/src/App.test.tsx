@@ -45,4 +45,16 @@ describe("local game components", () => {
     fireEvent.click(screen.getByRole("button", { name: "确认执行" }));
     expect(dispatch).toHaveBeenCalledWith(offers[0]);
   });
+
+  it("treats ruleset ability choices as opaque server-owned actions", () => {
+    const spell: ActionOffer = {
+      id: "wm-spell-offer", actor: "a", type: "choose", parameters: {},
+      label: "发动感知法术：查看公开规则候选",
+    };
+    const dispatch = vi.fn();
+    render(<Actions offers={[spell]} catalog={catalog} game={game} busy={false} onAction={dispatch} />);
+    fireEvent.click(screen.getByRole("button", { name: spell.label }));
+    fireEvent.click(screen.getByRole("button", { name: "确认执行" }));
+    expect(dispatch).toHaveBeenCalledWith(spell);
+  });
 });
