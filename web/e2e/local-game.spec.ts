@@ -27,8 +27,55 @@ async function selectFirstAction(page: Page) {
   await page.getByRole("button", { name: "确认执行" }).click();
   await accepted;
   await expect(page.getByRole("button", { name: "确认执行" })).toBeHidden();
-  await expect(page.getByRole("button", { name: "新建对局" })).toBeEnabled();
+  if (await page.getByRole("button", { name: "新建对局" }).count()) {
+    await expect(page.getByRole("button", { name: "新建对局" })).toBeEnabled();
+  }
 }
+
+test("four isolated browser sessions join, ready and receive synchronized private views", async ({ browser }) => {
+  const contexts = await Promise.all([0, 1, 2, 3].map(index => browser.newContext(
+    index === 1 ? { viewport: { width: 390, height: 844 } } : undefined)));
+  const pages = await Promise.all(contexts.map(context => context.newPage()));
+  try {
+    const [host, a, b, c] = pages;
+    await host.goto("/");
+    await host.getByLabel("规则集").selectOption("BTX");
+    await host.getByLabel("昵称").fill("Host");
+    await host.getByRole("button", { name: "创建房间" }).click();
+    await expect(host.getByRole("heading", { name: "等待所有玩家入座并准备" })).toBeVisible();
+    const invite = host.url();
+
+    for (const [page, seat, name] of [[a, "A", "Alice"], [b, "B", "Bob"], [c, "C", "Carol"]] as const) {
+      await page.goto(invite);
+      await expect(page.getByRole("heading", { name: "等待所有玩家入座并准备" })).toBeVisible();
+      await page.getByLabel("你的昵称").fill(name);
+      const card = page.locator(".seat-grid article").filter({ hasText: `主人公 ${seat}` });
+      await card.getByRole("button", { name: "坐到这里" }).click();
+      await expect(page.getByText(`你是：主人公 ${seat}`)).toBeVisible();
+    }
+
+    for (const page of pages) await page.getByRole("button", { name: "我已准备" }).click();
+    await expect(host.getByRole("button", { name: "开始游戏" })).toBeEnabled();
+    await host.getByRole("button", { name: "开始游戏" }).click();
+    await expect(host.getByRole("heading", { name: "剧作家资料" })).toBeVisible();
+    for (const page of [a, b, c]) {
+      await expect(page.locator(".status-strip")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "剧作家资料" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "保存 JSON" })).toHaveCount(0);
+    }
+
+    await selectFirstAction(host);
+    for (const page of [a, b, c]) {
+      await expect(page.getByText("第 1 天剧作家出牌阶段", { exact: true })).toBeVisible({ timeout: 4_000 });
+    }
+    await a.reload();
+    await expect(a.getByText("第 1 天剧作家出牌阶段", { exact: true })).toBeVisible();
+    await expect(a.getByText("你的席位：主人公 A", { exact: true })).toBeVisible();
+    expect(await a.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  } finally {
+    await Promise.all(contexts.map(context => context.close()));
+  }
+});
 
 test("real service preserves private card boundary while actions advance", async ({ page }) => {
   await createBtxGame(page);

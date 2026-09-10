@@ -1,15 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ApiClient, ApiError, type StoredSession } from "./api/client";
-import type { ActionOffer, CatalogResponse, GameView, ModuleId, ModuleSummary, Seat, Viewer } from "./api/types";
+import { ApiClient, ApiError, type StoredRoom, type StoredSession } from "./api/client";
+import type { ActionOffer, CatalogResponse, GameView, ModuleId, ModuleSummary, RoomResponse, Seat, Viewer } from "./api/types";
 import { abilityUseName, itemName } from "./display";
 
 const SESSION_KEY = "tragedy-sim.local-session.v1";
+const ROOM_KEY = "tragedy-sim.room.v1";
 const seats: Viewer[] = ["spectator", "m", "a", "b", "c"];
 const locations = ["hospital", "shrine", "city", "school"] as const;
 
 function loadSession(): StoredSession | null {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null") as StoredSession | null; }
   catch { return null; }
+}
+
+function loadRoom(code: string | null): StoredRoom | null {
+  try {
+    const stored = JSON.parse(localStorage.getItem(ROOM_KEY) || "null") as StoredRoom | null;
+    return stored && stored.code === code ? stored : null;
+  } catch { return null; }
+}
+
+function urlRoomCode() {
+  const value = new URLSearchParams(window.location.search).get("room");
+  return value?.trim().toUpperCase() || null;
 }
 
 function download(name: string, contents: string, type: string) {
@@ -195,10 +208,17 @@ function RulesReference({ catalog }: { catalog: CatalogResponse | null }) {
 }
 
 export default function App() {
-  const [client] = useState(() => new ApiClient(loadSession()));
+  const [initialRoom] = useState(urlRoomCode);
+  const [client] = useState(() => new ApiClient(loadSession(), "", loadRoom(initialRoom)));
   const [modules, setModules] = useState<ModuleSummary[]>([]);
   const [module, setModule] = useState<ModuleId>("BTX");
-  const [viewer, setViewer] = useState<Viewer>("spectator");
+  const [viewer, setViewer] = useState<Viewer>(client.room?.seat ?? "spectator");
+  const [roomCode, setRoomCode] = useState<string | null>(initialRoom);
+  const [roomInfo, setRoomInfo] = useState<RoomResponse | null>(null);
+  const [nickname, setNickname] = useState("");
+  const [preferredSeat, setPreferredSeat] = useState<Seat>("m");
+  const [roomEntry, setRoomEntry] = useState("");
+  const [allowSpectators, setAllowSpectators] = useState(true);
   const [game, setGame] = useState<GameView | null>(null);
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
   const [offers, setOffers] = useState<ActionOffer[]>([]);
@@ -208,29 +228,62 @@ export default function App() {
 
   const persist = useCallback(() => {
     if (client.session) localStorage.setItem(SESSION_KEY, JSON.stringify(client.session));
+    if (client.room) localStorage.setItem(ROOM_KEY, JSON.stringify(client.room));
+    else localStorage.removeItem(ROOM_KEY);
   }, [client]);
 
-  const refresh = useCallback(async (nextViewer = viewer) => {
-    if (!client.session) return;
-    setBusy(true); setError("");
+  const refresh = useCallback(async (nextViewer = viewer, quiet = false) => {
+    if (!client.session && !client.room) return;
+    if (!quiet) { setBusy(true); setError(""); }
     try {
       const response = await client.view(nextViewer);
       setGame(response.state);
       const actor = response.state.controller;
-      setOffers(actor && actor === nextViewer ? (await client.actions(actor)).actions : []);
+      const ownSeat = client.room?.seat;
+      const mayAct = client.room ? actor === ownSeat : actor === nextViewer;
+      setOffers(actor && mayAct ? (await client.actions(actor)).actions : []);
       persist();
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === "AbortError") return;
       setError(reason instanceof Error ? reason.message : "读取对局失败");
-    } finally { setBusy(false); }
+    } finally { if (!quiet) setBusy(false); }
   }, [client, persist, viewer]);
 
   useEffect(() => { client.modules().then(result => setModules(result.modules)).catch(() => setError("无法读取规则集目录")); }, [client]);
   useEffect(() => {
-    if (!client.session) return;
+    if (!client.session || roomCode) return;
     const timer = window.setTimeout(() => void refresh(), 0);
     return () => window.clearTimeout(timer);
-  }, [client, refresh]);
+  }, [client, refresh, roomCode]);
+  useEffect(() => {
+    if (!roomCode) return;
+    let active = true;
+    let polling = false;
+    const poll = async (initial = false) => {
+      if (!active || polling) return;
+      polling = true;
+      try {
+        const response = initial || !client.room
+          ? await client.roomStatus(roomCode) : await client.roomUpdates();
+        if (!client.room) client.observeRoom(response);
+        if (!active) return;
+        setRoomInfo(response);
+        setModule(response.room.module);
+        const seat = client.room?.seat ?? "spectator";
+        setViewer(seat);
+        persist();
+        if (response.room.status !== "waiting" && (initial || response.game_changed || response.room_changed)) {
+          await refresh(seat, true);
+        }
+      } catch (reason) {
+        if (reason instanceof DOMException && reason.name === "AbortError") return;
+        if (active) setError(reason instanceof Error ? reason.message : "读取房间失败");
+      } finally { polling = false; }
+    };
+    void poll(true);
+    const timer = window.setInterval(() => void poll(), 1000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [client, persist, refresh, roomCode]);
   useEffect(() => {
     if (!game?.module) return;
     client.catalog(game.module).then(setCatalog).catch(() => setError("无法读取规则资料"));
@@ -240,6 +293,62 @@ export default function App() {
     setBusy(true); setError(""); setOffers([]); setCatalog(null); setReplayText(""); setViewer("spectator");
     try { await client.create(module); persist(); await refresh("spectator"); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "创建对局失败"); }
+    finally { setBusy(false); }
+  }
+
+  function enterRoom(code: string) {
+    const normalized = code.toUpperCase();
+    setRoomCode(normalized);
+    window.history.replaceState(null, "", `${window.location.pathname}?room=${normalized}`);
+  }
+
+  async function createRoom() {
+    setBusy(true); setError("");
+    try {
+      const response = await client.createRoom(module, nickname, preferredSeat, allowSpectators);
+      setRoomInfo(response); setViewer(preferredSeat); persist(); enterRoom(response.room.code);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "创建房间失败"); }
+    finally { setBusy(false); }
+  }
+
+  async function joinRoom(seat: Seat) {
+    if (!roomCode) return;
+    setBusy(true); setError("");
+    try {
+      const response = await client.joinRoom(roomCode, nickname, seat);
+      setRoomInfo(response); setViewer(seat); persist();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "加入房间失败"); }
+    finally { setBusy(false); }
+  }
+
+  async function setRoomReady(ready: boolean) {
+    setBusy(true); setError("");
+    try { const response = await client.setReady(ready); setRoomInfo(response); persist(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "准备状态更新失败"); }
+    finally { setBusy(false); }
+  }
+
+  async function startRoom() {
+    setBusy(true); setError("");
+    try {
+      const response = await client.startRoom(); setRoomInfo(response); persist();
+      await refresh(client.room?.seat ?? "spectator");
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "开始房间失败"); }
+    finally { setBusy(false); }
+  }
+
+  async function kickRoomSeat(seat: Seat) {
+    try { setRoomInfo(await client.kickSeat(seat)); persist(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "释放座位失败"); }
+  }
+
+  async function leaveOrCloseRoom() {
+    setBusy(true); setError("");
+    try {
+      if (client.room?.adminToken) await client.closeRoom(); else await client.leaveRoom();
+      localStorage.removeItem(ROOM_KEY); setRoomCode(null); setRoomInfo(null); setGame(null); setOffers([]);
+      window.history.replaceState(null, "", window.location.pathname);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "离开房间失败"); }
     finally { setBusy(false); }
   }
 
@@ -281,16 +390,54 @@ export default function App() {
     finally { setBusy(false); }
   }
 
+  const ownSeat = client.room?.seat;
+  const ownOccupant = ownSeat ? roomInfo?.room.seats[ownSeat] : null;
+  const roomReady = roomInfo ? Object.values(roomInfo.room.seats).every(item => item?.ready) : false;
+  const shareUrl = roomCode ? `${window.location.origin}${window.location.pathname}?room=${roomCode}` : "";
+
   return <main>
-    <header className="masthead"><div><p className="eyebrow">TRAGEDY LOOPER</p><h1>悲剧轮回</h1></div><div className="new-game">
+    <header className="masthead"><div><p className="eyebrow">TRAGEDY LOOPER</p><h1>悲剧轮回</h1></div>{roomCode ? <div className="room-heading">
+      <small>局域网房间</small><strong>{roomCode}</strong>
+    </div> : <div className="new-game">
       <select aria-label="规则集" value={module} onChange={event => setModule(event.target.value as ModuleId)}>
         {modules.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
       <button className="primary" disabled={busy} onClick={createGame}>新建对局</button>
       <label className="file-button">载入存档/剧本<input type="file" accept="application/json" onChange={event => event.target.files?.[0] && void restore(event.target.files[0])} /></label>
-    </div></header>
+    </div>}</header>
     {error && <div className="error" role="alert">{error}</div>}
-    {!game ? <section className="empty"><h2>{client.session ? "正在恢复对局…" : "选择规则集，开始一次轮回"}</h2><p>规则判断全部由本机 Python 服务完成。</p></section> : <>
-      <nav className="viewer-tabs" aria-label="调试视角">{seats.map(seat => <button className={viewer === seat ? "active" : ""} disabled={busy} key={seat} onClick={() => switchViewer(seat)}>{seat === "spectator" ? "公开视角" : game.labels.actors[seat]}</button>)}</nav>
+    {roomCode && (!roomInfo || roomInfo.room.status === "waiting") ? <section className="lobby" aria-label="房间大厅">
+      {!roomInfo ? <h2>正在连接房间 {roomCode}…</h2> : <>
+        <div className="lobby-intro"><div><p className="eyebrow">WAITING ROOM</p><h2>等待所有玩家入座并准备</h2></div>
+          <div><label>邀请链接<input readOnly value={shareUrl} onFocus={event => event.currentTarget.select()} /></label><small>复制此链接给同一 Wi-Fi 下的玩家。</small></div></div>
+        <div className="seat-grid">{(["m", "a", "b", "c"] as Seat[]).map(seat => {
+          const occupant = roomInfo.room.seats[seat];
+          return <article className={occupant ? "occupied" : ""} key={seat}>
+            <small>{seat === "m" ? "剧作家" : `主人公 ${seat.toUpperCase()}`}</small>
+            <strong>{occupant?.nickname ?? "空位"}</strong>
+            <span>{occupant ? (occupant.ready ? "已准备" : "尚未准备") : "等待加入"}</span>
+            {!ownSeat && !occupant && <button disabled={busy || !nickname.trim()} onClick={() => void joinRoom(seat)}>坐到这里</button>}
+            {client.room?.adminToken && occupant && seat !== ownSeat && <button onClick={() => void kickRoomSeat(seat)}>释放座位</button>}
+          </article>;
+        })}</div>
+        {!ownSeat ? <div className="lobby-controls"><label>你的昵称<input maxLength={24} value={nickname} onChange={event => setNickname(event.target.value)} placeholder="先输入昵称，再选择座位" /></label></div>
+          : <div className="lobby-controls"><strong>你是：{ownSeat === "m" ? "剧作家" : `主人公 ${ownSeat.toUpperCase()}`}</strong>
+            <button className={ownOccupant?.ready ? "selected" : "primary"} disabled={busy} onClick={() => void setRoomReady(!ownOccupant?.ready)}>{ownOccupant?.ready ? "取消准备" : "我已准备"}</button>
+            {client.room?.adminToken && <button className="primary" disabled={busy || !roomReady} onClick={() => void startRoom()}>开始游戏</button>}
+            <button disabled={busy} onClick={() => void leaveOrCloseRoom()}>{client.room?.adminToken ? "关闭房间" : "离开房间"}</button>
+          </div>}
+      </>}
+    </section> : roomCode && !game ? <section className="empty"><h2>{roomInfo?.room.spectators ? "正在载入旁观视图…" : "此房间不允许旁观"}</h2><p>{roomInfo?.room.spectators ? "游戏状态变化后会自动同步。" : "对局已经开始，只有已入座的设备可以进入。"}</p></section> : !game ? <section className="welcome">
+      <article><h2>{client.session ? "正在恢复对局…" : "本机调试对局"}</h2><p>上方可新建本机对局并切换所有视角，适合规则调试。</p></article>
+      <article><h2>创建局域网房间</h2><p>每台手机只会看到自己的手牌和私密信息。</p>
+        <label>昵称<input maxLength={24} value={nickname} onChange={event => setNickname(event.target.value)} placeholder="你的显示名称" /></label>
+        <label>座位<select value={preferredSeat} onChange={event => setPreferredSeat(event.target.value as Seat)}><option value="m">剧作家</option><option value="a">主人公 A</option><option value="b">主人公 B</option><option value="c">主人公 C</option></select></label>
+        <label className="checkbox"><input type="checkbox" checked={allowSpectators} onChange={event => setAllowSpectators(event.target.checked)} />允许未入座者旁观公开棋盘</label>
+        <button className="primary" disabled={busy || !nickname.trim()} onClick={() => void createRoom()}>创建房间</button>
+        <div className="join-code"><input aria-label="房间码" maxLength={6} value={roomEntry} onChange={event => setRoomEntry(event.target.value.toUpperCase())} placeholder="输入 6 位房间码" /><button disabled={roomEntry.trim().length !== 6} onClick={() => enterRoom(roomEntry)}>进入房间</button></div>
+      </article>
+    </section> : <>
+      {roomInfo && <section className="room-bar"><strong>房间 {roomInfo.room.code}</strong><span>你的席位：{ownSeat ? game.labels.actors[ownSeat] : "旁观者"}</span><span>{Object.values(roomInfo.room.seats).filter(item => item?.connected).length}/4 在线</span></section>}
+      {!roomCode && <nav className="viewer-tabs" aria-label="调试视角">{seats.map(seat => <button className={viewer === seat ? "active" : ""} disabled={busy} key={seat} onClick={() => switchViewer(seat)}>{seat === "spectator" ? "公开视角" : game.labels.actors[seat]}</button>)}</nav>}
       <section className="status-strip">
         <div><small>{game.title} · {game.module_name}</small><strong>轮回 {game.loop}/{game.loops} · 第 {game.round}/{game.days} 天</strong></div>
         <div><small>{game.phase_name}</small><strong>{game.timepoint}</strong></div>
@@ -322,7 +469,7 @@ export default function App() {
             return <p className="log-detail" key={cardIndex}>{game.labels.actors[actor]}：
               {itemName(catalog?.cards[actor], card.card)} → {targetName(game, card.target)}</p>;
           })}</article>)}</section>
-        <section className="panel tools"><button onClick={saveSnapshot}>保存 JSON</button><button onClick={() => void readReplay()}>查看回放</button><button onClick={() => void readReplay(true)}>导出回放</button><button onClick={() => void refresh()}>刷新</button></section>
+        <section className="panel tools">{(!roomCode || client.room?.adminToken) && <><button onClick={saveSnapshot}>保存 JSON</button><button onClick={() => void readReplay()}>查看回放</button><button onClick={() => void readReplay(true)}>导出回放</button></>}<button onClick={() => void refresh()}>刷新</button></section>
       </aside></div>
       {replayText && <section className="replay" role="dialog" aria-label="只读回放"><header><h2>对局回放</h2><button onClick={() => setReplayText("")}>关闭</button></header><pre>{replayText}</pre></section>}
     </>}

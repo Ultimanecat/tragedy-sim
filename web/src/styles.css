@@ -1,8 +1,8 @@
 :root { color: #ede6dc; background: #171416; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; font-synthesis: none; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 50% -10%, #463138 0, #21191d 38rem, #121012 72rem); }
-button, select { font: inherit; }
-button, .file-button, select { border: 1px solid #6b555c; border-radius: .45rem; color: #f4eee7; background: #2b2327; padding: .62rem .85rem; }
+button, select, input { font: inherit; }
+button, .file-button, select, input { border: 1px solid #6b555c; border-radius: .45rem; color: #f4eee7; background: #2b2327; padding: .62rem .85rem; }
 button, .file-button { cursor: pointer; transition: border-color .15s, background .15s, transform .15s; }
 button:hover, .file-button:hover { border-color: #cf9b72; background: #3a2b30; }
 button:active { transform: translateY(1px); }
@@ -15,9 +15,33 @@ h1 { font: 700 clamp(2rem, 5vw, 4rem)/.9 "SimSun", serif; letter-spacing: .08em;
 h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .eyebrow { color: #c18c70; font-size: .7rem; letter-spacing: .35em; margin: 0 0 .55rem; }
 .new-game { display: flex; flex-wrap: wrap; justify-content: end; gap: .55rem; }
+.room-heading { display: flex; flex-direction: column; align-items: end; }
+.room-heading small { color: #aa9ba0; }
+.room-heading strong { color: #f0d7c0; font-size: 1.5rem; letter-spacing: .18em; }
 .file-button input { display: none; }
 .error { margin: 1rem 0; padding: .8rem 1rem; border: 1px solid #b75858; background: #541f25; border-radius: .4rem; }
 .empty { text-align: center; margin: 15vh auto; color: #b9aab0; }
+.welcome { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; width: min(850px, 100%); margin: 10vh auto; }
+.welcome article, .lobby { border: 1px solid #5d4c52; border-radius: .65rem; padding: 1.25rem; background: #211b1e; }
+.welcome label, .lobby label { display: flex; flex-direction: column; gap: .35rem; margin: .7rem 0; color: #c9bcc0; font-size: .82rem; }
+.welcome label.checkbox { flex-direction: row; align-items: center; }
+.welcome label.checkbox input { width: auto; accent-color: #d89564; }
+.welcome article > button { width: 100%; margin-top: .5rem; }
+.join-code { display: flex; gap: .4rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #44383d; }
+.join-code input { min-width: 0; flex: 1; text-transform: uppercase; letter-spacing: .12em; }
+.lobby { width: min(1000px, 100%); margin: 5vh auto; }
+.lobby-intro { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: end; }
+.lobby-intro input { width: 100%; }
+.seat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem; margin: 1.5rem 0; }
+.seat-grid article { display: flex; flex-direction: column; min-height: 150px; gap: .45rem; padding: 1rem; border: 1px dashed #59484e; border-radius: .55rem; background: #181416; }
+.seat-grid article.occupied { border-style: solid; border-color: #8d655e; background: #2e2226; }
+.seat-grid article small, .seat-grid article span { color: #aa9ba0; }
+.seat-grid article strong { font-size: 1.1rem; }
+.seat-grid article button { margin-top: auto; }
+.lobby-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: .55rem; border-top: 1px solid #44383d; padding-top: 1rem; }
+.lobby-controls label { margin: 0 auto 0 0; min-width: min(320px, 100%); }
+.room-bar { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin: 1rem 0; padding: .65rem .9rem; border: 1px solid #6c555b; border-radius: .5rem; background: #241e21; }
+.room-bar span { color: #c9bcc0; }
 .viewer-tabs { display: flex; overflow-x: auto; gap: .35rem; margin: 1rem 0; }
 .viewer-tabs button { white-space: nowrap; background: transparent; }
 .viewer-tabs .active { background: #6f3941; border-color: #d19078; }
@@ -91,4 +115,7 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
   .status-strip { grid-template-columns: 1fr; }
   .board, aside { grid-template-columns: 1fr; }
   .board { min-height: 0; }
+  .welcome, .lobby-intro { grid-template-columns: 1fr; margin-top: 2rem; }
+  .seat-grid { grid-template-columns: 1fr 1fr; }
+  .lobby-controls > * { width: 100%; }
 }

@@ -42,4 +42,40 @@ describe("ApiClient", () => {
     await expect(client.catalog("BTX")).resolves.toMatchObject({ module: { id: "BTX" } });
     expect(fetchMock).toHaveBeenCalledWith("/v1/catalog/BTX?lang=zh", expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
+
+  it("keeps one LAN seat credential and polls revisions before acting", async () => {
+    const calls: Array<[string, RequestInit | undefined]> = [];
+    const room = {
+      protocol_version: 1, self: { seat: "a" }, is_host: false,
+      room: { code: "ABC234", module: "BTX", status: "playing", revision: 2,
+        game_revision: 0, spectators: true,
+        seats: { m: null, a: { nickname: "Alice", ready: true, connected: true }, b: null, c: null } },
+      credential: { room_token: "room-a", seat: "a" },
+    };
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push([url, init]);
+      const index = calls.length;
+      const body = index === 1 ? room
+        : index === 2 ? { ...room, credential: undefined, game_changed: true,
+          room: { ...room.room, game_revision: 1 } }
+        : index === 3 ? { ...created.view, viewer: "a", revision: 1 }
+        : index === 4 ? { ...actions, actor: "a", revision: 1 }
+        : { ...created.view, revision: 2, accepted_action: actions.actions[0], view: created.view };
+      return new Response(JSON.stringify(body), { status: index === 1 ? 201 : 200 });
+    }));
+    const client = new ApiClient();
+    await client.createRoom("BTX", "Alice", "a");
+    await client.roomUpdates();
+    await client.view("a");
+    const offered = await client.actions("a");
+    await client.command("a", offered.actions[0].id);
+    expect(calls.map(call => call[0])).toEqual([
+      "/v1/rooms", "/v1/rooms/ABC234/updates?room_revision=2&game_revision=0",
+      "/v1/rooms/ABC234/game/view?lang=zh", "/v1/rooms/ABC234/game/actions",
+      "/v1/rooms/ABC234/game/commands",
+    ]);
+    expect(calls[4][1]?.headers).toMatchObject({ Authorization: "Bearer room-a" });
+    expect(JSON.parse(String(calls[4][1]?.body))).toMatchObject({ expected_revision: 1 });
+    expect(client.room).not.toHaveProperty("seatTokens");
+  });
 });

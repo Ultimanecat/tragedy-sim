@@ -191,3 +191,32 @@ export interface CommandResponse {
   accepted_action: ActionOffer;
   view: ViewResponse;
 }
+
+export interface RoomOccupant {
+  nickname: string;
+  ready: boolean;
+  connected: boolean;
+}
+export interface RoomState {
+  code: string;
+  module: ModuleId;
+  status: "waiting" | "playing" | "finished";
+  revision: number;
+  game_revision: number;
+  spectators: boolean;
+  seats: Record<Seat, RoomOccupant | null>;
+}
+export interface RoomCredential {
+  room_token: string;
+  admin_token?: string;
+  seat: Seat;
+}
+export interface RoomResponse {
+  protocol_version: typeof PROTOCOL_VERSION;
+  room: RoomState;
+  self: { seat: Seat } | null;
+  is_host: boolean;
+  credential?: RoomCredential;
+  room_changed?: boolean;
+  game_changed?: boolean;
+}

@@ -19,7 +19,15 @@ python -m tragedy_sim --serve --allow-origin http://localhost:5173
 提供生产前端；静态路径经过目录边界校验，并附带 CSP 与 `nosniff` 响应头。没有构建目录时 `/v1` 接口仍可独立使用。
 
 除非已经在外层配置 TLS、身份认证、限流与可信反向代理，否则不要监听公网地址。
-当前服务的活动对局保存在进程内；服务重启前应通过 snapshot 接口保存。持久化房间仓库和断线重连属于后续联机层。
+当前服务的活动对局和局域网房间保存在进程内；服务重启前应通过 snapshot 接口保存。
+
+家庭局域网模式显式监听全部本地接口，并打印经过筛选的私有 IPv4 地址：
+
+```powershell
+python -m tragedy_sim --host-room --port 8765
+```
+
+不要将该端口转发到公网。
 
 ## 基本流程
 
@@ -101,6 +109,47 @@ DELETE /v1/games/{session_id}
 ```
 
 回放只能在正式结束后导出。
+
+## 局域网房间流程
+
+房间层与 `GameService` 分离，并持有真正的游戏座位令牌。浏览器只获得独立房间令牌，不能选择其他玩家视角：
+
+```text
+POST   /v1/rooms                         创建房间并占据一个座位
+GET    /v1/rooms/{code}                  读取公开大厅状态
+POST   /v1/rooms/{code}/join             占据空座位
+POST   /v1/rooms/{code}/ready            设置自己的准备状态
+POST   /v1/rooms/{code}/start            房主在四人均准备后开始
+POST   /v1/rooms/{code}/leave            开始前释放自己的座位
+POST   /v1/rooms/{code}/kick             房主释放误占座位
+GET    /v1/rooms/{code}/updates          比较房间与游戏 revision
+DELETE /v1/rooms/{code}                  房主关闭房间
+```
+
+创建请求示例：
+
+```json
+{"module":"BTX","nickname":"房主","seat":"m","spectators":true}
+```
+
+创建者获得 `credential.room_token`、`credential.admin_token` 和自己的 `seat`；加入者只获得自己的
+`room_token` 和 `seat`。房间公开响应只包含昵称、准备/在线状态、房间阶段及 revision，不包含游戏 session、
+身份、剧本或其他令牌。昵称限制为 1–24 个可见字符。
+
+对局开始后，各浏览器使用自己的房间令牌访问：
+
+```text
+GET  /v1/rooms/{code}/game/view
+GET  /v1/rooms/{code}/game/actions
+POST /v1/rooms/{code}/game/commands
+```
+
+命令正文仍然只有 `action_id` 和 `expected_revision`，最终由原有 `GameService` 校验。房主另可使用管理令牌访问
+`game/snapshot` 和 `game/replay`。`updates` 接受 `room_revision` 与 `game_revision` 查询参数，返回
+`room_changed` / `game_changed`；第一版客户端每秒轮询，但只在 revision 变化时重新读取游戏视图。
+
+房间码和所有令牌均由密码学安全随机源生成。HTTP 层限制正文大小、请求频率和字段集合；等待、进行中和已结束房间
+分别在长时间无活动后清理。令牌保存在浏览器本地以支持刷新重连，但不会跨浏览器或设备自动复制。
 
 ## 稳定错误结构
 

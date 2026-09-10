@@ -13,3 +13,4 @@ web/vite.config.js
 web/vite.config.d.ts
 web/test-results/
 web/playwright-report/
+web/debug.log

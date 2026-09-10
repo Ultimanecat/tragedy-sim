@@ -1,6 +1,6 @@
 import type {
   ActionsResponse, ApiErrorBody, CatalogResponse, CommandResponse, CreateGameResponse,
-  Language, ModuleId, ModulesResponse, Seat, ViewResponse, Viewer,
+  Language, ModuleId, ModulesResponse, RoomResponse, Seat, ViewResponse, Viewer,
 } from "./types";
 
 export class ApiError extends Error {
@@ -19,10 +19,20 @@ export interface StoredSession {
   seatTokens: Record<Seat, string>;
 }
 
+export interface StoredRoom {
+  code: string;
+  roomToken?: string;
+  adminToken?: string;
+  seat?: Seat;
+  roomRevision: number;
+  gameRevision: number;
+}
+
 export class ApiClient {
   private pending = new Map<string, AbortController>();
 
-  constructor(public session: StoredSession | null = null, private baseUrl = "") {}
+  constructor(public session: StoredSession | null = null, private baseUrl = "",
+              public room: StoredRoom | null = null) {}
 
   private async request<T>(key: string, path: string, init: RequestInit = {}): Promise<T> {
     this.pending.get(key)?.abort();
@@ -84,6 +94,13 @@ export class ApiClient {
   }
 
   async view(viewer: Viewer, language: Language = "zh"): Promise<ViewResponse> {
+    if (this.room) {
+      const response = await this.request<ViewResponse>("view",
+        `/v1/rooms/${this.room.code}/game/view?lang=${language}`,
+        { headers: this.auth(this.room.roomToken) });
+      this.room.gameRevision = response.revision;
+      return response;
+    }
     const session = this.requireSession();
     const token = viewer === "spectator" ? undefined : session.seatTokens[viewer];
     const response = await this.request<ViewResponse>("view",
@@ -94,6 +111,14 @@ export class ApiClient {
   }
 
   async actions(actor: Seat): Promise<ActionsResponse> {
+    if (this.room) {
+      if (actor !== this.room.seat) throw new ApiError("FORBIDDEN", "只能读取自己的行动", 403);
+      const response = await this.request<ActionsResponse>("actions",
+        `/v1/rooms/${this.room.code}/game/actions`,
+        { headers: this.auth(this.room.roomToken) });
+      this.room.gameRevision = response.revision;
+      return response;
+    }
     const session = this.requireSession();
     const response = await this.request<ActionsResponse>("actions",
       `/v1/games/${session.sessionId}/actions?actor=${actor}`,
@@ -103,6 +128,17 @@ export class ApiClient {
   }
 
   async command(actor: Seat, actionId: string): Promise<CommandResponse> {
+    if (this.room) {
+      if (actor !== this.room.seat) throw new ApiError("FORBIDDEN", "只能提交自己的行动", 403);
+      const response = await this.request<CommandResponse>("command",
+        `/v1/rooms/${this.room.code}/game/commands`, {
+          method: "POST",
+          headers: { ...this.auth(this.room.roomToken), "Content-Type": "application/json" },
+          body: JSON.stringify({ action_id: actionId, expected_revision: this.room.gameRevision }),
+        });
+      this.room.gameRevision = response.revision;
+      return response;
+    }
     const session = this.requireSession();
     const response = await this.request<CommandResponse>("command",
       `/v1/games/${session.sessionId}/commands`, {
@@ -115,6 +151,12 @@ export class ApiClient {
   }
 
   async snapshot(): Promise<unknown> {
+    if (this.room) {
+      const response = await this.request<{ snapshot: unknown }>("snapshot",
+        `/v1/rooms/${this.room.code}/game/snapshot`,
+        { headers: this.auth(this.room.adminToken) });
+      return response.snapshot;
+    }
     const session = this.requireSession();
     const response = await this.request<{ snapshot: unknown }>("snapshot",
       `/v1/games/${session.sessionId}/snapshot`,
@@ -123,6 +165,16 @@ export class ApiClient {
   }
 
   async replay(): Promise<string> {
+    if (this.room) {
+      const response = await fetch(`${this.baseUrl}/v1/rooms/${this.room.code}/game/replay`,
+        { headers: this.auth(this.room.adminToken) });
+      if (!response.ok) {
+        const failure = await response.json() as ApiErrorBody;
+        throw new ApiError(failure.error.code, failure.error.message, response.status,
+                           failure.error.details);
+      }
+      return response.text();
+    }
     const session = this.requireSession();
     const response = await fetch(`${this.baseUrl}/v1/games/${session.sessionId}/replay`,
       { headers: this.auth(session.adminToken) });
@@ -134,8 +186,113 @@ export class ApiClient {
     return response.text();
   }
 
+  async createRoom(module: ModuleId, nickname: string, seat: Seat, spectators = true) {
+    const response = await this.request<RoomResponse>("room-mutation", "/v1/rooms", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ module, nickname, seat, spectators }),
+    });
+    return this.acceptRoom(response);
+  }
+
+  async joinRoom(code: string, nickname: string, seat: Seat) {
+    const response = await this.request<RoomResponse>("room-mutation", `/v1/rooms/${code}/join`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nickname, seat }),
+    });
+    return this.acceptRoom(response);
+  }
+
+  private acceptRoom(response: RoomResponse) {
+    const credential = response.credential;
+    if (!credential) throw new ApiError("INVALID_RESPONSE", "服务器没有返回房间凭据", 500);
+    this.session = null;
+    this.room = {
+      code: response.room.code, roomToken: credential.room_token,
+      adminToken: credential.admin_token, seat: credential.seat,
+      roomRevision: response.room.revision, gameRevision: response.room.game_revision,
+    };
+    return response;
+  }
+
+  async roomStatus(code: string) {
+    const token = this.room?.code === code ? this.room.roomToken : undefined;
+    const response = await this.request<RoomResponse>("room-status", `/v1/rooms/${code}`,
+      { headers: this.auth(token) });
+    if (this.room?.code === code) {
+      this.room.roomRevision = response.room.revision;
+      this.room.gameRevision = response.room.game_revision;
+    }
+    return response;
+  }
+
+  observeRoom(response: RoomResponse) {
+    if (!this.room || this.room.code !== response.room.code) {
+      this.session = null;
+      this.room = { code: response.room.code, roomRevision: response.room.revision,
+                    gameRevision: response.room.game_revision };
+    }
+  }
+
+  async roomUpdates() {
+    const room = this.requireRoom();
+    const response = await this.request<RoomResponse>("room-status",
+      `/v1/rooms/${room.code}/updates?room_revision=${room.roomRevision}&game_revision=${room.gameRevision}`,
+      { headers: this.auth(room.roomToken) });
+    room.roomRevision = response.room.revision;
+    return response;
+  }
+
+  async setReady(ready: boolean) {
+    const room = this.requireRoom();
+    return this.roomMutation("ready", { ready }, room.roomToken);
+  }
+
+  async startRoom() {
+    const room = this.requireRoom();
+    return this.roomMutation("start", undefined, room.adminToken);
+  }
+
+  async kickSeat(seat: Seat) {
+    const room = this.requireRoom();
+    return this.roomMutation("kick", { seat }, room.adminToken);
+  }
+
+  async leaveRoom() {
+    const room = this.requireRoom();
+    const response = await this.roomMutation("leave", undefined, room.roomToken);
+    this.room = null;
+    return response;
+  }
+
+  async closeRoom() {
+    const room = this.requireRoom();
+    const response = await this.request<{ deleted: boolean }>("room-mutation", `/v1/rooms/${room.code}`, {
+      method: "DELETE", headers: this.auth(room.adminToken),
+    });
+    this.room = null;
+    return response;
+  }
+
+  private async roomMutation(action: string, body: unknown, token?: string) {
+    const room = this.requireRoom();
+    const init: RequestInit = { method: "POST", headers: this.auth(token) };
+    if (body !== undefined) {
+      init.headers = { ...init.headers, "Content-Type": "application/json" };
+      init.body = JSON.stringify(body);
+    }
+    const response = await this.request<RoomResponse>("room-mutation", `/v1/rooms/${room.code}/${action}`, init);
+    room.roomRevision = response.room.revision;
+    room.gameRevision = response.room.game_revision;
+    return response;
+  }
+
   private requireSession(): StoredSession {
     if (!this.session) throw new ApiError("NO_SESSION", "尚未创建对局", 400);
     return this.session;
+  }
+
+  private requireRoom(): StoredRoom {
+    if (!this.room) throw new ApiError("NO_ROOM", "尚未加入房间", 400);
+    return this.room;
   }
 }

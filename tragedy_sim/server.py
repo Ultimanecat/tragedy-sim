@@ -6,9 +6,15 @@ import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
+import ipaddress
 from pathlib import Path
+import socket
+from collections import defaultdict, deque
+from threading import Lock
+import time
 from urllib.parse import parse_qs, unquote, urlparse
 
+from .rooms import RoomService
 from .service import GameService, PROTOCOL_VERSION, ServiceError
 
 
@@ -16,9 +22,17 @@ MAX_BODY = 1_000_000
 DEFAULT_WEB_ROOT = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 
-def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = (),
+class TragedyHTTPServer(ThreadingHTTPServer):
+    daemon_threads = True
+    request_queue_size = 64
+
+
+def make_handler(service: GameService, rooms: RoomService | None = None, *, allowed_origins: tuple[str, ...] = (),
                  static_root: Path | None = None):
     web_root = static_root.resolve() if static_root and static_root.is_dir() else None
+    rooms = rooms or RoomService(service)
+    request_times: dict[tuple[str, bool], deque[float]] = defaultdict(deque)
+    rate_lock = Lock()
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "TragedySim/1"
@@ -36,6 +50,8 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = (),
             self.send_header("Content-Length", str(length))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
             self.send_header("Content-Security-Policy",
                              "default-src 'self'; script-src 'self'; style-src 'self'; "
                              "img-src 'self' data:; connect-src 'self'")
@@ -87,6 +103,21 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = (),
             parts = [part for part in parsed.path.split("/") if part]
             return parsed, parts
 
+        def _rate_limit(self):
+            if not self.path.startswith("/v1/"):
+                return
+            now = time.monotonic()
+            address = self.client_address[0]
+            authenticated = self.headers.get("Authorization", "").startswith("Bearer ")
+            with rate_lock:
+                recent = request_times[(address, authenticated)]
+                while recent and now - recent[0] > 60:
+                    recent.popleft()
+                limit = 5000 if authenticated else 360
+                if len(recent) >= limit:
+                    raise ServiceError("RATE_LIMITED", "请求过于频繁，请稍后重试", status=429)
+                recent.append(now)
+
         def _send_static(self, path):
             if web_root is None:
                 return False
@@ -123,6 +154,7 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = (),
         def do_GET(self):
             try:
                 parsed, parts = self._route()
+                self._rate_limit()
                 if not parts or parts[0] != "v1":
                     if self._send_static(parsed.path):
                         return
@@ -138,6 +170,36 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = (),
                     language = parse_qs(parsed.query).get("lang", ["zh"])[0]
                     self._send_json(200, service.get_catalog(parts[2], language))
                     return
+                if len(parts) >= 3 and parts[:2] == ["v1", "rooms"]:
+                    code = parts[2]
+                    query = parse_qs(parsed.query)
+                    if len(parts) == 3:
+                        self._send_json(200, rooms.get(code, token=self._token()))
+                        return
+                    if len(parts) == 4 and parts[3] == "updates":
+                        try:
+                            room_revision = int(query.get("room_revision", ["-1"])[0])
+                            game_revision = int(query.get("game_revision", ["-1"])[0])
+                        except ValueError as exc:
+                            raise ServiceError("INVALID_REQUEST", "revision 必须是整数") from exc
+                        self._send_json(200, rooms.updates(code, room_revision, game_revision,
+                                                           token=self._token()))
+                        return
+                    if len(parts) == 5 and parts[3] == "game":
+                        resource = parts[4]
+                        if resource == "view":
+                            language = query.get("lang", ["zh"])[0]
+                            self._send_json(200, rooms.game_view(code, token=self._token(), language=language))
+                        elif resource == "actions":
+                            self._send_json(200, rooms.game_actions(code, token=self._token()))
+                        elif resource == "snapshot":
+                            self._send_json(200, rooms.game_snapshot(code, token=self._token()))
+                        elif resource == "replay":
+                            language = query.get("lang", ["zh"])[0]
+                            self._send_text(200, rooms.game_replay(code, token=self._token(), language=language))
+                        else:
+                            raise ServiceError("ROUTE_NOT_FOUND", "接口不存在", status=404)
+                        return
                 if len(parts) != 4 or parts[:2] != ["v1", "games"]:
                     raise ServiceError("ROUTE_NOT_FOUND", "接口不存在", status=404)
                 session_id, resource = parts[2], parts[3]
@@ -163,12 +225,35 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = (),
         def do_POST(self):
             try:
                 _, parts = self._route()
+                self._rate_limit()
                 if parts == ["v1", "games"]:
                     self._send_json(201, service.create_game(self._json_body()))
                     return
                 if len(parts) == 4 and parts[:2] == ["v1", "games"] and parts[3] == "commands":
                     result = service.dispatch(parts[2], self._json_body(), token=self._token())
                     self._send_json(200, result)
+                    return
+                if parts == ["v1", "rooms"]:
+                    self._send_json(201, rooms.create(self._json_body()))
+                    return
+                if len(parts) == 4 and parts[:2] == ["v1", "rooms"]:
+                    code, action = parts[2], parts[3]
+                    if action == "join":
+                        result, status = rooms.join(code, self._json_body()), 201
+                    elif action == "ready":
+                        result, status = rooms.ready(code, self._json_body(), token=self._token()), 200
+                    elif action == "start":
+                        result, status = rooms.start(code, token=self._token()), 200
+                    elif action == "leave":
+                        result, status = rooms.leave(code, token=self._token()), 200
+                    elif action == "kick":
+                        result, status = rooms.kick(code, self._json_body(), token=self._token()), 200
+                    else:
+                        raise ServiceError("ROUTE_NOT_FOUND", "接口不存在", status=404)
+                    self._send_json(status, result)
+                    return
+                if len(parts) == 5 and parts[:2] == ["v1", "rooms"] and parts[3:] == ["game", "commands"]:
+                    self._send_json(200, rooms.game_command(parts[2], self._json_body(), token=self._token()))
                     return
                 raise ServiceError("ROUTE_NOT_FOUND", "接口不存在", status=404)
             except Exception as exc:
@@ -177,8 +262,12 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = (),
         def do_DELETE(self):
             try:
                 _, parts = self._route()
+                self._rate_limit()
                 if len(parts) == 3 and parts[:2] == ["v1", "games"]:
                     self._send_json(200, service.delete_game(parts[2], token=self._token()))
+                    return
+                if len(parts) == 3 and parts[:2] == ["v1", "rooms"]:
+                    self._send_json(200, rooms.close(parts[2], token=self._token()))
                     return
                 raise ServiceError("ROUTE_NOT_FOUND", "接口不存在", status=404)
             except Exception as exc:
@@ -187,19 +276,42 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = (),
     return Handler
 
 
-def create_server(host="127.0.0.1", port=8765, *, service=None, allowed_origins=(),
+def create_server(host="127.0.0.1", port=8765, *, service=None, room_service=None, allowed_origins=(),
                   static_root: str | Path | None = DEFAULT_WEB_ROOT):
     service = service or GameService()
+    room_service = room_service or RoomService(service)
     root = Path(static_root) if static_root is not None else None
-    return ThreadingHTTPServer((host, port), make_handler(
-        service, allowed_origins=tuple(allowed_origins), static_root=root))
+    return TragedyHTTPServer((host, port), make_handler(
+        service, room_service, allowed_origins=tuple(allowed_origins), static_root=root))
 
 
-def serve(host="127.0.0.1", port=8765, *, allowed_origins=()):
+def _lan_addresses(port: int) -> list[str]:
+    addresses = set()
+    try:
+        for item in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            address = item[4][0]
+            if ipaddress.ip_address(address).is_private and not address.startswith("127."):
+                addresses.add(address)
+    except OSError:
+        pass
+    return [f"http://{address}:{port}/" for address in sorted(addresses)]
+
+
+def serve(host="127.0.0.1", port=8765, *, allowed_origins=(), lan=False):
     server = create_server(host, port, allowed_origins=allowed_origins)
-    print(f"Tragedy Sim Web：http://{host}:{server.server_port}/")
-    print(f"JSON 健康检查：http://{host}:{server.server_port}/v1/health")
-    print("默认凭据按对局生成；按 Ctrl+C 停止。")
+    port = server.server_port
+    print(f"Tragedy Sim Web：http://127.0.0.1:{port}/")
+    if lan:
+        addresses = _lan_addresses(port)
+        if addresses:
+            print("同一 Wi-Fi 的手机请打开：")
+            for address in addresses:
+                print(f"  {address}")
+        else:
+            print("未自动发现局域网 IPv4 地址；请用 ipconfig 查询主机地址。")
+        print("若手机无法访问，请允许 Python 通过 Windows 防火墙，并确认 Wi-Fi 未启用访客/客户端隔离。")
+    print(f"JSON 健康检查：http://127.0.0.1:{port}/v1/health")
+    print("按 Ctrl+C 停止；关闭进程后内存中的房间会消失。")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -213,10 +325,12 @@ def main(argv=None):
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--allow-origin", action="append", default=[])
+    parser.add_argument("--lan", action="store_true", help="监听局域网并显示可分享地址")
     args = parser.parse_args(argv)
     if not 1 <= args.port <= 65535:
         parser.error("--port 必须在 1–65535 之间")
-    serve(args.host, args.port, allowed_origins=args.allow_origin)
+    host = "0.0.0.0" if args.lan else args.host
+    serve(host, args.port, allowed_origins=args.allow_origin, lan=args.lan)
     return 0
 
 
