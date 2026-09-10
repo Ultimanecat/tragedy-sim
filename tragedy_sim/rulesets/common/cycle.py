@@ -6,6 +6,10 @@ from ...engine import RuleError, State
 from ...effects.vocabulary import op
 from ...model import TimingId
 
+def _configure_day_actions(self):
+    self.configure_actions(mastermind=3,
+                           protagonists=self._protagonists_from(self.state.leader))
+
 def _begin_night(self):
     s = self.state
     s.leader = PROTAGONISTS[(PROTAGONISTS.index(s.leader) + 1) % 3]
@@ -33,9 +37,7 @@ def _start_day_end_forced(self):
         return
     self._night_forced_done = True
     self._return_phase = 'day_end'
-    curses = []
-    queue = [op('hsa_curse_batch', remaining=curses)] if curses else []
-    queue.append(op('next_day_end_mandatory'))
+    queue = [op('next_day_end_mandatory')]
     self._open_timing_window(TimingId.DAY_END, queue, 'core.day_end_mandatory')
 
 def _queue_day_end_mandatory_batch(self):
@@ -80,7 +82,7 @@ def _resolve_loop_end(self, forced=False):
             loss = True
             self.loss_reasons.append('亲友死亡')
     main = self.scenario['main_plot']
-    plot_loss = main == 'protect' and s.locations['school'] >= 2 or (main == 'sealed' and s.locations['shrine'] >= 2) or (main == 'sign' and any((c.intrigue >= 2 and self.roles[c.id] == 'key' for c in s.characters.values()))) or (main == 'change' and any((r['kind'] == 'butterfly' and r['happened'] for r in self.incident_records))) or (main in ('avenger', 'bomb') and any((s.locations[CHARACTERS[c.id].start] >= 2 for c in s.characters.values() if self.roles[c.id] == ('brain' if main == 'avenger' else 'witch'))))
+    plot_loss = self.ruleset.operations['_plot_loss'](self, main)
     if plot_loss:
         self.loss_reasons.append('规则 Y 失败条件')
     loss |= plot_loss
@@ -88,10 +90,7 @@ def _resolve_loop_end(self, forced=False):
     self._decision_actor = None
     self._decision_public_phase = None
     self._previous_dead = {c.id for c in s.characters.values() if not c.alive}
-    self._previous_ex_gauge = self.ex_gauge
     self._previous_goodwill = {c.id for c in s.characters.values() if c.goodwill > 0}
-    self._previous_fragment_dead = {c.id for c in s.characters.values() if self.roles[c.id] == 'fragment' and (not c.alive)}
-    self._previous_fragment_friendly = {c.id for c in s.characters.values() if self.roles[c.id] == 'fragment' and c.alive and (c.goodwill >= 2)}
     if not loss:
         self._win('protagonists', '本轮全部日期已结束，未触发失败条件。主人公获胜！')
     else:
@@ -99,7 +98,7 @@ def _resolve_loop_end(self, forced=False):
         if s.loop < self.scenario['loops']:
             s.phase = 'loop_end'
             self._event('loop_waiting', f"还剩 {self.scenario['loops'] - s.loop} 轮。可自由讨论，确认后开始下一轮。")
-        elif MODULES[self.module].final_guess:
+        elif self.ruleset.final_guess:
             self._start_final_guess()
         else:
             self._win('mastermind', f'{self.module} 没有最终猜测；轮回已耗尽，剧作家获胜。')
@@ -174,6 +173,7 @@ def _guess(self, cid, role):
             self._win('protagonists', '所有身份猜测正确，主人公获胜！')
 
 OPERATIONS = {
+    '_configure_day_actions': _configure_day_actions,
     '_begin_night': _begin_night,
     '_start_master_abilities_forced': _start_master_abilities_forced,
     '_start_loop_placements': _start_loop_placements,

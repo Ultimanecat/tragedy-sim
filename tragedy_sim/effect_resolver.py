@@ -66,14 +66,17 @@ CORE_EFFECT_HANDLERS = EffectHandlerRegistry({
     "kill_many": _kill_many,
 })
 
-# Explicit compatibility composition. Individual ruleset definitions will select
-# their own handler sets when they migrate; no registration happens by callback.
-MATCH_EFFECT_HANDLERS = (CORE_EFFECT_HANDLERS
+# Effects used by FS/BTX. This deliberately excludes every later-ruleset handler.
+BASIC_EFFECT_HANDLERS = (CORE_EFFECT_HANDLERS
     .extended(board.HANDLERS)
     .extended(movement.HANDLERS)
     .extended(knowledge.HANDLERS)
     .extended(outcomes.HANDLERS)
-    .extended(flow.HANDLERS)
+    .extended(flow.HANDLERS))
+
+# Explicit compatibility composition. Individual ruleset definitions will select
+# their own handler sets when they migrate; no registration happens by callback.
+MATCH_EFFECT_HANDLERS = (BASIC_EFFECT_HANDLERS
     .extended(mz.HANDLERS)
     .extended(mc.HANDLERS)
     .extended(hsa.HANDLERS)

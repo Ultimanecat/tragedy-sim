@@ -13,6 +13,8 @@ class RulesetDefinition:
     effects: object
     phases: object
     validator: Callable
+    final_guess: bool = False
+    early_final_guess: bool = False
 
     def __post_init__(self):
         object.__setattr__(self, 'operations', MappingProxyType(dict(self.operations)))

@@ -205,6 +205,13 @@ R3 工作项：
 R3 验收条件：FS 和 BTX 不再依赖巨型 `Game` 中的专属规则逻辑；完整测试通过；公开 Observation
 不泄露隐藏来源；相同状态和命令得到确定性相同结果；其他规则集未来迁移不要求修改底层核心契约。
 
+实施状态：R3 已完成。FS 与 BTX 分别从 `rulesets/fs`、`rulesets/btx` 组合自己的校验器、事件入口、
+终局能力和基础效果集合，不导入兼容规则模块。`ScriptDefinition`、运行态与 `InformationState` 已分离，
+规则集和剧本定义在搜索克隆间共享；`clone`、`transition` 和类型化 `ActionOffer` 构成统一模拟入口。
+CLI、Tk GUI、JSON 服务、存档和文本 replay 均继续使用同一 `dispatch` 语义，并由全套测试覆盖。
+基准可用 `python -m benchmarks.clone_simulation --iterations 1000` 重跑；开发机 300 次样本约为
+11,503 clone/s、4,952 transition/s，且确认规则集与剧本定义不被深复制。
+
 R1–R3 预计合计 8–12 个工作日。每个阶段独立提交；行为修复与纯结构搬迁分开提交。
 
 ## 重构后的规则集迁移

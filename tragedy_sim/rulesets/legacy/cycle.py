@@ -11,6 +11,15 @@ from ...flow import phase_label
 from ...i18n import format_timepoint, label, normalize_language
 from ...model import TimingId
 
+
+def _configure_day_actions(self):
+    order = self._protagonists_from(self.state.leader)
+    if self.module == "LL" and self._ll_restricted_day == self.state.round:
+        self.configure_actions(mastermind=1, protagonists=order)
+        self._event("mastermind_restricted", "秘钥已经公开：今日剧作家只能放置 1 张行动牌。")
+    else:
+        self.configure_actions(mastermind=3, protagonists=order)
+
 def _begin_night(self):
     s = self.state
     s.leader = PROTAGONISTS[(PROTAGONISTS.index(s.leader) + 1) % 3]
@@ -450,6 +459,7 @@ def _guess(self, cid, role):
 
 
 OPERATIONS = {
+    '_configure_day_actions': _configure_day_actions,
     '_begin_night': _begin_night,
     '_start_master_abilities_forced': _start_master_abilities_forced,
     '_start_loop_placements': _start_loop_placements,

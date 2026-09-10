@@ -15,8 +15,9 @@ from .cards import ACTORS, ACTOR_NAMES, COORDS, COUNTER_NAMES, LOCATIONS, PROTAG
 from .catalog import CHARACTERS, INCIDENT_NAMES, MODULES, MODULE_PLOTS, PLOTS, REFUSAL, ROLE_NAMES, TRAIT_NAMES
 from .engine import ActionGame, Character, RuleError, State
 from .domain import (ActionOffer, Activation, ActivationMode, ComponentStore, Effect,
-                     LegacyEffect, MandatoryWindow, PhaseKey, ResolutionTrace, RuleContext,
+                     InformationState, LegacyEffect, MandatoryWindow, PhaseKey, ResolutionTrace, RuleContext,
                      RuleSource, SourcedEffect, WindowStage, legacy_effect, normalize_effect)
+from .domain import ScriptDefinition
 from .effect_resolver import MATCH_EFFECT_HANDLERS
 from .effects.vocabulary import op, option
 from .flow import MATCH_FLOW, phase_label
@@ -36,6 +37,7 @@ class Game(ActionGame):
                  for cid in self.scenario["cast"]]
         super().__init__(chars, module=self.scenario["module"])
         self.ruleset = get_ruleset(self.module)
+        self.script = ScriptDefinition.from_mapping(self.scenario)
         self.ruleset.initialize(self)
 
     @property
@@ -113,6 +115,9 @@ class Game(ActionGame):
         projection.pop("events", None)
         return json.dumps(projection, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
+    def information_state(self, viewer="spectator"):
+        return InformationState.create(viewer, self.view(viewer))
+
     def legal_actions(self, actor):
         """Enumerate complete command dictionaries without exposing other seats' secrets."""
         if actor not in ACTORS:
@@ -132,6 +137,13 @@ class Game(ActionGame):
         successor.dispatch(actor, action, **args)
         return SimulationResult(successor, successor.decisions[-1])
 
+    def transition(self, action):
+        """Typed/dictionary transition entry point used by MCTS and protocol adapters."""
+        command = action.command if isinstance(action, ActionOffer) else deepcopy(dict(action))
+        actor = command.pop("actor")
+        name = command.pop("action")
+        return self.simulate(actor, name, **command)
+
     def clone(self):
         """Explicit search clone; immutable ruleset definitions remain shared."""
         clone = deepcopy(self)
@@ -140,7 +152,7 @@ class Game(ActionGame):
 
     def rule_context(self, timing=None):
         timing = timing or self._current_timing()
-        return RuleContext(self.state, self.scenario, self.module,
+        return RuleContext(self.state, self.script, self.module,
                            PhaseKey(f"core.{self.state.phase}"), TimingId(timing), self.components)
 
     def _open_timing_window(self, timing, queued, source):
@@ -414,6 +426,9 @@ class Game(ActionGame):
 
     def _begin_night(self):
         return self.ruleset.operations['_begin_night'](self)
+
+    def _configure_day_actions(self):
+        return self.ruleset.operations['_configure_day_actions'](self)
 
     def _start_master_abilities_forced(self):
         return self.ruleset.operations['_start_master_abilities_forced'](self)

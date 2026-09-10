@@ -85,7 +85,7 @@ class TimingResolver:
     def begin(self, context: RuleContext,
               rules: Iterable[ActivationRule]) -> MandatoryWindow:
         # Rules must all observe the same detached pre-resolution snapshot.
-        snapshot = RuleContext(deepcopy(context.state), deepcopy(dict(context.script)),
+        snapshot = RuleContext(deepcopy(context.state), deepcopy(context.script),
                                context.ruleset_id, context.phase, context.timing,
                                context.components.clone())
         return MandatoryWindow(

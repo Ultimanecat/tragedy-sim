@@ -218,8 +218,9 @@ python -m unittest discover -v
 - `tragedy_sim/effect_resolver.py`：显式、不可变且可组合的效果处理器注册表。
 - `tragedy_sim/effects/`：移动、知识公开、胜负、批处理以及各规则集的效果处理函数；目前通过兼容接口访问游戏状态。
 - `tragedy_sim/phases/`：各阶段的控制权、合法行动、命令执行和阶段推进解析器。
+- `tragedy_sim/rulesets/`：不可变规则集定义；FS/BTX 已完整拆分，其他模组暂由显式兼容适配器组合。
 - `tragedy_sim/i18n.py`、`locales/*.json`：中英日术语、阶段与规则时间点配置；默认简体中文。
-- `tragedy_sim/game.py`：稳定游戏门面、兼容效果队列、规则选择、胜负、知识记录和存档。
+- `tragedy_sim/game.py`：稳定游戏门面、时间窗协调、类型化模拟入口和存档；不再承载具体身份或事件规则。
 - `tragedy_sim/replay.py`、`transcript.py`：纯文本回放、确定性校验、只读时间线和人类可读决策说明。
 - `tragedy_sim/cli.py`：完整对局、行动练习、中文提示和自动演示。
 - `tests/`：行动、能力、事件、胜负、信息过滤、CLI/GUI、存档及纯文本回放；覆盖全部支持模组的规则组合与专项规则。
@@ -237,16 +238,16 @@ game.dispatch("m", "next")
 game.dispatch("m", "play", card="i2", target="doctor")
 
 # AI/分析工具可以枚举合法动作，并在副本上模拟而不修改原局面：
-actions = game.legal_actions("m")
-candidate = dict(actions[0])
-result = game.simulate(candidate.pop("actor"), candidate.pop("action"), **candidate)
+offers = game.action_offers("m")
+result = game.transition(offers[0])
+knowledge = game.information_state("a")  # 与秘密状态隔离的不可变玩家知识
 print(game.view("a")["pending"])  # 可见 m 和 doctor，不可见 i2
 print(game.controller)             # 当前应操作的座位
 ```
 
 完整对局统一通过 `dispatch` 修改，非法命令回滚，成功命令进入存档历史。
 每个公开事件含 `timing`（稳定规则时点 ID）与视图生成的 `timepoint`（人类文本）。例如时间旅行者在最后一日发动时，失败记录属于“第 X 天结束时”；随后轮回失败记录才属于“第 X 轮回结束时”。
-队列效果同时生成私有 `ResolutionTrace`，供规则调试；旧效果记录兼容处理器来源，迁移后的调用方可提供精确规则来源。该记录不进入玩家 `view` 或 JSON 响应。完整因果链及面向 AI 的观察接口仍在重构中。
+队列效果同时生成私有 `Activation` 历史和 `ResolutionTrace` 因果链；跨目标选择的后续效果保留同一来源，且这些私密记录不进入玩家 `view` 或 JSON 响应。`action_offers`、`transition`、`clone` 与 `information_state` 是面向搜索算法的稳定边界。
 `state`、`roles` 等内部状态仅供引擎或测试使用；直接修改这些字段不会记录到存档。
 独立出牌练习的 `ActionGame` API 保持兼容。
 

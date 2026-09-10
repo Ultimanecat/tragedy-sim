@@ -73,7 +73,7 @@ class RuleContext:
     """Explicit inputs supplied when asking a rule for behavior."""
 
     state: Any
-    script: Mapping[str, Any]
+    script: Any
     ruleset_id: str
     phase: PhaseKey
     timing: TimingId
