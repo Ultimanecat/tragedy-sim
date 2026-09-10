@@ -2,7 +2,9 @@
 
 from http.client import HTTPConnection
 import json
+from pathlib import Path
 from threading import Thread
+from tempfile import TemporaryDirectory
 import unittest
 
 from tragedy_sim.server import create_server
@@ -154,6 +156,47 @@ class HttpTransportTests(unittest.TestCase):
             {"action_id": actions["actions"][0]["id"],
              "expected_revision": actions["revision"]}, token=mastermind)
         self.assertEqual((status, accepted["revision"]), (200, 1))
+
+
+class StaticWebTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = TemporaryDirectory()
+        root = Path(self.temporary.name)
+        (root / "assets").mkdir()
+        (root / "index.html").write_text("<main>web shell</main>", encoding="utf-8")
+        (root / "assets" / "app.js").write_text("export default 1", encoding="utf-8")
+        self.server = create_server("127.0.0.1", 0, static_root=root)
+        self.thread = Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.connection = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+
+    def tearDown(self):
+        self.connection.close()
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=3)
+        self.temporary.cleanup()
+
+    def request(self, path):
+        self.connection.request("GET", path)
+        response = self.connection.getresponse()
+        return response.status, dict(response.getheaders()), response.read()
+
+    def test_serves_index_assets_and_spa_fallback(self):
+        status, headers, body = self.request("/")
+        self.assertEqual((status, body), (200, b"<main>web shell</main>"))
+        self.assertIn("text/html", headers["Content-Type"])
+        status, headers, body = self.request("/assets/app.js")
+        self.assertEqual((status, body), (200, b"export default 1"))
+        self.assertIn("javascript", headers["Content-Type"])
+        status, _, body = self.request("/game/local")
+        self.assertEqual((status, body), (200, b"<main>web shell</main>"))
+
+    def test_static_path_cannot_escape_web_root(self):
+        status, headers, body = self.request("/%2e%2e/pyproject.toml")
+        self.assertEqual(status, 404)
+        self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
+        self.assertEqual(json.loads(body)["error"]["code"], "ROUTE_NOT_FOUND")
 
 
 if __name__ == "__main__":

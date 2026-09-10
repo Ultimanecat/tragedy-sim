@@ -15,6 +15,9 @@ python -m tragedy_sim --serve
 python -m tragedy_sim --serve --allow-origin http://localhost:5173
 ```
 
+在 `web/` 执行 `npm run build` 后，同一个 Python 进程会从 `http://127.0.0.1:8765/`
+提供生产前端；静态路径经过目录边界校验，并附带 CSP 与 `nosniff` 响应头。没有构建目录时 `/v1` 接口仍可独立使用。
+
 除非已经在外层配置 TLS、身份认证、限流与可信反向代理，否则不要监听公网地址。
 当前服务的活动对局保存在进程内；服务重启前应通过 snapshot 接口保存。持久化房间仓库和断线重连属于后续联机层。
 

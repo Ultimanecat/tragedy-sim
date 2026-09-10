@@ -5,15 +5,21 @@ from __future__ import annotations
 import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
-from urllib.parse import parse_qs, urlparse
+import mimetypes
+from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .service import GameService, PROTOCOL_VERSION, ServiceError
 
 
 MAX_BODY = 1_000_000
+DEFAULT_WEB_ROOT = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 
-def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = ()):
+def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = (),
+                 static_root: Path | None = None):
+    web_root = static_root.resolve() if static_root and static_root.is_dir() else None
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "TragedySim/1"
 
@@ -30,6 +36,9 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = ())
             self.send_header("Content-Length", str(length))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Security-Policy",
+                             "default-src 'self'; script-src 'self'; style-src 'self'; "
+                             "img-src 'self' data:; connect-src 'self'")
             origin = self._origin()
             if origin:
                 self.send_header("Access-Control-Allow-Origin", origin)
@@ -78,6 +87,25 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = ())
             parts = [part for part in parsed.path.split("/") if part]
             return parsed, parts
 
+        def _send_static(self, path):
+            if web_root is None:
+                return False
+            relative = unquote(path).lstrip("/") or "index.html"
+            candidate = (web_root / relative).resolve()
+            if not candidate.is_relative_to(web_root):
+                raise ServiceError("ROUTE_NOT_FOUND", "接口不存在", status=404)
+            if not candidate.is_file():
+                candidate = web_root / "index.html"
+            if not candidate.is_file():
+                return False
+            body = candidate.read_bytes()
+            content_type = mimetypes.guess_type(candidate.name)[0] or "application/octet-stream"
+            if content_type.startswith("text/") or content_type in ("application/javascript", "application/json"):
+                content_type += "; charset=utf-8"
+            self._headers(200, content_type, len(body))
+            self.wfile.write(body)
+            return True
+
         def do_OPTIONS(self):
             origin = self._origin()
             if not origin:
@@ -95,6 +123,10 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = ())
         def do_GET(self):
             try:
                 parsed, parts = self._route()
+                if not parts or parts[0] != "v1":
+                    if self._send_static(parsed.path):
+                        return
+                    raise ServiceError("ROUTE_NOT_FOUND", "接口不存在", status=404)
                 if parts == ["v1", "health"]:
                     self._send_json(200, {"protocol_version": PROTOCOL_VERSION, "status": "ok"})
                     return
@@ -155,14 +187,18 @@ def make_handler(service: GameService, *, allowed_origins: tuple[str, ...] = ())
     return Handler
 
 
-def create_server(host="127.0.0.1", port=8765, *, service=None, allowed_origins=()):
+def create_server(host="127.0.0.1", port=8765, *, service=None, allowed_origins=(),
+                  static_root: str | Path | None = DEFAULT_WEB_ROOT):
     service = service or GameService()
-    return ThreadingHTTPServer((host, port), make_handler(service, allowed_origins=tuple(allowed_origins)))
+    root = Path(static_root) if static_root is not None else None
+    return ThreadingHTTPServer((host, port), make_handler(
+        service, allowed_origins=tuple(allowed_origins), static_root=root))
 
 
 def serve(host="127.0.0.1", port=8765, *, allowed_origins=()):
     server = create_server(host, port, allowed_origins=allowed_origins)
-    print(f"Tragedy Sim JSON 服务：http://{host}:{server.server_port}/v1/health")
+    print(f"Tragedy Sim Web：http://{host}:{server.server_port}/")
+    print(f"JSON 健康检查：http://{host}:{server.server_port}/v1/health")
     print("默认凭据按对局生成；按 Ctrl+C 停止。")
     try:
         server.serve_forever()

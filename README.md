@@ -13,16 +13,27 @@ AnotherHorizonRevised（AHR）的表里世界、双身份最终猜测、希望/�
 内置各模组速查表对应的角色池及能力（MC 使用“手下”替换“军人”）。以用户提供的中文模组速查表为优先依据。
 这是由真人控制双方的热座/裁判工具，不含 AI 或远程大厅。
 
-## JSON 服务
+## Web 前端与 JSON 服务
 
 后端提供版本化 JSON 接口；现有 Tk GUI 也通过同一个本地客户端边界读取状态、查询行动并提交命令，
 不再直接操作 `Game` 对象。
-启动本机服务：
+首次使用先构建 Web 前端：
+
+```powershell
+cd web
+npm install
+npm run build
+cd ..
+```
+
+然后启动本机服务：
 
 ```powershell
 python -m tragedy_sim --serve
 ```
 
+浏览器打开 `http://127.0.0.1:8765/`。当前 Web 页面用于本地单机调试，支持选择规则集或 JSON 剧本、
+切换座位视角、完整操作、存取中间状态，以及在对局结束后查看/导出回放。
 默认仅监听 `127.0.0.1:8765`。接口采用按座位访问令牌、稳定行动 ID 和乐观 revision，
 可作为后续 React 前端及远程联机大厅的基础。完整端点和安全说明见 [JSON 游戏服务协议](docs/json-api.md)。
 公开事件同时提供稳定的 `timing` ID 和本地化 `timepoint`；前端无需从中文消息猜测结算时点。
@@ -207,6 +218,10 @@ python -m tragedy_sim --load session.json
 
 ```powershell
 python -m unittest discover -v
+cd web
+npm test
+npm run lint
+npm run build
 ```
 
 - `tragedy_sim/cards.py`：独立牌组、限次标记、地图。
@@ -218,12 +233,13 @@ python -m unittest discover -v
 - `tragedy_sim/effect_resolver.py`：显式、不可变且可组合的效果处理器注册表。
 - `tragedy_sim/effects/`：移动、知识公开、胜负、批处理以及各规则集的效果处理函数；目前通过兼容接口访问游戏状态。
 - `tragedy_sim/phases/`：各阶段的控制权、合法行动、命令执行和阶段推进解析器。
-- `tragedy_sim/rulesets/`：不可变规则集定义；FS/BTX 已完整拆分，其他模组暂由显式兼容适配器组合。
+- `tragedy_sim/rulesets/`：不可变规则集定义；FS/BTX 已完整拆分，其他模组由显式兼容适配器组合。
 - `tragedy_sim/i18n.py`、`locales/*.json`：中英日术语、阶段与规则时间点配置；默认简体中文。
 - `tragedy_sim/game.py`：稳定游戏门面、时间窗协调、类型化模拟入口和存档；不再承载具体身份或事件规则。
 - `tragedy_sim/replay.py`、`transcript.py`：纯文本回放、确定性校验、只读时间线和人类可读决策说明。
 - `tragedy_sim/cli.py`：完整对局、行动练习、中文提示和自动演示。
 - `tests/`：行动、能力、事件、胜负、信息过滤、CLI/GUI、存档及纯文本回放；覆盖全部支持模组的规则组合与专项规则。
+- `web/`：React/TypeScript 本地 Web 客户端、协议类型、固定 fixture 与 Vitest 测试；生产构建由 Python 静态托管。
 - [完整对局规则说明](docs/rules-match.md)、[基础行动来源](docs/rules-actions.md)。
 - [Web 前端与局域网联机实施计划](docs/web-and-lan-roadmap.md)。
 - [规则集能力矩阵与扩展契约](docs/ruleset-capability-matrix.md)。
