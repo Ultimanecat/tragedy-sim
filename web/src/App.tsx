@@ -203,7 +203,10 @@ export default function App() {
     finally { setBusy(false); }
   }
 
-  function switchViewer(next: Viewer) { setViewer(next); setGame(null); setOffers([]); setReplayText(""); setError(""); }
+  function switchViewer(next: Viewer) {
+    if (next === viewer) return;
+    setViewer(next); setGame(null); setOffers([]); setReplayText(""); setError("");
+  }
 
   async function act(offer: ActionOffer) {
     setBusy(true); setError(""); setOffers([]);
@@ -247,7 +250,7 @@ export default function App() {
     </div></header>
     {error && <div className="error" role="alert">{error}</div>}
     {!game ? <section className="empty"><h2>{client.session ? "正在恢复对局…" : "选择规则集，开始一次轮回"}</h2><p>规则判断全部由本机 Python 服务完成。</p></section> : <>
-      <nav className="viewer-tabs" aria-label="调试视角">{seats.map(seat => <button className={viewer === seat ? "active" : ""} key={seat} onClick={() => switchViewer(seat)}>{seat === "spectator" ? "公开视角" : game.labels.actors[seat]}</button>)}</nav>
+      <nav className="viewer-tabs" aria-label="调试视角">{seats.map(seat => <button className={viewer === seat ? "active" : ""} disabled={busy} key={seat} onClick={() => switchViewer(seat)}>{seat === "spectator" ? "公开视角" : game.labels.actors[seat]}</button>)}</nav>
       <section className="status-strip">
         <div><small>{game.title} · {game.module_name}</small><strong>轮回 {game.loop}/{game.loops} · 第 {game.round}/{game.days} 天</strong></div>
         <div><small>{game.phase_name}</small><strong>{game.timepoint}</strong></div>

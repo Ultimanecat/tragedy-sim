@@ -222,6 +222,7 @@ cd web
 npm test
 npm run lint
 npm run build
+npm run test:e2e
 ```
 
 - `tragedy_sim/cards.py`：独立牌组、限次标记、地图。
