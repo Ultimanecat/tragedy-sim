@@ -110,6 +110,8 @@ test("one protagonist browser controls A, B and C in a two-person room", async (
       await selectFirstAction(hero);
       await expect(hero.locator(".placement").filter({ hasText: `主人公 ${actor}` })).toBeVisible();
     }
+    await hero.getByRole("button", { name: "返回大厅" }).click();
+    await expect(hero.getByRole("heading", { name: "创建局域网房间" })).toBeVisible();
   } finally {
     await Promise.all([hostContext.close(), heroContext.close()]);
   }

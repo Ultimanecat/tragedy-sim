@@ -361,6 +361,13 @@ export default function App() {
     finally { setBusy(false); }
   }
 
+  function returnToLobby() {
+    client.forgetRoom();
+    localStorage.removeItem(ROOM_KEY);
+    setRoomCode(null); setRoomInfo(null); setGame(null); setOffers([]); setReplayText("");
+    window.history.replaceState(null, "", window.location.pathname);
+  }
+
   function switchViewer(next: Viewer) {
     if (next === viewer) return;
     setViewer(next); setGame(null); setOffers([]); setReplayText(""); setError("");
@@ -448,6 +455,7 @@ export default function App() {
         {module === "LL" && <small className="muted">Last Liar 必须由三名主人公玩家参与。</small>}
         <label>你的参与者席位<select value={preferredSeat} onChange={event => setPreferredSeat(event.target.value as Seat)}><option value="m">剧作家</option>{(["a", "b", "c"] as Seat[]).slice(0, effectiveProtagonistCount).map(seat => <option value={seat} key={seat}>主人公 {seat.toUpperCase()}</option>)}</select></label>
         <label className="checkbox"><input type="checkbox" checked={allowSpectators} onChange={event => setAllowSpectators(event.target.checked)} />允许未入座者旁观公开棋盘</label>
+        {!nickname.trim() && <small className="muted">请先输入昵称，才能创建或加入房间。</small>}
         <button className="primary" disabled={busy || !nickname.trim()} onClick={() => void createRoom()}>创建房间</button>
         <div className="join-code"><input aria-label="房间码" maxLength={6} value={roomEntry} onChange={event => setRoomEntry(event.target.value.toUpperCase())} placeholder="输入 6 位房间码" /><button disabled={roomEntry.trim().length !== 6} onClick={() => enterRoom(roomEntry)}>进入房间</button></div>
       </article>
@@ -455,7 +463,8 @@ export default function App() {
       {roomInfo && <section className="room-bar"><strong>房间 {roomInfo.room.code}</strong><span>你的席位：{ownSeat ? game.labels.actors[ownSeat] : "旁观者"}</span>
         {roomInfo.room.protagonist_count === 2 && <span>今日真人领队：{roomInfo.room.seats[roomInfo.room.human_leader]?.nickname}（代管 C）</span>}
         {roomInfo.room.protagonist_count === 1 && <span>主人公玩家控制 A/B/C</span>}
-        <span>{roomInfo.room.required_seats.filter(seat => roomInfo.room.seats[seat]?.connected).length}/{roomInfo.room.required_seats.length} 在线</span></section>}
+        <span>{roomInfo.room.required_seats.filter(seat => roomInfo.room.seats[seat]?.connected).length}/{roomInfo.room.required_seats.length} 在线</span>
+        <button onClick={returnToLobby}>返回大厅</button></section>}
       {!roomCode && <nav className="viewer-tabs" aria-label="调试视角">{seats.map(seat => <button className={viewer === seat ? "active" : ""} disabled={busy} key={seat} onClick={() => switchViewer(seat)}>{seat === "spectator" ? "公开视角" : game.labels.actors[seat]}</button>)}</nav>}
       <section className="status-strip">
         <div><small>{game.title} · {game.module_name}</small><strong>轮回 {game.loop}/{game.loops} · 第 {game.round}/{game.days} 天</strong></div>

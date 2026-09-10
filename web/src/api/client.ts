@@ -187,10 +187,13 @@ export class ApiClient {
 
   async createRoom(module: ModuleId, nickname: string, seat: Seat, spectators = true,
                    protagonistCount: 1 | 2 | 3 = 3) {
+    const body: Record<string, unknown> = { module, nickname, seat, spectators };
+    // Keep the original four-seat request wire-compatible with older hosts.
+    // The server defaults an omitted value to three protagonist participants.
+    if (protagonistCount !== 3) body.protagonist_count = protagonistCount;
     const response = await this.request<RoomResponse>("room-mutation", "/v1/rooms", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ module, nickname, seat, spectators,
-                             protagonist_count: protagonistCount }),
+      body: JSON.stringify(body),
     });
     return this.acceptRoom(response);
   }
@@ -272,6 +275,11 @@ export class ApiClient {
     });
     this.room = null;
     return response;
+  }
+
+  forgetRoom() {
+    this.room = null;
+    this.session = null;
   }
 
   private async roomMutation(action: string, body: unknown, token?: string) {

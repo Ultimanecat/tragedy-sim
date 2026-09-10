@@ -65,6 +65,9 @@ describe("ApiClient", () => {
     }));
     const client = new ApiClient();
     await client.createRoom("BTX", "Alice", "a");
+    expect(JSON.parse(String(calls[0][1]?.body))).toEqual({
+      module: "BTX", nickname: "Alice", seat: "a", spectators: true,
+    });
     await client.roomUpdates();
     await client.view("a");
     const offered = await client.actions("a");

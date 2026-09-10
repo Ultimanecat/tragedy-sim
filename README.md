@@ -26,6 +26,8 @@ npm run build
 cd ..
 ```
 
+如果更新过代码，请重新执行 `npm run build` 并重启正在运行的 Python 服务；服务启动后不要关闭该终端窗口。
+
 然后启动本机服务：
 
 ```powershell
