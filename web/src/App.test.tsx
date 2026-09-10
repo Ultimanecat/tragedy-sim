@@ -30,4 +30,19 @@ describe("local game components", () => {
     fireEvent.click(screen.getByRole("button", { name: "确认执行" }));
     expect(dispatch).toHaveBeenCalledWith(offers[0]);
   });
+
+  it("groups AHR dual-identity guesses without exposing internal target ids", () => {
+    const offers: ActionOffer[] = [
+      { id: "surface-key", actor: "a", type: "guess", parameters: { character: "student@surface", role: "key" }, label: "男学生（表身份）是关键人物" },
+      { id: "surface-brain", actor: "a", type: "guess", parameters: { character: "student@surface", role: "brain" }, label: "男学生（表身份）是幕后黑手" },
+      { id: "hidden-key", actor: "a", type: "guess", parameters: { character: "student@hidden", role: "key" }, label: "男学生（里身份）是关键人物" },
+    ];
+    const dispatch = vi.fn();
+    render(<Actions offers={offers} catalog={catalog} game={game} busy={false} onAction={dispatch} />);
+    expect(screen.queryByText("student@surface")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /男学生（表身份）2 个身份候选/ }));
+    fireEvent.click(screen.getByRole("button", { name: "关键人物" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认执行" }));
+    expect(dispatch).toHaveBeenCalledWith(offers[0]);
+  });
 });

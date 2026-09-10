@@ -21,7 +21,7 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .viewer-tabs { display: flex; overflow-x: auto; gap: .35rem; margin: 1rem 0; }
 .viewer-tabs button { white-space: nowrap; background: transparent; }
 .viewer-tabs .active { background: #6f3941; border-color: #d19078; }
-.status-strip { display: grid; grid-template-columns: 2fr 1.2fr 1fr; gap: 1px; overflow: hidden; background: #685158; border: 1px solid #685158; border-radius: .5rem; }
+.status-strip { display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr; gap: 1px; overflow: hidden; background: #685158; border: 1px solid #685158; border-radius: .5rem; }
 .status-strip div { display: flex; flex-direction: column; gap: .25rem; padding: .8rem 1rem; background: #241e21; }
 .status-strip small, .panel small, .muted { color: #aa9ba0; }
 .outcome { margin-top: 1rem; padding: 1rem; text-align: center; border: 1px solid #d89564; border-radius: .5rem; color: #f0d7c0; background: #583038; font: 700 1.2rem "SimSun", serif; }
@@ -39,6 +39,9 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .character-title { display: flex; justify-content: space-between; }
 .character-title small { color: #aa9ba0; }
 .counters { display: flex; flex-wrap: wrap; gap: .3rem .7rem; margin-top: .35rem; font-size: .78rem; color: #c9bcc0; }
+.character-reference { margin-top: .45rem; font-size: .76rem; color: #aa9ba0; }
+.character-reference summary { cursor: pointer; }
+.character-reference p { margin: .3rem 0; }
 .panel { border: 1px solid #5d4c52; border-radius: .55rem; padding: .9rem; background: #211b1e; margin-bottom: .75rem; }
 .actions-panel { margin-top: .75rem; }
 .actions-panel > button, .action-grid button { margin: .25rem; }
@@ -47,9 +50,10 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .action-grid { max-height: 280px; overflow: auto; padding-top: .5rem; }
 .step-label { color: #c18c70; font-size: .78rem; letter-spacing: .08em; margin: .9rem 0 .45rem; }
 .hand { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; }
-.hand button { min-height: 4.2rem; text-align: left; }
-.hand button strong, .hand button small { display: block; }
-.hand button small { color: #aa9ba0; margin-top: .25rem; }
+.hand button, .guess-characters button { min-height: 4.2rem; text-align: left; }
+.hand button strong, .hand button small, .guess-characters button small { display: block; }
+.hand button small, .guess-characters button small { color: #aa9ba0; margin-top: .25rem; }
+.guess-characters { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: .5rem; }
 .confirm-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-top: 1px solid #765961; margin-top: .8rem; padding-top: .8rem; }
 .placements { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .75rem; }
 .placements h2 { width: 100%; margin-bottom: .2rem; }
@@ -60,12 +64,15 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .panel h3 { margin: .7rem 0 .4rem; color: #c18c70; font-size: .82rem; }
 .card-list { display: flex; flex-wrap: wrap; gap: .35rem; }
 .secret { border-color: #9d665e; background: linear-gradient(145deg, #3c2228, #251b20); }
+.personal-secret { border-color: #8d75b2; background: linear-gradient(145deg, #30263f, #211b29); }
+.personal-secret strong { color: #d7c0f0; font: 700 1.3rem "SimSun", serif; }
 .panel p { margin: .45rem 0; font-size: .88rem; }
 .reference details { border-top: 1px solid #44383d; padding: .5rem 0; }
 .reference summary { cursor: pointer; color: #e0bea2; }
 .log { max-height: 470px; overflow: auto; }
 .log article { border-top: 1px solid #44383d; padding: .6rem 0; }
 .log article p { margin-bottom: 0; }
+.log article .log-detail { padding-left: .6rem; color: #c9bcc0; font-size: .8rem; }
 .tools { display: flex; flex-wrap: wrap; gap: .4rem; }
 .replay { position: fixed; inset: 4vh 5vw; z-index: 10; display: flex; flex-direction: column; padding: 1rem; border: 1px solid #9d665e; border-radius: .7rem; background: #171416; box-shadow: 0 1rem 5rem #000; }
 .replay header { display: flex; justify-content: space-between; align-items: center; }

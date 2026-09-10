@@ -1,18 +1,23 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function createBtxGame(page: Page) {
+async function createGame(page: Page, module = "BTX") {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "悲剧轮回" })).toBeVisible();
   await expect(page.getByLabel("规则集").locator("option")).toHaveCount(8);
-  await page.getByLabel("规则集").selectOption("BTX");
+  await page.getByLabel("规则集").selectOption(module);
   await page.getByRole("button", { name: "新建对局" }).click();
   await expect(page.getByText(/轮回 1\/.*第 1 天/)).toBeVisible();
 }
+
+const createBtxGame = (page: Page) => createGame(page, "BTX");
 
 async function selectFirstAction(page: Page) {
   const hand = page.locator(".actions-panel .hand button");
   if (await hand.count()) {
     await hand.first().click();
+    await page.locator(".actions-panel .action-grid button").first().click();
+  } else if (await page.locator(".actions-panel .guess-characters button").count()) {
+    await page.locator(".actions-panel .guess-characters button").first().click();
     await page.locator(".actions-panel .action-grid button").first().click();
   } else {
     await page.locator(".actions-panel .action-grid button").first().click();
@@ -108,3 +113,41 @@ test("every supported ruleset creates and renders through the browser protocol",
   }
   expect(pageErrors).toEqual([]);
 });
+
+test("ruleset-specific private and public resources have dedicated presentation", async ({ page }) => {
+  await createGame(page, "LL");
+  await page.getByRole("button", { name: "主人公 A", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "你的 Last Liar 秘密" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "剧作家资料" })).toHaveCount(0);
+  await page.getByRole("button", { name: "公开视角" }).click();
+  await expect(page.getByRole("heading", { name: "你的 Last Liar 秘密" })).toHaveCount(0);
+
+  await createGame(page, "AHR");
+  await expect(page.getByText("Ex 槽 0", { exact: true })).toBeVisible();
+  await expect(page.getByText("当前世界：表世界", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "剧作家", exact: true }).click();
+  await page.getByText("身份配置", { exact: true }).click();
+  await expect(page.getByText(/里身份/).first()).toBeVisible();
+
+  await createGame(page, "HSA");
+  await expect(page.locator(".location").first()).toContainText("尸体 0");
+  await expect(page.getByRole("heading", { name: "事件日程" }).locator(".." )).toContainText("癫狂杀人");
+
+  await createGame(page, "WM");
+  await expect(page.getByText("Ex 槽 0", { exact: true })).toBeVisible();
+});
+
+for (const module of ["FS", "MZ", "MC", "HSA", "WM", "AHR", "LL"]) {
+  test(`${module} generic action UI reaches a formal result`, async ({ page }) => {
+    test.setTimeout(120_000);
+    await createGame(page, module);
+    for (let step = 0; step < 600; step += 1) {
+      if (await page.locator(".outcome").count()) break;
+      const actor = (await page.locator(".status-strip > div").nth(2).locator("strong").innerText()).trim();
+      await page.getByRole("button", { name: actor, exact: true }).click();
+      await expect(page.locator(".actions-panel button").first()).toBeVisible();
+      await selectFirstAction(page);
+    }
+    await expect(page.locator(".outcome"), `${module} did not reach game_over`).toContainText("胜利");
+  });
+}

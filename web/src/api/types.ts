@@ -99,6 +99,7 @@ export interface SecretView {
   current_loop_days: number;
   ability_day_used: string[];
   ability_loop_used: string[];
+  hidden_roles?: Record<string, string>;
   [extension: string]: unknown;
 }
 export interface GameView {
@@ -148,6 +149,7 @@ export interface GameView {
   schedule: Array<{ day: number; kind: string }>;
   incidents: Array<Record<string, unknown>>;
   guess_remaining: string[];
+  protagonist_secret?: "A" | "B" | "C";
   secret?: SecretView;
   [rulesetField: string]: unknown;
 }

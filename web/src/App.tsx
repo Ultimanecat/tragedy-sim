@@ -24,6 +24,10 @@ function itemName(items: Array<{ id: string; name: string }> | undefined, id: un
 
 function targetName(game: GameView, target: unknown) {
   const id = String(target ?? "");
+  if (id.endsWith("@surface") || id.endsWith("@hidden")) {
+    const [character, side] = id.split("@");
+    return `${game.characters[character]?.name ?? character}（${side === "surface" ? "表" : "里"}身份）`;
+  }
   return game.characters[id]?.name ?? game.labels.locations[id as keyof typeof game.locations] ?? id;
 }
 
@@ -35,6 +39,12 @@ function winnerName(game: GameView) {
     return `背叛者（${game.labels.actors[seat]}）胜利`;
   }
   return game.winner ? `${game.winner}胜利` : "";
+}
+
+function abilityUseName(game: GameView, key: string) {
+  const [, character, ability] = key.split(":");
+  const definition = game.characters[character]?.abilities.find(item => item.id === ability);
+  return `${game.characters[character]?.name ?? character} · ${definition?.text ?? ability}`;
 }
 
 export function Board({ game, catalog }: { game: GameView; catalog: CatalogResponse | null }) {
@@ -59,14 +69,22 @@ export function Board({ game, catalog }: { game: GameView; catalog: CatalogRespo
                 {character.friended_token && <span>交友完毕</span>}
                 {character.death_token && <span>死亡完毕</span>}
               </div>
+              <details className="character-reference"><summary>角色资料</summary>
+                <p>属性：{character.traits.join("、") || "无"}</p>
+                <p>禁行：{character.forbidden.map(id => game.labels.locations[id]).join("、") || "无"}</p>
+                {character.abilities.map(ability => <p key={`${ability.id}-${ability.threshold}`}>
+                  友好 {ability.threshold}：{ability.text}{ability.once ? "（限次）" : ""}{ability.unrefusable ? "（不可拒绝）" : ""}
+                </p>)}
+                {character.passive && <p>被动：{character.passive}</p>}
+              </details>
             </div>)}
         </div>
       </article>)}
     </section>
-    {(game.ex_gauge > 0 || game.world || game.sealed_boards.length > 0 || Object.keys(game.movement_locks).length > 0) &&
+    {(["MC", "WM", "AHR"].includes(game.module) || game.world || game.sealed_boards.length > 0 || Object.keys(game.movement_locks).length > 0) &&
       <section className="panel public-effects"><h2>公开特殊状态</h2>
-        {game.ex_gauge > 0 && <span>Ex 槽 {game.ex_gauge}</span>}
-        {game.world && <span>当前世界：{game.world}</span>}
+        {["MC", "WM", "AHR"].includes(game.module) && <span>Ex 槽 {game.ex_gauge}</span>}
+        {game.world && <span>当前世界：{game.world === "surface" ? "表世界" : "里世界"}</span>}
         {game.sealed_boards.map(item => <span key={item.board}>{game.labels.locations[item.board]}封锁至第 {item.through} 天</span>)}
         {Object.entries(game.movement_locks).map(([id, day]) => <span key={id}>{game.characters[id]?.name ?? id}第 {day} 天不能移动</span>)}
       </section>}
@@ -96,6 +114,7 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
   busy: boolean; onAction: (offer: ActionOffer) => void;
 }) {
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
+  const [selectedGuess, setSelectedGuess] = useState<string | null>(null);
   const [selected, setSelected] = useState<ActionOffer | null>(null);
   const playGroups = useMemo(() => {
     const groups = new Map<string, ActionOffer[]>();
@@ -105,9 +124,18 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
     }
     return groups;
   }, [offers]);
-  const others = offers.filter(item => item.type !== "play");
+  const guessGroups = useMemo(() => {
+    const groups = new Map<string, ActionOffer[]>();
+    for (const item of offers.filter(candidate => candidate.type === "guess")) {
+      const key = String(item.parameters.character);
+      groups.set(key, [...(groups.get(key) ?? []), item]);
+    }
+    return groups;
+  }, [offers]);
+  const others = offers.filter(item => item.type !== "play" && item.type !== "guess");
   const actor = offers[0]?.actor;
   const choices = selectedCard ? playGroups.get(selectedCard) ?? [] : [];
+  const guesses = selectedGuess ? guessGroups.get(selectedGuess) ?? [] : [];
   return <section className="panel actions-panel">
     <h2>可执行行动</h2>
     {!offers.length && <p className="muted">当前视角没有可执行行动。</p>}
@@ -127,6 +155,19 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
           {targetName(game, offer.parameters.target) || offer.label}</button>)}
       </div></>}
     </>}
+    {!!guessGroups.size && <>
+      <p className="step-label">1. 选择要猜测的角色/身份面</p><div className="guess-characters">
+        {[...guessGroups].map(([character, available]) => <button className={selectedGuess === character ? "selected" : ""}
+          disabled={busy} key={character} onClick={() => { setSelectedGuess(character); setSelected(null); }}>
+          {targetName(game, character)}<small>{available.length} 个身份候选</small>
+        </button>)}
+      </div>
+      {selectedGuess && <><p className="step-label">2. 选择身份</p><div className="action-grid">
+        {guesses.map(offer => <button className={selected?.id === offer.id ? "selected" : ""}
+          disabled={busy} key={offer.id} onClick={() => setSelected(offer)}>
+          {itemName(catalog?.roles, offer.parameters.role)}</button>)}
+      </div></>}
+    </>}
     {selected && <div className="confirm-bar"><span>{selected.label}</span>
       <button className="primary" disabled={busy} onClick={() => onAction(selected)}>确认执行</button></div>}
   </section>;
@@ -136,12 +177,20 @@ function Knowledge({ game, catalog }: { game: GameView; catalog: CatalogResponse
   const roles = Object.entries(game.known_roles);
   const culprits = Object.entries(game.known_culprits);
   return <section className="panel"><h2>公开知识</h2>
-    {!roles.length && !culprits.length && !game.known_plots.length && !game.protected && <p className="muted">尚无额外公开情报。</p>}
-    {roles.map(([character, fact]) => <p key={character}>{game.characters[character]?.name ?? character}：
-      {itemName(catalog?.roles, fact.role)}（轮回 {fact.loop} / 第 {fact.day} 天）</p>)}
+    {!roles.length && !culprits.length && !game.known_plots.length &&
+      !game.ability_day_used.length && !game.ability_loop_used.length && !game.protected && <p className="muted">尚无额外公开情报。</p>}
+    {roles.map(([character, fact]) => {
+      const claim = [...game.role_announcements].reverse().find(item => item.character === character);
+      return <p key={character}>{game.module === "MZ" ? "公开宣称" : "历史确认"}：{game.characters[character]?.name ?? character} →
+        {itemName(catalog?.roles, fact.role)}（轮回 {fact.loop} / 第 {fact.day} 天）
+        {claim?.may_be_ninja_claim ? "（可能是忍者的宣称）" : ""}</p>;
+    })}
     {culprits.map(([day, character]) => <p key={day}>第 {day} 天事件当事人：{game.characters[character]?.name ?? character}</p>)}
     {game.known_plots.map(plot => <p key={plot}>已公开规则：{itemName(catalog?.plots, plot)}</p>)}
+    {[...new Set([...game.ability_day_used, ...game.ability_loop_used])].map(key => <p key={key}>
+      已声明能力：{abilityUseName(game, key)}{game.ability_loop_used.includes(key) ? "（本轮限次已使用）" : "（今日已使用）"}</p>)}
     {game.protected && <p>本轮主人公受到公开保护。</p>}
+    {game.phase === "final_guess" && <p>最终猜测尚余：{game.guess_remaining.map(id => targetName(game, id)).join("、") || "无"}</p>}
   </section>;
 }
 
@@ -255,17 +304,34 @@ export default function App() {
         <div><small>{game.title} · {game.module_name}</small><strong>轮回 {game.loop}/{game.loops} · 第 {game.round}/{game.days} 天</strong></div>
         <div><small>{game.phase_name}</small><strong>{game.timepoint}</strong></div>
         <div><small>当前操作者</small><strong>{game.controller ? game.labels.actors[game.controller] : "结算完成"}</strong></div>
+        <div><small>领队与讨论</small><strong>{game.labels.actors[game.leader]} · {game.table_talk ? "允许讨论" : "禁止讨论"}</strong></div>
       </section>
       {game.winner && <section className="outcome" role="status">{winnerName(game)}</section>}
       <div className="workspace"><div><Board game={game} catalog={catalog} /><Actions key={`${viewer}:${offers.map(item => item.id).join(",")}`} offers={offers} catalog={catalog} game={game} busy={busy} onAction={act} /></div><aside>
-        {game.secret && <section className="panel secret"><h2>剧作家资料</h2><p>规则 Y：{itemName(catalog?.plots, game.secret.main_plot)}</p><p>规则 X：{game.secret.subplots.map(id => itemName(catalog?.plots, id)).join("、")}</p><details><summary>身份配置</summary>{Object.entries(game.secret.roles).map(([id, role]) => <p key={id}>{game.characters[id]?.name ?? id}：{itemName(catalog?.roles, role)}</p>)}</details></section>}
+        {game.protagonist_secret && <section className="panel personal-secret"><h2>你的 Last Liar 秘密</h2><strong>秘密 {game.protagonist_secret}</strong><p>此编号只对当前主人公可见，请勿向其他玩家展示。</p></section>}
+        {game.secret && <section className="panel secret"><h2>剧作家资料</h2><p>规则 Y：{itemName(catalog?.plots, game.secret.main_plot)}</p><p>规则 X：{game.secret.subplots.map(id => itemName(catalog?.plots, id)).join("、")}</p><p>本轮实际天数：{game.secret.current_loop_days}</p>
+          <details><summary>身份配置</summary>{Object.entries(game.secret.roles).map(([id, role]) => <p key={id}>{game.characters[id]?.name ?? id}：{itemName(catalog?.roles, role)}{game.secret?.hidden_roles?.[id] ? `／里身份 ${itemName(catalog?.roles, game.secret.hidden_roles[id])}` : ""}</p>)}</details>
+          <details><summary>事件当事人</summary>{game.secret.incidents.map((incident, index) => <p key={index}>第 {String(incident.day)} 天 · {itemName(catalog?.incidents, incident.kind)}：{targetName(game, incident.culprit)}</p>)}</details>
+          {(game.secret.ability_day_used.length > 0 || game.secret.ability_loop_used.length > 0) && <details><summary>完整能力使用记录</summary>
+            {game.secret.ability_day_used.map(key => <p key={`day-${key}`}>今日：{abilityUseName(game, key)}</p>)}
+            {game.secret.ability_loop_used.map(key => <p key={`loop-${key}`}>本轮：{abilityUseName(game, key)}</p>)}
+          </details>}
+          {!!game.secret.loss_reasons.length && <details><summary>内部失败诊断</summary>{game.secret.loss_reasons.map((reason, index) => <p key={index}>{reason}</p>)}</details>}
+        </section>}
         <section className="panel"><h2>事件日程</h2>{game.schedule.map(item => {
           const record = game.incidents.find(candidate => candidate.day === item.day);
           const status = !record ? "未结算" : record.happened ? (record.effective ? "已发生" : "发生但无效果") : "未发生";
-          return <p key={`${item.day}-${item.kind}`}>第 {item.day} 天 · {itemName(catalog?.incidents, item.kind)} · {status}</p>;
+          const board = "board" in item ? ` · ${game.labels.locations[item.board as keyof typeof game.locations]}` : "";
+          return <p key={`${item.day}-${item.kind}`}>第 {item.day} 天 · {itemName(catalog?.incidents, item.kind)}{board} · {status}</p>;
         })}</section>
         <Cards game={game} catalog={catalog} viewer={viewer} /><Knowledge game={game} catalog={catalog} /><RulesReference catalog={catalog} />
-        <section className="panel log"><h2>公开日志</h2>{[...game.events].reverse().map((event, index) => <article key={`${event.loop}-${event.round}-${index}`}><small>{event.timepoint}</small><p>{event.message}</p></article>)}</section>
+        <section className="panel log"><h2>公开日志</h2>{[...game.events].reverse().map((event, index) => <article key={`${event.loop}-${event.round}-${index}`}><small>{event.timepoint}</small><p>{event.message}</p>
+          {Array.isArray(event.cards) && event.cards.map((placement, cardIndex) => {
+            const card = placement as Record<string, unknown>;
+            const actor = String(card.actor) as Seat;
+            return <p className="log-detail" key={cardIndex}>{game.labels.actors[actor]}：
+              {itemName(catalog?.cards[actor], card.card)} → {targetName(game, card.target)}</p>;
+          })}</article>)}</section>
         <section className="panel tools"><button onClick={saveSnapshot}>保存 JSON</button><button onClick={() => void readReplay()}>查看回放</button><button onClick={() => void readReplay(true)}>导出回放</button><button onClick={() => void refresh()}>刷新</button></section>
       </aside></div>
       {replayText && <section className="replay" role="dialog" aria-label="只读回放"><header><h2>对局回放</h2><button onClick={() => setReplayText("")}>关闭</button></header><pre>{replayText}</pre></section>}
