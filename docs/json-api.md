@@ -119,7 +119,7 @@ POST   /v1/rooms                         创建房间并占据一个座位
 GET    /v1/rooms/{code}                  读取公开大厅状态
 POST   /v1/rooms/{code}/join             占据空座位
 POST   /v1/rooms/{code}/ready            设置自己的准备状态
-POST   /v1/rooms/{code}/start            房主在四人均准备后开始
+POST   /v1/rooms/{code}/start            房主在所需参与者均准备后开始
 POST   /v1/rooms/{code}/leave            开始前释放自己的座位
 POST   /v1/rooms/{code}/kick             房主释放误占座位
 GET    /v1/rooms/{code}/updates          比较房间与游戏 revision
@@ -129,8 +129,11 @@ DELETE /v1/rooms/{code}                  房主关闭房间
 创建请求示例：
 
 ```json
-{"module":"BTX","nickname":"房主","seat":"m","spectators":true}
+{"module":"BTX","nickname":"房主","seat":"m","spectators":true,"protagonist_count":2}
 ```
+
+`protagonist_count` 可为 1、2、3，省略时为 3。LL 只接受 3。公开房间状态提供 `required_seats`、
+`ready_to_start`、`logical_leader` 与 `human_leader`，客户端不应自行推导动态控制权。
 
 创建者获得 `credential.room_token`、`credential.admin_token` 和自己的 `seat`；加入者只获得自己的
 `room_token` 和 `seat`。房间公开响应只包含昵称、准备/在线状态、房间阶段及 revision，不包含游戏 session、
@@ -147,6 +150,14 @@ POST /v1/rooms/{code}/game/commands
 命令正文仍然只有 `action_id` 和 `expected_revision`，最终由原有 `GameService` 校验。房主另可使用管理令牌访问
 `game/snapshot` 和 `game/replay`。`updates` 接受 `room_revision` 与 `game_revision` 查询参数，返回
 `room_changed` / `game_changed`；第一版客户端每秒轮询，但只在 revision 变化时重新读取游戏视图。
+
+少人数模式不改变规则引擎的 `m/a/b/c` 逻辑 actor。`game/actions` 返回该真人此刻获准执行的所有合法行动和
+`controlled_actors`；`game/view` 的 `controlled_hands` 只包含其当前获准查看的手牌。两名主人公玩家时，
+A、B 固定控制自己的行动牌，当天真人领队额外控制 C 的行动牌和逻辑领队负责的团队选择；领队轮换后旧的
+action ID 会因 revision 变化失效。服务端在提交时重新计算授权，浏览器不能声明或扩大自己的控制范围。
+
+房间导出的 `.tlr` 仍以原始逻辑命令重演；以 `# ROOM_ACTOR` 开头的注释额外记录真人参与者昵称与实际逻辑
+actor，旧版解析器会安全忽略这些注释。
 
 房间码和所有令牌均由密码学安全随机源生成。HTTP 层限制正文大小、请求频率和字段集合；等待、进行中和已结束房间
 分别在长时间无活动后清理。令牌保存在浏览器本地以支持刷新重连，但不会跨浏览器或设备自动复制。

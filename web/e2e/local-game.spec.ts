@@ -13,6 +13,9 @@ async function createGame(page: Page, module = "BTX") {
 const createBtxGame = (page: Page) => createGame(page, "BTX");
 
 async function selectFirstAction(page: Page) {
+  await expect(page.locator(
+    ".actions-panel .hand button, .actions-panel .guess-characters button, .actions-panel .action-grid button",
+  ).first()).toBeVisible();
   const hand = page.locator(".actions-panel .hand button");
   if (await hand.count()) {
     await hand.first().click();
@@ -72,6 +75,75 @@ test("four isolated browser sessions join, ready and receive synchronized privat
     await expect(a.getByText("第 1 天剧作家出牌阶段", { exact: true })).toBeVisible();
     await expect(a.getByText("你的席位：主人公 A", { exact: true })).toBeVisible();
     expect(await a.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  } finally {
+    await Promise.all(contexts.map(context => context.close()));
+  }
+});
+
+test("one protagonist browser controls A, B and C in a two-person room", async ({ browser }) => {
+  const hostContext = await browser.newContext();
+  const heroContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const host = await hostContext.newPage();
+  const hero = await heroContext.newPage();
+  try {
+    await host.goto("/");
+    await host.getByLabel("主人公玩家人数").selectOption("1");
+    await host.getByLabel("昵称").fill("Host");
+    await host.getByRole("button", { name: "创建房间" }).click();
+    await expect(host.getByRole("heading", { name: "等待所有玩家入座并准备" })).toBeVisible();
+    const invite = host.url();
+    await hero.goto(invite);
+    await expect(hero.getByRole("heading", { name: "等待所有玩家入座并准备" })).toBeVisible();
+    await hero.getByLabel("你的昵称").fill("Solo");
+    await hero.locator(".seat-grid article").filter({ hasText: "主人公 A" }).getByRole("button", { name: "坐到这里" }).click();
+    await host.getByRole("button", { name: "我已准备" }).click();
+    await hero.getByRole("button", { name: "我已准备" }).click();
+    await expect(host.getByRole("button", { name: "开始游戏" })).toBeEnabled();
+    await host.getByRole("button", { name: "开始游戏" }).click();
+
+    for (let step = 0; step < 4; step += 1) await selectFirstAction(host);
+    await expect(hero.getByRole("heading", { name: "主人公 A手牌" })).toBeVisible();
+    await expect(hero.getByRole("heading", { name: "主人公 B手牌（由你代管）" })).toBeVisible();
+    await expect(hero.getByRole("heading", { name: "主人公 C手牌（由你代管）" })).toBeVisible();
+    await expect(hero.locator(".actions-panel .hand button").first()).toBeVisible();
+    for (const actor of ["A", "B", "C"]) {
+      await selectFirstAction(hero);
+      await expect(hero.locator(".placement").filter({ hasText: `主人公 ${actor}` })).toBeVisible();
+    }
+  } finally {
+    await Promise.all([hostContext.close(), heroContext.close()]);
+  }
+});
+
+test("two protagonist browsers alternate fixed cards and delegate C to the leader", async ({ browser }) => {
+  const contexts = await Promise.all([0, 1, 2].map(() => browser.newContext()));
+  const [host, a, b] = await Promise.all(contexts.map(context => context.newPage()));
+  try {
+    await host.goto("/");
+    await host.getByLabel("主人公玩家人数").selectOption("2");
+    await host.getByLabel("昵称").fill("Host");
+    await host.getByRole("button", { name: "创建房间" }).click();
+    await expect(host.getByRole("heading", { name: "等待所有玩家入座并准备" })).toBeVisible();
+    const invite = host.url();
+    for (const [page, seat, name] of [[a, "A", "Alice"], [b, "B", "Bob"]] as const) {
+      await page.goto(invite);
+      await expect(page.getByRole("heading", { name: "等待所有玩家入座并准备" })).toBeVisible();
+      await page.getByLabel("你的昵称").fill(name);
+      await page.locator(".seat-grid article").filter({ hasText: `主人公 ${seat}` }).getByRole("button", { name: "坐到这里" }).click();
+    }
+    for (const page of [host, a, b]) await page.getByRole("button", { name: "我已准备" }).click();
+    await expect(host.getByRole("button", { name: "开始游戏" })).toBeEnabled();
+    await host.getByRole("button", { name: "开始游戏" }).click();
+    for (let step = 0; step < 4; step += 1) await selectFirstAction(host);
+
+    await expect(a.getByText("今日真人领队：Alice（代管 C）", { exact: true })).toBeVisible();
+    await expect(a.getByRole("heading", { name: "主人公 C手牌（由你代管）" })).toBeVisible();
+    await expect(b.getByRole("heading", { name: "主人公 C手牌（由你代管）" })).toHaveCount(0);
+    await expect(a.locator(".actions-panel .hand button").first()).toBeVisible();
+    await selectFirstAction(a);
+    await selectFirstAction(b);
+    await selectFirstAction(a);
+    await expect(a.locator(".placement").filter({ hasText: "主人公 C" })).toBeVisible();
   } finally {
     await Promise.all(contexts.map(context => context.close()));
   }

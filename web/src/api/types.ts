@@ -126,6 +126,13 @@ export interface GameView {
   locations: Record<LocationId, number>;
   board_ex: Record<LocationId, number>;
   hand: string[];
+  controlled_hands?: Partial<Record<Seat, string[]>>;
+  participant?: {
+    seat: Seat;
+    human_leader: Seat;
+    is_human_leader: boolean;
+    card_actors: Seat[];
+  };
   discarded: Record<Seat, string[]>;
   pending: Array<Record<string, unknown>>;
   events: PublicEvent[];
@@ -181,6 +188,7 @@ export interface ActionsResponse {
   session_id: string;
   revision: number;
   actor: Seat;
+  controlled_actors?: Seat[];
   actions: ActionOffer[];
 }
 export interface CommandRequest { action_id: string; expected_revision: number }
@@ -204,6 +212,11 @@ export interface RoomState {
   revision: number;
   game_revision: number;
   spectators: boolean;
+  protagonist_count: 1 | 2 | 3;
+  required_seats: Seat[];
+  human_leader: Seat;
+  logical_leader: Seat;
+  ready_to_start: boolean;
   seats: Record<Seat, RoomOccupant | null>;
 }
 export interface RoomCredential {

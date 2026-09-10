@@ -129,7 +129,6 @@ export class ApiClient {
 
   async command(actor: Seat, actionId: string): Promise<CommandResponse> {
     if (this.room) {
-      if (actor !== this.room.seat) throw new ApiError("FORBIDDEN", "只能提交自己的行动", 403);
       const response = await this.request<CommandResponse>("command",
         `/v1/rooms/${this.room.code}/game/commands`, {
           method: "POST",
@@ -186,10 +185,12 @@ export class ApiClient {
     return response.text();
   }
 
-  async createRoom(module: ModuleId, nickname: string, seat: Seat, spectators = true) {
+  async createRoom(module: ModuleId, nickname: string, seat: Seat, spectators = true,
+                   protagonistCount: 1 | 2 | 3 = 3) {
     const response = await this.request<RoomResponse>("room-mutation", "/v1/rooms", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ module, nickname, seat, spectators }),
+      body: JSON.stringify({ module, nickname, seat, spectators,
+                             protagonist_count: protagonistCount }),
     });
     return this.acceptRoom(response);
   }

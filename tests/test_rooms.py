@@ -6,6 +6,7 @@ from threading import Thread
 import unittest
 
 from tragedy_sim.rooms import RoomService, WAITING_TTL
+from tragedy_sim.replay import ReplayArchive
 from tragedy_sim.server import create_server
 from tragedy_sim.service import ServiceError
 
@@ -118,6 +119,115 @@ class RoomServiceTests(unittest.TestCase):
         with self.assertRaises(ServiceError) as expired:
             rooms.get(created["room"]["code"])
         self.assertEqual(expired.exception.code, "ROOM_NOT_FOUND")
+
+
+class ReducedPlayerRoomTests(unittest.TestCase):
+    def make_room(self, count, module="BTX"):
+        rooms = RoomService()
+        created = rooms.create({"module": module, "nickname": "Mastermind", "seat": "m",
+                                "protagonist_count": count})
+        code = created["room"]["code"]
+        tokens = {"m": created["credential"]["room_token"]}
+        for seat in "abc"[:count]:
+            joined = rooms.join(code, {"nickname": f"Hero {seat.upper()}", "seat": seat})
+            tokens[seat] = joined["credential"]["room_token"]
+        for token in tokens.values():
+            rooms.ready(code, {"ready": True}, token=token)
+        admin = created["credential"]["admin_token"]
+        rooms.start(code, token=admin)
+        return rooms, code, tokens, admin
+
+    @staticmethod
+    def act_first_available(rooms, code, tokens):
+        available = []
+        for participant, token in tokens.items():
+            actions = rooms.game_actions(code, token=token)
+            if actions["actions"]:
+                available.append((participant, token, actions))
+        if len(available) != 1:
+            raise AssertionError(f"expected one human controller, got {[item[0] for item in available]}")
+        _, token, actions = available[0]
+        offer = actions["actions"][0]
+        rooms.game_command(code, {"action_id": offer["id"],
+                                  "expected_revision": actions["revision"]}, token=token)
+        return offer
+
+    def test_one_protagonist_controls_all_three_logical_hands_and_completes(self):
+        rooms, code, tokens, admin = self.make_room(1)
+        view = rooms.game_view(code, token=tokens["a"])["state"]
+        self.assertEqual(set(view["controlled_hands"]), {"a", "b", "c"})
+        for _ in range(600):
+            if rooms.game_view(code)["state"]["winner"]:
+                break
+            self.act_first_available(rooms, code, tokens)
+        else:
+            self.fail("two-person match did not finish")
+        replay = rooms.game_replay(code, token=admin)
+        self.assertIn('"nickname":"Hero A"', replay)
+        self.assertIn('"actor":"b"', replay)
+        ReplayArchive.parse(replay)
+
+    def test_two_protagonists_alternate_leader_and_delegate_c_card_only(self):
+        rooms, code, tokens, _ = self.make_room(2)
+        self.assertEqual(rooms.get(code)["room"]["human_leader"], "a")
+        self.act_first_available(rooms, code, tokens)  # day start
+        for _ in range(3):
+            self.assertEqual(self.act_first_available(rooms, code, tokens)["actor"], "m")
+
+        a_actions = rooms.game_actions(code, token=tokens["a"])
+        self.assertEqual({offer["actor"] for offer in a_actions["actions"]}, {"a"})
+        self.assertEqual(rooms.game_actions(code, token=tokens["b"])["actions"], [])
+        rooms.game_command(code, {"action_id": a_actions["actions"][0]["id"],
+                                  "expected_revision": a_actions["revision"]}, token=tokens["a"])
+
+        b_actions = rooms.game_actions(code, token=tokens["b"])
+        self.assertEqual({offer["actor"] for offer in b_actions["actions"]}, {"b"})
+        self.assertEqual(rooms.game_actions(code, token=tokens["a"])["actions"], [])
+        rooms.game_command(code, {"action_id": b_actions["actions"][0]["id"],
+                                  "expected_revision": b_actions["revision"]}, token=tokens["b"])
+
+        c_actions = rooms.game_actions(code, token=tokens["a"])
+        self.assertEqual({offer["actor"] for offer in c_actions["actions"]}, {"c"})
+        self.assertEqual(rooms.game_actions(code, token=tokens["b"])["actions"], [])
+        self.assertIn("c", rooms.game_view(code, token=tokens["a"])["state"]["controlled_hands"])
+        self.assertNotIn("c", rooms.game_view(code, token=tokens["b"])["state"]["controlled_hands"])
+        rooms.game_command(code, {"action_id": c_actions["actions"][0]["id"],
+                                  "expected_revision": c_actions["revision"]}, token=tokens["a"])
+
+        for _ in range(100):
+            if rooms.get(code)["room"]["human_leader"] == "b":
+                break
+            self.act_first_available(rooms, code, tokens)
+        else:
+            self.fail("human leader did not alternate")
+        state_a = rooms.game_view(code, token=tokens["a"])["state"]
+        state_b = rooms.game_view(code, token=tokens["b"])["state"]
+        self.assertNotIn("c", state_a["controlled_hands"])
+        self.assertIn("c", state_b["controlled_hands"])
+        for _ in range(600):
+            if rooms.game_view(code)["state"]["winner"]:
+                break
+            self.act_first_available(rooms, code, tokens)
+        else:
+            self.fail("three-person match did not finish")
+
+    def test_last_liar_requires_three_protagonist_players(self):
+        rooms = RoomService()
+        for count in (1, 2):
+            with self.assertRaises(ServiceError) as rejected:
+                rooms.create({"module": "LL", "nickname": "Host", "seat": "m",
+                              "protagonist_count": count})
+            self.assertEqual(rejected.exception.code, "PLAYER_COUNT_NOT_SUPPORTED")
+        accepted = rooms.create({"module": "LL", "nickname": "Host", "seat": "m",
+                                 "protagonist_count": 3})
+        self.assertEqual(accepted["room"]["required_seats"], ["m", "a", "b", "c"])
+
+    def test_room_command_rejects_invalid_field_types(self):
+        rooms, code, tokens, _ = self.make_room(1)
+        with self.assertRaises(ServiceError) as rejected:
+            rooms.game_command(code, {"action_id": [], "expected_revision": "zero"},
+                               token=tokens["a"])
+        self.assertEqual(rejected.exception.code, "INVALID_REQUEST")
 
 
 class RoomHttpTests(unittest.TestCase):

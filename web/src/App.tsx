@@ -103,10 +103,11 @@ export function Board({ game, catalog }: { game: GameView; catalog: CatalogRespo
 function Cards({ game, catalog, viewer }: { game: GameView; catalog: CatalogResponse | null; viewer: Viewer }) {
   const cardName = (seat: Seat, id: string) => itemName(catalog?.cards[seat], id);
   const discarded = Object.entries(game.discarded).filter(([, cards]) => cards.length);
+  const hands = game.controlled_hands ?? (viewer === "spectator" ? {} : { [viewer]: game.hand });
   return <section className="panel"><h2>手牌与公开留置</h2>
-    {viewer !== "spectator" && <><h3>{game.labels.actors[viewer]}手牌</h3><div className="card-list">
-      {game.hand.map(id => <span key={id}>{cardName(viewer, id)}</span>)}
-    </div></>}
+    {Object.entries(hands).map(([seat, cards]) => <div key={seat}><h3>{game.labels.actors[seat as Seat]}手牌
+      {game.participant?.card_actors.includes(seat as Seat) && seat !== game.participant.seat ? "（由你代管）" : ""}</h3>
+      <div className="card-list">{cards?.map(id => <span key={id}>{cardName(seat as Seat, id)}</span>)}</div></div>)}
     {!discarded.length && <p className="muted">目前没有公开留置牌。</p>}
     {discarded.map(([seat, cards]) => <p key={seat}>{game.labels.actors[seat as Seat]}：
       {cards.map(id => cardName(seat as Seat, id)).join("、")}</p>)}
@@ -219,12 +220,14 @@ export default function App() {
   const [preferredSeat, setPreferredSeat] = useState<Seat>("m");
   const [roomEntry, setRoomEntry] = useState("");
   const [allowSpectators, setAllowSpectators] = useState(true);
+  const [protagonistCount, setProtagonistCount] = useState<1 | 2 | 3>(3);
   const [game, setGame] = useState<GameView | null>(null);
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
   const [offers, setOffers] = useState<ActionOffer[]>([]);
   const [replayText, setReplayText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const effectiveProtagonistCount: 1 | 2 | 3 = module === "LL" ? 3 : protagonistCount;
 
   const persist = useCallback(() => {
     if (client.session) localStorage.setItem(SESSION_KEY, JSON.stringify(client.session));
@@ -240,8 +243,8 @@ export default function App() {
       setGame(response.state);
       const actor = response.state.controller;
       const ownSeat = client.room?.seat;
-      const mayAct = client.room ? actor === ownSeat : actor === nextViewer;
-      setOffers(actor && mayAct ? (await client.actions(actor)).actions : []);
+      if (client.room && ownSeat) setOffers((await client.actions(ownSeat)).actions);
+      else setOffers(actor && actor === nextViewer ? (await client.actions(actor)).actions : []);
       persist();
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === "AbortError") return;
@@ -267,7 +270,14 @@ export default function App() {
           ? await client.roomStatus(roomCode) : await client.roomUpdates();
         if (!client.room) client.observeRoom(response);
         if (!active) return;
-        setRoomInfo(response);
+        // Avoid replacing the lobby tree on every no-op poll (which can interrupt
+        // typing on slower/mobile browsers), but retain meaningful presence changes.
+        setRoomInfo(current => {
+          const presenceChanged = current && response.room.required_seats.some(seat =>
+            current.room.seats[seat]?.connected !== response.room.seats[seat]?.connected);
+          return initial || response.room_changed || response.game_changed || presenceChanged || !current
+            ? response : current;
+        });
         setModule(response.room.module);
         const seat = client.room?.seat ?? "spectator";
         setViewer(seat);
@@ -288,7 +298,6 @@ export default function App() {
     if (!game?.module) return;
     client.catalog(game.module).then(setCatalog).catch(() => setError("无法读取规则资料"));
   }, [client, game?.module]);
-
   async function createGame() {
     setBusy(true); setError(""); setOffers([]); setCatalog(null); setReplayText(""); setViewer("spectator");
     try { await client.create(module); persist(); await refresh("spectator"); }
@@ -305,7 +314,7 @@ export default function App() {
   async function createRoom() {
     setBusy(true); setError("");
     try {
-      const response = await client.createRoom(module, nickname, preferredSeat, allowSpectators);
+      const response = await client.createRoom(module, nickname, preferredSeat, allowSpectators, effectiveProtagonistCount);
       setRoomInfo(response); setViewer(preferredSeat); persist(); enterRoom(response.room.code);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "创建房间失败"); }
     finally { setBusy(false); }
@@ -392,7 +401,7 @@ export default function App() {
 
   const ownSeat = client.room?.seat;
   const ownOccupant = ownSeat ? roomInfo?.room.seats[ownSeat] : null;
-  const roomReady = roomInfo ? Object.values(roomInfo.room.seats).every(item => item?.ready) : false;
+  const roomReady = roomInfo?.room.ready_to_start ?? false;
   const shareUrl = roomCode ? `${window.location.origin}${window.location.pathname}?room=${roomCode}` : "";
 
   return <main>
@@ -409,7 +418,8 @@ export default function App() {
       {!roomInfo ? <h2>正在连接房间 {roomCode}…</h2> : <>
         <div className="lobby-intro"><div><p className="eyebrow">WAITING ROOM</p><h2>等待所有玩家入座并准备</h2></div>
           <div><label>邀请链接<input readOnly value={shareUrl} onFocus={event => event.currentTarget.select()} /></label><small>复制此链接给同一 Wi-Fi 下的玩家。</small></div></div>
-        <div className="seat-grid">{(["m", "a", "b", "c"] as Seat[]).map(seat => {
+        <p className="muted">本局由 1 名剧作家和 {roomInfo.room.protagonist_count} 名主人公玩家参与。</p>
+        <div className="seat-grid">{roomInfo.room.required_seats.map(seat => {
           const occupant = roomInfo.room.seats[seat];
           return <article className={occupant ? "occupied" : ""} key={seat}>
             <small>{seat === "m" ? "剧作家" : `主人公 ${seat.toUpperCase()}`}</small>
@@ -430,19 +440,30 @@ export default function App() {
       <article><h2>{client.session ? "正在恢复对局…" : "本机调试对局"}</h2><p>上方可新建本机对局并切换所有视角，适合规则调试。</p></article>
       <article><h2>创建局域网房间</h2><p>每台手机只会看到自己的手牌和私密信息。</p>
         <label>昵称<input maxLength={24} value={nickname} onChange={event => setNickname(event.target.value)} placeholder="你的显示名称" /></label>
-        <label>座位<select value={preferredSeat} onChange={event => setPreferredSeat(event.target.value as Seat)}><option value="m">剧作家</option><option value="a">主人公 A</option><option value="b">主人公 B</option><option value="c">主人公 C</option></select></label>
+        <label>主人公玩家人数<select aria-label="主人公玩家人数" value={effectiveProtagonistCount} disabled={module === "LL"} onChange={event => {
+          const count = Number(event.target.value) as 1 | 2 | 3;
+          setProtagonistCount(count);
+          if (preferredSeat !== "m" && !(["a", "b", "c"] as Seat[]).slice(0, count).includes(preferredSeat)) setPreferredSeat("m");
+        }}><option value="1">1 人（控制全部主人公）</option><option value="2">2 人（轮流领队并代管 C）</option><option value="3">3 人</option></select></label>
+        {module === "LL" && <small className="muted">Last Liar 必须由三名主人公玩家参与。</small>}
+        <label>你的参与者席位<select value={preferredSeat} onChange={event => setPreferredSeat(event.target.value as Seat)}><option value="m">剧作家</option>{(["a", "b", "c"] as Seat[]).slice(0, effectiveProtagonistCount).map(seat => <option value={seat} key={seat}>主人公 {seat.toUpperCase()}</option>)}</select></label>
         <label className="checkbox"><input type="checkbox" checked={allowSpectators} onChange={event => setAllowSpectators(event.target.checked)} />允许未入座者旁观公开棋盘</label>
         <button className="primary" disabled={busy || !nickname.trim()} onClick={() => void createRoom()}>创建房间</button>
         <div className="join-code"><input aria-label="房间码" maxLength={6} value={roomEntry} onChange={event => setRoomEntry(event.target.value.toUpperCase())} placeholder="输入 6 位房间码" /><button disabled={roomEntry.trim().length !== 6} onClick={() => enterRoom(roomEntry)}>进入房间</button></div>
       </article>
     </section> : <>
-      {roomInfo && <section className="room-bar"><strong>房间 {roomInfo.room.code}</strong><span>你的席位：{ownSeat ? game.labels.actors[ownSeat] : "旁观者"}</span><span>{Object.values(roomInfo.room.seats).filter(item => item?.connected).length}/4 在线</span></section>}
+      {roomInfo && <section className="room-bar"><strong>房间 {roomInfo.room.code}</strong><span>你的席位：{ownSeat ? game.labels.actors[ownSeat] : "旁观者"}</span>
+        {roomInfo.room.protagonist_count === 2 && <span>今日真人领队：{roomInfo.room.seats[roomInfo.room.human_leader]?.nickname}（代管 C）</span>}
+        {roomInfo.room.protagonist_count === 1 && <span>主人公玩家控制 A/B/C</span>}
+        <span>{roomInfo.room.required_seats.filter(seat => roomInfo.room.seats[seat]?.connected).length}/{roomInfo.room.required_seats.length} 在线</span></section>}
       {!roomCode && <nav className="viewer-tabs" aria-label="调试视角">{seats.map(seat => <button className={viewer === seat ? "active" : ""} disabled={busy} key={seat} onClick={() => switchViewer(seat)}>{seat === "spectator" ? "公开视角" : game.labels.actors[seat]}</button>)}</nav>}
       <section className="status-strip">
         <div><small>{game.title} · {game.module_name}</small><strong>轮回 {game.loop}/{game.loops} · 第 {game.round}/{game.days} 天</strong></div>
         <div><small>{game.phase_name}</small><strong>{game.timepoint}</strong></div>
         <div><small>当前操作者</small><strong>{game.controller ? game.labels.actors[game.controller] : "结算完成"}</strong></div>
-        <div><small>领队与讨论</small><strong>{game.labels.actors[game.leader]} · {game.table_talk ? "允许讨论" : "禁止讨论"}</strong></div>
+        <div><small>{roomInfo?.room.protagonist_count === 2 ? "逻辑领队 / 真人领队" : "领队与讨论"}</small><strong>{roomInfo?.room.protagonist_count === 2
+          ? `${game.labels.actors[game.leader]} / ${roomInfo.room.seats[roomInfo.room.human_leader]?.nickname}`
+          : `${game.labels.actors[game.leader]} · ${game.table_talk ? "允许讨论" : "禁止讨论"}`}</strong></div>
       </section>
       {game.winner && <section className="outcome" role="status">{winnerName(game)}</section>}
       <div className="workspace"><div><Board game={game} catalog={catalog} /><Actions key={`${viewer}:${offers.map(item => item.id).join(",")}`} offers={offers} catalog={catalog} game={game} busy={busy} onAction={act} /></div><aside>
