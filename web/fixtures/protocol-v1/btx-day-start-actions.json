@@ -1,0 +1,15 @@
+{
+  "protocol_version": 1,
+  "session_id": "fixture-session",
+  "revision": 0,
+  "actor": "m",
+  "actions": [
+    {
+      "id": "b8ec815dc8d1dabae5dc10c3",
+      "actor": "m",
+      "type": "next",
+      "parameters": {},
+      "label": "进入下一阶段"
+    }
+  ]
+}

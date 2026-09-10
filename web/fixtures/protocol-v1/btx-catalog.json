@@ -1,0 +1,1148 @@
+{
+  "protocol_version": 1,
+  "language": "zh",
+  "module": {
+    "id": "BTX",
+    "name": "Basic Tragedy X",
+    "subplot_count": 2,
+    "capabilities": {
+      "final_guess": true,
+      "early_final_guess": true
+    }
+  },
+  "locations": [
+    {
+      "id": "hospital",
+      "name": "医院"
+    },
+    {
+      "id": "shrine",
+      "name": "神社"
+    },
+    {
+      "id": "city",
+      "name": "都市"
+    },
+    {
+      "id": "school",
+      "name": "学校"
+    }
+  ],
+  "counters": [
+    {
+      "id": "paranoia",
+      "name": "不安"
+    },
+    {
+      "id": "goodwill",
+      "name": "友好"
+    },
+    {
+      "id": "intrigue",
+      "name": "密谋"
+    },
+    {
+      "id": "hope",
+      "name": "希望"
+    },
+    {
+      "id": "despair",
+      "name": "绝望"
+    }
+  ],
+  "plots": [
+    {
+      "id": "murder_plan",
+      "name": "谋杀计划",
+      "type": "Y",
+      "rule": "无追加规则；失败来源由身份能力决定。",
+      "roles": {
+        "key": 1,
+        "killer": 1,
+        "brain": 1
+      }
+    },
+    {
+      "id": "sealed",
+      "name": "被封印的邪灵",
+      "type": "Y",
+      "rule": "轮回结束：神社密谋 ≥2，主人公失败。",
+      "roles": {
+        "brain": 1,
+        "cultist": 1
+      }
+    },
+    {
+      "id": "sign",
+      "name": "和我签订契约吧！",
+      "type": "Y",
+      "rule": "关键人物必须具有少女属性；轮回结束时其密谋 ≥2，主人公失败。",
+      "roles": {
+        "key": 1
+      }
+    },
+    {
+      "id": "change",
+      "name": "改变未来",
+      "type": "Y",
+      "rule": "轮回结束：本轮发生过蝴蝶效应，主人公失败（不要求效果成功）。",
+      "roles": {
+        "cultist": 1,
+        "time_traveler": 1
+      }
+    },
+    {
+      "id": "bomb",
+      "name": "巨大定时炸弹 X",
+      "type": "Y",
+      "rule": "轮回结束：魔女的初始区域密谋 ≥2，主人公失败。",
+      "roles": {
+        "witch": 1
+      }
+    },
+    {
+      "id": "friends",
+      "name": "好友圈",
+      "type": "X",
+      "rule": "无追加规则。",
+      "roles": {
+        "friend": 2,
+        "conspiracy": 1
+      }
+    },
+    {
+      "id": "love",
+      "name": "恋爱风景线",
+      "type": "X",
+      "rule": "无追加规则。",
+      "roles": {
+        "loved": 1,
+        "lover": 1
+      }
+    },
+    {
+      "id": "lurking",
+      "name": "潜伏的杀人狂",
+      "type": "X",
+      "rule": "无追加规则。",
+      "roles": {
+        "friend": 1,
+        "serial": 1
+      }
+    },
+    {
+      "id": "rumor",
+      "name": "流言四起",
+      "type": "X",
+      "rule": "剧作家能力阶段可给任意版图密谋 +1，每轮一次。",
+      "roles": {
+        "conspiracy": 1
+      }
+    },
+    {
+      "id": "virus",
+      "name": "妄想扩大病毒",
+      "type": "X",
+      "rule": "常驻强制：存活平民的不安达到 3，即变为杀人狂，持续到轮回重置。",
+      "roles": {
+        "conspiracy": 1
+      }
+    },
+    {
+      "id": "threads",
+      "name": "因果线",
+      "type": "X",
+      "rule": "轮回开始：上轮结束时带有友好的所有角色（含尸体）各得不安 +2。",
+      "roles": {}
+    },
+    {
+      "id": "unknown",
+      "name": "未知因子 X",
+      "type": "X",
+      "rule": "无追加规则。",
+      "roles": {
+        "factor": 1
+      }
+    }
+  ],
+  "roles": [
+    {
+      "id": "ordinary",
+      "name": "平民",
+      "rule": "没有身份能力。"
+    },
+    {
+      "id": "key",
+      "name": "关键人物",
+      "rule": "死亡时强制立即结束轮回，主人公失败。"
+    },
+    {
+      "id": "killer",
+      "name": "杀手",
+      "rule": "可拒绝自身友好能力。日末可杀死同区域密谋 ≥2 的关键人物；自身密谋 ≥4 时可使主人公死亡。"
+    },
+    {
+      "id": "brain",
+      "name": "主谋",
+      "rule": "可拒绝自身友好能力。剧作家能力阶段可给同区域角色或所在版图密谋 +1。"
+    },
+    {
+      "id": "cultist",
+      "name": "邪教徒",
+      "rule": "必须拒绝自身友好能力。行动结算时可无效化同区域所有角色及版图上的禁止密谋。"
+    },
+    {
+      "id": "conspiracy",
+      "name": "传谣人",
+      "rule": "剧作家能力阶段可给同区域任意角色不安 +1。剧本人数上限 1。"
+    },
+    {
+      "id": "serial",
+      "name": "杀人狂",
+      "rule": "日末强制：同区域恰好有另一名存活角色时，使其死亡；尸体不计人数。"
+    },
+    {
+      "id": "friend",
+      "name": "亲友",
+      "rule": "轮回结束时若已死，公开身份且主人公失败。身份曾公开，则以后轮回开始得友好 +1。人数上限 2。"
+    },
+    {
+      "id": "time_traveler",
+      "name": "时间旅行者",
+      "rule": "不会死亡，强制忽略自身的禁止友好。最终日日末若友好 ≤2，可使主人公失败。"
+    },
+    {
+      "id": "witch",
+      "name": "魔女",
+      "rule": "必须拒绝自身友好能力。"
+    },
+    {
+      "id": "loved",
+      "name": "心上人",
+      "rule": "求爱者死亡时，强制得不安 +6。"
+    },
+    {
+      "id": "lover",
+      "name": "求爱者",
+      "rule": "心上人死亡时，强制得不安 +6。日末若自身不安 ≥3 且密谋 ≥1，可使主人公死亡。"
+    },
+    {
+      "id": "factor",
+      "name": "不安定因子",
+      "rule": "可拒绝自身友好能力。学校密谋 ≥2 时获得传谣人能力；都市密谋 ≥2 时获得关键人物能力。身份仍为因子。"
+    }
+  ],
+  "incidents": [
+    {
+      "id": "murder",
+      "name": "谋杀",
+      "rule": "同当事人一个区域的另一名存活角色死亡。"
+    },
+    {
+      "id": "unease",
+      "name": "不安扩散",
+      "rule": "任意存活角色不安 +2，随后另一名存活角色密谋 +1。"
+    },
+    {
+      "id": "suicide",
+      "name": "自杀",
+      "rule": "当事人死亡。"
+    },
+    {
+      "id": "hospital",
+      "name": "医院事故",
+      "rule": "医院密谋 ≥1：医院所有存活角色同时死亡；医院密谋 ≥2：主人公死亡。"
+    },
+    {
+      "id": "faraway",
+      "name": "远距离杀人",
+      "rule": "任意密谋 ≥2 的存活角色死亡，不限区域。"
+    },
+    {
+      "id": "missing",
+      "name": "失踪",
+      "rule": "当事人移至任意合法版图（可不移动）；随后其实际所在版图密谋 +1。"
+    },
+    {
+      "id": "spreading",
+      "name": "散播",
+      "rule": "任意存活角色友好 -2（不足减至零），随后另一名存活角色友好 +2。"
+    },
+    {
+      "id": "foul_play",
+      "name": "邪气污染",
+      "rule": "神社密谋 +2。"
+    },
+    {
+      "id": "butterfly",
+      "name": "蝴蝶效应",
+      "rule": "与当事人同区域任意存活角色（可含当事人）获得友好、不安或密谋 +1。"
+    }
+  ],
+  "characters": [
+    {
+      "id": "student",
+      "name": "男学生",
+      "start": "school",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "student",
+          "name": "学生"
+        },
+        {
+          "id": "boy",
+          "name": "少年"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "calm",
+          "threshold": 2,
+          "text": "同区域另一名学生不安 -1",
+          "kind": "counter",
+          "scope": "other_student",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [],
+      "passive": ""
+    },
+    {
+      "id": "girl",
+      "name": "女学生",
+      "start": "school",
+      "limit": 3,
+      "traits": [
+        {
+          "id": "student",
+          "name": "学生"
+        },
+        {
+          "id": "girl",
+          "name": "少女"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "calm",
+          "threshold": 2,
+          "text": "同区域另一名学生不安 -1",
+          "kind": "counter",
+          "scope": "other_student",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [],
+      "passive": ""
+    },
+    {
+      "id": "rich",
+      "name": "大小姐",
+      "start": "school",
+      "limit": 1,
+      "traits": [
+        {
+          "id": "student",
+          "name": "学生"
+        },
+        {
+          "id": "girl",
+          "name": "少女"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "befriend",
+          "threshold": 3,
+          "text": "位于学校/都市：同区域角色友好 +1",
+          "kind": "counter",
+          "scope": "rich",
+          "counter": "goodwill",
+          "amount": 1,
+          "once": false,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [],
+      "passive": ""
+    },
+    {
+      "id": "class_rep",
+      "name": "班长",
+      "start": "school",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "student",
+          "name": "学生"
+        },
+        {
+          "id": "girl",
+          "name": "少女"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "recover",
+          "threshold": 2,
+          "text": "领队收回一张已用限次牌",
+          "kind": "recover",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [],
+      "passive": ""
+    },
+    {
+      "id": "teacher",
+      "name": "教师",
+      "start": "school",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "woman",
+          "name": "女性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "adjust",
+          "threshold": 3,
+          "text": "同区域一名学生不安 +1 或 -1",
+          "kind": "adjust",
+          "scope": "student",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false
+        },
+        {
+          "id": "reveal",
+          "threshold": 4,
+          "text": "公开同区域一名学生身份",
+          "kind": "reveal",
+          "scope": "student",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [],
+      "passive": ""
+    },
+    {
+      "id": "maiden",
+      "name": "巫女",
+      "start": "shrine",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "student",
+          "name": "学生"
+        },
+        {
+          "id": "girl",
+          "name": "少女"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "purify",
+          "threshold": 3,
+          "text": "位于神社：神社密谋 -1",
+          "kind": "purify",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false
+        },
+        {
+          "id": "reveal",
+          "threshold": 5,
+          "text": "公开同区域一名角色身份",
+          "kind": "reveal",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [
+        "city"
+      ],
+      "passive": ""
+    },
+    {
+      "id": "outsider",
+      "name": "异界人",
+      "start": "shrine",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "girl",
+          "name": "少女"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "kill",
+          "threshold": 4,
+          "text": "同区域另一名角色死亡",
+          "kind": "kill",
+          "scope": "other",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false
+        },
+        {
+          "id": "revive",
+          "threshold": 5,
+          "text": "同区域一具尸体复活",
+          "kind": "revive",
+          "scope": "corpse",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [
+        "hospital"
+      ],
+      "passive": ""
+    },
+    {
+      "id": "police",
+      "name": "刑警",
+      "start": "city",
+      "limit": 3,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "man",
+          "name": "男性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "culprit",
+          "threshold": 4,
+          "text": "公开本轮已发生的一起事件的当事人",
+          "kind": "culprit",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false
+        },
+        {
+          "id": "guard",
+          "threshold": 5,
+          "text": "同区域角色获得一次死亡替代护卫",
+          "kind": "guard",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [],
+      "passive": ""
+    },
+    {
+      "id": "worker",
+      "name": "职员",
+      "start": "city",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "man",
+          "name": "男性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "reveal",
+          "threshold": 3,
+          "text": "公开自身身份",
+          "kind": "reveal",
+          "scope": "self",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [
+        "school"
+      ],
+      "passive": ""
+    },
+    {
+      "id": "informer",
+      "name": "情报商",
+      "start": "city",
+      "limit": 3,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "woman",
+          "name": "女性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "plot",
+          "threshold": 5,
+          "text": "声明一个规则 X，剧作家公开一个未被声明的实际规则 X",
+          "kind": "plot",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [],
+      "passive": ""
+    },
+    {
+      "id": "idol",
+      "name": "偶像",
+      "start": "city",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "student",
+          "name": "学生"
+        },
+        {
+          "id": "girl",
+          "name": "少女"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "calm",
+          "threshold": 3,
+          "text": "同区域另一名角色不安 -1",
+          "kind": "counter",
+          "scope": "other",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false
+        },
+        {
+          "id": "befriend",
+          "threshold": 4,
+          "text": "同区域另一名角色友好 +1",
+          "kind": "counter",
+          "scope": "other",
+          "counter": "goodwill",
+          "amount": 1,
+          "once": false,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [],
+      "passive": ""
+    },
+    {
+      "id": "journalist",
+      "name": "媒体人",
+      "start": "city",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "man",
+          "name": "男性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "alarm",
+          "threshold": 2,
+          "text": "任意另一名角色不安 +1",
+          "kind": "counter",
+          "scope": "any_other",
+          "counter": "paranoia",
+          "amount": 1,
+          "once": false,
+          "unrefusable": false
+        },
+        {
+          "id": "intrigue",
+          "threshold": 2,
+          "text": "同区域角色或当前版图密谋 +1",
+          "kind": "counter",
+          "scope": "same_or_location",
+          "counter": "intrigue",
+          "amount": 1,
+          "once": false,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [],
+      "passive": ""
+    },
+    {
+      "id": "forensic",
+      "name": "鉴识官",
+      "start": "city",
+      "limit": 3,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "man",
+          "name": "男性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "transfer",
+          "threshold": 2,
+          "text": "在同区域另两名角色间移动一个计数物",
+          "kind": "transfer",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false
+        },
+        {
+          "id": "reveal_dead",
+          "threshold": 5,
+          "text": "公开任意一具尸体的身份",
+          "kind": "reveal",
+          "scope": "any_corpse",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [],
+      "passive": ""
+    },
+    {
+      "id": "doctor",
+      "name": "医生",
+      "start": "hospital",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "man",
+          "name": "男性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "adjust",
+          "threshold": 2,
+          "text": "同区域另一名角色不安 +1 或 -1",
+          "kind": "adjust",
+          "scope": "other",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false
+        },
+        {
+          "id": "release",
+          "threshold": 3,
+          "text": "本轮取消住院患者的禁行区域",
+          "kind": "release",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [],
+      "passive": "若医生有无视友好特性且友好 ≥2，剧作家也能在能力阶段使用其第一项能力（共用每日次数）。"
+    },
+    {
+      "id": "patient",
+      "name": "住院患者",
+      "start": "hospital",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "boy",
+          "name": "少年"
+        }
+      ],
+      "abilities": [],
+      "forbidden": [
+        "shrine",
+        "city",
+        "school"
+      ],
+      "passive": ""
+    },
+    {
+      "id": "nurse",
+      "name": "护士",
+      "start": "hospital",
+      "limit": 3,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "woman",
+          "name": "女性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "calm",
+          "threshold": 2,
+          "text": "同区域另一名不安达临界角色不安 -1（不可拒绝）",
+          "kind": "counter",
+          "scope": "panicked_other",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": true
+        }
+      ],
+      "forbidden": [],
+      "passive": ""
+    },
+    {
+      "id": "soldier",
+      "name": "军人",
+      "start": "hospital",
+      "limit": 3,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "man",
+          "name": "男性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "alarm",
+          "threshold": 2,
+          "text": "同区域角色不安 +2",
+          "kind": "counter",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": 2,
+          "once": true,
+          "unrefusable": false
+        },
+        {
+          "id": "protect",
+          "threshold": 5,
+          "text": "本轮主人公不会死亡",
+          "kind": "protect",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false
+        }
+      ],
+      "forbidden": [],
+      "passive": ""
+    }
+  ],
+  "cards": {
+    "m": [
+      {
+        "id": "p1a",
+        "name": "不安 +1（第1张）",
+        "effect": "paranoia",
+        "amount": 1,
+        "once_per_loop": false
+      },
+      {
+        "id": "p1b",
+        "name": "不安 +1（第2张）",
+        "effect": "paranoia",
+        "amount": 1,
+        "once_per_loop": false
+      },
+      {
+        "id": "p-1",
+        "name": "不安 -1",
+        "effect": "paranoia",
+        "amount": -1,
+        "once_per_loop": false
+      },
+      {
+        "id": "fp",
+        "name": "禁止不安",
+        "effect": "forbid_paranoia",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "fg",
+        "name": "禁止友好",
+        "effect": "forbid_goodwill",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "i1",
+        "name": "密谋 +1",
+        "effect": "intrigue",
+        "amount": 1,
+        "once_per_loop": false
+      },
+      {
+        "id": "i2",
+        "name": "密谋 +2",
+        "effect": "intrigue",
+        "amount": 2,
+        "once_per_loop": true
+      },
+      {
+        "id": "h",
+        "name": "横向移动",
+        "effect": "horizontal",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "v",
+        "name": "纵向移动",
+        "effect": "vertical",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "d",
+        "name": "斜向移动",
+        "effect": "diagonal",
+        "amount": 0,
+        "once_per_loop": true
+      }
+    ],
+    "a": [
+      {
+        "id": "p1",
+        "name": "不安 +1",
+        "effect": "paranoia",
+        "amount": 1,
+        "once_per_loop": false
+      },
+      {
+        "id": "p-1",
+        "name": "不安 -1",
+        "effect": "paranoia",
+        "amount": -1,
+        "once_per_loop": true
+      },
+      {
+        "id": "g1",
+        "name": "友好 +1",
+        "effect": "goodwill",
+        "amount": 1,
+        "once_per_loop": false
+      },
+      {
+        "id": "g2",
+        "name": "友好 +2",
+        "effect": "goodwill",
+        "amount": 2,
+        "once_per_loop": true
+      },
+      {
+        "id": "fi",
+        "name": "禁止密谋",
+        "effect": "forbid_intrigue",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "h",
+        "name": "横向移动",
+        "effect": "horizontal",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "v",
+        "name": "纵向移动",
+        "effect": "vertical",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "fm",
+        "name": "禁止移动",
+        "effect": "forbid_movement",
+        "amount": 0,
+        "once_per_loop": true
+      }
+    ],
+    "b": [
+      {
+        "id": "p1",
+        "name": "不安 +1",
+        "effect": "paranoia",
+        "amount": 1,
+        "once_per_loop": false
+      },
+      {
+        "id": "p-1",
+        "name": "不安 -1",
+        "effect": "paranoia",
+        "amount": -1,
+        "once_per_loop": true
+      },
+      {
+        "id": "g1",
+        "name": "友好 +1",
+        "effect": "goodwill",
+        "amount": 1,
+        "once_per_loop": false
+      },
+      {
+        "id": "g2",
+        "name": "友好 +2",
+        "effect": "goodwill",
+        "amount": 2,
+        "once_per_loop": true
+      },
+      {
+        "id": "fi",
+        "name": "禁止密谋",
+        "effect": "forbid_intrigue",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "h",
+        "name": "横向移动",
+        "effect": "horizontal",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "v",
+        "name": "纵向移动",
+        "effect": "vertical",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "fm",
+        "name": "禁止移动",
+        "effect": "forbid_movement",
+        "amount": 0,
+        "once_per_loop": true
+      }
+    ],
+    "c": [
+      {
+        "id": "p1",
+        "name": "不安 +1",
+        "effect": "paranoia",
+        "amount": 1,
+        "once_per_loop": false
+      },
+      {
+        "id": "p-1",
+        "name": "不安 -1",
+        "effect": "paranoia",
+        "amount": -1,
+        "once_per_loop": true
+      },
+      {
+        "id": "g1",
+        "name": "友好 +1",
+        "effect": "goodwill",
+        "amount": 1,
+        "once_per_loop": false
+      },
+      {
+        "id": "g2",
+        "name": "友好 +2",
+        "effect": "goodwill",
+        "amount": 2,
+        "once_per_loop": true
+      },
+      {
+        "id": "fi",
+        "name": "禁止密谋",
+        "effect": "forbid_intrigue",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "h",
+        "name": "横向移动",
+        "effect": "horizontal",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "v",
+        "name": "纵向移动",
+        "effect": "vertical",
+        "amount": 0,
+        "once_per_loop": false
+      },
+      {
+        "id": "fm",
+        "name": "禁止移动",
+        "effect": "forbid_movement",
+        "amount": 0,
+        "once_per_loop": true
+      }
+    ]
+  }
+}

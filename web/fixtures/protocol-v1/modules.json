@@ -1,0 +1,70 @@
+{
+  "protocol_version": 1,
+  "language": "zh",
+  "modules": [
+    {
+      "id": "FS",
+      "name": "First Steps",
+      "cli_supported": true,
+      "gui_supported": true,
+      "final_guess": false,
+      "early_final_guess": false
+    },
+    {
+      "id": "BTX",
+      "name": "Basic Tragedy X",
+      "cli_supported": true,
+      "gui_supported": true,
+      "final_guess": true,
+      "early_final_guess": true
+    },
+    {
+      "id": "MZ",
+      "name": "Midnight Zone",
+      "cli_supported": true,
+      "gui_supported": true,
+      "final_guess": true,
+      "early_final_guess": true
+    },
+    {
+      "id": "MC",
+      "name": "Mystery Circle X",
+      "cli_supported": true,
+      "gui_supported": true,
+      "final_guess": true,
+      "early_final_guess": true
+    },
+    {
+      "id": "HSA",
+      "name": "Haunted Stage Again",
+      "cli_supported": true,
+      "gui_supported": true,
+      "final_guess": true,
+      "early_final_guess": true
+    },
+    {
+      "id": "WM",
+      "name": "Weird Mythology",
+      "cli_supported": true,
+      "gui_supported": true,
+      "final_guess": true,
+      "early_final_guess": true
+    },
+    {
+      "id": "AHR",
+      "name": "Another Horizon Revised",
+      "cli_supported": true,
+      "gui_supported": true,
+      "final_guess": true,
+      "early_final_guess": true
+    },
+    {
+      "id": "LL",
+      "name": "Last Liar",
+      "cli_supported": true,
+      "gui_supported": true,
+      "final_guess": true,
+      "early_final_guess": false
+    }
+  ]
+}

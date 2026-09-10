@@ -1,0 +1,362 @@
+{
+  "protocol_version": 1,
+  "session_id": "fixture-session",
+  "revision": 0,
+  "credentials": {
+    "admin": "fixture-admin",
+    "seats": {
+      "m": "fixture-m",
+      "a": "fixture-a",
+      "b": "fixture-b",
+      "c": "fixture-c"
+    }
+  },
+  "view": {
+    "protocol_version": 1,
+    "session_id": "fixture-session",
+    "revision": 0,
+    "viewer": "spectator",
+    "state": {
+      "module": "BTX",
+      "loop": 1,
+      "round": 1,
+      "phase": "day_start",
+      "leader": "a",
+      "next_actor": null,
+      "action_counts": {
+        "mastermind": 3,
+        "protagonists": 3
+      },
+      "protagonist_order": [
+        "a",
+        "b",
+        "c"
+      ],
+      "characters": {
+        "student": {
+          "id": "student",
+          "name": "男学生",
+          "location": "school",
+          "forbidden": [],
+          "paranoia": 0,
+          "goodwill": 0,
+          "intrigue": 0,
+          "hope": 0,
+          "despair": 0,
+          "alive": true,
+          "paranoia_limit": 2,
+          "traits": [
+            "学生",
+            "少年"
+          ],
+          "guard": 0,
+          "abilities": [
+            {
+              "id": "calm",
+              "threshold": 2,
+              "text": "同区域另一名学生不安 -1",
+              "kind": "counter",
+              "scope": "other_student",
+              "counter": "paranoia",
+              "amount": -1,
+              "once": false,
+              "unrefusable": false
+            }
+          ],
+          "passive": "",
+          "initial_location": "school",
+          "ex_cards": 0,
+          "friended_token": false,
+          "death_token": false
+        },
+        "girl": {
+          "id": "girl",
+          "name": "女学生",
+          "location": "school",
+          "forbidden": [],
+          "paranoia": 0,
+          "goodwill": 0,
+          "intrigue": 0,
+          "hope": 0,
+          "despair": 0,
+          "alive": true,
+          "paranoia_limit": 3,
+          "traits": [
+            "学生",
+            "少女"
+          ],
+          "guard": 0,
+          "abilities": [
+            {
+              "id": "calm",
+              "threshold": 2,
+              "text": "同区域另一名学生不安 -1",
+              "kind": "counter",
+              "scope": "other_student",
+              "counter": "paranoia",
+              "amount": -1,
+              "once": false,
+              "unrefusable": false
+            }
+          ],
+          "passive": "",
+          "initial_location": "school",
+          "ex_cards": 0,
+          "friended_token": false,
+          "death_token": false
+        },
+        "doctor": {
+          "id": "doctor",
+          "name": "医生",
+          "location": "hospital",
+          "forbidden": [],
+          "paranoia": 0,
+          "goodwill": 0,
+          "intrigue": 0,
+          "hope": 0,
+          "despair": 0,
+          "alive": true,
+          "paranoia_limit": 2,
+          "traits": [
+            "成人",
+            "男性"
+          ],
+          "guard": 0,
+          "abilities": [
+            {
+              "id": "adjust",
+              "threshold": 2,
+              "text": "同区域另一名角色不安 +1 或 -1",
+              "kind": "adjust",
+              "scope": "other",
+              "counter": "paranoia",
+              "amount": -1,
+              "once": false,
+              "unrefusable": false
+            },
+            {
+              "id": "release",
+              "threshold": 3,
+              "text": "本轮取消住院患者的禁行区域",
+              "kind": "release",
+              "scope": "same",
+              "counter": "paranoia",
+              "amount": -1,
+              "once": false,
+              "unrefusable": false
+            }
+          ],
+          "passive": "若医生有无视友好特性且友好 ≥2，剧作家也能在能力阶段使用其第一项能力（共用每日次数）。",
+          "initial_location": "hospital",
+          "ex_cards": 0,
+          "friended_token": false,
+          "death_token": false
+        },
+        "worker": {
+          "id": "worker",
+          "name": "职员",
+          "location": "city",
+          "forbidden": [
+            "school"
+          ],
+          "paranoia": 0,
+          "goodwill": 0,
+          "intrigue": 0,
+          "hope": 0,
+          "despair": 0,
+          "alive": true,
+          "paranoia_limit": 2,
+          "traits": [
+            "成人",
+            "男性"
+          ],
+          "guard": 0,
+          "abilities": [
+            {
+              "id": "reveal",
+              "threshold": 3,
+              "text": "公开自身身份",
+              "kind": "reveal",
+              "scope": "self",
+              "counter": "paranoia",
+              "amount": -1,
+              "once": false,
+              "unrefusable": false
+            }
+          ],
+          "passive": "",
+          "initial_location": "city",
+          "ex_cards": 0,
+          "friended_token": false,
+          "death_token": false
+        },
+        "maiden": {
+          "id": "maiden",
+          "name": "巫女",
+          "location": "shrine",
+          "forbidden": [
+            "city"
+          ],
+          "paranoia": 0,
+          "goodwill": 0,
+          "intrigue": 0,
+          "hope": 0,
+          "despair": 0,
+          "alive": true,
+          "paranoia_limit": 2,
+          "traits": [
+            "学生",
+            "少女"
+          ],
+          "guard": 0,
+          "abilities": [
+            {
+              "id": "purify",
+              "threshold": 3,
+              "text": "位于神社：神社密谋 -1",
+              "kind": "purify",
+              "scope": "same",
+              "counter": "paranoia",
+              "amount": -1,
+              "once": false,
+              "unrefusable": false
+            },
+            {
+              "id": "reveal",
+              "threshold": 5,
+              "text": "公开同区域一名角色身份",
+              "kind": "reveal",
+              "scope": "same",
+              "counter": "paranoia",
+              "amount": -1,
+              "once": true,
+              "unrefusable": false
+            }
+          ],
+          "passive": "",
+          "initial_location": "shrine",
+          "ex_cards": 0,
+          "friended_token": false,
+          "death_token": false
+        },
+        "patient": {
+          "id": "patient",
+          "name": "住院患者",
+          "location": "hospital",
+          "forbidden": [
+            "shrine",
+            "city",
+            "school"
+          ],
+          "paranoia": 0,
+          "goodwill": 0,
+          "intrigue": 0,
+          "hope": 0,
+          "despair": 0,
+          "alive": true,
+          "paranoia_limit": 2,
+          "traits": [
+            "少年"
+          ],
+          "guard": 0,
+          "abilities": [],
+          "passive": "",
+          "initial_location": "hospital",
+          "ex_cards": 0,
+          "friended_token": false,
+          "death_token": false
+        }
+      },
+      "locations": {
+        "hospital": 0,
+        "shrine": 0,
+        "city": 0,
+        "school": 0
+      },
+      "discarded": {
+        "m": [],
+        "a": [],
+        "b": [],
+        "c": []
+      },
+      "hand": [],
+      "pending": [],
+      "events": [
+        {
+          "loop": 1,
+          "round": 1,
+          "timing": "loop_start",
+          "kind": "loop_started",
+          "message": "第 1 轮回开始，共 3 轮，每轮 3 天。",
+          "phase": "day_start",
+          "timepoint": "第 1 轮回开始时"
+        }
+      ],
+      "language": "zh",
+      "phase_name": "日初",
+      "timing": "day_start",
+      "timepoint": "第 1 天开始时",
+      "title": "寂静小镇（原创教学剧本）",
+      "days": 3,
+      "loops": 3,
+      "table_talk": true,
+      "controller": "m",
+      "winner": null,
+      "module_name": "Basic Tragedy X",
+      "labels": {
+        "actors": {
+          "m": "剧作家",
+          "a": "主人公 A",
+          "b": "主人公 B",
+          "c": "主人公 C"
+        },
+        "locations": {
+          "hospital": "医院",
+          "shrine": "神社",
+          "city": "都市",
+          "school": "学校"
+        },
+        "counters": {
+          "paranoia": "不安",
+          "goodwill": "友好",
+          "intrigue": "密谋",
+          "hope": "希望",
+          "despair": "绝望"
+        }
+      },
+      "capabilities": {
+        "final_guess": true,
+        "early_final_guess": true
+      },
+      "known_roles": {},
+      "known_culprits": {},
+      "role_announcements": [],
+      "known_plots": [],
+      "protected": false,
+      "ex_gauge": 0,
+      "world": null,
+      "board_ex": {
+        "hospital": 0,
+        "shrine": 0,
+        "city": 0,
+        "school": 0
+      },
+      "movement_locks": {},
+      "sealed_boards": [],
+      "ability_day_used": [],
+      "ability_loop_used": [],
+      "schedule": [
+        {
+          "day": 2,
+          "kind": "murder"
+        },
+        {
+          "day": 3,
+          "kind": "suicide"
+        }
+      ],
+      "incidents": [],
+      "guess_remaining": []
+    }
+  }
+}
