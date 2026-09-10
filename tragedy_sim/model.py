@@ -86,7 +86,7 @@ class Visibility(StrEnum):
 class PhaseCursor:
     """Serializable position in the explicit match state machine."""
 
-    phase: PhaseId
+    phase: Any
     loop: int
     day: int
     step: int = 0
@@ -94,8 +94,12 @@ class PhaseCursor:
     @classmethod
     def from_state(cls, state: Any) -> "PhaseCursor":
         try:
-            phase = PhaseId(state.phase)
-        except (AttributeError, ValueError) as exc:
+            if state.phase in PhaseId._value2member_map_:
+                phase = PhaseId(state.phase)
+            else:
+                from .domain.keys import PhaseKey
+                phase = PhaseKey(state.phase)
+        except (AttributeError, ValueError, TypeError) as exc:
             raise ValueError(f"未知游戏阶段：{getattr(state, 'phase', None)}") from exc
         return cls(phase=phase, loop=state.loop, day=state.round)
 

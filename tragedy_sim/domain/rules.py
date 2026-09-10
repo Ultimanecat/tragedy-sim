@@ -60,6 +60,9 @@ class ComponentStore:
     def clone(self) -> "ComponentStore":
         return ComponentStore(tuple(deepcopy(component) for component in self._items.values()))
 
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, ComponentStore) and self.to_dict() == other.to_dict()
+
     def to_dict(self) -> dict[str, dict[str, Any]]:
         return {component.component_key: component.to_dict()
                 for component in self._items.values()}

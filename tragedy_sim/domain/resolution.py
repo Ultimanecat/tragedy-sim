@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Iterable, Protocol, Sequence
 
 from .effects import Effect
@@ -15,12 +17,35 @@ class ActivationRule(Protocol):
     def activations(self, context: RuleContext) -> Iterable[Activation]: ...
 
 
-@dataclass(frozen=True)
+class WindowStage(StrEnum):
+    COLLECTED = "collected"
+    RESOLVING_MANDATORY = "resolving_mandatory"
+    OPTIONAL = "optional"
+    CLOSED = "closed"
+
+
+@dataclass
 class MandatoryWindow:
     """Mandatory activations frozen from one pre-resolution state snapshot."""
 
     context: RuleContext
     activations: tuple[Activation, ...]
+    stage: WindowStage = WindowStage.COLLECTED
+
+    def start(self) -> None:
+        if self.stage != WindowStage.COLLECTED:
+            raise RuntimeError("强制能力时间窗已经开始结算")
+        self.stage = WindowStage.RESOLVING_MANDATORY
+
+    def finish_mandatory(self) -> None:
+        if self.stage not in (WindowStage.COLLECTED, WindowStage.RESOLVING_MANDATORY):
+            raise RuntimeError("强制能力时间窗不能重复完成")
+        self.stage = WindowStage.OPTIONAL
+
+    def close(self) -> None:
+        if self.stage != WindowStage.OPTIONAL:
+            raise RuntimeError("尚未完成强制能力，不能离开时间点")
+        self.stage = WindowStage.CLOSED
 
     def ordered(self, indexes: Sequence[int] | None = None) -> tuple[Activation, ...]:
         """Choose resolution order without changing which abilities triggered."""
@@ -59,11 +84,17 @@ class TimingResolver:
 
     def begin(self, context: RuleContext,
               rules: Iterable[ActivationRule]) -> MandatoryWindow:
+        # Rules must all observe the same detached pre-resolution snapshot.
+        snapshot = RuleContext(deepcopy(context.state), deepcopy(dict(context.script)),
+                               context.ruleset_id, context.phase, context.timing,
+                               context.components.clone())
         return MandatoryWindow(
-            context,
-            self._collect(context, tuple(rules), ActivationMode.MANDATORY),
+            snapshot,
+            self._collect(snapshot, tuple(rules), ActivationMode.MANDATORY),
         )
 
-    def optional(self, context: RuleContext,
+    def optional(self, window: MandatoryWindow, context: RuleContext,
                  rules: Iterable[ActivationRule]) -> tuple[Activation, ...]:
+        if window.stage != WindowStage.OPTIONAL:
+            raise RuntimeError("必须先结算全部强制能力，才能查询可选能力")
         return self._collect(context, tuple(rules), ActivationMode.OPTIONAL)

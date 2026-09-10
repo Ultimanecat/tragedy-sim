@@ -8,7 +8,8 @@ from typing import Any, TYPE_CHECKING
 from ..cards import ACTOR_NAMES
 from ..engine import RuleError
 from ..flow import MATCH_FLOW
-from ..model import PhaseId
+from ..model import PhaseId, TimingId, timing_for_phase
+from ..domain.keys import PhaseKey
 
 if TYPE_CHECKING:
     from ..game import Game
@@ -17,7 +18,17 @@ if TYPE_CHECKING:
 class PhaseResolver(ABC):
     """Owns input and advancement behavior for one public engine phase."""
 
-    phase: PhaseId
+    phase: PhaseId | PhaseKey
+
+    def timing(self, game: "Game") -> TimingId:
+        if isinstance(self.phase, PhaseKey):
+            raise NotImplementedError("扩展阶段必须声明规则时间点")
+        return timing_for_phase(self.phase)
+
+    def validate_command(self, action: str, arguments: dict[str, Any]) -> None:
+        if isinstance(self.phase, PhaseKey):
+            raise NotImplementedError("扩展阶段必须声明命令结构")
+        MATCH_FLOW.validate_command(self.phase, action, arguments)
 
     def controller(self, game: "Game") -> str | None:
         return MATCH_FLOW.controller(self.phase, leader=game.state.leader,
