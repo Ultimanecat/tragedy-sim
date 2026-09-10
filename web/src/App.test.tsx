@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Actions, Board } from "./App";
+import { abilityUseName } from "./display";
 import type { ActionOffer, CatalogResponse, GameView } from "./api/types";
 import catalogFixture from "../fixtures/protocol-v1/btx-catalog.json";
 import viewFixture from "../fixtures/protocol-v1/btx-mastermind-view.json";
@@ -9,6 +10,12 @@ const catalog = catalogFixture as unknown as CatalogResponse;
 const game = viewFixture.state as unknown as GameView;
 
 describe("local game components", () => {
+  it("formats both goodwill and two-part private ability keys without undefined", () => {
+    expect(abilityUseName(game, "goodwill:doctor:adjust", catalog)).toContain("医生 · 同区域另一名角色不安");
+    expect(abilityUseName(game, "brain:doctor", catalog)).toContain("医生 ·");
+    expect(abilityUseName(game, "brain:doctor", catalog)).not.toContain("undefined");
+  });
+
   it("renders concealed placements without leaking their card", () => {
     const publicGame = { ...game, pending: [{ actor: "m", target: "student", card: null }] };
     render(<Board game={publicGame} catalog={catalog} />);

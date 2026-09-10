@@ -91,6 +91,7 @@ class HotseatSessionTests(unittest.TestCase):
 
     def test_formatters_only_put_secrets_in_explicit_dossier(self):
         game = Game()
+        game.loss_reasons.append("仅供引擎排错的失败原因")
         public, private = game.view(), game.view("m")
         combined = public_log(public) + public_knowledge(public) + public_rules("FS")
         self.assertNotIn("规则 Y：谋杀计划", combined)
@@ -98,6 +99,7 @@ class HotseatSessionTests(unittest.TestCase):
         dossier = secret_dossier(private)
         self.assertIn("规则 Y：谋杀计划", dossier)
         self.assertIn("女学生：关键人物", dossier)
+        self.assertNotIn("仅供引擎排错", dossier)
         self.assertIn("不安临界", character_details(public, "girl"))
 
 

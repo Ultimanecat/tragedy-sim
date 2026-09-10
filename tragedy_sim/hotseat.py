@@ -280,8 +280,6 @@ def secret_dossier(view):
                        if "public_kind" in item else "")
         incident_name = label("incidents", item["kind"], language, fallback=INCIDENT_NAMES[item["kind"]])
         lines.append(f"第 {item['day']} 天 · {incident_name}{public_name}：{target_name(view, item['culprit'])}")
-    if s["loss_reasons"]:
-        lines += ["", "累计失败诊断：" + "；".join(s["loss_reasons"])]
     if s["ability_day_used"]:
         lines += ["", "完整日内使用记录：" + "、".join(s["ability_day_used"])]
     if s["ability_loop_used"]:

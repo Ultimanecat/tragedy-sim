@@ -290,8 +290,6 @@ def match_board(game, viewer="spectator"):
         for i in secret["incidents"]:
             public_name = f"，公开名 {INCIDENT_NAMES[i['public_kind']]}" if "public_kind" in i else ""
             print(f"  第 {i['day']} 天{INCIDENT_NAMES[i['kind']]}{public_name}当事人：{game.name(i['culprit'])}")
-        if secret["loss_reasons"]:
-            print("  内部失败诊断（累计，不对主人公公开）：" + "；".join(secret["loss_reasons"]))
         if secret["ability_day_used"]:
             print("  私密完整日内使用记录：" + "、".join(secret["ability_day_used"]))
         if secret["ability_loop_used"]:

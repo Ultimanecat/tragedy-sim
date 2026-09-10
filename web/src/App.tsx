@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiClient, ApiError, type StoredSession } from "./api/client";
 import type { ActionOffer, CatalogResponse, GameView, ModuleId, ModuleSummary, Seat, Viewer } from "./api/types";
+import { abilityUseName, itemName } from "./display";
 
 const SESSION_KEY = "tragedy-sim.local-session.v1";
 const seats: Viewer[] = ["spectator", "m", "a", "b", "c"];
@@ -16,10 +17,6 @@ function download(name: string, contents: string, type: string) {
   const anchor = document.createElement("a");
   anchor.href = url; anchor.download = name; anchor.click();
   URL.revokeObjectURL(url);
-}
-
-function itemName(items: Array<{ id: string; name: string }> | undefined, id: unknown) {
-  return items?.find(item => item.id === id)?.name ?? String(id ?? "—");
 }
 
 function targetName(game: GameView, target: unknown) {
@@ -39,12 +36,6 @@ function winnerName(game: GameView) {
     return `背叛者（${game.labels.actors[seat]}）胜利`;
   }
   return game.winner ? `${game.winner}胜利` : "";
-}
-
-function abilityUseName(game: GameView, key: string) {
-  const [, character, ability] = key.split(":");
-  const definition = game.characters[character]?.abilities.find(item => item.id === ability);
-  return `${game.characters[character]?.name ?? character} · ${definition?.text ?? ability}`;
 }
 
 export function Board({ game, catalog }: { game: GameView; catalog: CatalogResponse | null }) {
@@ -188,7 +179,7 @@ function Knowledge({ game, catalog }: { game: GameView; catalog: CatalogResponse
     {culprits.map(([day, character]) => <p key={day}>第 {day} 天事件当事人：{game.characters[character]?.name ?? character}</p>)}
     {game.known_plots.map(plot => <p key={plot}>已公开规则：{itemName(catalog?.plots, plot)}</p>)}
     {[...new Set([...game.ability_day_used, ...game.ability_loop_used])].map(key => <p key={key}>
-      已声明能力：{abilityUseName(game, key)}{game.ability_loop_used.includes(key) ? "（本轮限次已使用）" : "（今日已使用）"}</p>)}
+      已声明能力：{abilityUseName(game, key, catalog)}{game.ability_loop_used.includes(key) ? "（本轮限次已使用）" : "（今日已使用）"}</p>)}
     {game.protected && <p>本轮主人公受到公开保护。</p>}
     {game.phase === "final_guess" && <p>最终猜测尚余：{game.guess_remaining.map(id => targetName(game, id)).join("、") || "无"}</p>}
   </section>;
@@ -313,10 +304,9 @@ export default function App() {
           <details><summary>身份配置</summary>{Object.entries(game.secret.roles).map(([id, role]) => <p key={id}>{game.characters[id]?.name ?? id}：{itemName(catalog?.roles, role)}{game.secret?.hidden_roles?.[id] ? `／里身份 ${itemName(catalog?.roles, game.secret.hidden_roles[id])}` : ""}</p>)}</details>
           <details><summary>事件当事人</summary>{game.secret.incidents.map((incident, index) => <p key={index}>第 {String(incident.day)} 天 · {itemName(catalog?.incidents, incident.kind)}：{targetName(game, incident.culprit)}</p>)}</details>
           {(game.secret.ability_day_used.length > 0 || game.secret.ability_loop_used.length > 0) && <details><summary>完整能力使用记录</summary>
-            {game.secret.ability_day_used.map(key => <p key={`day-${key}`}>今日：{abilityUseName(game, key)}</p>)}
-            {game.secret.ability_loop_used.map(key => <p key={`loop-${key}`}>本轮：{abilityUseName(game, key)}</p>)}
+            {game.secret.ability_day_used.map(key => <p key={`day-${key}`}>今日：{abilityUseName(game, key, catalog)}</p>)}
+            {game.secret.ability_loop_used.map(key => <p key={`loop-${key}`}>本轮：{abilityUseName(game, key, catalog)}</p>)}
           </details>}
-          {!!game.secret.loss_reasons.length && <details><summary>内部失败诊断</summary>{game.secret.loss_reasons.map((reason, index) => <p key={index}>{reason}</p>)}</details>}
         </section>}
         <section className="panel"><h2>事件日程</h2>{game.schedule.map(item => {
           const record = game.incidents.find(candidate => candidate.day === item.day);
