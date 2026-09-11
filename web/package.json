@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "assets": "node scripts/build-game-assets.mjs",
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && vite build",
     "lint": "eslint .",
@@ -30,6 +31,7 @@
     "eslint-plugin-react-refresh": "latest",
     "globals": "latest",
     "jsdom": "29.1.1",
+    "sharp": "^0.35.4",
     "typescript": "6.0.3",
     "typescript-eslint": "latest",
     "vite": "8.2.2",

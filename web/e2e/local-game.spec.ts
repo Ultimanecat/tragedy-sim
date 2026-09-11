@@ -79,6 +79,9 @@ test("four isolated browser sessions join, ready and receive synchronized privat
     await expect(host.getByRole("button", { name: "开始游戏" })).toBeEnabled();
     await host.getByRole("button", { name: "开始游戏" }).click();
     await expect(host.getByRole("heading", { name: "剧作家资料" })).toBeVisible();
+    const portrait = host.locator(".character-art").first();
+    await expect(portrait).toBeVisible();
+    await expect.poll(() => portrait.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     for (const page of [a, b, c]) {
       await expect(page.locator(".status-strip")).toBeVisible();
       await expect(page.getByRole("heading", { name: "剧作家资料" })).toHaveCount(0);

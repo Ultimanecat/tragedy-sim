@@ -6,11 +6,31 @@ import {
 import { ApiClient, ApiError, type StoredRoom, type StoredSession } from "./api/client";
 import type { ActionOffer, CatalogResponse, GameView, ModuleId, ModuleSummary, RoomResponse, Seat, Viewer } from "./api/types";
 import { abilityUseName, itemName } from "./display";
+import gameAssets from "./generated/game-assets.json";
 
 const SESSION_KEY = "tragedy-sim.local-session.v1";
 const ROOM_KEY = "tragedy-sim.room.v1";
 const seats: Viewer[] = ["spectator", "m", "a", "b", "c"];
 const locations = ["hospital", "shrine", "city", "school"] as const;
+const assetManifest = gameAssets as {
+  characters: Record<string, string>;
+  cards: Record<Seat, Record<string, string>>;
+};
+
+function assetUrl(kind: "characters", id: string): string | undefined;
+function assetUrl(kind: "cards", seat: Seat, id: string): string | undefined;
+function assetUrl(kind: "characters" | "cards", idOrSeat: string, card?: string) {
+  const hash = kind === "characters"
+    ? assetManifest.characters[idOrSeat]
+    : assetManifest.cards[idOrSeat as Seat]?.[String(card)];
+  return hash ? `/game-assets/${hash}.webp` : undefined;
+}
+
+function GameAsset({ src, className, draggable }: { src?: string; className?: string; draggable?: boolean }) {
+  if (!src) return null;
+  return <img className={className} src={src} alt="" loading="lazy" draggable={draggable}
+    onError={event => { event.currentTarget.hidden = true; }} />;
+}
 
 function loadSession(): StoredSession | null {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null") as StoredSession | null; }
@@ -66,25 +86,28 @@ export function Board({ game, catalog }: { game: GameView; catalog: CatalogRespo
         <div className="characters">
           {Object.values(game.characters).filter(character => character.location === location).map(character =>
             <div className={`character ${character.alive ? "" : "dead"}`} key={character.id}>
-              <div className="character-title"><strong>{character.name}</strong><small>{character.alive ? "存活" : "死亡"}</small></div>
-              <div className="counters">
-                <span>友好 {character.goodwill}</span><span>不安 {character.paranoia}/{character.paranoia_limit}</span>
-                <span>密谋 {character.intrigue}</span>
-                {character.hope > 0 && <span>希望 {character.hope}</span>}
-                {character.despair > 0 && <span>绝望 {character.despair}</span>}
-                {character.guard > 0 && <span>护卫 {character.guard}</span>}
-                {character.ex_cards > 0 && <span>{game.module === "HSA" ? "诅咒" : "Ex"} {character.ex_cards}</span>}
-                {character.friended_token && <span>交友完毕</span>}
-                {character.death_token && <span>死亡完毕</span>}
+              <GameAsset className="character-art" src={assetUrl("characters", character.id)} />
+              <div className="character-body">
+                <div className="character-title"><strong>{character.name}</strong><small>{character.alive ? "存活" : "死亡"}</small></div>
+                <div className="counters">
+                  <span>友好 {character.goodwill}</span><span>不安 {character.paranoia}/{character.paranoia_limit}</span>
+                  <span>密谋 {character.intrigue}</span>
+                  {character.hope > 0 && <span>希望 {character.hope}</span>}
+                  {character.despair > 0 && <span>绝望 {character.despair}</span>}
+                  {character.guard > 0 && <span>护卫 {character.guard}</span>}
+                  {character.ex_cards > 0 && <span>{game.module === "HSA" ? "诅咒" : "Ex"} {character.ex_cards}</span>}
+                  {character.friended_token && <span>交友完毕</span>}
+                  {character.death_token && <span>死亡完毕</span>}
+                </div>
+                <details className="character-reference"><summary>角色资料</summary>
+                  <p>属性：{character.traits.join("、") || "无"}</p>
+                  <p>禁行：{character.forbidden.map(id => game.labels.locations[id]).join("、") || "无"}</p>
+                  {character.abilities.map(ability => <p key={`${ability.id}-${ability.threshold}`}>
+                    友好 {ability.threshold}：{ability.text}{ability.once ? "（限次）" : ""}{ability.unrefusable ? "（不可拒绝）" : ""}
+                  </p>)}
+                  {character.passive && <p>被动：{character.passive}</p>}
+                </details>
               </div>
-              <details className="character-reference"><summary>角色资料</summary>
-                <p>属性：{character.traits.join("、") || "无"}</p>
-                <p>禁行：{character.forbidden.map(id => game.labels.locations[id]).join("、") || "无"}</p>
-                {character.abilities.map(ability => <p key={`${ability.id}-${ability.threshold}`}>
-                  友好 {ability.threshold}：{ability.text}{ability.once ? "（限次）" : ""}{ability.unrefusable ? "（不可拒绝）" : ""}
-                </p>)}
-                {character.passive && <p>被动：{character.passive}</p>}
-              </details>
             </div>)}
         </div>
       </article>)}
@@ -111,15 +134,17 @@ function Cards({ game, catalog, viewer }: { game: GameView; catalog: CatalogResp
   return <section className="panel"><h2>手牌与公开留置</h2>
     {Object.entries(hands).map(([seat, cards]) => <div key={seat}><h3>{game.labels.actors[seat as Seat]}手牌
       {game.participant?.card_actors.includes(seat as Seat) && seat !== game.participant.seat ? "（由你代管）" : ""}</h3>
-      <div className="card-list">{cards?.map(id => <span key={id}>{cardName(seat as Seat, id)}</span>)}</div></div>)}
+      <div className="card-list">{cards?.map(id => <span key={id}>
+        <GameAsset src={assetUrl("cards", seat as Seat, id)} />{cardName(seat as Seat, id)}
+      </span>)}</div></div>)}
     {!discarded.length && <p className="muted">目前没有公开留置牌。</p>}
     {discarded.map(([seat, cards]) => <p key={seat}>{game.labels.actors[seat as Seat]}：
       {cards.map(id => cardName(seat as Seat, id)).join("、")}</p>)}
   </section>;
 }
 
-function DraggableActionCard({ id, name, targetCount, selected, busy, onSelect }: {
-  id: string; name: string; targetCount: number; selected: boolean; busy: boolean; onSelect: () => void;
+function DraggableActionCard({ id, name, imageUrl, targetCount, selected, busy, onSelect }: {
+  id: string; name: string; imageUrl?: string; targetCount: number; selected: boolean; busy: boolean; onSelect: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `card:${id}`, data: { card: id }, disabled: busy,
@@ -128,7 +153,8 @@ function DraggableActionCard({ id, name, targetCount, selected, busy, onSelect }
   return <button ref={setNodeRef} style={style}
     className={`${selected ? "selected" : ""} ${isDragging ? "dragging" : ""}`}
     disabled={busy} onClick={onSelect} {...listeners} {...attributes}>
-    <strong>{name}</strong><small>{targetCount} 个合法目标 · 可拖拽</small>
+    <GameAsset src={imageUrl} draggable={false} />
+    <span><strong>{name}</strong><small>{targetCount} 个合法目标 · 可拖拽</small></span>
   </button>;
 }
 
@@ -204,6 +230,7 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
       <p className="step-label">1. 选择手牌，或将牌拖向合法目标</p><div className="hand">
         {[...playGroups].map(([card, available]) => <DraggableActionCard key={card} id={card}
           name={itemName(actor ? catalog?.cards[actor] : undefined, card)} targetCount={available.length}
+          imageUrl={actor ? assetUrl("cards", actor as Seat, card) : undefined}
           selected={selectedCard === card} busy={busy}
           onSelect={() => { setSelectedCard(card); setSelected(null); }} />)}
       </div>
@@ -212,7 +239,8 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
           selected={selected?.id === offer.id} busy={busy} onSelect={() => setSelected(offer)} />)}
       </div></>}
       <DragOverlay dropAnimation={null}>{draggedCard ? <div className="drag-card-overlay">
-        {itemName(actor ? catalog?.cards[actor] : undefined, draggedCard)}</div> : null}</DragOverlay>
+        {actor && <GameAsset src={assetUrl("cards", actor as Seat, draggedCard)} />}
+        <span>{itemName(actor ? catalog?.cards[actor] : undefined, draggedCard)}</span></div> : null}</DragOverlay>
     </DndContext>}
     {!!guessGroups.size && <>
       <p className="step-label">1. 选择要猜测的角色/身份面</p><div className="guess-characters">

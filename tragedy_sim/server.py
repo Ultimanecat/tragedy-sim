@@ -44,11 +44,12 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
             origin = self.headers.get("Origin")
             return origin if origin and origin in allowed_origins else None
 
-        def _headers(self, status, content_type="application/json; charset=utf-8", length=0):
+        def _headers(self, status, content_type="application/json; charset=utf-8", length=0,
+                     cache_control="no-store"):
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(length))
-            self.send_header("Cache-Control", "no-store")
+            self.send_header("Cache-Control", cache_control)
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("X-Frame-Options", "DENY")
             self.send_header("Referrer-Policy", "no-referrer")
@@ -133,7 +134,10 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
             content_type = mimetypes.guess_type(candidate.name)[0] or "application/octet-stream"
             if content_type.startswith("text/") or content_type in ("application/javascript", "application/json"):
                 content_type += "; charset=utf-8"
-            self._headers(200, content_type, len(body))
+            cache_control = ("public, max-age=31536000, immutable"
+                             if relative.startswith("game-assets/") and candidate.suffix == ".webp"
+                             else "no-store")
+            self._headers(200, content_type, len(body), cache_control)
             self.wfile.write(body)
             return True
 

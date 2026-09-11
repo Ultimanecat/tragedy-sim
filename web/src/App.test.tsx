@@ -18,9 +18,10 @@ describe("local game components", () => {
 
   it("renders concealed placements without leaking their card", () => {
     const publicGame = { ...game, pending: [{ actor: "m", target: "student", card: null }] };
-    render(<Board game={publicGame} catalog={catalog} />);
+    const { container } = render(<Board game={publicGame} catalog={catalog} />);
     expect(screen.getByText(/剧作家 → 男学生：暗牌/)).toBeInTheDocument();
     expect(screen.queryByText(/不安\+1/)).not.toBeInTheDocument();
+    expect(container.querySelector('.character-art[src^="/game-assets/"]')).toBeInTheDocument();
   });
 
   it("requires card, target and confirmation before dispatch", () => {

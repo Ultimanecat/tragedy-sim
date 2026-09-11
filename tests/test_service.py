@@ -163,8 +163,10 @@ class StaticWebTests(unittest.TestCase):
         self.temporary = TemporaryDirectory()
         root = Path(self.temporary.name)
         (root / "assets").mkdir()
+        (root / "game-assets").mkdir()
         (root / "index.html").write_text("<main>web shell</main>", encoding="utf-8")
         (root / "assets" / "app.js").write_text("export default 1", encoding="utf-8")
+        (root / "game-assets" / ("a" * 64 + ".webp")).write_bytes(b"webp")
         self.server = create_server("127.0.0.1", 0, static_root=root)
         self.thread = Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -191,6 +193,11 @@ class StaticWebTests(unittest.TestCase):
         self.assertIn("javascript", headers["Content-Type"])
         status, _, body = self.request("/game/local")
         self.assertEqual((status, body), (200, b"<main>web shell</main>"))
+
+    def test_generated_game_assets_are_immutable_cached(self):
+        status, headers, body = self.request("/game-assets/" + "a" * 64 + ".webp")
+        self.assertEqual((status, body), (200, b"webp"))
+        self.assertEqual(headers["Cache-Control"], "public, max-age=31536000, immutable")
 
     def test_static_path_cannot_escape_web_root(self):
         status, headers, body = self.request("/%2e%2e/pyproject.toml")
