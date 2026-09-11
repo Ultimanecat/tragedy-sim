@@ -89,12 +89,13 @@ const smallestPointerTarget: CollisionDetection = args => pointerWithin(args).so
     - (rightRect ? rightRect.width * rightRect.height : Infinity);
 });
 
-function BoardLocation({ id, offer, selected, children, onSelect }: {
-  id: string; offer?: ActionOffer; selected: boolean; children: React.ReactNode;
+function BoardLocation({ id, offer, selected, density, children, onSelect }: {
+  id: string; offer?: ActionOffer; selected: boolean; density: "normal" | "crowded" | "packed";
+  children: React.ReactNode;
   onSelect?: (offer: ActionOffer) => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: `board:${id}`, data: { offer }, disabled: !offer });
-  return <article ref={setNodeRef} className={`location location-${id} ${offer ? "legal-board-target" : ""} ${selected ? "selected-board-target" : ""} ${isOver ? "drag-over" : ""}`}
+  return <article ref={setNodeRef} className={`location location-${id} location-${density} ${offer ? "legal-board-target" : ""} ${selected ? "selected-board-target" : ""} ${isOver ? "drag-over" : ""}`}
     role={offer ? "button" : undefined} tabIndex={offer ? 0 : undefined}
     onClick={() => offer && onSelect?.(offer)}
     onKeyDown={event => { if (offer && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onSelect?.(offer); } }}>
@@ -116,11 +117,61 @@ function BoardCharacter({ character, offer, selectedTarget, abilitySource, selec
     className={`character ${character.alive ? "" : "dead"} ${offer ? "legal-board-target" : ""} ${selectedTarget ? "selected-board-target" : ""} ${abilitySource ? "ability-source" : ""} ${selectedSource ? "selected-source" : ""} ${isOver ? "drag-over" : ""}`}
     role={interactive ? "button" : undefined} tabIndex={interactive ? 0 : undefined}
     onClick={event => {
-      if ((event.target as Element).closest("details")) { event.stopPropagation(); return; }
+      if ((event.target as Element).closest("[data-character-details]")) { event.stopPropagation(); return; }
       if (interactive) { event.stopPropagation(); activate(); }
     }}
-    onKeyDown={event => { if (interactive && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); activate(); } }}>
+    onKeyDown={event => {
+      if ((event.target as Element).closest("[data-character-details]")) { event.stopPropagation(); return; }
+      if (interactive && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); activate(); }
+    }}>
     {children}
+  </div>;
+}
+
+function CharacterDetailsDialog({ character, game, onClose }: {
+  character: GameView["characters"][string]; game: GameView; onClose: () => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [onClose]);
+  return <div className="modal-backdrop" onClick={event => {
+    if (event.target === event.currentTarget) onClose();
+  }}>
+    <section className="character-dialog" role="dialog" aria-modal="true"
+      aria-labelledby={`character-dialog-${character.id}`}>
+      <header><div><p className="eyebrow">CHARACTER</p><h2 id={`character-dialog-${character.id}`}>{character.name}</h2></div>
+        <button autoFocus onClick={onClose}>关闭</button></header>
+      <div className="character-dialog-body">
+        <GameAsset className="character-dialog-art" src={assetUrl("characters", character.id)} />
+        <div>
+          <p><strong>{character.alive ? "存活" : "死亡"}</strong></p>
+          <p>友好 {character.goodwill} · 不安 {character.paranoia}/{character.paranoia_limit} · 密谋 {character.intrigue}</p>
+          {(character.hope > 0 || character.despair > 0 || character.guard > 0 || character.ex_cards > 0) && <p>
+            {[
+              character.hope > 0 ? `希望 ${character.hope}` : "",
+              character.despair > 0 ? `绝望 ${character.despair}` : "",
+              character.guard > 0 ? `护卫 ${character.guard}` : "",
+              character.ex_cards > 0 ? `${game.module === "HSA" ? "诅咒" : "Ex"} ${character.ex_cards}` : "",
+            ].filter(Boolean).join(" · ")}
+          </p>}
+          <p>属性：{character.traits.join("、") || "无"}</p>
+          <p>禁行：{character.forbidden.map(id => game.labels.locations[id]).join("、") || "无"}</p>
+        </div>
+      </div>
+      <div className="character-dialog-rules">
+        {character.abilities.length ? character.abilities.map(ability => <p key={`${ability.id}-${ability.threshold}`}>
+          <strong>友好 {ability.threshold}</strong>：{ability.text}{ability.once ? "（限次）" : ""}{ability.unrefusable ? "（不可拒绝）" : ""}
+        </p>) : <p className="muted">没有角色固有能力。</p>}
+        {character.passive && <p><strong>被动</strong>：{character.passive}</p>}
+      </div>
+    </section>
   </div>;
 }
 
@@ -132,15 +183,20 @@ export function Board({ game, catalog, targetOffers = [], selectedOffer, ability
 }) {
   const cardName = (actor: string, id: unknown) => id
     ? itemName(catalog?.cards[actor as Seat], id) : "暗牌";
+  const [detailsCharacter, setDetailsCharacter] = useState<string | null>(null);
   const boardCounter = game.module === "HSA" ? "尸体" : "密谋";
   const offerByTarget = new Map(targetOffers.map(offer => [String(offer.parameters.target), offer]));
   return <>
     <section className="board" aria-label="游戏版图">
-      {locations.map(location => <BoardLocation id={location} offer={offerByTarget.get(location)}
-        selected={selectedOffer?.parameters.target === location} onSelect={onTarget} key={location}>
-        <header><h2>{game.labels.locations[location]}</h2><span>{boardCounter} {game.locations[location]}{game.board_ex[location] ? ` · 诅咒 ${game.board_ex[location]}` : ""}</span></header>
-        <div className="characters">
-          {Object.values(game.characters).filter(character => character.location === location).map(character =>
+      {locations.map(location => {
+        const characters = Object.values(game.characters).filter(character => character.location === location);
+        const density = characters.length >= 9 ? "packed" : characters.length >= 5 ? "crowded" : "normal";
+        return <BoardLocation id={location} offer={offerByTarget.get(location)} density={density}
+          selected={selectedOffer?.parameters.target === location} onSelect={onTarget} key={location}>
+          <header><h2>{game.labels.locations[location]}</h2><span>{boardCounter} {game.locations[location]}
+            {game.board_ex[location] ? ` · 诅咒 ${game.board_ex[location]}` : ""} · {characters.length} 人</span></header>
+          <div className="characters">
+          {characters.map(character =>
             <BoardCharacter character={character} offer={offerByTarget.get(character.id)}
               selectedTarget={selectedOffer?.parameters.target === character.id}
               abilitySource={abilitySources.includes(character.id)} selectedSource={selectedSource === character.id}
@@ -158,19 +214,16 @@ export function Board({ game, catalog, targetOffers = [], selectedOffer, ability
                   {character.friended_token && <span>交友完毕</span>}
                   {character.death_token && <span>死亡完毕</span>}
                 </div>
-                <details className="character-reference"><summary>角色资料</summary>
-                  <p>属性：{character.traits.join("、") || "无"}</p>
-                  <p>禁行：{character.forbidden.map(id => game.labels.locations[id]).join("、") || "无"}</p>
-                  {character.abilities.map(ability => <p key={`${ability.id}-${ability.threshold}`}>
-                    友好 {ability.threshold}：{ability.text}{ability.once ? "（限次）" : ""}{ability.unrefusable ? "（不可拒绝）" : ""}
-                  </p>)}
-                  {character.passive && <p>被动：{character.passive}</p>}
-                </details>
+                <button type="button" className="character-reference-button" data-character-details
+                  aria-label={`查看${character.name}资料`} onClick={() => setDetailsCharacter(character.id)}>查看资料</button>
               </div>
             </BoardCharacter>)}
-        </div>
-      </BoardLocation>)}
+          </div>
+        </BoardLocation>;
+      })}
     </section>
+    {detailsCharacter && game.characters[detailsCharacter] && <CharacterDetailsDialog
+      character={game.characters[detailsCharacter]} game={game} onClose={() => setDetailsCharacter(null)} />}
     {(["MC", "WM", "AHR"].includes(game.module) || game.world || game.sealed_boards.length > 0 || Object.keys(game.movement_locks).length > 0) &&
       <section className="panel public-effects"><h2>公开特殊状态</h2>
         {["MC", "WM", "AHR"].includes(game.module) && <span>Ex 槽 {game.ex_gauge}</span>}

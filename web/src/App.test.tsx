@@ -36,6 +36,25 @@ describe("local game components", () => {
     expect(container.querySelector('.character-art[src^="/game-assets/"]')).toBeInTheDocument();
   });
 
+  it("uses a packed grid for nine characters and keeps details in a modal", () => {
+    const packedCharacters = Object.fromEntries(Array.from({ length: 9 }, (_, index) => {
+      const id = `crowd-${index}`;
+      return [id, { ...game.characters.student, id, name: `拥挤角色 ${index + 1}`, location: "school" }];
+    }));
+    const packedGame = { ...game, characters: packedCharacters } as GameView;
+    const { container } = render(<Board game={packedGame} catalog={catalog} />);
+    const school = container.querySelector(".location-school");
+    expect(school).toHaveClass("location-packed");
+    expect(school?.querySelectorAll(".character")).toHaveLength(9);
+    expect(screen.getByText(/密谋 0 · 9 人/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "查看拥挤角色 1资料" }));
+    expect(screen.getByRole("dialog", { name: "拥挤角色 1" })).toBeInTheDocument();
+    expect(screen.getByText(/属性：/)).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("requires card, target and confirmation before dispatch", () => {
     const offers: ActionOffer[] = [
       { id: "one", actor: "m", type: "play", parameters: { card: "p1a", target: "student" }, label: "不安+1 → 男学生" },
@@ -45,6 +64,10 @@ describe("local game components", () => {
     render(<Actions offers={offers} catalog={catalog} game={game} busy={false} onAction={dispatch} />);
     expect(screen.queryByText("确认执行")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "不安 +1（第1张）" }));
+    fireEvent.click(screen.getByRole("button", { name: "查看男学生资料" }));
+    expect(screen.getByRole("dialog", { name: "男学生" })).toBeInTheDocument();
+    expect(screen.queryByText("确认执行")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
     fireEvent.click(document.querySelector('.character.legal-board-target') as HTMLElement);
     expect(dispatch).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "确认执行" }));
