@@ -108,8 +108,15 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .hand { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; }
 .hand button, .guess-characters button { min-height: 4.2rem; text-align: left; background: linear-gradient(145deg, #35292e, #251e22); }
 .hand button:hover, .guess-characters button:hover { box-shadow: 0 .35rem 1rem #0004; }
+.hand button[aria-roledescription="draggable"] { touch-action: none; }
+.hand button.dragging { opacity: .35; }
 .hand button strong, .hand button small, .guess-characters button small { display: block; }
 .hand button small, .guess-characters button small { color: #aa9ba0; margin-top: .25rem; }
+.drop-targets { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .45rem; }
+.drop-targets button { margin: 0; border-style: dashed; border-color: #8a6a72; background: #292126; }
+.drop-targets button::before { content: "放置到 "; color: #ad9da2; font-size: .72rem; }
+.drop-targets button.drag-over { border-style: solid; border-color: #f0b17d; color: #fff4e9; background: #70424b; box-shadow: 0 0 0 2px #f0b17d55, 0 .5rem 1.5rem #0005; transform: translateY(-2px); }
+.drag-card-overlay { max-width: 210px; padding: .8rem 1rem; border: 1px solid #f0b17d; border-radius: .55rem; color: #fff4e9; background: #56323a; box-shadow: 0 1rem 3rem #0008; font-weight: 700; cursor: grabbing; }
 .guess-characters { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: .5rem; }
 .confirm-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-top: 1px solid #765961; margin-top: .8rem; padding-top: .8rem; }
 .confirm-bar span { color: #e4d5d9; }

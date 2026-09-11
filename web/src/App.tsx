@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor,
+  useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent,
+} from "@dnd-kit/core";
 import { ApiClient, ApiError, type StoredRoom, type StoredSession } from "./api/client";
 import type { ActionOffer, CatalogResponse, GameView, ModuleId, ModuleSummary, RoomResponse, Seat, Viewer } from "./api/types";
 import { abilityUseName, itemName } from "./display";
@@ -114,6 +118,32 @@ function Cards({ game, catalog, viewer }: { game: GameView; catalog: CatalogResp
   </section>;
 }
 
+function DraggableActionCard({ id, name, targetCount, selected, busy, onSelect }: {
+  id: string; name: string; targetCount: number; selected: boolean; busy: boolean; onSelect: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `card:${id}`, data: { card: id }, disabled: busy,
+  });
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+  return <button ref={setNodeRef} style={style}
+    className={`${selected ? "selected" : ""} ${isDragging ? "dragging" : ""}`}
+    disabled={busy} onClick={onSelect} {...listeners} {...attributes}>
+    <strong>{name}</strong><small>{targetCount} 个合法目标 · 可拖拽</small>
+  </button>;
+}
+
+function DroppableActionTarget({ offer, game, selected, busy, onSelect }: {
+  offer: ActionOffer; game: GameView; selected: boolean; busy: boolean; onSelect: () => void;
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `target:${offer.id}`, data: { offer }, disabled: busy,
+  });
+  return <button ref={setNodeRef} className={`${selected ? "selected" : ""} ${isOver ? "drag-over" : ""}`}
+    disabled={busy} onClick={onSelect}>
+    {targetName(game, offer.parameters.target) || offer.label}
+  </button>;
+}
+
 export function Actions({ offers, catalog, game, busy, onAction }: {
   offers: ActionOffer[]; catalog: CatalogResponse | null; game: GameView;
   busy: boolean; onAction: (offer: ActionOffer) => void;
@@ -121,6 +151,12 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [selectedGuess, setSelectedGuess] = useState<string | null>(null);
   const [selected, setSelected] = useState<ActionOffer | null>(null);
+  const [draggedCard, setDraggedCard] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
+    useSensor(KeyboardSensor),
+  );
   const playGroups = useMemo(() => {
     const groups = new Map<string, ActionOffer[]>();
     for (const item of offers.filter(candidate => candidate.type === "play")) {
@@ -141,6 +177,21 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
   const actor = offers[0]?.actor;
   const choices = selectedCard ? playGroups.get(selectedCard) ?? [] : [];
   const guesses = selectedGuess ? guessGroups.get(selectedGuess) ?? [] : [];
+  const startDrag = (event: DragStartEvent) => {
+    const card = String(event.active.data.current?.card ?? "");
+    if (!playGroups.has(card)) return;
+    setDraggedCard(card); setSelectedCard(card); setSelected(null);
+  };
+  const finishDrag = (event: DragEndEvent) => {
+    setDraggedCard(null);
+    const offer = event.over?.data.current?.offer as ActionOffer | undefined;
+    // dnd-kit briefly suppresses the click following a pointer drag. Publishing
+    // the confirmation after that guard is removed prevents the first tap on the
+    // confirmation button from being swallowed on touch devices.
+    if (offer && choices.some(choice => choice.id === offer.id)) {
+      window.setTimeout(() => setSelected(offer), 80);
+    }
+  };
   return <section className={`panel actions-panel ${offers.length ? "has-actions" : "is-waiting"}`}>
     <header className="action-header"><div><p className="eyebrow">TURN ACTION</p><h2>可执行行动</h2></div>
       {actor && <span className="actor-badge">{game.labels.actors[actor as Seat]}</span>}</header>
@@ -148,19 +199,21 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
     {!!others.length && <div className="action-grid">{others.map(offer =>
       <button className={selected?.id === offer.id ? "selected" : ""} disabled={busy} key={offer.id}
         onClick={() => setSelected(offer)}>{offer.label}</button>)}</div>}
-    {!!playGroups.size && <>
-      <p className="step-label">1. 选择手牌</p><div className="hand">
-        {[...playGroups].map(([card, available]) => <button className={selectedCard === card ? "selected" : ""}
-          disabled={busy} key={card} onClick={() => { setSelectedCard(card); setSelected(null); }}>
-          <strong>{itemName(actor ? catalog?.cards[actor] : undefined, card)}</strong><small>{available.length} 个合法目标</small>
-        </button>)}
+    {!!playGroups.size && <DndContext sensors={sensors} onDragStart={startDrag} onDragEnd={finishDrag}
+      onDragCancel={() => setDraggedCard(null)}>
+      <p className="step-label">1. 选择手牌，或将牌拖向合法目标</p><div className="hand">
+        {[...playGroups].map(([card, available]) => <DraggableActionCard key={card} id={card}
+          name={itemName(actor ? catalog?.cards[actor] : undefined, card)} targetCount={available.length}
+          selected={selectedCard === card} busy={busy}
+          onSelect={() => { setSelectedCard(card); setSelected(null); }} />)}
       </div>
-      {selectedCard && <><p className="step-label">2. 选择目标</p><div className="action-grid">
-        {choices.map(offer => <button className={selected?.id === offer.id ? "selected" : ""}
-          disabled={busy} key={offer.id} onClick={() => setSelected(offer)}>
-          {targetName(game, offer.parameters.target) || offer.label}</button>)}
+      {selectedCard && <><p className="step-label">2. 选择目标；拖放后仍需确认</p><div className="action-grid drop-targets">
+        {choices.map(offer => <DroppableActionTarget key={offer.id} offer={offer} game={game}
+          selected={selected?.id === offer.id} busy={busy} onSelect={() => setSelected(offer)} />)}
       </div></>}
-    </>}
+      <DragOverlay dropAnimation={null}>{draggedCard ? <div className="drag-card-overlay">
+        {itemName(actor ? catalog?.cards[actor] : undefined, draggedCard)}</div> : null}</DragOverlay>
+    </DndContext>}
     {!!guessGroups.size && <>
       <p className="step-label">1. 选择要猜测的角色/身份面</p><div className="guess-characters">
         {[...guessGroups].map(([character, available]) => <button className={selectedGuess === character ? "selected" : ""}

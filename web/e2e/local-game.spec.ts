@@ -35,6 +35,24 @@ async function selectFirstAction(page: Page) {
   }
 }
 
+async function dragFirstCardToFirstTarget(page: Page) {
+  const card = page.locator(".actions-panel .hand button").first();
+  await expect(card).toBeVisible();
+  const cardBox = await card.boundingBox();
+  if (!cardBox) throw new Error("card has no layout box");
+  await page.mouse.move(cardBox.x + cardBox.width / 2, cardBox.y + cardBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(cardBox.x + cardBox.width / 2 + 12, cardBox.y + cardBox.height / 2 + 12,
+                        { steps: 3 });
+  const target = page.locator(".actions-panel .drop-targets button").first();
+  await expect(target).toBeVisible();
+  const targetBox = await target.boundingBox();
+  if (!targetBox) throw new Error("target has no layout box");
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2,
+                        { steps: 6 });
+  await page.mouse.up();
+}
+
 test("four isolated browser sessions join, ready and receive synchronized private views", async ({ browser }) => {
   const contexts = await Promise.all([0, 1, 2, 3].map(index => browser.newContext(
     index === 1 ? { viewport: { width: 390, height: 844 } } : undefined)));
@@ -168,6 +186,20 @@ test("real service preserves private card boundary while actions advance", async
   await expect(page.getByRole("heading", { name: "剧作家资料" })).toHaveCount(0);
   await expect(page.locator(".placement")).toContainText("暗牌");
   await expect(page.locator(".placement")).not.toContainText(chosenCard);
+});
+
+test("action cards can be dragged only onto server-provided legal targets", async ({ page }) => {
+  await createBtxGame(page);
+  await page.getByRole("button", { name: "剧作家", exact: true }).click();
+  await selectFirstAction(page);
+  await dragFirstCardToFirstTarget(page);
+  await expect(page.getByRole("button", { name: "确认执行" })).toBeVisible();
+  await expect(page.locator(".drag-card-overlay")).toHaveCount(0);
+  const accepted = page.waitForResponse(response => response.request().method() === "POST"
+    && response.url().endsWith("/commands"));
+  await page.getByRole("button", { name: "确认执行" }).click();
+  await accepted;
+  await expect(page.locator(".placement")).toHaveCount(1);
 });
 
 test("session survives reload and narrow screens retain all controls", async ({ page }) => {
