@@ -13,7 +13,7 @@ from .catalog import MODULES
 from .service import GameService, PROTOCOL_VERSION, SEATS, ServiceError
 
 
-ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+ROOM_ALPHABET = "0123456789"
 WAITING_TTL = 2 * 60 * 60
 PLAYING_TTL = 24 * 60 * 60
 FINISHED_TTL = 6 * 60 * 60
@@ -118,7 +118,7 @@ class RoomService:
         if not isinstance(code, str):
             raise ServiceError("ROOM_NOT_FOUND", "房间不存在或已经关闭", status=404)
         with self._lock:
-            room = self._rooms.get(code.upper())
+            room = self._rooms.get(code)
         if room is None:
             raise ServiceError("ROOM_NOT_FOUND", "房间不存在或已经关闭", status=404)
         return room

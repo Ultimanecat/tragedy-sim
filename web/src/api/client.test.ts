@@ -47,7 +47,7 @@ describe("ApiClient", () => {
     const calls: Array<[string, RequestInit | undefined]> = [];
     const room = {
       protocol_version: 1, self: { seat: "a" }, is_host: false,
-      room: { code: "ABC234", module: "BTX", status: "playing", revision: 2,
+      room: { code: "123234", module: "BTX", status: "playing", revision: 2,
         game_revision: 0, spectators: true,
         seats: { m: null, a: { nickname: "Alice", ready: true, connected: true }, b: null, c: null } },
       credential: { room_token: "room-a", seat: "a" },
@@ -73,9 +73,9 @@ describe("ApiClient", () => {
     const offered = await client.actions("a");
     await client.command("a", offered.actions[0].id);
     expect(calls.map(call => call[0])).toEqual([
-      "/v1/rooms", "/v1/rooms/ABC234/updates?room_revision=2&game_revision=0",
-      "/v1/rooms/ABC234/game/view?lang=zh", "/v1/rooms/ABC234/game/actions",
-      "/v1/rooms/ABC234/game/commands",
+      "/v1/rooms", "/v1/rooms/123234/updates?room_revision=2&game_revision=0",
+      "/v1/rooms/123234/game/view?lang=zh", "/v1/rooms/123234/game/actions",
+      "/v1/rooms/123234/game/commands",
     ]);
     expect(calls[4][1]?.headers).toMatchObject({ Authorization: "Bearer room-a" });
     expect(JSON.parse(String(calls[4][1]?.body))).toMatchObject({ expected_revision: 1 });

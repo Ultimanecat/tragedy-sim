@@ -18,6 +18,7 @@ class RoomServiceTests(unittest.TestCase):
             "module": "BTX", "nickname": "房主", "seat": "m", "spectators": True,
         })
         self.code = self.created["room"]["code"]
+        self.assertRegex(self.code, r"^\d{6}$")
         self.host = self.created["credential"]["admin_token"]
         self.tokens = {"m": self.created["credential"]["room_token"]}
 

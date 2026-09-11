@@ -54,12 +54,15 @@ async function dragFirstCardToFirstTarget(page: Page) {
 }
 
 test("a missing room offers a direct return to the lobby", async ({ page }) => {
-  await page.goto("/?room=ABCDEF");
+  await page.goto("/?room=000000");
   await expect(page.getByRole("alert")).toContainText("房间不存在或已经关闭");
   await expect(page.getByRole("heading", { name: "无法进入房间" })).toBeVisible();
   await page.getByRole("button", { name: "返回大厅" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { name: "创建局域网房间" })).toBeVisible();
+  await page.getByLabel("房间码").fill("12ab3456");
+  await expect(page.getByLabel("房间码")).toHaveValue("123456");
+  await expect(page.getByRole("button", { name: "进入房间" })).toBeEnabled();
 });
 
 test("four isolated browser sessions join, ready and receive synchronized private views", async ({ browser }) => {
@@ -73,6 +76,7 @@ test("four isolated browser sessions join, ready and receive synchronized privat
     await host.getByLabel("昵称").fill("Host");
     await host.getByRole("button", { name: "创建房间" }).click();
     await expect(host.getByRole("heading", { name: "等待所有玩家入座并准备" })).toBeVisible();
+    await expect(host.locator(".room-heading strong")).toHaveText(/^\d{6}$/);
     const invite = host.url();
 
     for (const [page, seat, name] of [[a, "A", "Alice"], [b, "B", "Bob"], [c, "C", "Carol"]] as const) {

@@ -52,7 +52,7 @@ function loadRoom(code: string | null): StoredRoom | null {
 
 function urlRoomCode() {
   const value = new URLSearchParams(window.location.search).get("room");
-  return value?.trim().toUpperCase() || null;
+  return value?.trim() || null;
 }
 
 function download(name: string, contents: string, type: string) {
@@ -460,7 +460,7 @@ export default function App() {
   }
 
   function enterRoom(code: string) {
-    const normalized = code.toUpperCase();
+    const normalized = code.trim();
     setRoomUnavailable(false); setError("");
     setRoomCode(normalized);
     window.history.replaceState(null, "", `${window.location.pathname}?room=${normalized}`);
@@ -616,7 +616,9 @@ export default function App() {
         <label className="checkbox"><input type="checkbox" checked={allowSpectators} onChange={event => setAllowSpectators(event.target.checked)} />允许未入座者旁观公开棋盘</label>
         {!nickname.trim() && <small className="muted">请先输入昵称，才能创建或加入房间。</small>}
         <button className="primary" disabled={busy || !nickname.trim()} onClick={() => void createRoom()}>创建房间</button>
-        <div className="join-code"><input aria-label="房间码" maxLength={6} value={roomEntry} onChange={event => setRoomEntry(event.target.value.toUpperCase())} placeholder="输入 6 位房间码" /><button disabled={roomEntry.trim().length !== 6} onClick={() => enterRoom(roomEntry)}>进入房间</button></div>
+        <div className="join-code"><input aria-label="房间码" inputMode="numeric" pattern="[0-9]*"
+          value={roomEntry} onChange={event => setRoomEntry(event.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="输入 6 位数字" /><button disabled={!/^\d{6}$/.test(roomEntry)} onClick={() => enterRoom(roomEntry)}>进入房间</button></div>
       </article>
     </section> : <>
       {roomInfo && <section className="room-bar"><strong>房间 {roomInfo.room.code}</strong><span>你的席位：{ownSeat ? game.labels.actors[ownSeat] : "旁观者"}</span>
