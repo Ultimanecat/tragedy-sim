@@ -11,6 +11,12 @@ from tragedy_sim.server import create_server
 from tragedy_sim.service import ServiceError
 
 
+class FirstActionAgent:
+    def choose_action(self, *, participant, view, offers):
+        del participant, view
+        return offers[0]
+
+
 class RoomServiceTests(unittest.TestCase):
     def setUp(self):
         self.rooms = RoomService()
@@ -111,6 +117,65 @@ class RoomServiceTests(unittest.TestCase):
         with self.assertRaises(ServiceError) as not_ready:
             self.rooms.start(self.code, token=self.host)
         self.assertEqual(not_ready.exception.code, "PLAYERS_NOT_READY")
+
+    def test_host_can_fill_empty_seats_with_random_ai(self):
+        self.rooms._ai_agent = FirstActionAgent()
+        for seat in "abc":
+            result = self.rooms.set_ai(self.code, {"seat": seat, "enabled": True},
+                                       token=self.host)
+            occupant = result["room"]["seats"][seat]
+            self.assertEqual((occupant["nickname"], occupant["ready"], occupant["connected"],
+                              occupant["ai"]), ("随机 AI", True, True, True))
+        with self.assertRaises(ServiceError) as occupied:
+            self.rooms.set_ai(self.code, {"seat": "m", "enabled": True}, token=self.host)
+        self.assertEqual(occupied.exception.code, "SEAT_OCCUPIED")
+        removed = self.rooms.set_ai(self.code, {"seat": "c", "enabled": False},
+                                    token=self.host)
+        self.assertIsNone(removed["room"]["seats"]["c"])
+        self.rooms.set_ai(self.code, {"seat": "c", "enabled": True}, token=self.host)
+
+        self.rooms.ready(self.code, {"ready": True}, token=self.tokens["m"])
+        self.rooms.start(self.code, token=self.host)
+        previous_revision = 0
+        for _ in range(20):
+            actions = self.rooms.game_actions(self.code, token=self.tokens["m"])
+            self.assertTrue(actions["actions"])
+            result = self.rooms.game_command(self.code, {
+                "action_id": actions["actions"][0]["id"],
+                "expected_revision": actions["revision"],
+            }, token=self.tokens["m"])
+            self.assertGreater(result["revision"], previous_revision)
+            previous_revision = result["revision"]
+            if len(self.rooms._rooms[self.code].executors) > result["revision"]:
+                self.fail("executor records exceeded decisions")
+            if any(item["ai"] for item in self.rooms._rooms[self.code].executors):
+                break
+        else:
+            self.fail("AI players never received a turn")
+        self.assertGreater(result["revision"], actions["revision"] + 1)
+        self.assertTrue(any(item["ai"] for item in self.rooms._rooms[self.code].executors))
+
+        with self.assertRaises(ServiceError) as not_host:
+            self.rooms.set_ai(self.code, {"seat": "a", "enabled": False},
+                              token=self.tokens["m"])
+        self.assertEqual(not_host.exception.code, "FORBIDDEN")
+
+    def test_ai_can_control_the_mastermind_side(self):
+        rooms = RoomService(ai_agent=FirstActionAgent())
+        created = rooms.create({"module": "BTX", "nickname": "Hero", "seat": "a",
+                                "protagonist_count": 1})
+        code = created["room"]["code"]
+        admin = created["credential"]["admin_token"]
+        hero = created["credential"]["room_token"]
+        rooms.set_ai(code, {"seat": "m", "enabled": True}, token=admin)
+        rooms.ready(code, {"ready": True}, token=hero)
+        started = rooms.start(code, token=admin)
+        self.assertGreaterEqual(started["room"]["game_revision"], 4)
+        self.assertTrue(rooms.game_actions(code, token=hero)["actions"])
+        executors = rooms._rooms[code].executors
+        self.assertTrue(executors)
+        self.assertTrue(all(item["ai"] and item["participant"] == "m"
+                            for item in executors))
 
     def test_four_room_tokens_can_complete_a_match_and_export_replay(self):
         self.join_all()
@@ -295,6 +360,17 @@ class RoomHttpTests(unittest.TestCase):
         self.assertEqual((status, ready["room"]["seats"]["a"]["ready"]), (200, True))
         status, forbidden = self.request("GET", f"/v1/rooms/{code}/game/view")
         self.assertEqual((status, forbidden["error"]["code"]), (403, "FORBIDDEN"))
+
+    def test_http_host_can_add_ai_seat(self):
+        status, created = self.request("POST", "/v1/rooms", {
+            "module": "BTX", "nickname": "Host", "seat": "m",
+        })
+        self.assertEqual(status, 201)
+        status, updated = self.request("POST", f"/v1/rooms/{created['room']['code']}/ai",
+                                       {"seat": "a", "enabled": True},
+                                       token=created["credential"]["admin_token"])
+        self.assertEqual(status, 200)
+        self.assertTrue(updated["room"]["seats"]["a"]["ai"])
 
     def test_sse_stream_sends_revision_without_exposing_room_state(self):
         status, created = self.request("POST", "/v1/rooms", {

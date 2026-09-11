@@ -205,6 +205,7 @@ export interface RoomOccupant {
   nickname: string;
   ready: boolean;
   connected: boolean;
+  ai: boolean;
 }
 export interface RoomState {
   code: string;

@@ -310,6 +310,11 @@ export class ApiClient {
     return this.roomMutation("kick", { seat }, room.adminToken);
   }
 
+  async setAiSeat(seat: Seat, enabled: boolean) {
+    const room = this.requireRoom();
+    return this.roomMutation("ai", { seat, enabled }, room.adminToken);
+  }
+
   async leaveRoom() {
     const room = this.requireRoom();
     const response = await this.roomMutation("leave", undefined, room.roomToken);

@@ -690,6 +690,13 @@ export default function App() {
     catch (reason) { setError(reason instanceof Error ? reason.message : "释放座位失败"); }
   }
 
+  async function setAiRoomSeat(seat: Seat, enabled: boolean) {
+    setBusy(true); setError("");
+    try { setRoomInfo(await client.setAiSeat(seat, enabled)); persist(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "AI 座位更新失败"); }
+    finally { setBusy(false); }
+  }
+
   async function leaveOrCloseRoom() {
     setBusy(true); setError("");
     try {
@@ -771,12 +778,14 @@ export default function App() {
         <p className="muted">本局由 1 名剧作家和 {roomInfo.room.protagonist_count} 名主人公玩家参与。</p>
         <div className="seat-grid">{roomInfo.room.required_seats.map(seat => {
           const occupant = roomInfo.room.seats[seat];
-          return <article className={occupant ? "occupied" : ""} key={seat}>
+          return <article className={`${occupant ? "occupied" : ""} ${occupant?.ai ? "ai-seat" : ""}`} key={seat}>
             <small>{seat === "m" ? "剧作家" : `主人公 ${seat.toUpperCase()}`}</small>
-            <strong>{occupant?.nickname ?? "空位"}</strong>
-            <span>{occupant ? (occupant.ready ? "已准备" : "尚未准备") : "等待加入"}</span>
+            <strong>{occupant?.nickname ?? "空位"}{occupant?.ai && <small className="ai-badge">AI</small>}</strong>
+            <span>{occupant?.ai ? "自动随机行动" : occupant ? (occupant.ready ? "已准备" : "尚未准备") : "等待加入"}</span>
             {!ownSeat && !occupant && <button disabled={busy || !nickname.trim()} onClick={() => void joinRoom(seat)}>坐到这里</button>}
-            {client.room?.adminToken && occupant && seat !== ownSeat && <button onClick={() => void kickRoomSeat(seat)}>释放座位</button>}
+            {client.room?.adminToken && !occupant && <button disabled={busy} onClick={() => void setAiRoomSeat(seat, true)}>用 AI 填充</button>}
+            {client.room?.adminToken && occupant && seat !== ownSeat && <button disabled={busy}
+              onClick={() => void (occupant.ai ? setAiRoomSeat(seat, false) : kickRoomSeat(seat))}>释放座位</button>}
           </article>;
         })}</div>
         {!ownSeat ? <div className="lobby-controls"><label>你的昵称<input maxLength={24} value={nickname} onChange={event => setNickname(event.target.value)} placeholder="先输入昵称，再选择座位" /></label></div>

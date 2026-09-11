@@ -124,6 +124,7 @@ POST   /v1/rooms                         创建房间并占据一个座位
 GET    /v1/rooms/{code}                  读取公开大厅状态
 POST   /v1/rooms/{code}/join             占据空座位
 POST   /v1/rooms/{code}/ready            设置自己的准备状态
+POST   /v1/rooms/{code}/ai               房主增加或移除随机 AI
 POST   /v1/rooms/{code}/start            房主在所需参与者均准备后开始
 POST   /v1/rooms/{code}/leave            开始前释放自己的座位
 POST   /v1/rooms/{code}/kick             房主释放误占座位
@@ -142,7 +143,7 @@ DELETE /v1/rooms/{code}                  房主关闭房间
 `ready_to_start`、`logical_leader` 与 `human_leader`，客户端不应自行推导动态控制权。
 
 创建者获得 `credential.room_token`、`credential.admin_token` 和自己的 `seat`；加入者只获得自己的
-`room_token` 和 `seat`。房间公开响应只包含昵称、准备/在线状态、房间阶段及 revision，不包含游戏 session、
+`room_token` 和 `seat`。房间公开响应只包含昵称、准备/在线/AI 状态、房间阶段及 revision，不包含游戏 session、
 身份、剧本或其他令牌。昵称限制为 1–24 个可见字符。
 
 对局开始后，各浏览器使用自己的房间令牌访问：
@@ -166,8 +167,12 @@ POST /v1/rooms/{code}/game/commands
 A、B 固定控制自己的行动牌，当天真人领队额外控制 C 的行动牌和逻辑领队负责的团队选择；领队轮换后旧的
 action ID 会因 revision 变化失效。服务端在提交时重新计算授权，浏览器不能声明或扩大自己的控制范围。
 
-房间导出的 `.tlr` 仍以原始逻辑命令重演；以 `# ROOM_ACTOR` 开头的注释额外记录真人参与者昵称与实际逻辑
-actor，旧版解析器会安全忽略这些注释。
+房主可向空座位提交 `{"seat":"a","enabled":true}`；AI 自动准备，后续只从该参与者当前由服务端授权的
+`ActionOffer` 中随机选择，不在 AI 层复制规则。提交 `enabled:false` 可在开局前移除 AI，不能用此接口替换真人。
+每次真人行动后，房间层会连续执行 AI 行动，直到轮到真人或产生胜负。
+
+房间导出的 `.tlr` 仍以原始逻辑命令重演；以 `# ROOM_ACTOR` 开头的注释额外记录参与者昵称、实际逻辑
+actor 及是否由 AI 执行，旧版解析器会安全忽略这些注释。
 
 房间码和所有令牌均由密码学安全随机源生成（房间码为便于手工输入的六位数字，访问令牌仍保持高熵）。HTTP 层限制正文大小、请求频率和字段集合；等待、进行中和已结束房间
 分别在长时间无活动后清理。令牌保存在浏览器本地以支持刷新重连，但不会跨浏览器或设备自动复制。

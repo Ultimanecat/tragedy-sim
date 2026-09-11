@@ -9,6 +9,7 @@ from threading import Condition, RLock
 import time
 from typing import Any
 
+from .ai import AgentPolicy, RandomAgent
 from .catalog import MODULES
 from .service import GameService, PROTOCOL_VERSION, SEATS, ServiceError
 
@@ -30,6 +31,7 @@ class _Occupant:
     token: str
     ready: bool = False
     last_seen: float = field(default_factory=time.monotonic)
+    ai: bool = False
 
 
 @dataclass
@@ -90,11 +92,13 @@ def _protagonist_count(value: Any, module: str) -> int:
 class RoomService:
     """Owns lobby state while delegating every game rule to ``GameService``."""
 
-    def __init__(self, games: GameService | None = None, *, clock=time.monotonic):
+    def __init__(self, games: GameService | None = None, *, clock=time.monotonic,
+                 ai_agent: AgentPolicy | None = None):
         self.games = games or GameService()
         self._rooms: dict[str, _Room] = {}
         self._lock = RLock()
         self._clock = clock
+        self._ai_agent = ai_agent or RandomAgent()
 
     def _cleanup(self) -> None:
         now = self._clock()
@@ -190,7 +194,8 @@ class RoomService:
                 "ready_to_start": all(room.seats[seat] and room.seats[seat].ready for seat in required),
                 "seats": {seat: (None if occupant is None else {
                     "nickname": occupant.nickname, "ready": occupant.ready,
-                    "connected": now - occupant.last_seen <= PRESENCE_TTL,
+                    "connected": occupant.ai or now - occupant.last_seen <= PRESENCE_TTL,
+                    "ai": occupant.ai,
                 }) for seat, occupant in room.seats.items()},
             },
             "self": None if own_seat is None else {"seat": own_seat},
@@ -277,6 +282,36 @@ class RoomService:
                 self._bump(room)
             return self._payload(room, token=token)
 
+    def set_ai(self, code: str, request: Any, *, token: str | None) -> dict[str, Any]:
+        request = _object(request, {"seat", "enabled"}, {"seat", "enabled"})
+        seat = _seat(request["seat"])
+        if type(request["enabled"]) is not bool:
+            raise ServiceError("INVALID_REQUEST", "enabled 必须是布尔值")
+        room = self._room(code)
+        with room.lock:
+            self._require_admin(room, token)
+            if room.status != "waiting":
+                raise ServiceError("ROOM_ALREADY_STARTED", "对局开始后不能更改 AI 座位", status=409)
+            required = ("m", *SEATS[1:1 + room.protagonist_count])
+            if seat not in required:
+                raise ServiceError("SEAT_UNAVAILABLE", "该人数模式没有这个参与者席位", status=409)
+            occupant = room.seats[seat]
+            if request["enabled"]:
+                if occupant is not None:
+                    raise ServiceError("SEAT_OCCUPIED", "该座位已经有人", status=409)
+                room.seats[seat] = _Occupant(
+                    nickname="随机 AI", token=secrets.token_urlsafe(24), ready=True,
+                    last_seen=self._clock(), ai=True,
+                )
+                self._bump(room)
+            elif occupant is not None:
+                if not occupant.ai:
+                    raise ServiceError("SEAT_OCCUPIED", "不能把真人座位改为 AI", status=409)
+                room.seats[seat] = None
+                self._bump(room)
+            room.last_activity = self._clock()
+            return self._payload(room, token=token)
+
     def start(self, code: str, *, token: str | None) -> dict[str, Any]:
         room = self._room(code)
         with room.lock:
@@ -291,6 +326,7 @@ class RoomService:
             room.status = "playing"
             room.last_activity = self._clock()
             self._bump(room)
+            self._run_ai_turns(room)
             return self._payload(room, token=token)
 
     def leave(self, code: str, *, token: str | None) -> dict[str, Any]:
@@ -390,6 +426,44 @@ class RoomService:
                           if self._can_control(room, participant, offer, public["state"]))
         return public, offers
 
+    def _record_executor(self, room: _Room, seat: str, occupant: _Occupant,
+                         accepted: dict[str, Any]) -> None:
+        room.executors.append({"decision": len(room.executors) + 1,
+                               "participant": seat, "nickname": occupant.nickname,
+                               "actor": accepted["actor"], "ai": occupant.ai})
+
+    def _run_ai_turns(self, room: _Room) -> None:
+        """Consume consecutive AI turns; caller must hold ``room.lock``."""
+        for _ in range(1000):
+            self._sync_status(room)
+            if room.status != "playing":
+                return
+            available: list[tuple[str, _Occupant, dict[str, Any], int]] = []
+            for seat in ("m", *SEATS[1:1 + room.protagonist_count]):
+                occupant = room.seats[seat]
+                if occupant is None or not occupant.ai:
+                    continue
+                public, offers = self._participant_offers(room, seat)
+                if offers:
+                    observation = self.game_view(room.code, token=occupant.token)["state"]
+                    offer = self._ai_agent.choose_action(
+                        participant=seat, view=observation, offers=offers)
+                    if offer not in offers:
+                        raise RuntimeError("AI selected an action outside its legal offers")
+                    available.append((seat, occupant, offer, public["revision"]))
+            if not available:
+                return
+            if len(available) != 1:
+                raise RuntimeError("multiple AI participants can act at the same time")
+            seat, occupant, offer, revision = available[0]
+            result = self.games.dispatch(room.session_id, {
+                "action_id": offer["id"], "expected_revision": revision,
+            }, token=room.game_admin)
+            self._record_executor(room, seat, occupant, result["accepted_action"])
+            room.last_activity = self._clock()
+            room.changed.notify_all()
+        raise RuntimeError("AI action limit exceeded")
+
     def game_view(self, code: str, *, token: str | None = None, language="zh") -> dict[str, Any]:
         room = self._room(code)
         with room.lock:
@@ -457,13 +531,15 @@ class RoomService:
                 raise ServiceError("ACTION_NOT_AVAILABLE", "该行动不属于当前参与者", status=409)
             result = self.games.dispatch(room.session_id, request, token=room.game_admin)
             accepted = result["accepted_action"]
-            room.executors.append({"decision": len(room.executors) + 1,
-                                   "participant": seat, "nickname": occupant.nickname,
-                                   "actor": accepted["actor"]})
+            self._record_executor(room, seat, occupant, accepted)
             room.last_activity = self._clock()
             self._sync_status(room)
             room.changed.notify_all()
-            return result
+            self._run_ai_turns(room)
+            final_view = self.games.get_view(room.session_id)
+            result["revision"] = final_view["revision"]
+            result["view"] = final_view
+            return _json_copy(result)
 
     def game_snapshot(self, code: str, *, token: str | None) -> dict[str, Any]:
         room = self._room(code)
@@ -476,7 +552,7 @@ class RoomService:
         with room.lock:
             self._require_admin(room, token)
             replay = self.games.get_replay(room.session_id, token=room.game_admin, language=language)
-            actor_lines = ["# 房间执行者记录：participant 是真人席位，actor 是规则引擎逻辑席位。"]
+            actor_lines = ["# 房间执行者记录：participant 是参与者席位，actor 是规则引擎逻辑席位，ai 表示随机 AI。"]
             actor_lines.extend("# ROOM_ACTOR\t" + json.dumps(item, ensure_ascii=False,
                                                                separators=(",", ":"), sort_keys=True)
                                for item in room.executors)

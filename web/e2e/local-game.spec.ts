@@ -68,6 +68,25 @@ test("a missing room offers a direct return to the lobby", async ({ page }) => {
   await expect(page.getByRole("button", { name: "进入房间" })).toBeEnabled();
 });
 
+test("a host can fill an empty side with a random AI and play against it", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("主人公玩家人数").selectOption("1");
+  await page.getByLabel("昵称").fill("Host");
+  await page.getByRole("button", { name: "创建房间" }).click();
+  const heroSeat = page.locator(".seat-grid article").filter({ hasText: "主人公 A" });
+  await heroSeat.getByRole("button", { name: "用 AI 填充" }).click();
+  await expect(heroSeat).toContainText("随机 AI");
+  await expect(heroSeat).toContainText("自动随机行动");
+  await page.getByRole("button", { name: "我已准备" }).click();
+  await expect(page.getByRole("button", { name: "开始游戏" })).toBeEnabled();
+  await page.getByRole("button", { name: "开始游戏" }).click();
+
+  // Start the day and place three mastermind cards. The AI consumes the opposing turns.
+  for (let step = 0; step < 4; step += 1) await selectFirstAction(page);
+  await expect(page.locator(".actions-panel.has-actions")).toBeVisible();
+  await expect(page.getByText(/现在轮到你以剧作家身份行动/)).toBeVisible();
+});
+
 test("four isolated browser sessions join, ready and receive synchronized private views", async ({ browser }) => {
   const contexts = await Promise.all([0, 1, 2, 3].map(index => browser.newContext(
     index === 1 ? { viewport: { width: 390, height: 844 } } : undefined)));

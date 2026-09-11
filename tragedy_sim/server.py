@@ -323,6 +323,8 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
                         result, status = rooms.leave(code, token=self._token()), 200
                     elif action == "kick":
                         result, status = rooms.kick(code, self._json_body(), token=self._token()), 200
+                    elif action == "ai":
+                        result, status = rooms.set_ai(code, self._json_body(), token=self._token()), 200
                     else:
                         raise ServiceError("ROUTE_NOT_FOUND", "接口不存在", status=404)
                     self._send_json(status, result)
