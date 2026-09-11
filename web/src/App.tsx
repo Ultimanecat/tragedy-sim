@@ -141,8 +141,9 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
   const actor = offers[0]?.actor;
   const choices = selectedCard ? playGroups.get(selectedCard) ?? [] : [];
   const guesses = selectedGuess ? guessGroups.get(selectedGuess) ?? [] : [];
-  return <section className="panel actions-panel">
-    <h2>可执行行动</h2>
+  return <section className={`panel actions-panel ${offers.length ? "has-actions" : "is-waiting"}`}>
+    <header className="action-header"><div><p className="eyebrow">TURN ACTION</p><h2>可执行行动</h2></div>
+      {actor && <span className="actor-badge">{game.labels.actors[actor as Seat]}</span>}</header>
     {!offers.length && <p className="muted">当前视角没有可执行行动。</p>}
     {!!others.length && <div className="action-grid">{others.map(offer =>
       <button className={selected?.id === offer.id ? "selected" : ""} disabled={busy} key={offer.id}
@@ -475,7 +476,13 @@ export default function App() {
           : `${game.labels.actors[game.leader]} · ${game.table_talk ? "允许讨论" : "禁止讨论"}`}</strong></div>
       </section>
       {game.winner && <section className="outcome" role="status">{winnerName(game)}</section>}
-      <div className="workspace"><div><Board game={game} catalog={catalog} /><Actions key={`${viewer}:${offers.map(item => item.id).join(",")}`} offers={offers} catalog={catalog} game={game} busy={busy} onAction={act} /></div><aside>
+      <section className={`turn-banner ${offers.length ? "active" : "waiting"}`} aria-live="polite">
+        <div><small>{offers.length ? "YOUR TURN" : "CURRENT TURN"}</small><strong>{offers.length
+          ? `现在轮到你以${game.labels.actors[offers[0].actor as Seat]}身份行动`
+          : game.controller ? `等待${game.labels.actors[game.controller]}行动` : "正在结算阶段效果"}</strong></div>
+        <span>{game.phase_name} · {game.table_talk ? "允许讨论" : "禁止讨论"}</span>
+      </section>
+      <div className="workspace"><div className="play-column"><Actions key={`${viewer}:${offers.map(item => item.id).join(",")}`} offers={offers} catalog={catalog} game={game} busy={busy} onAction={act} /><Board game={game} catalog={catalog} /></div><aside>
         {game.protagonist_secret && <section className="panel personal-secret"><h2>你的 Last Liar 秘密</h2><strong>秘密 {game.protagonist_secret}</strong><p>此编号只对当前主人公可见，请勿向其他玩家展示。</p></section>}
         {game.secret && <section className="panel secret"><h2>剧作家资料</h2><p>规则 Y：{itemName(catalog?.plots, game.secret.main_plot)}</p><p>规则 X：{game.secret.subplots.map(id => itemName(catalog?.plots, id)).join("、")}</p><p>本轮实际天数：{game.secret.current_loop_days}</p>
           <details><summary>身份配置</summary>{Object.entries(game.secret.roles).map(([id, role]) => <p key={id}>{game.characters[id]?.name ?? id}：{itemName(catalog?.roles, role)}{game.secret?.hidden_roles?.[id] ? `／里身份 ${itemName(catalog?.roles, game.secret.hidden_roles[id])}` : ""}</p>)}</details>
