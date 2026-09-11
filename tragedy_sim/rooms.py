@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import json
 import secrets
-from threading import RLock
+from threading import Condition, RLock
 import time
 from typing import Any
 
@@ -51,6 +51,11 @@ class _Room:
     logical_leader: str = "a"
     executors: list[dict[str, Any]] = field(default_factory=list)
     lock: RLock = field(default_factory=RLock)
+    changed: Condition = field(init=False, repr=False)
+    closed: bool = False
+
+    def __post_init__(self) -> None:
+        self.changed = Condition(self.lock)
 
 
 def _object(request: Any, allowed: set[str], required: set[str] = frozenset()) -> dict[str, Any]:
@@ -101,6 +106,9 @@ class RoomService:
                 if now - room.last_activity > ttl:
                     expired.append(self._rooms.pop(code))
         for room in expired:
+            with room.changed:
+                room.closed = True
+                room.changed.notify_all()
             try:
                 self.games.delete_game(room.session_id, token=room.game_admin)
             except ServiceError:
@@ -135,6 +143,11 @@ class RoomService:
         raise ServiceError("FORBIDDEN", "房间令牌无权执行此操作", status=403)
 
     @staticmethod
+    def _bump(room: _Room) -> None:
+        room.revision += 1
+        room.changed.notify_all()
+
+    @staticmethod
     def _require_admin(room: _Room, token: str | None) -> None:
         if not isinstance(token, str) or not secrets.compare_digest(token, room.admin_token):
             raise ServiceError("FORBIDDEN", "仅房主可以执行此操作", status=403)
@@ -148,10 +161,10 @@ class RoomService:
                 room.human_leader = "b" if room.human_leader == "a" else "a"
             elif room.protagonist_count == 3:
                 room.human_leader = leader
-            room.revision += 1
+            self._bump(room)
         if room.status == "playing" and view["state"]["winner"]:
             room.status = "finished"
-            room.revision += 1
+            self._bump(room)
         return view["revision"]
 
     def _payload(self, room: _Room, *, token: str | None = None) -> dict[str, Any]:
@@ -213,7 +226,8 @@ class RoomService:
         with self._lock:
             room.code = self._new_code()
             self._rooms[room.code] = room
-        result = self._payload(room, token=player_token)
+        with room.lock:
+            result = self._payload(room, token=player_token)
         result["credential"] = {"room_token": player_token,
                                 "admin_token": room.admin_token, "seat": seat}
         result["is_host"] = True
@@ -244,7 +258,7 @@ class RoomService:
             token = secrets.token_urlsafe(24)
             room.seats[seat] = _Occupant(nickname, token, last_seen=self._clock())
             room.last_activity = self._clock()
-            room.revision += 1
+            self._bump(room)
             result = self._payload(room, token=token)
             result["credential"] = {"room_token": token, "seat": seat}
             return _json_copy(result)
@@ -260,7 +274,7 @@ class RoomService:
                 raise ServiceError("ROOM_ALREADY_STARTED", "房间已经开始", status=409)
             if occupant.ready != request["ready"]:
                 occupant.ready = request["ready"]
-                room.revision += 1
+                self._bump(room)
             return self._payload(room, token=token)
 
     def start(self, code: str, *, token: str | None) -> dict[str, Any]:
@@ -276,7 +290,7 @@ class RoomService:
                 raise ServiceError("PLAYERS_NOT_READY", "所有玩家准备后才能开始", status=409)
             room.status = "playing"
             room.last_activity = self._clock()
-            room.revision += 1
+            self._bump(room)
             return self._payload(room, token=token)
 
     def leave(self, code: str, *, token: str | None) -> dict[str, Any]:
@@ -286,7 +300,7 @@ class RoomService:
             if room.status != "waiting":
                 raise ServiceError("ROOM_ALREADY_STARTED", "对局开始后不能释放座位", status=409)
             room.seats[seat] = None
-            room.revision += 1
+            self._bump(room)
             room.last_activity = self._clock()
             return self._payload(room)
 
@@ -300,7 +314,7 @@ class RoomService:
                 raise ServiceError("ROOM_ALREADY_STARTED", "对局开始后不能释放座位", status=409)
             if room.seats[seat] is not None:
                 room.seats[seat] = None
-                room.revision += 1
+                self._bump(room)
             room.last_activity = self._clock()
             return self._payload(room, token=token)
 
@@ -312,6 +326,35 @@ class RoomService:
         result["room_changed"] = result["room"]["revision"] != room_revision
         result["game_changed"] = result["room"]["game_revision"] != game_revision
         return _json_copy(result)
+
+    def wait_for_updates(self, code: str, room_revision: int, game_revision: int, *,
+                         token: str | None = None, timeout: float = 15.0) -> dict[str, Any]:
+        """Wait for a room/game revision change, returning a heartbeat on timeout."""
+        if type(room_revision) is not int or type(game_revision) is not int:
+            raise ServiceError("INVALID_REQUEST", "revision 必须是整数")
+        if not isinstance(timeout, (int, float)) or not 0 <= timeout <= 30:
+            raise ServiceError("INVALID_REQUEST", "timeout 必须在 0–30 秒之间")
+        room = self._room(code)
+        deadline = time.monotonic() + timeout
+        with room.changed:
+            if token:
+                try:
+                    self._occupant(room, token)
+                except ServiceError:
+                    self._require_admin(room, token)
+                    room.last_activity = self._clock()
+            while True:
+                if room.closed:
+                    raise ServiceError("ROOM_NOT_FOUND", "房间不存在或已经关闭", status=404)
+                result = self._payload(room, token=token)
+                result["room_changed"] = result["room"]["revision"] != room_revision
+                result["game_changed"] = result["room"]["game_revision"] != game_revision
+                if result["room_changed"] or result["game_changed"]:
+                    return _json_copy(result)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return _json_copy(result)
+                room.changed.wait(remaining)
 
     @staticmethod
     def _card_actors(room: _Room, participant: str) -> tuple[str, ...]:
@@ -419,6 +462,7 @@ class RoomService:
                                    "actor": accepted["actor"]})
             room.last_activity = self._clock()
             self._sync_status(room)
+            room.changed.notify_all()
             return result
 
     def game_snapshot(self, code: str, *, token: str | None) -> dict[str, Any]:
@@ -445,6 +489,8 @@ class RoomService:
         with room.lock:
             self._require_admin(room, token)
             self.games.delete_game(room.session_id, token=room.game_admin)
+            room.closed = True
+            room.changed.notify_all()
             with self._lock:
                 self._rooms.pop(room.code, None)
         return {"protocol_version": PROTOCOL_VERSION, "room_code": room.code, "deleted": True}

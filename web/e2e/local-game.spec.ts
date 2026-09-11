@@ -117,6 +117,35 @@ test("four isolated browser sessions join, ready and receive synchronized privat
   }
 });
 
+test("a broken SSE connection falls back to revision polling", async ({ browser }) => {
+  const hostContext = await browser.newContext();
+  const heroContext = await browser.newContext();
+  const host = await hostContext.newPage();
+  const hero = await heroContext.newPage();
+  await hero.route("**/events?*", route => route.abort());
+  try {
+    await host.goto("/");
+    await host.getByLabel("主人公玩家人数").selectOption("1");
+    await host.getByLabel("昵称").fill("Host");
+    await host.getByRole("button", { name: "创建房间" }).click();
+    await expect(host.getByRole("heading", { name: "等待所有玩家入座并准备" })).toBeVisible();
+    await hero.goto(host.url());
+    await hero.getByLabel("你的昵称").fill("Fallback");
+    await hero.locator(".seat-grid article").filter({ hasText: "主人公 A" })
+      .getByRole("button", { name: "坐到这里" }).click();
+    await host.getByRole("button", { name: "我已准备" }).click();
+    await hero.getByRole("button", { name: "我已准备" }).click();
+    await expect(host.getByRole("button", { name: "开始游戏" })).toBeEnabled();
+    await host.getByRole("button", { name: "开始游戏" }).click();
+    await expect(hero.locator(".status-strip")).toBeVisible();
+
+    await selectFirstAction(host);
+    await expect(hero.getByText("第 1 天剧作家出牌阶段", { exact: true })).toBeVisible({ timeout: 7_000 });
+  } finally {
+    await Promise.all([hostContext.close(), heroContext.close()]);
+  }
+});
+
 test("one protagonist browser controls A, B and C in a two-person room", async ({ browser }) => {
   const hostContext = await browser.newContext();
   const heroContext = await browser.newContext({ viewport: { width: 390, height: 844 } });

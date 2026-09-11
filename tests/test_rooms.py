@@ -2,7 +2,7 @@
 
 from http.client import HTTPConnection
 import json
-from threading import Thread
+from threading import Event, Thread
 import unittest
 
 from tragedy_sim.rooms import RoomService, WAITING_TTL
@@ -56,6 +56,27 @@ class RoomServiceTests(unittest.TestCase):
                                     token=self.tokens["a"])
         self.assertTrue(update["game_changed"])
         self.assertFalse(update["room_changed"])
+
+    def test_wait_for_updates_wakes_when_room_revision_changes(self):
+        known = self.created["room"]
+        started, finished = Event(), Event()
+        received = []
+
+        def wait():
+            started.set()
+            received.append(self.rooms.wait_for_updates(
+                self.code, known["revision"], known["game_revision"],
+                token=self.tokens["m"], timeout=1))
+            finished.set()
+
+        thread = Thread(target=wait)
+        thread.start()
+        self.assertTrue(started.wait(1))
+        self.rooms.join(self.code, {"nickname": "Alice", "seat": "a"})
+        self.assertTrue(finished.wait(1))
+        thread.join(timeout=1)
+        self.assertTrue(received[0]["room_changed"])
+        self.assertFalse(received[0]["game_changed"])
 
     def test_lobby_validation_kick_leave_and_close(self):
         joined = self.rooms.join(self.code, {"nickname": "Alice", "seat": "a"})
@@ -274,6 +295,30 @@ class RoomHttpTests(unittest.TestCase):
         self.assertEqual((status, ready["room"]["seats"]["a"]["ready"]), (200, True))
         status, forbidden = self.request("GET", f"/v1/rooms/{code}/game/view")
         self.assertEqual((status, forbidden["error"]["code"]), (403, "FORBIDDEN"))
+
+    def test_sse_stream_sends_revision_without_exposing_room_state(self):
+        status, created = self.request("POST", "/v1/rooms", {
+            "module": "BTX", "nickname": "Host", "seat": "m", "spectators": True,
+        })
+        self.assertEqual(status, 201)
+        code = created["room"]["code"]
+        token = created["credential"]["room_token"]
+        stream = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        stream.request("GET", f"/v1/rooms/{code}/events?room_revision=-1&game_revision=-1",
+                       headers={"Authorization": "Bearer " + token, "Accept": "text/event-stream"})
+        response = stream.getresponse()
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.getheader("Content-Type"), "text/event-stream; charset=utf-8")
+        lines = []
+        while True:
+            line = response.readline().decode("utf-8").strip()
+            if not line:
+                break
+            lines.append(line)
+        data = json.loads(next(line[6:] for line in lines if line.startswith("data: ")))
+        self.assertEqual(set(data), {"protocol_version", "room_revision", "game_revision"})
+        self.assertIn("event: revision", lines)
+        stream.close()
 
 
 if __name__ == "__main__":

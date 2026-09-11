@@ -36,6 +36,7 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "TragedySim/1"
+        protocol_version = "HTTP/1.1"
 
         def log_message(self, format, *args):
             return None
@@ -71,6 +72,68 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
             body = value.encode("utf-8")
             self._headers(status, "text/plain; charset=utf-8", len(body))
             self.wfile.write(body)
+
+        def _stream_room_events(self, code: str, room_revision: int, game_revision: int) -> None:
+            # Validate the room and credential before committing the streaming response.
+            initial = rooms.get(code, token=self._token())
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("Content-Security-Policy",
+                             "default-src 'self'; script-src 'self'; style-src 'self'; "
+                             "img-src 'self' data:; connect-src 'self'")
+            origin = self._origin()
+            if origin:
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
+            self.end_headers()
+            current_room = initial["room"]["revision"]
+            current_game = initial["room"]["game_revision"]
+            initial_type = "revision" if (current_room != room_revision or current_game != game_revision) else "heartbeat"
+            initial_payload = json.dumps({
+                "protocol_version": PROTOCOL_VERSION,
+                "room_revision": current_room,
+                "game_revision": current_game,
+            }, ensure_ascii=False, separators=(",", ":"))
+            self.wfile.write((f"retry: 2000\n"
+                              f"id: {current_room}:{current_game}\n"
+                              f"event: {initial_type}\n"
+                              f"data: {initial_payload}\n\n").encode("utf-8"))
+            self.wfile.flush()
+            known_room, known_game = current_room, current_game
+            while True:
+                try:
+                    update = rooms.wait_for_updates(code, known_room, known_game,
+                                                    token=self._token(), timeout=15)
+                    current_room = update["room"]["revision"]
+                    current_game = update["room"]["game_revision"]
+                    event = "revision" if (update["room_changed"] or update["game_changed"]) else "heartbeat"
+                    payload = json.dumps({
+                        "protocol_version": PROTOCOL_VERSION,
+                        "room_revision": current_room,
+                        "game_revision": current_game,
+                    }, ensure_ascii=False, separators=(",", ":"))
+                    message = (f"id: {current_room}:{current_game}\n"
+                               f"event: {event}\n"
+                               f"data: {payload}\n\n").encode("utf-8")
+                    self.wfile.write(message)
+                    self.wfile.flush()
+                    known_room, known_game = current_room, current_game
+                except ServiceError as exc:
+                    payload = json.dumps(exc.payload(), ensure_ascii=False, separators=(",", ":"))
+                    try:
+                        self.wfile.write(f"event: closed\ndata: {payload}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+                    except (BrokenPipeError, ConnectionResetError, OSError):
+                        pass
+                    return
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    return
 
         def _error(self, exc):
             if isinstance(exc, ServiceError):
@@ -188,6 +251,14 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
                             raise ServiceError("INVALID_REQUEST", "revision 必须是整数") from exc
                         self._send_json(200, rooms.updates(code, room_revision, game_revision,
                                                            token=self._token()))
+                        return
+                    if len(parts) == 4 and parts[3] == "events":
+                        try:
+                            room_revision = int(query.get("room_revision", ["-1"])[0])
+                            game_revision = int(query.get("game_revision", ["-1"])[0])
+                        except ValueError as exc:
+                            raise ServiceError("INVALID_REQUEST", "revision 必须是整数") from exc
+                        self._stream_room_events(code, room_revision, game_revision)
                         return
                     if len(parts) == 5 and parts[3] == "game":
                         resource = parts[4]

@@ -81,4 +81,24 @@ describe("ApiClient", () => {
     expect(JSON.parse(String(calls[4][1]?.body))).toMatchObject({ expected_revision: 1 });
     expect(client.room).not.toHaveProperty("seatTokens");
   });
+
+  it("reads authenticated SSE revision notifications without mutating local revisions", async () => {
+    const body = "retry: 2000\nid: 3:4\nevent: revision\ndata: {\"protocol_version\":1,\"room_revision\":3,\"game_revision\":4}\n\n";
+    const fetchMock = vi.fn(async () => new Response(body, {
+      status: 200, headers: { "Content-Type": "text/event-stream" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new ApiClient(null, "", {
+      code: "123234", roomToken: "room-a", seat: "a", roomRevision: 2, gameRevision: 1,
+    });
+    const received: Array<{ room_revision: number; game_revision: number }> = [];
+    await expect(client.watchRoomEvents(new AbortController().signal, event => received.push(event)))
+      .rejects.toMatchObject({ code: "STREAM_CLOSED" });
+    expect(received).toEqual([{ protocol_version: 1, room_revision: 3, game_revision: 4 }]);
+    expect(client.room).toMatchObject({ roomRevision: 2, gameRevision: 1 });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/v1/rooms/123234/events?room_revision=2&game_revision=1",
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer room-a" }) }),
+    );
+  });
 });

@@ -462,10 +462,20 @@ export default function App() {
   useEffect(() => {
     if (!roomCode) return;
     let active = true;
-    let polling = false;
-    const poll = async (initial = false) => {
-      if (!active || polling) return;
-      polling = true;
+    let syncing = false;
+    let syncPending = false;
+    let failures = 0;
+    let fallbackTimer: number | undefined;
+    let reconnectTimer: number | undefined;
+    let streamController: AbortController | undefined;
+    const stopFallback = () => {
+      if (fallbackTimer !== undefined) window.clearInterval(fallbackTimer);
+      fallbackTimer = undefined;
+    };
+    const sync = async (initial = false) => {
+      if (!active) return;
+      if (syncing) { syncPending = true; return; }
+      syncing = true;
       try {
         const response = initial || !client.room
           ? await client.roomStatus(roomCode) : await client.roomUpdates();
@@ -493,11 +503,44 @@ export default function App() {
           if (isMissingRoom(reason)) setRoomUnavailable(true);
           setError(reason instanceof Error ? reason.message : "读取房间失败");
         }
-      } finally { polling = false; }
+      } finally {
+        syncing = false;
+        if (syncPending && active) { syncPending = false; void sync(); }
+      }
     };
-    void poll(true);
-    const timer = window.setInterval(() => void poll(), 1000);
-    return () => { active = false; window.clearInterval(timer); };
+    const startFallback = () => {
+      if (fallbackTimer === undefined) fallbackTimer = window.setInterval(() => void sync(), 3_000);
+      void sync();
+    };
+    const connect = async () => {
+      if (!active || !client.room) { startFallback(); return; }
+      streamController = new AbortController();
+      try {
+        await client.watchRoomEvents(streamController.signal, () => {
+          failures = 0;
+          stopFallback();
+          void sync();
+        });
+      } catch (reason) {
+        if (!active || (reason instanceof DOMException && reason.name === "AbortError")) return;
+        if (isMissingRoom(reason)) {
+          setRoomUnavailable(true);
+          setError(reason instanceof Error ? reason.message : "房间不存在或已经关闭");
+          return;
+        }
+        startFallback();
+        const delay = Math.min(1_000 * (2 ** failures), 15_000);
+        failures += 1;
+        reconnectTimer = window.setTimeout(() => void connect(), delay);
+      }
+    };
+    void (async () => { await sync(true); if (active) void connect(); })();
+    return () => {
+      active = false;
+      streamController?.abort();
+      stopFallback();
+      if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
+    };
   }, [client, persist, refresh, roomCode]);
   useEffect(() => {
     if (!game?.module) return;

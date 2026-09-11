@@ -1,6 +1,6 @@
 import type {
   ActionsResponse, ApiErrorBody, CatalogResponse, CommandResponse, CreateGameResponse,
-  Language, ModuleId, ModulesResponse, RoomResponse, Seat, ViewResponse, Viewer,
+  Language, ModuleId, ModulesResponse, RoomEvent, RoomResponse, Seat, ViewResponse, Viewer,
 } from "./types";
 
 export class ApiError extends Error {
@@ -244,6 +244,55 @@ export class ApiClient {
       { headers: this.auth(room.roomToken) });
     room.roomRevision = response.room.revision;
     return response;
+  }
+
+  async watchRoomEvents(signal: AbortSignal, onEvent: (event: RoomEvent) => void): Promise<void> {
+    const room = this.requireRoom();
+    const path = `/v1/rooms/${room.code}/events?room_revision=${room.roomRevision}&game_revision=${room.gameRevision}`;
+    const response = await fetch(this.baseUrl + path, {
+      headers: { ...this.auth(room.roomToken), Accept: "text/event-stream" }, signal,
+    });
+    if (!response.ok) {
+      const failure = await response.json() as ApiErrorBody;
+      throw new ApiError(failure.error.code, failure.error.message, response.status,
+                         failure.error.details);
+    }
+    if (!response.body) throw new ApiError("STREAM_UNAVAILABLE", "浏览器无法读取房间事件流", 503);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (!signal.aborted) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let boundary = /\r?\n\r?\n/.exec(buffer);
+      while (boundary) {
+        const block = buffer.slice(0, boundary.index);
+        buffer = buffer.slice(boundary.index + boundary[0].length);
+        let eventType = "message";
+        const data: string[] = [];
+        for (const rawLine of block.split("\n")) {
+          const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+          if (line.startsWith("event:")) eventType = line.slice(6).trim();
+          else if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
+        }
+        if (data.length) {
+          const payload = JSON.parse(data.join("\n")) as RoomEvent | ApiErrorBody;
+          if (eventType === "closed") {
+            const failure = payload as ApiErrorBody;
+            throw new ApiError(failure.error.code, failure.error.message, 404,
+                               failure.error.details);
+          }
+          const update = payload as RoomEvent;
+          if ((eventType === "revision" || eventType === "heartbeat")
+              && Number.isInteger(update.room_revision) && Number.isInteger(update.game_revision)) {
+            onEvent(update);
+          }
+        }
+        boundary = /\r?\n\r?\n/.exec(buffer);
+      }
+    }
+    if (!signal.aborted) throw new ApiError("STREAM_CLOSED", "房间事件流已断开", 503);
   }
 
   async setReady(ready: boolean) {

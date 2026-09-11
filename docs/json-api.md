@@ -128,6 +128,7 @@ POST   /v1/rooms/{code}/start            房主在所需参与者均准备后开
 POST   /v1/rooms/{code}/leave            开始前释放自己的座位
 POST   /v1/rooms/{code}/kick             房主释放误占座位
 GET    /v1/rooms/{code}/updates          比较房间与游戏 revision
+GET    /v1/rooms/{code}/events           订阅 SSE revision 通知
 DELETE /v1/rooms/{code}                  房主关闭房间
 ```
 
@@ -154,7 +155,11 @@ POST /v1/rooms/{code}/game/commands
 
 命令正文仍然只有 `action_id` 和 `expected_revision`，最终由原有 `GameService` 校验。房主另可使用管理令牌访问
 `game/snapshot` 和 `game/replay`。`updates` 接受 `room_revision` 与 `game_revision` 查询参数，返回
-`room_changed` / `game_changed`；第一版客户端每秒轮询，但只在 revision 变化时重新读取游戏视图。
+`room_changed` / `game_changed`。
+
+`events` 使用 `text/event-stream`，同样接受两个 revision，并使用房间 Bearer Token。`revision` 和 `heartbeat` 事件的
+`data` 只包含协议版本及当前两个 revision，不包含房间状态、私密视图或合法行动。客户端收到事件后通过既有 JSON 接口
+重新同步；断流时应指数退避重连，并可临时恢复低频 `updates` 轮询。服务端会定期发送心跳，因此不依赖补发每一个事件。
 
 少人数模式不改变规则引擎的 `m/a/b/c` 逻辑 actor。`game/actions` 返回该真人此刻获准执行的所有合法行动和
 `controlled_actors`；`game/view` 的 `controlled_hands` 只包含其当前获准查看的手牌。两名主人公玩家时，

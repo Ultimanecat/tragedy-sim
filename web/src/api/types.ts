@@ -234,3 +234,8 @@ export interface RoomResponse {
   room_changed?: boolean;
   game_changed?: boolean;
 }
+export interface RoomEvent {
+  protocol_version: typeof PROTOCOL_VERSION;
+  room_revision: number;
+  game_revision: number;
+}
