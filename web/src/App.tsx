@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor, pointerWithin,
   useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent,
@@ -32,6 +32,39 @@ function GameAsset({ src, className, draggable }: { src?: string; className?: st
   if (!src) return null;
   return <img className={className} src={src} alt="" loading="lazy" draggable={draggable}
     onError={event => { event.currentTarget.hidden = true; }} />;
+}
+
+export function AnimatedCounter({ label, value, suffix = "", hideWhenZero = false }: {
+  label: string; value: number; suffix?: string; hideWhenZero?: boolean;
+}) {
+  const previous = useRef(value);
+  const sequence = useRef(0);
+  const [change, setChange] = useState<{ direction: "up" | "down"; sequence: number } | null>(null);
+  const [visible, setVisible] = useState(!hideWhenZero || value !== 0);
+
+  useEffect(() => {
+    if (previous.current === value) {
+      setVisible(!hideWhenZero || value !== 0);
+      return;
+    }
+    const direction = value > previous.current ? "up" : "down";
+    previous.current = value;
+    sequence.current += 1;
+    setVisible(true);
+    setChange({ direction, sequence: sequence.current });
+    const timer = window.setTimeout(() => {
+      setChange(null);
+      if (hideWhenZero && value === 0) setVisible(false);
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [hideWhenZero, value]);
+
+  if (!visible) return null;
+  return <span key={change?.sequence ?? 0}
+    className={`counter-token${change ? ` counter-${change.direction}` : ""}`}
+    aria-label={`${label} ${value}${suffix}`}>
+    {label} <strong>{value}</strong>{suffix}
+  </span>;
 }
 
 function isMissingRoom(reason: unknown): boolean {
@@ -193,8 +226,11 @@ export function Board({ game, catalog, targetOffers = [], selectedOffer, ability
         const density = characters.length >= 9 ? "packed" : characters.length >= 5 ? "crowded" : "normal";
         return <BoardLocation id={location} offer={offerByTarget.get(location)} density={density}
           selected={selectedOffer?.parameters.target === location} onSelect={onTarget} key={location}>
-          <header><h2>{game.labels.locations[location]}</h2><span>{boardCounter} {game.locations[location]}
-            {game.board_ex[location] ? ` · 诅咒 ${game.board_ex[location]}` : ""} · {characters.length} 人</span></header>
+          <header><h2>{game.labels.locations[location]}</h2><div className="location-summary">
+            <AnimatedCounter label={boardCounter} value={game.locations[location]} />
+            <AnimatedCounter label="诅咒" value={game.board_ex[location]} hideWhenZero />
+            <span>{characters.length} 人</span>
+          </div></header>
           <div className="characters">
           {characters.map(character =>
             <BoardCharacter character={character} offer={offerByTarget.get(character.id)}
@@ -205,14 +241,15 @@ export function Board({ game, catalog, targetOffers = [], selectedOffer, ability
               <div className="character-body">
                 <div className="character-title"><strong>{character.name}</strong><small>{character.alive ? "存活" : "死亡"}</small></div>
                 <div className="counters">
-                  <span>友好 {character.goodwill}</span><span>不安 {character.paranoia}/{character.paranoia_limit}</span>
-                  <span>密谋 {character.intrigue}</span>
-                  {character.hope > 0 && <span>希望 {character.hope}</span>}
-                  {character.despair > 0 && <span>绝望 {character.despair}</span>}
-                  {character.guard > 0 && <span>护卫 {character.guard}</span>}
-                  {character.ex_cards > 0 && <span>{game.module === "HSA" ? "诅咒" : "Ex"} {character.ex_cards}</span>}
-                  {character.friended_token && <span>交友完毕</span>}
-                  {character.death_token && <span>死亡完毕</span>}
+                  <AnimatedCounter label="友好" value={character.goodwill} />
+                  <AnimatedCounter label="不安" value={character.paranoia} suffix={`/${character.paranoia_limit}`} />
+                  <AnimatedCounter label="密谋" value={character.intrigue} />
+                  <AnimatedCounter label="希望" value={character.hope} hideWhenZero />
+                  <AnimatedCounter label="绝望" value={character.despair} hideWhenZero />
+                  <AnimatedCounter label="护卫" value={character.guard} hideWhenZero />
+                  <AnimatedCounter label={game.module === "HSA" ? "诅咒" : "Ex"} value={character.ex_cards} hideWhenZero />
+                  {character.friended_token && <span className="counter-token counter-flag">交友完毕</span>}
+                  {character.death_token && <span className="counter-token counter-flag">死亡完毕</span>}
                 </div>
                 <button type="button" className="character-reference-button" data-character-details
                   aria-label={`查看${character.name}资料`} onClick={() => setDetailsCharacter(character.id)}>查看资料</button>

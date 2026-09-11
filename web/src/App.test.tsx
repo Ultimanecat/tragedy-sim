@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Actions, Board } from "./App";
+import { Actions, AnimatedCounter, Board } from "./App";
 import { abilityUseName } from "./display";
 import { parseReplayTimeline } from "./replay";
 import type { ActionOffer, CatalogResponse, GameView } from "./api/types";
@@ -11,6 +11,15 @@ const catalog = catalogFixture as unknown as CatalogResponse;
 const game = viewFixture.state as unknown as GameView;
 
 describe("local game components", () => {
+  it("indicates whether a visible counter increased or decreased", () => {
+    const { rerender } = render(<AnimatedCounter label="友好" value={0} />);
+    expect(screen.getByLabelText("友好 0")).not.toHaveClass("counter-up");
+    rerender(<AnimatedCounter label="友好" value={1} />);
+    expect(screen.getByLabelText("友好 1")).toHaveClass("counter-up");
+    rerender(<AnimatedCounter label="友好" value={0} />);
+    expect(screen.getByLabelText("友好 0")).toHaveClass("counter-down");
+  });
+
   it("turns the stable replay text into decisions and attached resolution steps", () => {
     const timeline = parseReplayTimeline([
       'ACTION\t{"action":"next","actor":"m"}\t# 0001 | 第 1 天开始时 · 一日开始阶段 | 剧作家结束阶段',
@@ -46,7 +55,8 @@ describe("local game components", () => {
     const school = container.querySelector(".location-school");
     expect(school).toHaveClass("location-packed");
     expect(school?.querySelectorAll(".character")).toHaveLength(9);
-    expect(screen.getByText(/密谋 0 · 9 人/)).toBeInTheDocument();
+    expect(school?.querySelector('.location-summary [aria-label="密谋 0"]')).toBeInTheDocument();
+    expect(screen.getByText("9 人")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "查看拥挤角色 1资料" }));
     expect(screen.getByRole("dialog", { name: "拥挤角色 1" })).toBeInTheDocument();
