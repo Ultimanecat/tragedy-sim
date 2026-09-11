@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Actions, Board } from "./App";
 import { abilityUseName } from "./display";
+import { parseReplayTimeline } from "./replay";
 import type { ActionOffer, CatalogResponse, GameView } from "./api/types";
 import catalogFixture from "../fixtures/protocol-v1/btx-catalog.json";
 import viewFixture from "../fixtures/protocol-v1/btx-mastermind-view.json";
@@ -10,6 +11,17 @@ const catalog = catalogFixture as unknown as CatalogResponse;
 const game = viewFixture.state as unknown as GameView;
 
 describe("local game components", () => {
+  it("turns the stable replay text into decisions and attached resolution steps", () => {
+    const timeline = parseReplayTimeline([
+      'ACTION\t{"action":"next","actor":"m"}\t# 0001 | 第 1 天开始时 · 一日开始阶段 | 剧作家结束阶段',
+      '#        => [第 1 天开始时] 第 1 天开始。',
+      'ACTION\t{"action":"play","actor":"m"}\t# 0002 | 第 1 天剧作家出牌阶段 · 剧作家出牌阶段 | 剧作家暗置行动牌',
+    ].join("\n"));
+    expect(timeline).toHaveLength(2);
+    expect(timeline[0]).toMatchObject({ number: 1, timepoint: "第 1 天开始时", phase: "一日开始阶段" });
+    expect(timeline[0].steps).toEqual([{ timepoint: "第 1 天开始时", message: "第 1 天开始。" }]);
+  });
+
   it("formats both goodwill and two-part private ability keys without undefined", () => {
     expect(abilityUseName(game, "goodwill:doctor:adjust", catalog)).toContain("医生 · 同区域另一名角色不安");
     expect(abilityUseName(game, "brain:doctor", catalog)).toContain("医生 ·");

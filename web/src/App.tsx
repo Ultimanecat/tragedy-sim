@@ -4,9 +4,10 @@ import {
   useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent,
 } from "@dnd-kit/core";
 import { ApiClient, ApiError, type StoredRoom, type StoredSession } from "./api/client";
-import type { ActionOffer, CatalogResponse, GameView, ModuleId, ModuleSummary, RoomResponse, Seat, Viewer } from "./api/types";
+import type { ActionOffer, CatalogResponse, GameView, ModuleId, ModuleSummary, PublicEvent, RoomResponse, Seat, Viewer } from "./api/types";
 import { abilityUseName, itemName } from "./display";
 import gameAssets from "./generated/game-assets.json";
+import { parseReplayTimeline } from "./replay";
 
 const SESSION_KEY = "tragedy-sim.local-session.v1";
 const ROOM_KEY = "tragedy-sim.room.v1";
@@ -287,6 +288,66 @@ function RulesReference({ catalog }: { catalog: CatalogResponse | null }) {
     <details><summary>事件（{catalog.incidents.length}）</summary>{catalog.incidents.map(item => <p key={item.id}><strong>{item.name}</strong>：{item.rule}</p>)}</details>
     <details><summary>身份（{catalog.roles.length}）</summary>{catalog.roles.map(item => <p key={item.id}><strong>{item.name}</strong>：{item.rule}</p>)}</details>
     <details><summary>规则候选（{catalog.plots.length}）</summary>{catalog.plots.map(item => <p key={item.id}><strong>{item.type} · {item.name}</strong>：{item.rule}</p>)}</details>
+  </section>;
+}
+
+function PublicLog({ game, catalog }: { game: GameView; catalog: CatalogResponse | null }) {
+  const [scope, setScope] = useState<"today" | "loop" | "all">("today");
+  const [query, setQuery] = useState("");
+  const normalized = query.trim().toLocaleLowerCase();
+  const visible = game.events.filter(event => {
+    if (scope === "today" && (event.loop !== game.loop || event.round !== game.round)) return false;
+    if (scope === "loop" && event.loop !== game.loop) return false;
+    return !normalized || `${event.timepoint} ${event.message}`.toLocaleLowerCase().includes(normalized);
+  });
+  const groups = new Map<string, PublicEvent[]>();
+  for (const event of visible) {
+    const key = `${event.loop}:${event.round}:${event.timepoint}`;
+    groups.set(key, [...(groups.get(key) ?? []), event]);
+  }
+  return <section className="panel log"><header className="log-header"><h2>公开日志</h2>
+    <select aria-label="日志范围" value={scope} onChange={event => setScope(event.target.value as typeof scope)}>
+      <option value="today">今日</option><option value="loop">本轮回</option><option value="all">全部</option>
+    </select></header>
+    <input className="log-search" aria-label="搜索公开日志" value={query}
+      onChange={event => setQuery(event.target.value)} placeholder="搜索时间点或内容" />
+    {!visible.length && <p className="muted">此范围内没有匹配记录。</p>}
+    {[...groups.entries()].reverse().map(([key, events]) => <section className="log-group" key={key}>
+      <h3>{events[0].timepoint}</h3>{[...events].reverse().map((event, index) =>
+        <article key={`${event.kind}-${index}`}><p>{event.message}</p>
+          {Array.isArray(event.cards) && event.cards.map((placement, cardIndex) => {
+            const card = placement as Record<string, unknown>;
+            const actor = String(card.actor) as Seat;
+            return <p className="log-detail" key={cardIndex}>{game.labels.actors[actor]}：
+              {itemName(catalog?.cards[actor], card.card)} → {targetName(game, card.target)}</p>;
+          })}</article>)}
+    </section>)}
+  </section>;
+}
+
+function ReplayDialog({ text, onClose }: { text: string; onClose: () => void }) {
+  const entries = useMemo(() => parseReplayTimeline(text), [text]);
+  const [position, setPosition] = useState(() => Math.max(0, entries.length - 1));
+  const current = entries[position];
+  return <section className="replay" role="dialog" aria-modal="true" aria-label="只读回放">
+    <header><div><p className="eyebrow">FULL INFORMATION REPLAY</p><h2>对局回放</h2></div><button onClick={onClose}>关闭</button></header>
+    {!entries.length ? <pre>{text}</pre> : <div className="replay-workspace">
+      <nav className="replay-timeline" aria-label="回放决策时间轴">{entries.map((entry, index) =>
+        <button className={index === position ? "selected" : ""} key={entry.number} onClick={() => setPosition(index)}>
+          <small>#{String(entry.number).padStart(4, "0")} · {entry.timepoint}</small><span>{entry.description}</span>
+        </button>)}</nav>
+      <article className="replay-detail"><small>决策 {position + 1}/{entries.length}</small>
+        <h3>{current.timepoint} · {current.phase}</h3><p className="replay-decision">{current.description}</p>
+        <h4>结算记录</h4>{current.steps.length ? current.steps.map((step, index) =>
+          <p className="replay-step" key={index}><small>{step.timepoint}</small>{step.message}</p>)
+          : <p className="muted">这个决策没有产生额外的公开结算记录。</p>}
+        <div className="replay-controls"><button disabled={position === 0} onClick={() => setPosition(value => value - 1)}>上一步</button>
+          <input aria-label="回放位置" type="range" min="0" max={entries.length - 1} value={position}
+            onChange={event => setPosition(Number(event.target.value))} />
+          <button disabled={position === entries.length - 1} onClick={() => setPosition(value => value + 1)}>下一步</button></div>
+        <details><summary>查看原始纯文本</summary><pre>{text}</pre></details>
+      </article>
+    </div>}
   </section>;
 }
 
@@ -580,16 +641,10 @@ export default function App() {
           return <p key={`${item.day}-${item.kind}`}>第 {item.day} 天 · {itemName(catalog?.incidents, item.kind)}{board} · {status}</p>;
         })}</section>
         <Cards game={game} catalog={catalog} viewer={viewer} /><Knowledge game={game} catalog={catalog} /><RulesReference catalog={catalog} />
-        <section className="panel log"><h2>公开日志</h2>{[...game.events].reverse().map((event, index) => <article key={`${event.loop}-${event.round}-${index}`}><small>{event.timepoint}</small><p>{event.message}</p>
-          {Array.isArray(event.cards) && event.cards.map((placement, cardIndex) => {
-            const card = placement as Record<string, unknown>;
-            const actor = String(card.actor) as Seat;
-            return <p className="log-detail" key={cardIndex}>{game.labels.actors[actor]}：
-              {itemName(catalog?.cards[actor], card.card)} → {targetName(game, card.target)}</p>;
-          })}</article>)}</section>
+        <PublicLog game={game} catalog={catalog} />
         <section className="panel tools">{(!roomCode || client.room?.adminToken) && <><button onClick={saveSnapshot}>保存 JSON</button><button onClick={() => void readReplay()}>查看回放</button><button onClick={() => void readReplay(true)}>导出回放</button></>}<button onClick={() => void refresh()}>刷新</button></section>
       </aside></div>
-      {replayText && <section className="replay" role="dialog" aria-label="只读回放"><header><h2>对局回放</h2><button onClick={() => setReplayText("")}>关闭</button></header><pre>{replayText}</pre></section>}
+      {replayText && <ReplayDialog text={replayText} onClose={() => setReplayText("")} />}
     </>}
   </main>;
 }

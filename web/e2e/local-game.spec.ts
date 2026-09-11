@@ -255,7 +255,10 @@ test("a deterministic legal-action walk reaches a result and opens replay", asyn
   await expect(page.locator(".outcome")).toContainText("胜利");
   await page.getByRole("button", { name: "查看回放" }).click();
   await expect(page.getByRole("dialog", { name: "只读回放" })).toBeVisible();
-  await expect(page.locator(".replay pre")).toContainText("第 1 天");
+  await expect(page.locator(".replay-timeline button").first()).toContainText("第 1 天");
+  await page.locator(".replay-timeline button").first().click();
+  await expect(page.locator(".replay-detail")).toContainText("决策 1/");
+  await expect(page.getByRole("button", { name: "上一步" })).toBeDisabled();
   await page.getByRole("button", { name: "关闭" }).click();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出回放" }).click();

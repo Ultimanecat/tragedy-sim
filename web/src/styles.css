@@ -143,13 +143,34 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .reference details { border-top: 1px solid #44383d; padding: .5rem 0; }
 .reference summary { cursor: pointer; color: #e0bea2; }
 .log { max-height: 470px; overflow: auto; }
-.log article { border-top: 1px solid #44383d; padding: .6rem 0; }
+.log-header { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; align-items: center; padding-bottom: .45rem; background: #211b1ef5; }
+.log-header h2 { margin: 0; }
+.log-header select { padding: .35rem .55rem; font-size: .75rem; }
+.log-search { position: sticky; top: 2.75rem; z-index: 1; width: 100%; margin-bottom: .45rem; padding: .45rem .6rem; background: #171315f5; font-size: .78rem; }
+.log-group { border-top: 1px solid #5d4c52; padding-top: .4rem; }
+.log-group h3 { position: sticky; top: 5.55rem; padding: .25rem 0; background: #211b1ef5; }
+.log article { border-top: 1px solid #44383d88; padding: .45rem 0; }
 .log article p { margin-bottom: 0; }
 .log article .log-detail { padding-left: .6rem; color: #c9bcc0; font-size: .8rem; }
 .tools { display: flex; flex-wrap: wrap; gap: .4rem; }
 .replay { position: fixed; inset: 4vh 5vw; z-index: 10; display: flex; flex-direction: column; padding: 1rem; border: 1px solid #9d665e; border-radius: .7rem; background: #171416; box-shadow: 0 1rem 5rem #000; }
 .replay header { display: flex; justify-content: space-between; align-items: center; }
-.replay pre { flex: 1; overflow: auto; margin: .5rem 0 0; padding: 1rem; color: #ddd0d4; background: #0d0b0c; white-space: pre-wrap; }
+.replay header h2 { margin: 0; }
+.replay-workspace { display: grid; grid-template-columns: minmax(250px, .75fr) minmax(0, 1.6fr); min-height: 0; flex: 1; gap: .75rem; margin-top: .75rem; }
+.replay-timeline { overflow-y: auto; padding-right: .3rem; }
+.replay-timeline button { display: flex; flex-direction: column; gap: .25rem; width: 100%; margin-bottom: .35rem; text-align: left; }
+.replay-timeline button small { color: #bcaab0; }
+.replay-detail { min-width: 0; overflow-y: auto; padding: 1rem; border: 1px solid #4e4146; border-radius: .55rem; background: #211a1e; }
+.replay-detail > small { color: #ba9a8c; }
+.replay-detail h3 { color: #edc29e; }
+.replay-decision { padding: .75rem; border-left: 3px solid var(--accent); background: #312329; font-weight: 700; }
+.replay-step { display: grid; gap: .2rem; padding: .55rem .7rem; border-top: 1px solid #44383d; }
+.replay-step small { color: #ba9a8c; }
+.replay-controls { position: sticky; bottom: 0; display: flex; align-items: center; gap: .55rem; margin-top: 1rem; padding: .65rem; border: 1px solid #624d55; border-radius: .55rem; background: #171416f5; }
+.replay-controls input { min-width: 0; flex: 1; padding: 0; accent-color: var(--accent); }
+.replay details { margin-top: 1rem; }
+.replay summary { cursor: pointer; color: #d8ad8c; }
+.replay pre { overflow: auto; max-height: 45vh; margin: .5rem 0 0; padding: 1rem; color: #ddd0d4; background: #0d0b0c; white-space: pre-wrap; }
 
 @media (max-width: 900px) {
   .workspace { grid-template-columns: 1fr; }
@@ -185,6 +206,12 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
   .hand button { min-width: 0; padding: .55rem .6rem; }
   .confirm-bar { position: sticky; bottom: .45rem; z-index: 5; margin: .8rem -.3rem -.3rem; padding: .7rem; border: 1px solid #8d655e; border-radius: .55rem; background: #241b20f5; box-shadow: 0 -.5rem 2rem #0006; }
   .confirm-bar .primary { flex: none; min-height: 2.8rem; }
+  .replay { inset: .35rem; padding: .7rem; }
+  .replay-workspace { grid-template-columns: 1fr; grid-template-rows: minmax(100px, 26vh) minmax(0, 1fr); }
+  .replay-timeline { display: flex; gap: .4rem; overflow-x: auto; overflow-y: hidden; padding: 0 0 .25rem; }
+  .replay-timeline button { flex: 0 0 70vw; margin: 0; }
+  .replay-detail { padding: .75rem; }
+  .replay-controls { margin-inline: -.35rem; }
   .welcome, .lobby-intro { grid-template-columns: 1fr; margin-top: 2rem; }
   .seat-grid { grid-template-columns: 1fr 1fr; }
   .lobby-controls > * { width: 100%; }
