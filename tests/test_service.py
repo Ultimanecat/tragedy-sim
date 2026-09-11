@@ -82,8 +82,13 @@ class GameServiceTests(unittest.TestCase):
         game.state.phase = "master_abilities"
         game.roles["student"] = "brain"
         role_actions = self.service.get_actions(self.session_id, "m", token=self.tokens["m"])["actions"]
-        self.assertTrue(any(offer.get("ui", {}).get("source") == "student"
-                            for offer in role_actions))
+        structured = [offer for offer in role_actions
+                      if offer.get("ui", {}).get("source") == "student"]
+        self.assertTrue(structured)
+        self.assertTrue(any(offer["ui"].get("choice_key") == "brain:student"
+                            and offer["ui"].get("effect") == "counter"
+                            and offer["ui"].get("counter") == "intrigue"
+                            for offer in structured))
 
     def test_wrong_seat_cannot_dispatch_and_snapshot_round_trips(self):
         actions = self.service.get_actions(self.session_id, "m", token=self.tokens["m"])

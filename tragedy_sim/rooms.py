@@ -9,7 +9,7 @@ from threading import Condition, RLock
 import time
 from typing import Any
 
-from .ai import AgentPolicy, RandomAgent
+from .ai import AgentPolicy, FixedStrategyMastermindAgent, RandomAgent
 from .catalog import MODULES
 from .service import GameService, PROTOCOL_VERSION, SEATS, ServiceError
 
@@ -32,6 +32,8 @@ class _Occupant:
     ready: bool = False
     last_seen: float = field(default_factory=time.monotonic)
     ai: bool = False
+    ai_type: str | None = None
+    ai_policy: AgentPolicy | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -195,7 +197,7 @@ class RoomService:
                 "seats": {seat: (None if occupant is None else {
                     "nickname": occupant.nickname, "ready": occupant.ready,
                     "connected": occupant.ai or now - occupant.last_seen <= PRESENCE_TTL,
-                    "ai": occupant.ai,
+                    "ai": occupant.ai, "ai_type": occupant.ai_type,
                 }) for seat, occupant in room.seats.items()},
             },
             "self": None if own_seat is None else {"seat": own_seat},
@@ -283,10 +285,15 @@ class RoomService:
             return self._payload(room, token=token)
 
     def set_ai(self, code: str, request: Any, *, token: str | None) -> dict[str, Any]:
-        request = _object(request, {"seat", "enabled"}, {"seat", "enabled"})
+        request = _object(request, {"seat", "enabled", "strategy"}, {"seat", "enabled"})
         seat = _seat(request["seat"])
         if type(request["enabled"]) is not bool:
             raise ServiceError("INVALID_REQUEST", "enabled 必须是布尔值")
+        strategy = request.get("strategy", "random")
+        if strategy not in ("random", "fixed_mastermind"):
+            raise ServiceError("INVALID_AI_STRATEGY", "AI 策略必须是 random 或 fixed_mastermind")
+        if strategy == "fixed_mastermind" and seat != "m":
+            raise ServiceError("INVALID_AI_STRATEGY", "定式剧作家 AI 只能坐在剧作家席位", status=409)
         room = self._room(code)
         with room.lock:
             self._require_admin(room, token)
@@ -300,8 +307,11 @@ class RoomService:
                 if occupant is not None:
                     raise ServiceError("SEAT_OCCUPIED", "该座位已经有人", status=409)
                 room.seats[seat] = _Occupant(
-                    nickname="随机 AI", token=secrets.token_urlsafe(24), ready=True,
-                    last_seen=self._clock(), ai=True,
+                    nickname=("随机 AI" if strategy == "random" else "定式剧作家 AI"),
+                    token=secrets.token_urlsafe(24), ready=True,
+                    last_seen=self._clock(), ai=True, ai_type=strategy,
+                    ai_policy=(self._ai_agent if strategy == "random"
+                               else FixedStrategyMastermindAgent()),
                 )
                 self._bump(room)
             elif occupant is not None:
@@ -428,9 +438,12 @@ class RoomService:
 
     def _record_executor(self, room: _Room, seat: str, occupant: _Occupant,
                          accepted: dict[str, Any]) -> None:
+        plan = getattr(occupant.ai_policy, "plan_name", None)
         room.executors.append({"decision": len(room.executors) + 1,
                                "participant": seat, "nickname": occupant.nickname,
-                               "actor": accepted["actor"], "ai": occupant.ai})
+                               "actor": accepted["actor"], "ai": occupant.ai,
+                               "ai_type": occupant.ai_type,
+                               **({"ai_plan": plan} if plan else {})})
 
     def _run_ai_turns(self, room: _Room) -> None:
         """Consume consecutive AI turns; caller must hold ``room.lock``."""
@@ -446,7 +459,8 @@ class RoomService:
                 public, offers = self._participant_offers(room, seat)
                 if offers:
                     observation = self.game_view(room.code, token=occupant.token)["state"]
-                    offer = self._ai_agent.choose_action(
+                    policy = occupant.ai_policy or self._ai_agent
+                    offer = policy.choose_action(
                         participant=seat, view=observation, offers=offers)
                     if offer not in offers:
                         raise RuntimeError("AI selected an action outside its legal offers")

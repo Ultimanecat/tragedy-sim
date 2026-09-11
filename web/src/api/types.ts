@@ -182,7 +182,7 @@ export interface ActionOffer {
   type: ActionType | string;
   parameters: Record<string, string | number | boolean>;
   label: string;
-  ui?: { source?: string };
+  ui?: { source?: string; choice_key?: string; effect?: string; target?: string; counter?: string; amount?: number };
 }
 export interface ActionsResponse {
   protocol_version: typeof PROTOCOL_VERSION;
@@ -206,6 +206,7 @@ export interface RoomOccupant {
   ready: boolean;
   connected: boolean;
   ai: boolean;
+  ai_type: "random" | "fixed_mastermind" | null;
 }
 export interface RoomState {
   code: string;

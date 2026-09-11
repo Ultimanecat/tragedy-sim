@@ -259,6 +259,9 @@ class GameService:
         ui: dict[str, Any] = {}
         if action == "choose":
             choice = record.game.options(command["actor"])[command["index"] - 1]
+            choice_key = choice.get("key")
+            if isinstance(choice_key, str):
+                ui["choice_key"] = choice_key
             source = choice.get("source")
             if source not in record.game.state.characters:
                 key_parts = str(choice.get("key", "")).split(":")
@@ -266,6 +269,14 @@ class GameService:
                                if part in record.game.state.characters), None)
             if source in record.game.state.characters:
                 ui["source"] = source
+            for effect in choice.get("effects", ()):
+                if not isinstance(effect, dict) or not isinstance(effect.get("kind"), str):
+                    continue
+                ui["effect"] = effect["kind"]
+                for field in ("target", "counter", "amount"):
+                    if isinstance(effect.get(field), (str, int)):
+                        ui[field] = effect[field]
+                break
         fingerprint = {"session": session_id, "revision": record.revision,
                        "command": command}
         action_id = hashlib.sha256(_canonical(fingerprint).encode("utf-8")).hexdigest()[:24]

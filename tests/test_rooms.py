@@ -177,6 +177,31 @@ class RoomServiceTests(unittest.TestCase):
         self.assertTrue(all(item["ai"] and item["participant"] == "m"
                             for item in executors))
 
+    def test_fixed_strategy_ai_is_only_available_for_mastermind(self):
+        rooms = RoomService()
+        created = rooms.create({"module": "BTX", "nickname": "Hero", "seat": "a",
+                                "protagonist_count": 1})
+        code = created["room"]["code"]
+        admin = created["credential"]["admin_token"]
+        updated = rooms.set_ai(code, {"seat": "m", "enabled": True,
+                                      "strategy": "fixed_mastermind"}, token=admin)
+        mastermind = updated["room"]["seats"]["m"]
+        self.assertEqual((mastermind["nickname"], mastermind["ai_type"]),
+                         ("定式剧作家 AI", "fixed_mastermind"))
+        hero = created["credential"]["room_token"]
+        rooms.ready(code, {"ready": True}, token=hero)
+        started = rooms.start(code, token=admin)
+        self.assertGreaterEqual(started["room"]["game_revision"], 4)
+        self.assertTrue(rooms.game_actions(code, token=hero)["actions"])
+
+        second = RoomService()
+        other = second.create({"module": "BTX", "nickname": "Host", "seat": "m"})
+        with self.assertRaises(ServiceError) as invalid:
+            second.set_ai(other["room"]["code"], {"seat": "a", "enabled": True,
+                                                   "strategy": "fixed_mastermind"},
+                          token=other["credential"]["admin_token"])
+        self.assertEqual(invalid.exception.code, "INVALID_AI_STRATEGY")
+
     def test_four_room_tokens_can_complete_a_match_and_export_replay(self):
         self.join_all()
         for seat in "mabc":

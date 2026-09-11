@@ -690,9 +690,10 @@ export default function App() {
     catch (reason) { setError(reason instanceof Error ? reason.message : "释放座位失败"); }
   }
 
-  async function setAiRoomSeat(seat: Seat, enabled: boolean) {
+  async function setAiRoomSeat(seat: Seat, enabled: boolean,
+                               strategy: "random" | "fixed_mastermind" = "random") {
     setBusy(true); setError("");
-    try { setRoomInfo(await client.setAiSeat(seat, enabled)); persist(); }
+    try { setRoomInfo(await client.setAiSeat(seat, enabled, strategy)); persist(); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "AI 座位更新失败"); }
     finally { setBusy(false); }
   }
@@ -781,9 +782,11 @@ export default function App() {
           return <article className={`${occupant ? "occupied" : ""} ${occupant?.ai ? "ai-seat" : ""}`} key={seat}>
             <small>{seat === "m" ? "剧作家" : `主人公 ${seat.toUpperCase()}`}</small>
             <strong>{occupant?.nickname ?? "空位"}{occupant?.ai && <small className="ai-badge">AI</small>}</strong>
-            <span>{occupant?.ai ? "自动随机行动" : occupant ? (occupant.ready ? "已准备" : "尚未准备") : "等待加入"}</span>
+            <span>{occupant?.ai ? (occupant.ai_type === "fixed_mastermind" ? "从可行获胜定式中择一执行" : "自动随机行动") : occupant ? (occupant.ready ? "已准备" : "尚未准备") : "等待加入"}</span>
             {!ownSeat && !occupant && <button disabled={busy || !nickname.trim()} onClick={() => void joinRoom(seat)}>坐到这里</button>}
-            {client.room?.adminToken && !occupant && <button disabled={busy} onClick={() => void setAiRoomSeat(seat, true)}>用 AI 填充</button>}
+            {client.room?.adminToken && !occupant && <button disabled={busy} onClick={() => void setAiRoomSeat(seat, true)}>随机 AI</button>}
+            {client.room?.adminToken && !occupant && seat === "m" && <button disabled={busy}
+              onClick={() => void setAiRoomSeat(seat, true, "fixed_mastermind")}>定式剧作家 AI</button>}
             {client.room?.adminToken && occupant && seat !== ownSeat && <button disabled={busy}
               onClick={() => void (occupant.ai ? setAiRoomSeat(seat, false) : kickRoomSeat(seat))}>释放座位</button>}
           </article>;

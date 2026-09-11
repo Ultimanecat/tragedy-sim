@@ -74,7 +74,7 @@ test("a host can fill an empty side with a random AI and play against it", async
   await page.getByLabel("昵称").fill("Host");
   await page.getByRole("button", { name: "创建房间" }).click();
   const heroSeat = page.locator(".seat-grid article").filter({ hasText: "主人公 A" });
-  await heroSeat.getByRole("button", { name: "用 AI 填充" }).click();
+  await heroSeat.getByRole("button", { name: "随机 AI" }).click();
   await expect(heroSeat).toContainText("随机 AI");
   await expect(heroSeat).toContainText("自动随机行动");
   await page.getByRole("button", { name: "我已准备" }).click();
@@ -85,6 +85,20 @@ test("a host can fill an empty side with a random AI and play against it", async
   for (let step = 0; step < 4; step += 1) await selectFirstAction(page);
   await expect(page.locator(".actions-panel.has-actions")).toBeVisible();
   await expect(page.getByText(/现在轮到你以剧作家身份行动/)).toBeVisible();
+});
+
+test("a protagonist host can select the fixed-strategy mastermind AI", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("主人公玩家人数").selectOption("1");
+  await page.getByLabel("你的参与者席位").selectOption("a");
+  await page.getByLabel("昵称").fill("Hero");
+  await page.getByRole("button", { name: "创建房间" }).click();
+  const mastermindSeat = page.locator(".seat-grid article").filter({ hasText: "剧作家" });
+  await mastermindSeat.getByRole("button", { name: "定式剧作家 AI" }).click();
+  await expect(mastermindSeat).toContainText("从可行获胜定式中择一执行");
+  await page.getByRole("button", { name: "我已准备" }).click();
+  await page.getByRole("button", { name: "开始游戏" }).click();
+  await expect(page.getByText(/现在轮到你以主人公 A身份行动/)).toBeVisible();
 });
 
 test("four isolated browser sessions join, ready and receive synchronized private views", async ({ browser }) => {
