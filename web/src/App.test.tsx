@@ -44,11 +44,22 @@ describe("local game components", () => {
     const dispatch = vi.fn();
     render(<Actions offers={offers} catalog={catalog} game={game} busy={false} onAction={dispatch} />);
     expect(screen.queryByText("确认执行")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /不安 \+1（第1张）.*2 个合法目标/ }));
-    fireEvent.click(screen.getByRole("button", { name: "男学生" }));
+    fireEvent.click(screen.getByRole("button", { name: "不安 +1（第1张）" }));
+    fireEvent.click(document.querySelector('.character.legal-board-target') as HTMLElement);
     expect(dispatch).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "确认执行" }));
     expect(dispatch).toHaveBeenCalledWith(offers[0]);
+  });
+
+  it("selects a character before presenting that character's ability actions", () => {
+    const ability: ActionOffer = {
+      id: "doctor-adjust", actor: "a", type: "choose", parameters: {}, ui: { source: "doctor" },
+      label: "医生 · 同区域另一名角色不安 -1 → 男学生",
+    };
+    const { container } = render(<Actions offers={[ability]} catalog={catalog} game={game} busy={false} onAction={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: ability.label })).not.toBeInTheDocument();
+    fireEvent.click(container.querySelector('.character.ability-source') as HTMLElement);
+    expect(screen.getByRole("button", { name: ability.label })).toBeInTheDocument();
   });
 
   it("groups AHR dual-identity guesses without exposing internal target ids", () => {

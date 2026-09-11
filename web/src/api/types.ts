@@ -182,6 +182,7 @@ export interface ActionOffer {
   type: ActionType | string;
   parameters: Record<string, string | number | boolean>;
   label: string;
+  ui?: { source?: string };
 }
 export interface ActionsResponse {
   protocol_version: typeof PROTOCOL_VERSION;

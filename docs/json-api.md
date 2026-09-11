@@ -88,6 +88,9 @@ Authorization: Bearer {mastermind_token}
 每个行动包含稳定于当前 revision 的 `id`、`type`、展示 `label` 和非秘密
 `parameters`。选项的内部结算效果不会返回前端。
 
+可选的 `ui.source` 是不参与行动身份计算的展示提示，表示该行动由哪个角色发动。它只会随本来就对该操作者可见的
+行动返回，供界面实现“先选择角色，再选择能力”；客户端仍不得从 `label` 文本反推角色或规则效果。
+
 提交行动：
 
 ```http

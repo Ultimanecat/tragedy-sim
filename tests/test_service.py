@@ -70,6 +70,21 @@ class GameServiceTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "STALE_REVISION")
         self.assertEqual(caught.exception.status, 409)
 
+    def test_character_ability_offer_has_structured_ui_source(self):
+        game = self.service.unsafe_game(self.session_id)
+        game.state.phase = "goodwill"
+        game.state.characters["student"].goodwill = 2
+        actions = self.service.get_actions(self.session_id, "a", token=self.tokens["a"])["actions"]
+        student_actions = [offer for offer in actions if offer.get("ui", {}).get("source") == "student"]
+        self.assertTrue(student_actions)
+        self.assertTrue(all("effects" not in offer for offer in student_actions))
+
+        game.state.phase = "master_abilities"
+        game.roles["student"] = "brain"
+        role_actions = self.service.get_actions(self.session_id, "m", token=self.tokens["m"])["actions"]
+        self.assertTrue(any(offer.get("ui", {}).get("source") == "student"
+                            for offer in role_actions))
+
     def test_wrong_seat_cannot_dispatch_and_snapshot_round_trips(self):
         actions = self.service.get_actions(self.session_id, "m", token=self.tokens["m"])
         command = {"action_id": actions["actions"][0]["id"],

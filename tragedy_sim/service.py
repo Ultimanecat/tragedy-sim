@@ -256,11 +256,22 @@ class GameService:
         action = command["action"]
         parameters = {key: value for key, value in command.items()
                       if key not in ("actor", "action", "index")}
+        ui: dict[str, Any] = {}
+        if action == "choose":
+            choice = record.game.options(command["actor"])[command["index"] - 1]
+            source = choice.get("source")
+            if source not in record.game.state.characters:
+                key_parts = str(choice.get("key", "")).split(":")
+                source = next((part for part in reversed(key_parts)
+                               if part in record.game.state.characters), None)
+            if source in record.game.state.characters:
+                ui["source"] = source
         fingerprint = {"session": session_id, "revision": record.revision,
                        "command": command}
         action_id = hashlib.sha256(_canonical(fingerprint).encode("utf-8")).hexdigest()[:24]
         return {"id": action_id, "actor": command["actor"], "type": action,
-                "parameters": parameters, "label": self._action_label(record.game, command)}
+                "parameters": parameters, "label": self._action_label(record.game, command),
+                **({"ui": ui} if ui else {})}
 
     def _offers(self, session_id: str, record: _Session, actor: str) -> list[tuple[dict, dict]]:
         commands = record.game.legal_actions(actor)

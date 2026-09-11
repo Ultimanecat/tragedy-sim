@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor,
+  DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor, pointerWithin,
   useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import { ApiClient, ApiError, type StoredRoom, type StoredSession } from "./api/client";
 import type { ActionOffer, CatalogResponse, GameView, ModuleId, ModuleSummary, PublicEvent, RoomResponse, Seat, Viewer } from "./api/types";
@@ -81,17 +82,69 @@ function winnerName(game: GameView) {
   return game.winner ? `${game.winner}胜利` : "";
 }
 
-export function Board({ game, catalog }: { game: GameView; catalog: CatalogResponse | null }) {
+const smallestPointerTarget: CollisionDetection = args => pointerWithin(args).sort((left, right) => {
+  const leftRect = args.droppableRects.get(left.id);
+  const rightRect = args.droppableRects.get(right.id);
+  return (leftRect ? leftRect.width * leftRect.height : Infinity)
+    - (rightRect ? rightRect.width * rightRect.height : Infinity);
+});
+
+function BoardLocation({ id, offer, selected, children, onSelect }: {
+  id: string; offer?: ActionOffer; selected: boolean; children: React.ReactNode;
+  onSelect?: (offer: ActionOffer) => void;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: `board:${id}`, data: { offer }, disabled: !offer });
+  return <article ref={setNodeRef} className={`location location-${id} ${offer ? "legal-board-target" : ""} ${selected ? "selected-board-target" : ""} ${isOver ? "drag-over" : ""}`}
+    role={offer ? "button" : undefined} tabIndex={offer ? 0 : undefined}
+    onClick={() => offer && onSelect?.(offer)}
+    onKeyDown={event => { if (offer && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onSelect?.(offer); } }}>
+    {children}
+  </article>;
+}
+
+function BoardCharacter({ character, offer, selectedTarget, abilitySource, selectedSource, children, onTarget, onSource }: {
+  character: GameView["characters"][string]; offer?: ActionOffer; selectedTarget: boolean;
+  abilitySource: boolean; selectedSource: boolean; children: React.ReactNode;
+  onTarget?: (offer: ActionOffer) => void; onSource?: (id: string) => void;
+}) {
+  const interactive = Boolean(offer || abilitySource);
+  const { isOver, setNodeRef } = useDroppable({
+    id: `board:${character.id}`, data: { offer }, disabled: !offer,
+  });
+  const activate = () => offer ? onTarget?.(offer) : abilitySource && onSource?.(character.id);
+  return <div ref={setNodeRef}
+    className={`character ${character.alive ? "" : "dead"} ${offer ? "legal-board-target" : ""} ${selectedTarget ? "selected-board-target" : ""} ${abilitySource ? "ability-source" : ""} ${selectedSource ? "selected-source" : ""} ${isOver ? "drag-over" : ""}`}
+    role={interactive ? "button" : undefined} tabIndex={interactive ? 0 : undefined}
+    onClick={event => {
+      if ((event.target as Element).closest("details")) { event.stopPropagation(); return; }
+      if (interactive) { event.stopPropagation(); activate(); }
+    }}
+    onKeyDown={event => { if (interactive && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); activate(); } }}>
+    {children}
+  </div>;
+}
+
+export function Board({ game, catalog, targetOffers = [], selectedOffer, abilitySources = [], selectedSource,
+  onTarget, onSource }: {
+  game: GameView; catalog: CatalogResponse | null; targetOffers?: ActionOffer[]; selectedOffer?: ActionOffer | null;
+  abilitySources?: string[]; selectedSource?: string | null;
+  onTarget?: (offer: ActionOffer) => void; onSource?: (id: string) => void;
+}) {
   const cardName = (actor: string, id: unknown) => id
     ? itemName(catalog?.cards[actor as Seat], id) : "暗牌";
   const boardCounter = game.module === "HSA" ? "尸体" : "密谋";
+  const offerByTarget = new Map(targetOffers.map(offer => [String(offer.parameters.target), offer]));
   return <>
     <section className="board" aria-label="游戏版图">
-      {locations.map(location => <article className={`location location-${location}`} key={location}>
+      {locations.map(location => <BoardLocation id={location} offer={offerByTarget.get(location)}
+        selected={selectedOffer?.parameters.target === location} onSelect={onTarget} key={location}>
         <header><h2>{game.labels.locations[location]}</h2><span>{boardCounter} {game.locations[location]}{game.board_ex[location] ? ` · 诅咒 ${game.board_ex[location]}` : ""}</span></header>
         <div className="characters">
           {Object.values(game.characters).filter(character => character.location === location).map(character =>
-            <div className={`character ${character.alive ? "" : "dead"}`} key={character.id}>
+            <BoardCharacter character={character} offer={offerByTarget.get(character.id)}
+              selectedTarget={selectedOffer?.parameters.target === character.id}
+              abilitySource={abilitySources.includes(character.id)} selectedSource={selectedSource === character.id}
+              onTarget={onTarget} onSource={onSource} key={character.id}>
               <GameAsset className="character-art" src={assetUrl("characters", character.id)} />
               <div className="character-body">
                 <div className="character-title"><strong>{character.name}</strong><small>{character.alive ? "存活" : "死亡"}</small></div>
@@ -114,9 +167,9 @@ export function Board({ game, catalog }: { game: GameView; catalog: CatalogRespo
                   {character.passive && <p>被动：{character.passive}</p>}
                 </details>
               </div>
-            </div>)}
+            </BoardCharacter>)}
         </div>
-      </article>)}
+      </BoardLocation>)}
     </section>
     {(["MC", "WM", "AHR"].includes(game.module) || game.world || game.sealed_boards.length > 0 || Object.keys(game.movement_locks).length > 0) &&
       <section className="panel public-effects"><h2>公开特殊状态</h2>
@@ -149,8 +202,8 @@ function Cards({ game, catalog, viewer }: { game: GameView; catalog: CatalogResp
   </section>;
 }
 
-function DraggableActionCard({ id, name, imageUrl, targetCount, selected, busy, onSelect }: {
-  id: string; name: string; imageUrl?: string; targetCount: number; selected: boolean; busy: boolean; onSelect: () => void;
+function DraggableActionCard({ id, name, imageUrl, selected, busy, onSelect }: {
+  id: string; name: string; imageUrl?: string; selected: boolean; busy: boolean; onSelect: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `card:${id}`, data: { card: id }, disabled: busy,
@@ -160,19 +213,7 @@ function DraggableActionCard({ id, name, imageUrl, targetCount, selected, busy, 
     className={`${selected ? "selected" : ""} ${isDragging ? "dragging" : ""}`}
     disabled={busy} onClick={onSelect} {...listeners} {...attributes}>
     <GameAsset src={imageUrl} draggable={false} />
-    <span><strong>{name}</strong><small>{targetCount} 个合法目标 · 可拖拽</small></span>
-  </button>;
-}
-
-function DroppableActionTarget({ offer, game, selected, busy, onSelect }: {
-  offer: ActionOffer; game: GameView; selected: boolean; busy: boolean; onSelect: () => void;
-}) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: `target:${offer.id}`, data: { offer }, disabled: busy,
-  });
-  return <button ref={setNodeRef} className={`${selected ? "selected" : ""} ${isOver ? "drag-over" : ""}`}
-    disabled={busy} onClick={onSelect}>
-    {targetName(game, offer.parameters.target) || offer.label}
+    <span><strong>{name}</strong></span>
   </button>;
 }
 
@@ -182,6 +223,7 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
 }) {
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [selectedGuess, setSelectedGuess] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [selected, setSelected] = useState<ActionOffer | null>(null);
   const [draggedCard, setDraggedCard] = useState<string | null>(null);
   const sensors = useSensors(
@@ -206,6 +248,10 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
     return groups;
   }, [offers]);
   const others = offers.filter(item => item.type !== "play" && item.type !== "guess");
+  const sourcedActions = others.filter(item => item.ui?.source && game.characters[item.ui.source]);
+  const unsourcedActions = others.filter(item => !item.ui?.source || !game.characters[item.ui.source]);
+  const sourceCharacters = [...new Set(sourcedActions.map(item => String(item.ui?.source)))];
+  const selectedSourceActions = sourcedActions.filter(item => item.ui?.source === selectedSource);
   const actor = offers[0]?.actor;
   const choices = selectedCard ? playGroups.get(selectedCard) ?? [] : [];
   const guesses = selectedGuess ? guessGroups.get(selectedGuess) ?? [] : [];
@@ -224,30 +270,31 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
       window.setTimeout(() => setSelected(offer), 80);
     }
   };
-  return <section className={`panel actions-panel ${offers.length ? "has-actions" : "is-waiting"}`}>
+  return <DndContext sensors={sensors} collisionDetection={smallestPointerTarget}
+    onDragStart={startDrag} onDragEnd={finishDrag} onDragCancel={() => setDraggedCard(null)}>
+    <Board game={game} catalog={catalog} targetOffers={choices} selectedOffer={selected}
+      abilitySources={sourceCharacters} selectedSource={selectedSource}
+      onTarget={offer => setSelected(offer)} onSource={source => { setSelectedSource(source); setSelected(null); }} />
+    <section className={`panel actions-panel ${offers.length ? "has-actions" : "is-waiting"}`}>
     <header className="action-header"><div><p className="eyebrow">TURN ACTION</p><h2>可执行行动</h2></div>
       {actor && <span className="actor-badge">{game.labels.actors[actor as Seat]}</span>}</header>
     {!offers.length && <p className="muted">当前视角没有可执行行动。</p>}
-    {!!others.length && <div className="action-grid">{others.map(offer =>
+    {!!unsourcedActions.length && <div className="action-grid">{unsourcedActions.map(offer =>
       <button className={selected?.id === offer.id ? "selected" : ""} disabled={busy} key={offer.id}
         onClick={() => setSelected(offer)}>{offer.label}</button>)}</div>}
-    {!!playGroups.size && <DndContext sensors={sensors} onDragStart={startDrag} onDragEnd={finishDrag}
-      onDragCancel={() => setDraggedCard(null)}>
-      <p className="step-label">1. 选择手牌，或将牌拖向合法目标</p><div className="hand">
-        {[...playGroups].map(([card, available]) => <DraggableActionCard key={card} id={card}
-          name={itemName(actor ? catalog?.cards[actor] : undefined, card)} targetCount={available.length}
+    {!!sourcedActions.length && <><p className="step-label">先在上方版图选择发动力量的角色</p>
+      {selectedSource && <div className="action-grid ability-actions">{selectedSourceActions.map(offer =>
+        <button className={selected?.id === offer.id ? "selected" : ""} disabled={busy} key={offer.id}
+          onClick={() => setSelected(offer)}>{offer.label}</button>)}</div>}</>}
+    {!!playGroups.size && <>
+      <p className="step-label">选择手牌，然后点击或拖到上方发亮的角色／版图</p><div className="hand">
+        {[...playGroups].map(([card]) => <DraggableActionCard key={card} id={card}
+          name={itemName(actor ? catalog?.cards[actor] : undefined, card)}
           imageUrl={actor ? assetUrl("cards", actor as Seat, card) : undefined}
           selected={selectedCard === card} busy={busy}
           onSelect={() => { setSelectedCard(card); setSelected(null); }} />)}
       </div>
-      {selectedCard && <><p className="step-label">2. 选择目标；拖放后仍需确认</p><div className="action-grid drop-targets">
-        {choices.map(offer => <DroppableActionTarget key={offer.id} offer={offer} game={game}
-          selected={selected?.id === offer.id} busy={busy} onSelect={() => setSelected(offer)} />)}
-      </div></>}
-      <DragOverlay dropAnimation={null}>{draggedCard ? <div className="drag-card-overlay">
-        {actor && <GameAsset src={assetUrl("cards", actor as Seat, draggedCard)} />}
-        <span>{itemName(actor ? catalog?.cards[actor] : undefined, draggedCard)}</span></div> : null}</DragOverlay>
-    </DndContext>}
+    </>}
     {!!guessGroups.size && <>
       <p className="step-label">1. 选择要猜测的角色/身份面</p><div className="guess-characters">
         {[...guessGroups].map(([character, available]) => <button className={selectedGuess === character ? "selected" : ""}
@@ -263,7 +310,11 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
     </>}
     {selected && <div className="confirm-bar"><span>{selected.label}</span>
       <button className="primary" disabled={busy} onClick={() => onAction(selected)}>确认执行</button></div>}
-  </section>;
+    </section>
+    <DragOverlay dropAnimation={null}>{draggedCard ? <div className="drag-card-overlay">
+      {actor && <GameAsset src={assetUrl("cards", actor as Seat, draggedCard)} />}
+      <span>{itemName(actor ? catalog?.cards[actor] : undefined, draggedCard)}</span></div> : null}</DragOverlay>
+  </DndContext>;
 }
 
 function Knowledge({ game, catalog }: { game: GameView; catalog: CatalogResponse | null }) {
@@ -642,7 +693,7 @@ export default function App() {
           : game.controller ? `等待${game.labels.actors[game.controller]}行动` : "正在结算阶段效果"}</strong></div>
         <span>{game.phase_name} · {game.table_talk ? "允许讨论" : "禁止讨论"}</span>
       </section>
-      <div className="workspace"><div className="play-column"><Actions key={`${viewer}:${offers.map(item => item.id).join(",")}`} offers={offers} catalog={catalog} game={game} busy={busy} onAction={act} /><Board game={game} catalog={catalog} /></div><aside>
+      <div className="workspace"><div className="play-column"><Actions key={`${viewer}:${offers.map(item => item.id).join(",")}`} offers={offers} catalog={catalog} game={game} busy={busy} onAction={act} /></div><aside>
         {game.protagonist_secret && <section className="panel personal-secret"><h2>你的 Last Liar 秘密</h2><strong>秘密 {game.protagonist_secret}</strong><p>此编号只对当前主人公可见，请勿向其他玩家展示。</p></section>}
         {game.secret && <section className="panel secret"><h2>剧作家资料</h2><p>规则 Y：{itemName(catalog?.plots, game.secret.main_plot)}</p><p>规则 X：{game.secret.subplots.map(id => itemName(catalog?.plots, id)).join("、")}</p><p>本轮实际天数：{game.secret.current_loop_days}</p>
           <details><summary>身份配置</summary>{Object.entries(game.secret.roles).map(([id, role]) => <p key={id}>{game.characters[id]?.name ?? id}：{itemName(catalog?.roles, role)}{game.secret?.hidden_roles?.[id] ? `／里身份 ${itemName(catalog?.roles, game.secret.hidden_roles[id])}` : ""}</p>)}</details>

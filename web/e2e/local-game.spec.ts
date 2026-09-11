@@ -19,13 +19,14 @@ async function selectFirstAction(page: Page) {
   const hand = page.locator(".actions-panel .hand button");
   if (await hand.count()) {
     await hand.first().click();
-    await page.locator(".actions-panel .action-grid button").first().click();
+    await page.locator(".board .legal-board-target").last().click();
   } else if (await page.locator(".actions-panel .guess-characters button").count()) {
     await page.locator(".actions-panel .guess-characters button").first().click();
     await page.locator(".actions-panel .action-grid button").first().click();
   } else {
     await page.locator(".actions-panel .action-grid button").first().click();
   }
+  await expect(page.getByRole("button", { name: "确认执行" })).toBeVisible();
   const accepted = page.waitForResponse(response => response.request().method() === "POST" && response.url().endsWith("/commands"));
   await page.getByRole("button", { name: "确认执行" }).click();
   await accepted;
@@ -38,14 +39,16 @@ async function selectFirstAction(page: Page) {
 async function dragFirstCardToFirstTarget(page: Page) {
   const card = page.locator(".actions-panel .hand button").first();
   await expect(card).toBeVisible();
+  await card.click();
+  const target = page.locator(".board .legal-board-target").last();
+  await expect(target).toBeVisible();
+  await card.scrollIntoViewIfNeeded();
   const cardBox = await card.boundingBox();
   if (!cardBox) throw new Error("card has no layout box");
   await page.mouse.move(cardBox.x + cardBox.width / 2, cardBox.y + cardBox.height / 2);
   await page.mouse.down();
   await page.mouse.move(cardBox.x + cardBox.width / 2 + 12, cardBox.y + cardBox.height / 2 + 12,
                         { steps: 3 });
-  const target = page.locator(".actions-panel .drop-targets button").first();
-  await expect(target).toBeVisible();
   const targetBox = await target.boundingBox();
   if (!targetBox) throw new Error("target has no layout box");
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2,
@@ -194,7 +197,7 @@ test("real service preserves private card boundary while actions advance", async
 
   await page.locator(".actions-panel .hand button").first().click();
   const chosenCard = await page.locator(".actions-panel .hand button.selected strong").innerText();
-  await page.locator(".actions-panel .action-grid button").first().click();
+  await page.locator(".board .legal-board-target").last().click();
   await page.getByRole("button", { name: "确认执行" }).click();
   await expect(page.locator(".placement")).toContainText(chosenCard);
 
@@ -262,7 +265,7 @@ test("a deterministic legal-action walk reaches a result and opens replay", asyn
     if (await page.locator(".outcome").count()) break;
     const actor = (await page.locator(".status-strip > div").nth(2).locator("strong").innerText()).trim();
     await page.getByRole("button", { name: actor, exact: true }).click();
-    await expect(page.locator(".actions-panel button").first()).toBeVisible();
+    await expect(page.locator(".actions-panel button").first()).toBeVisible({ timeout: 10_000 });
     await selectFirstAction(page);
   }
   await expect(page.locator(".outcome")).toContainText("胜利");
@@ -349,7 +352,7 @@ for (const module of ["FS", "MZ", "MC", "HSA", "WM", "AHR", "LL"]) {
       if (await page.locator(".outcome").count()) break;
       const actor = (await page.locator(".status-strip > div").nth(2).locator("strong").innerText()).trim();
       await page.getByRole("button", { name: actor, exact: true }).click();
-      await expect(page.locator(".actions-panel button").first()).toBeVisible();
+      await expect(page.locator(".actions-panel button").first()).toBeVisible({ timeout: 10_000 });
       await selectFirstAction(page);
     }
     await expect(page.locator(".outcome"), `${module} did not reach game_over`).toContainText("胜利");
