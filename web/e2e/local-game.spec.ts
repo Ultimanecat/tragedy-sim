@@ -53,6 +53,15 @@ async function dragFirstCardToFirstTarget(page: Page) {
   await page.mouse.up();
 }
 
+test("a missing room offers a direct return to the lobby", async ({ page }) => {
+  await page.goto("/?room=ABCDEF");
+  await expect(page.getByRole("alert")).toContainText("房间不存在或已经关闭");
+  await expect(page.getByRole("heading", { name: "无法进入房间" })).toBeVisible();
+  await page.getByRole("button", { name: "返回大厅" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { name: "创建局域网房间" })).toBeVisible();
+});
+
 test("four isolated browser sessions join, ready and receive synchronized private views", async ({ browser }) => {
   const contexts = await Promise.all([0, 1, 2, 3].map(index => browser.newContext(
     index === 1 ? { viewport: { width: 390, height: 844 } } : undefined)));

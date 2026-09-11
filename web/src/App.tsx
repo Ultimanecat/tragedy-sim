@@ -33,6 +33,11 @@ function GameAsset({ src, className, draggable }: { src?: string; className?: st
     onError={event => { event.currentTarget.hidden = true; }} />;
 }
 
+function isMissingRoom(reason: unknown): boolean {
+  return typeof reason === "object" && reason !== null && "code" in reason
+    && (reason as { code?: unknown }).code === "ROOM_NOT_FOUND";
+}
+
 function loadSession(): StoredSession | null {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null") as StoredSession | null; }
   catch { return null; }
@@ -370,6 +375,7 @@ export default function App() {
   const [replayText, setReplayText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [roomUnavailable, setRoomUnavailable] = useState(false);
   const effectiveProtagonistCount: 1 | 2 | 3 = module === "LL" ? 3 : protagonistCount;
 
   const persist = useCallback(() => {
@@ -391,6 +397,7 @@ export default function App() {
       persist();
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === "AbortError") return;
+      if (isMissingRoom(reason)) setRoomUnavailable(true);
       setError(reason instanceof Error ? reason.message : "读取对局失败");
     } finally { if (!quiet) setBusy(false); }
   }, [client, persist, viewer]);
@@ -413,6 +420,7 @@ export default function App() {
           ? await client.roomStatus(roomCode) : await client.roomUpdates();
         if (!client.room) client.observeRoom(response);
         if (!active) return;
+        setRoomUnavailable(false);
         // Avoid replacing the lobby tree on every no-op poll (which can interrupt
         // typing on slower/mobile browsers), but retain meaningful presence changes.
         setRoomInfo(current => {
@@ -430,7 +438,10 @@ export default function App() {
         }
       } catch (reason) {
         if (reason instanceof DOMException && reason.name === "AbortError") return;
-        if (active) setError(reason instanceof Error ? reason.message : "读取房间失败");
+        if (active) {
+          if (isMissingRoom(reason)) setRoomUnavailable(true);
+          setError(reason instanceof Error ? reason.message : "读取房间失败");
+        }
       } finally { polling = false; }
     };
     void poll(true);
@@ -450,6 +461,7 @@ export default function App() {
 
   function enterRoom(code: string) {
     const normalized = code.toUpperCase();
+    setRoomUnavailable(false); setError("");
     setRoomCode(normalized);
     window.history.replaceState(null, "", `${window.location.pathname}?room=${normalized}`);
   }
@@ -508,6 +520,7 @@ export default function App() {
     client.forgetRoom();
     localStorage.removeItem(ROOM_KEY);
     setRoomCode(null); setRoomInfo(null); setGame(null); setOffers([]); setReplayText("");
+    setRoomUnavailable(false); setError("");
     window.history.replaceState(null, "", window.location.pathname);
   }
 
@@ -564,7 +577,10 @@ export default function App() {
       <label className="file-button">载入存档/剧本<input type="file" accept="application/json" onChange={event => event.target.files?.[0] && void restore(event.target.files[0])} /></label>
     </div>}</header>
     {error && <div className="error" role="alert">{error}</div>}
-    {roomCode && (!roomInfo || roomInfo.room.status === "waiting") ? <section className="lobby" aria-label="房间大厅">
+    {roomCode && roomUnavailable ? <section className="empty room-unavailable"><h2>无法进入房间</h2>
+      <p>该房间不存在、已经关闭，或服务重启后房间记录已经清空。</p>
+      <button className="primary" onClick={returnToLobby}>返回大厅</button>
+    </section> : roomCode && (!roomInfo || roomInfo.room.status === "waiting") ? <section className="lobby" aria-label="房间大厅">
       {!roomInfo ? <h2>正在连接房间 {roomCode}…</h2> : <>
         <div className="lobby-intro"><div><p className="eyebrow">WAITING ROOM</p><h2>等待所有玩家入座并准备</h2></div>
           <div><label>邀请链接<input readOnly value={shareUrl} onFocus={event => event.currentTarget.select()} /></label><small>复制此链接给同一 Wi-Fi 下的玩家。</small></div></div>

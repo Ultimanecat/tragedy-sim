@@ -37,6 +37,8 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .file-button input { display: none; }
 .error { margin: 1rem 0; padding: .8rem 1rem; border: 1px solid #b75858; background: #541f25; border-radius: .4rem; }
 .empty { text-align: center; margin: 15vh auto; color: #b9aab0; }
+.room-unavailable { width: min(520px, 100%); padding: 1.5rem; border: 1px solid #674d55; border-radius: .65rem; background: #211b1e; }
+.room-unavailable button { margin-top: .75rem; }
 .welcome { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; width: min(850px, 100%); margin: 10vh auto; }
 .welcome article, .lobby { border: 1px solid #5d4c52; border-radius: .65rem; padding: 1.25rem; background: #211b1e; }
 .welcome label, .lobby label { display: flex; flex-direction: column; gap: .35rem; margin: .7rem 0; color: #c9bcc0; font-size: .82rem; }
