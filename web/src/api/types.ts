@@ -26,6 +26,18 @@ export interface ModulesResponse {
   language: Language;
   modules: ModuleSummary[];
 }
+export interface ScenarioSummary {
+  id: string;
+  title: string;
+  module: ModuleId;
+  days: number;
+  loops: number;
+  source: "tutorial" | "library";
+}
+export interface ScenariosResponse {
+  protocol_version: typeof PROTOCOL_VERSION;
+  scenarios: ScenarioSummary[];
+}
 
 export interface AbilityDefinition {
   id: string;
@@ -105,6 +117,7 @@ export interface SecretView {
 export interface GameView {
   module: ModuleId;
   module_name: string;
+  scenario_id: string;
   title: string;
   language: Language;
   loop: number;
@@ -211,6 +224,8 @@ export interface RoomOccupant {
 export interface RoomState {
   code: string;
   module: ModuleId;
+  scenario_id: string;
+  scenario_title: string;
   status: "waiting" | "playing" | "finished";
   revision: number;
   game_revision: number;

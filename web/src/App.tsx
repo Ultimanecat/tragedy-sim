@@ -5,7 +5,7 @@ import {
   type CollisionDetection,
 } from "@dnd-kit/core";
 import { ApiClient, ApiError, type StoredRoom, type StoredSession } from "./api/client";
-import type { ActionOffer, CatalogResponse, GameView, ModuleId, ModuleSummary, PublicEvent, RoomResponse, Seat, Viewer } from "./api/types";
+import type { ActionOffer, CatalogResponse, GameView, ModuleId, ModuleSummary, PublicEvent, RoomResponse, ScenarioSummary, Seat, Viewer } from "./api/types";
 import { abilityUseName, itemName } from "./display";
 import gameAssets from "./generated/game-assets.json";
 import { parseReplayTimeline } from "./replay";
@@ -502,6 +502,8 @@ export default function App() {
   const [client] = useState(() => new ApiClient(loadSession(), "", loadRoom(initialRoom)));
   const [modules, setModules] = useState<ModuleSummary[]>([]);
   const [module, setModule] = useState<ModuleId>("BTX");
+  const [scenarios, setScenarios] = useState<ScenarioSummary[]>([]);
+  const [scenarioId, setScenarioId] = useState("");
   const [viewer, setViewer] = useState<Viewer>(client.room?.seat ?? "spectator");
   const [roomCode, setRoomCode] = useState<string | null>(initialRoom);
   const [roomInfo, setRoomInfo] = useState<RoomResponse | null>(null);
@@ -518,6 +520,9 @@ export default function App() {
   const [error, setError] = useState("");
   const [roomUnavailable, setRoomUnavailable] = useState(false);
   const effectiveProtagonistCount: 1 | 2 | 3 = module === "LL" ? 3 : protagonistCount;
+  const availableScenarios = useMemo(() => scenarios.filter(item => item.module === module), [module, scenarios]);
+  const effectiveScenarioId = availableScenarios.some(item => item.id === scenarioId)
+    ? scenarioId : (availableScenarios[0]?.id ?? "");
 
   const persist = useCallback(() => {
     if (client.session) localStorage.setItem(SESSION_KEY, JSON.stringify(client.session));
@@ -544,6 +549,9 @@ export default function App() {
   }, [client, persist, viewer]);
 
   useEffect(() => { client.modules().then(result => setModules(result.modules)).catch(() => setError("无法读取规则集目录")); }, [client]);
+  useEffect(() => {
+    client.scenarios().then(result => setScenarios(result.scenarios)).catch(() => setError("无法读取剧本目录"));
+  }, [client]);
   useEffect(() => {
     if (!client.session || roomCode) return;
     const timer = window.setTimeout(() => void refresh(), 0);
@@ -638,7 +646,7 @@ export default function App() {
   }, [client, game?.module]);
   async function createGame() {
     setBusy(true); setError(""); setOffers([]); setCatalog(null); setReplayText(""); setViewer("spectator");
-    try { await client.create(module); persist(); await refresh("spectator"); }
+    try { await client.create(module, effectiveScenarioId || undefined); persist(); await refresh("spectator"); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "创建对局失败"); }
     finally { setBusy(false); }
   }
@@ -653,7 +661,8 @@ export default function App() {
   async function createRoom() {
     setBusy(true); setError("");
     try {
-      const response = await client.createRoom(module, nickname, preferredSeat, allowSpectators, effectiveProtagonistCount);
+      const response = await client.createRoom(module, nickname, preferredSeat, allowSpectators,
+        effectiveProtagonistCount, effectiveScenarioId || undefined);
       setRoomInfo(response); setViewer(preferredSeat); persist(); enterRoom(response.room.code);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "创建房间失败"); }
     finally { setBusy(false); }
@@ -765,6 +774,11 @@ export default function App() {
     </div> : <div className="new-game">
       <select aria-label="规则集" value={module} onChange={event => setModule(event.target.value as ModuleId)}>
         {modules.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+      <select aria-label="剧本" value={effectiveScenarioId} disabled={!availableScenarios.length}
+        onChange={event => setScenarioId(event.target.value)}>
+        {availableScenarios.map(item => <option key={item.id} value={item.id}>
+          {item.title} · {item.days} 天/{item.loops} 轮
+        </option>)}</select>
       <button className="primary" disabled={busy} onClick={createGame}>新建对局</button>
       <label className="file-button">载入存档/剧本<input type="file" accept="application/json" onChange={event => event.target.files?.[0] && void restore(event.target.files[0])} /></label>
     </div>}</header>
@@ -776,7 +790,7 @@ export default function App() {
       {!roomInfo ? <h2>正在连接房间 {roomCode}…</h2> : <>
         <div className="lobby-intro"><div><p className="eyebrow">WAITING ROOM</p><h2>等待所有玩家入座并准备</h2></div>
           <div><label>邀请链接<input readOnly value={shareUrl} onFocus={event => event.currentTarget.select()} /></label><small>复制此链接给同一 Wi-Fi 下的玩家。</small></div></div>
-        <p className="muted">本局由 1 名剧作家和 {roomInfo.room.protagonist_count} 名主人公玩家参与。</p>
+        <p className="muted">{roomInfo.room.scenario_title} · 本局由 1 名剧作家和 {roomInfo.room.protagonist_count} 名主人公玩家参与。</p>
         <div className="seat-grid">{roomInfo.room.required_seats.map(seat => {
           const occupant = roomInfo.room.seats[seat];
           return <article className={`${occupant ? "occupied" : ""} ${occupant?.ai ? "ai-seat" : ""}`} key={seat}>

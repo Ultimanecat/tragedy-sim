@@ -223,6 +223,10 @@ python -m tragedy_sim --load session.json
 [MC 示例](examples/mc-tutorial.json) 或 [HSA 示例](examples/hsa-tutorial.json) 后修改。
 文件包含身份与当事人答案，主人公请勿提前阅读；这是原创教学剧本，不是官方剧本转录。
 
+Web 大厅会从 `GET /v1/scenarios` 读取可选剧本。仓库内置的八个原创教学剧本始终可选；把核对后的新剧本 JSON
+放入 `scenarios/` 后，服务会自动发现并严格校验，再只向大厅公开标题、规则集、天数和轮回数。秘密身份与事件答案不会
+通过目录接口下发。具体约定见 [剧本数据目录](scenarios/README.md)。
+
 `main_plot` 选一个规则 Y，`subplots` 在 FS 选一个 X，其余模组按规则集要求选择不同的 X。
 `cast` 是角色 ID → 身份 ID，余下普通角色填写 `ordinary`。
 规则、身份、事件 ID 可用 `rules` 查；全部角色见 [catalog.py](tragedy_sim/catalog.py)。
@@ -270,6 +274,7 @@ npm run test:e2e
 - `tragedy_sim/engine.py`：`ActionGame`、`Character`、出牌与结算、玩家视图。
 - `tragedy_sim/catalog.py`：角色、规则 X/Y、身份、事件及公开规则文案。
 - `tragedy_sim/scenario.py`：JSON 剧本、严格校验、教学示例。
+- `tragedy_sim/scenario_library.py`：服务端剧本目录、公开元数据和稳定 ID 解析。
 - `tragedy_sim/flow.py`、`model.py`：显式阶段表、阶段位置、决策/结算记录，以及供搜索算法使用的状态转移接口。
 - `tragedy_sim/domain/`：类型化行动、能力触发、效果、观察、状态组件及可扩展流程契约。
 - `tragedy_sim/effect_resolver.py`：显式、不可变且可组合的效果处理器注册表。

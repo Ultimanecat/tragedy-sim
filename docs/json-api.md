@@ -35,11 +35,13 @@ python -m tragedy_sim --host-room --port 8765
 
 ```text
 GET /v1/modules?lang=zh
+GET /v1/scenarios?module=BTX
 GET /v1/catalog/{module}?lang=en
 ```
 
 `lang` 支持 `zh`、`en`、`ja`，省略时为中文；不支持的值返回 `UNSUPPORTED_LANGUAGE`。
-目录包含模块能力、地点、计数物、规则、身份、事件、角色和双方行动牌定义，前端不需要导入 Python 目录。
+`scenarios` 只返回剧本 ID、标题、规则集、天数、轮回数和来源类型，不返回身份、规则组合或事件当事人。
+其余目录包含模块能力、地点、计数物、规则、身份、事件、角色和双方行动牌定义，前端不需要导入 Python 目录。
 
 创建教学对局：
 
@@ -50,7 +52,8 @@ Content-Type: application/json
 {"module":"BTX"}
 ```
 
-也可传入完整的 `scenario`，或传入现有 JSON 存档的 `snapshot`。创建响应包含：
+也可传入目录中的 `{"scenario_id":"silent-town-btx"}`、完整的 `scenario`，或现有 JSON 存档的 `snapshot`。
+这四种创建来源（`module` / `scenario_id` / `scenario` / `snapshot`）只能选择一种。创建响应包含：
 
 - 随机 `session_id`；
 - 当前 `revision`；
@@ -138,11 +141,12 @@ DELETE /v1/rooms/{code}                  房主关闭房间
 创建请求示例：
 
 ```json
-{"module":"BTX","nickname":"房主","seat":"m","spectators":true,"protagonist_count":2}
+{"module":"BTX","scenario_id":"silent-town-btx","nickname":"房主","seat":"m","spectators":true,"protagonist_count":2}
 ```
 
 `protagonist_count` 可为 1、2、3，省略时为 3。LL 只接受 3。公开房间状态提供 `required_seats`、
-`ready_to_start`、`logical_leader` 与 `human_leader`，客户端不应自行推导动态控制权。
+`ready_to_start`、`logical_leader`、`human_leader` 以及非秘密的剧本 ID/标题，客户端不应自行推导动态控制权。
+省略 `scenario_id` 时继续使用该规则集的原创教学剧本；所选剧本与 `module` 不一致会被拒绝。
 
 创建者获得 `credential.room_token`、`credential.admin_token` 和自己的 `seat`；加入者只获得自己的
 `room_token` 和 `seat`。房间公开响应只包含昵称、准备/在线/AI 状态、房间阶段及 revision，不包含游戏 session、

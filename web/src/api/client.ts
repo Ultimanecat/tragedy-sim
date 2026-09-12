@@ -1,6 +1,6 @@
 import type {
   ActionsResponse, ApiErrorBody, CatalogResponse, CommandResponse, CreateGameResponse,
-  Language, ModuleId, ModulesResponse, RoomEvent, RoomResponse, Seat, ViewResponse, Viewer,
+  Language, ModuleId, ModulesResponse, RoomEvent, RoomResponse, ScenariosResponse, Seat, ViewResponse, Viewer,
 } from "./types";
 
 export class ApiError extends Error {
@@ -60,14 +60,19 @@ export class ApiClient {
     return this.request<ModulesResponse>("modules", `/v1/modules?lang=${language}`);
   }
 
+  scenarios(module?: ModuleId) {
+    const query = module ? `?module=${encodeURIComponent(module)}` : "";
+    return this.request<ScenariosResponse>("scenarios", `/v1/scenarios${query}`);
+  }
+
   catalog(module: ModuleId, language: Language = "zh") {
     return this.request<CatalogResponse>("catalog", `/v1/catalog/${module}?lang=${language}`);
   }
 
-  async create(module: ModuleId): Promise<CreateGameResponse> {
+  async create(module: ModuleId, scenarioId?: string): Promise<CreateGameResponse> {
     return this.acceptCreated(await this.request<CreateGameResponse>("game", "/v1/games", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ module }),
+      body: JSON.stringify(scenarioId ? { scenario_id: scenarioId } : { module }),
     }));
   }
 
@@ -186,8 +191,9 @@ export class ApiClient {
   }
 
   async createRoom(module: ModuleId, nickname: string, seat: Seat, spectators = true,
-                   protagonistCount: 1 | 2 | 3 = 3) {
+                   protagonistCount: 1 | 2 | 3 = 3, scenarioId?: string) {
     const body: Record<string, unknown> = { module, nickname, seat, spectators };
+    if (scenarioId) body.scenario_id = scenarioId;
     // Keep the original four-seat request wire-compatible with older hosts.
     // The server defaults an omitted value to three protagonist participants.
     if (protagonistCount !== 3) body.protagonist_count = protagonistCount;

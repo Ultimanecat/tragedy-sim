@@ -25,6 +25,7 @@ from .game import Game
 from .i18n import label, normalize_language
 from .replay import dumps as replay_dumps
 from .scenario import example_scenario, validate_scenario
+from .scenario_library import ScenarioLibrary
 
 
 PROTOCOL_VERSION = 1
@@ -76,9 +77,10 @@ def _language(value: str) -> str:
 class GameService:
     """In-memory application service shared by local and HTTP clients."""
 
-    def __init__(self):
+    def __init__(self, scenario_library: ScenarioLibrary | None = None):
         self._sessions: dict[str, _Session] = {}
         self._lock = RLock()
+        self.scenarios = scenario_library or ScenarioLibrary()
 
     def create_game(self, request: dict[str, Any] | None = None, *, game: Game | None = None) -> dict[str, Any]:
         request = {} if request is None else request
@@ -90,13 +92,15 @@ class GameService:
             raise ServiceError("INVALID_REQUEST", "现有对局必须是 Game 对象")
         try:
             if game is None:
-                allowed = {"module", "scenario", "snapshot"}
+                allowed = {"module", "scenario", "scenario_id", "snapshot"}
                 if set(request) - allowed or sum(key in request for key in allowed) > 1:
-                    raise ServiceError("INVALID_REQUEST", "只能指定 module、scenario 或 snapshot 中的一项")
+                    raise ServiceError("INVALID_REQUEST", "只能指定 module、scenario、scenario_id 或 snapshot 中的一项")
                 if "snapshot" in request:
                     game = self._game_from_snapshot(request["snapshot"])
                 elif "scenario" in request:
                     game = Game(validate_scenario(request["scenario"]))
+                elif "scenario_id" in request:
+                    game = Game(self.scenarios.get(request["scenario_id"]))
                 else:
                     module = request.get("module", "FS")
                     if not isinstance(module, str):
@@ -119,6 +123,15 @@ class GameService:
             "credentials": {"admin": record.admin_token, "seats": tokens},
             "view": self._view_payload(session_id, record, "spectator"),
         })
+
+    def list_scenarios(self, module: str | None = None) -> dict[str, Any]:
+        if module is not None and module not in MODULES:
+            raise ServiceError("MODULE_NOT_FOUND", "规则集不存在", status=404)
+        try:
+            scenarios = self.scenarios.list(module)
+        except RuleError as exc:
+            raise ServiceError("INVALID_SCENARIO_LIBRARY", str(exc), status=500) from exc
+        return _json_copy({"protocol_version": PROTOCOL_VERSION, "scenarios": scenarios})
 
     def list_modules(self, language: str = "zh") -> dict[str, Any]:
         language = _language(language)

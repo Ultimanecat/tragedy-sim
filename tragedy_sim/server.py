@@ -233,6 +233,10 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
                     language = parse_qs(parsed.query).get("lang", ["zh"])[0]
                     self._send_json(200, service.list_modules(language))
                     return
+                if parts == ["v1", "scenarios"]:
+                    module = parse_qs(parsed.query).get("module", [None])[0]
+                    self._send_json(200, service.list_scenarios(module))
+                    return
                 if len(parts) == 3 and parts[:2] == ["v1", "catalog"]:
                     language = parse_qs(parsed.query).get("lang", ["zh"])[0]
                     self._send_json(200, service.get_catalog(parts[2], language))

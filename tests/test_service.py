@@ -49,6 +49,20 @@ class GameServiceTests(unittest.TestCase):
             self.service.get_catalog("BTX", "xx")
         self.assertEqual(caught.exception.code, "UNSUPPORTED_LANGUAGE")
 
+    def test_scenario_catalog_is_public_and_can_create_by_stable_id(self):
+        response = self.service.list_scenarios("BTX")
+        self.assertEqual(response["scenarios"][0]["id"], "silent-town-btx")
+        self.assertNotIn("cast", response["scenarios"][0])
+        created = self.service.create_game({"scenario_id": "silent-town-btx"})
+        self.assertEqual(created["view"]["state"]["scenario_id"], "silent-town-btx")
+        with self.assertRaises(ServiceError) as unknown_module:
+            self.service.list_scenarios("NOPE")
+        self.assertEqual((unknown_module.exception.code, unknown_module.exception.status),
+                         ("MODULE_NOT_FOUND", 404))
+        with self.assertRaises(ServiceError) as caught:
+            self.service.create_game({"scenario_id": "not-found"})
+        self.assertEqual(caught.exception.code, "INVALID_SCENARIO")
+
     def test_action_ids_revision_and_no_internal_effects_cross_boundary(self):
         first = self.service.get_actions(self.session_id, "m", token=self.tokens["m"])
         second = self.service.get_actions(self.session_id, "m", token=self.tokens["m"])
@@ -156,6 +170,8 @@ class HttpTransportTests(unittest.TestCase):
         status, modules = self.request("GET", "/v1/modules")
         self.assertEqual(status, 200)
         self.assertIn("BTX", {item["id"] for item in modules["modules"]})
+        status, scenarios = self.request("GET", "/v1/scenarios?module=BTX")
+        self.assertEqual((status, scenarios["scenarios"][0]["id"]), (200, "silent-town-btx"))
         status, catalog = self.request("GET", "/v1/catalog/BTX?lang=en")
         self.assertEqual((status, catalog["language"]), (200, "en"))
         status, created = self.request("POST", "/v1/games", {"module": "FS"})

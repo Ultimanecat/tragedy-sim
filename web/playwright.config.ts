@@ -5,9 +5,10 @@ export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",
   timeout: 60_000,
   fullyParallel: true,
-  // Several full legal-action walks are CPU-heavy and share one local Python
-  // service. Three workers avoid transient fetch failures on Windows hosts.
-  workers: 3,
+  // Full legal-action walks share one local Python service. Serial execution is
+  // deliberate: Windows can exhaust transient socket buffers (WSAENOBUFS) when
+  // two long simulations create and discard thousands of HTTP connections.
+  workers: 1,
   use: { baseURL: "http://127.0.0.1:8877", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });

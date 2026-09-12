@@ -43,7 +43,7 @@ def view(self, viewer="spectator", language="zh"):
                     ex_cards=self.ex_cards.get(cid, 0),
                     friended_token=(self.module == "LL" and cid in self._ll_friended_once),
                     death_token=(self.module == "LL" and cid in self._ll_dead_once))
-    result.update(title=self.scenario["title"], days=self.scenario["days"], loops=self.scenario["loops"],
+    result.update(scenario_id=self.scenario["id"], title=self.scenario["title"], days=self.scenario["days"], loops=self.scenario["loops"],
                   table_talk=self.scenario["table_talk"], controller=self.controller, winner=self.winner,
                   module_name=label("modules", self.module, language, fallback=spec.name),
                   labels={"actors": {actor: label("actors", actor, language, fallback=ACTOR_NAMES[actor])

@@ -33,6 +33,24 @@ class RoomServiceTests(unittest.TestCase):
             joined = self.rooms.join(self.code, {"nickname": f"玩家 {seat.upper()}", "seat": seat})
             self.tokens[seat] = joined["credential"]["room_token"]
 
+    def test_room_can_select_catalog_scenario_without_exposing_answers(self):
+        rooms = RoomService()
+        created = rooms.create({
+            "module": "FS", "scenario_id": "silent-town-fs",
+            "nickname": "房主", "seat": "m",
+        })
+        self.assertEqual(created["room"]["scenario_id"], "silent-town-fs")
+        self.assertEqual(created["room"]["scenario_title"], "寂静小镇（原创教学剧本）")
+        serialized = json.dumps(created, ensure_ascii=False)
+        self.assertNotIn('"cast"', serialized)
+        self.assertNotIn('"culprit"', serialized)
+        with self.assertRaises(ServiceError) as caught:
+            rooms.create({
+                "module": "BTX", "scenario_id": "silent-town-fs",
+                "nickname": "房主", "seat": "m",
+            })
+        self.assertEqual(caught.exception.code, "SCENARIO_MODULE_MISMATCH")
+
     def test_join_ready_start_and_private_game_authority(self):
         self.join_all()
         with self.assertRaises(ServiceError) as early:

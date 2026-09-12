@@ -68,6 +68,18 @@ test("a missing room offers a direct return to the lobby", async ({ page }) => {
   await expect(page.getByRole("button", { name: "进入房间" })).toBeEnabled();
 });
 
+test("the lobby creates games from the server-owned scenario catalog", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByLabel("剧本", { exact: true }).locator("option")).toHaveCount(1);
+  await page.getByLabel("规则集").selectOption("FS");
+  await expect(page.getByLabel("剧本", { exact: true })).toHaveValue("silent-town-fs");
+  const request = page.waitForRequest(candidate => candidate.method() === "POST"
+    && candidate.url().endsWith("/v1/games"));
+  await page.getByRole("button", { name: "新建对局" }).click();
+  expect((await request).postDataJSON()).toEqual({ scenario_id: "silent-town-fs" });
+  await expect(page.getByText(/轮回 1\/.*第 1 天/)).toBeVisible();
+});
+
 test("a host can fill an empty side with a random AI and play against it", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("主人公玩家人数").selectOption("1");

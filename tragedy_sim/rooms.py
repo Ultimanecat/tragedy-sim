@@ -40,6 +40,8 @@ class _Occupant:
 class _Room:
     code: str
     module: str
+    scenario_id: str
+    scenario_title: str
     session_id: str
     game_tokens: dict[str, str]
     game_admin: str
@@ -188,7 +190,9 @@ class RoomService:
         return _json_copy({
             "protocol_version": PROTOCOL_VERSION,
             "room": {
-                "code": room.code, "module": room.module, "status": room.status,
+                "code": room.code, "module": room.module,
+                "scenario_id": room.scenario_id, "scenario_title": room.scenario_title,
+                "status": room.status,
                 "revision": room.revision, "game_revision": game_revision,
                 "spectators": room.spectators, "protagonist_count": room.protagonist_count,
                 "required_seats": list(required), "human_leader": room.human_leader,
@@ -205,7 +209,7 @@ class RoomService:
         })
 
     def create(self, request: Any) -> dict[str, Any]:
-        request = _object(request, {"module", "nickname", "seat", "spectators", "protagonist_count"},
+        request = _object(request, {"module", "scenario_id", "nickname", "seat", "spectators", "protagonist_count"},
                           {"module", "nickname", "seat"})
         module = request["module"]
         if module not in MODULES:
@@ -217,11 +221,17 @@ class RoomService:
         spectators = request.get("spectators", True)
         if type(spectators) is not bool:
             raise ServiceError("INVALID_REQUEST", "spectators 必须是布尔值")
-        created = self.games.create_game({"module": module})
+        scenario_id = request.get("scenario_id")
+        created = self.games.create_game({"scenario_id": scenario_id} if scenario_id else {"module": module})
+        created_state = created["view"]["state"]
+        if created_state["module"] != module:
+            self.games.delete_game(created["session_id"], token=created["credentials"]["admin"])
+            raise ServiceError("SCENARIO_MODULE_MISMATCH", "所选剧本不属于该规则集", status=409)
         now = self._clock()
         player_token = secrets.token_urlsafe(24)
         room = _Room(
-            code="", module=module, session_id=created["session_id"],
+            code="", module=module, scenario_id=created_state["scenario_id"],
+            scenario_title=created_state["title"], session_id=created["session_id"],
             game_tokens=created["credentials"]["seats"],
             game_admin=created["credentials"]["admin"],
             admin_token=secrets.token_urlsafe(32), protagonist_count=count, spectators=spectators,
