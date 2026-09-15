@@ -4,7 +4,8 @@ import random
 import unittest
 
 from tragedy_sim.ai import FixedStrategyMastermindAgent, RandomAgent
-from tragedy_sim.service import GameService
+from tragedy_sim.search import MastermindEvaluator, SearchBudget, SearchTrace
+from tragedy_sim.service import GameService, ServiceError
 
 
 def offer(action_type, **parameters):
@@ -111,6 +112,47 @@ class AiPolicyTests(unittest.TestCase):
                 else:
                     self.fail(f"{path} did not finish")
                 self.assertEqual(public["winner"], "mastermind")
+
+
+class SearchInfrastructureTests(unittest.TestCase):
+    def test_budget_validation_and_trace_are_json_safe(self):
+        budget = SearchBudget(node_limit=20, rollout_depth=8, seed=17)
+        self.assertEqual((budget.node_limit, budget.rollout_depth, budget.seed), (20, 8, 17))
+        for invalid in (
+                {"node_limit": 0}, {"rollout_depth": 0}, {"time_limit_ms": 0},
+                {"exploration": -1}, {"seed": 1.5}):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                SearchBudget(**invalid)
+        trace = SearchTrace("test", 17, SearchTrace.hash_state_key("secret"),
+                            20, 8, None, 3, 2, 1, 0.25, "node_limit", "abc")
+        self.assertEqual(trace.to_dict()["root_key_hash"],
+                         SearchTrace.hash_state_key("secret"))
+        self.assertNotIn("secret", repr(trace.to_dict()))
+
+    def test_evaluator_is_bounded_and_recognizes_terminal_winners(self):
+        service = GameService()
+        created = service.create_game({"module": "BTX"})
+        game = service.unsafe_game(created["session_id"])
+        evaluator = MastermindEvaluator()
+        self.assertTrue(-0.85 <= evaluator(game) <= 0.85)
+        game.winner = "mastermind"
+        self.assertEqual(evaluator(game), 1.0)
+        game.winner = "protagonists"
+        self.assertEqual(evaluator(game), -1.0)
+
+    def test_only_mastermind_or_admin_can_obtain_full_search_clone(self):
+        service = GameService()
+        created = service.create_game({"module": "BTX"})
+        session = created["session_id"]
+        clone = service.mastermind_search_clone(
+            session, token=created["credentials"]["seats"]["m"])
+        self.assertIsNot(clone, service.unsafe_game(session))
+        clone.state.characters["student"].intrigue += 1
+        self.assertEqual(service.unsafe_game(session).state.characters["student"].intrigue, 0)
+        with self.assertRaises(ServiceError) as caught:
+            service.mastermind_search_clone(
+                session, token=created["credentials"]["seats"]["a"])
+        self.assertEqual(caught.exception.code, "FORBIDDEN")
 
 
 if __name__ == "__main__":

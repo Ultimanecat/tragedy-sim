@@ -373,6 +373,18 @@ class GameService:
         """Compatibility escape hatch for legacy tests; never exposed by HTTP."""
         return self._session(session_id).game
 
+    def mastermind_search_clone(self, session_id: str, *, token: str | None) -> Game:
+        """Return an isolated full-information world only to the mastermind/admin.
+
+        This is an in-process AI boundary and is intentionally not routed by the
+        HTTP server.  Protagonist search must later use an information-set sampler
+        rather than this method.
+        """
+        record = self._session(session_id)
+        self._require(record, token, "m")
+        with record.lock:
+            return record.game.clone()
+
 
 class LocalGameClient:
     """Python frontend client using exactly the same JSON service contract."""
