@@ -10,6 +10,8 @@ import time
 from typing import Any
 
 from .ai import AgentPolicy, FixedStrategyMastermindAgent, RandomAgent
+from .mcts import FullInformationMctsMastermindAgent
+from .search import SearchBudget
 from .catalog import MODULES
 from .service import GameService, PROTOCOL_VERSION, SEATS, ServiceError
 
@@ -56,6 +58,7 @@ class _Room:
     human_leader: str = "a"
     logical_leader: str = "a"
     executors: list[dict[str, Any]] = field(default_factory=list)
+    ai_debug_traces: list[dict[str, Any]] = field(default_factory=list, repr=False)
     lock: RLock = field(default_factory=RLock)
     changed: Condition = field(init=False, repr=False)
     closed: bool = False
@@ -300,10 +303,12 @@ class RoomService:
         if type(request["enabled"]) is not bool:
             raise ServiceError("INVALID_REQUEST", "enabled 必须是布尔值")
         strategy = request.get("strategy", "random")
-        if strategy not in ("random", "fixed_mastermind"):
-            raise ServiceError("INVALID_AI_STRATEGY", "AI 策略必须是 random 或 fixed_mastermind")
-        if strategy == "fixed_mastermind" and seat != "m":
-            raise ServiceError("INVALID_AI_STRATEGY", "定式剧作家 AI 只能坐在剧作家席位", status=409)
+        if strategy not in ("random", "fixed_mastermind", "mcts_mastermind"):
+            raise ServiceError(
+                "INVALID_AI_STRATEGY",
+                "AI 策略必须是 random、fixed_mastermind 或 mcts_mastermind")
+        if strategy in ("fixed_mastermind", "mcts_mastermind") and seat != "m":
+            raise ServiceError("INVALID_AI_STRATEGY", "剧作家策略 AI 只能坐在剧作家席位", status=409)
         room = self._room(code)
         with room.lock:
             self._require_admin(room, token)
@@ -317,11 +322,16 @@ class RoomService:
                 if occupant is not None:
                     raise ServiceError("SEAT_OCCUPIED", "该座位已经有人", status=409)
                 room.seats[seat] = _Occupant(
-                    nickname=("随机 AI" if strategy == "random" else "定式剧作家 AI"),
+                    nickname=("随机 AI" if strategy == "random" else
+                              "定式剧作家 AI" if strategy == "fixed_mastermind"
+                              else "MCTS 剧作家 AI"),
                     token=secrets.token_urlsafe(24), ready=True,
                     last_seen=self._clock(), ai=True, ai_type=strategy,
-                    ai_policy=(self._ai_agent if strategy == "random"
-                               else FixedStrategyMastermindAgent()),
+                    ai_policy=(self._ai_agent if strategy == "random" else
+                               FixedStrategyMastermindAgent()
+                               if strategy == "fixed_mastermind" else
+                               FullInformationMctsMastermindAgent(
+                                   SearchBudget(node_limit=24, rollout_depth=12))),
                 )
                 self._bump(room)
             elif occupant is not None:
@@ -454,6 +464,11 @@ class RoomService:
                                "actor": accepted["actor"], "ai": occupant.ai,
                                "ai_type": occupant.ai_type,
                                **({"ai_plan": plan} if plan else {})})
+        trace = getattr(occupant.ai_policy, "last_trace", None)
+        if trace is not None:
+            room.ai_debug_traces.append({"decision": len(room.executors),
+                                         "participant": seat,
+                                         "trace": trace.to_dict()})
 
     def _run_ai_turns(self, room: _Room) -> None:
         """Consume consecutive AI turns; caller must hold ``room.lock``."""
@@ -470,8 +485,14 @@ class RoomService:
                 if offers:
                     observation = self.game_view(room.code, token=occupant.token)["state"]
                     policy = occupant.ai_policy or self._ai_agent
-                    offer = policy.choose_action(
-                        participant=seat, view=observation, offers=offers)
+                    if hasattr(policy, "choose_game_action"):
+                        search_game = self.games.mastermind_search_clone(
+                            room.session_id, token=room.game_admin)
+                        offer = policy.choose_game_action(
+                            participant=seat, game=search_game, offers=offers)
+                    else:
+                        offer = policy.choose_action(
+                            participant=seat, view=observation, offers=offers)
                     if offer not in offers:
                         raise RuntimeError("AI selected an action outside its legal offers")
                     available.append((seat, occupant, offer, public["revision"]))

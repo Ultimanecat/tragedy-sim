@@ -4,6 +4,10 @@ import random
 import unittest
 
 from tragedy_sim.ai import FixedStrategyMastermindAgent, RandomAgent
+from tragedy_sim import Game
+from tragedy_sim.mcts import FullInformationMctsMastermindAgent
+from tragedy_sim.effects.vocabulary import op, option
+from tragedy_sim.scenario import example_scenario
 from tragedy_sim.search import MastermindEvaluator, SearchBudget, SearchTrace
 from tragedy_sim.service import GameService, ServiceError
 
@@ -153,6 +157,79 @@ class SearchInfrastructureTests(unittest.TestCase):
             service.mastermind_search_clone(
                 session, token=created["credentials"]["seats"]["a"])
         self.assertEqual(caught.exception.code, "FORBIDDEN")
+
+
+class FullInformationMctsTests(unittest.TestCase):
+    @staticmethod
+    def immediate_win_game():
+        game = Game(example_scenario("FS"))
+        game.state.loop = game.scenario["loops"]
+        game.state.phase = "day_end"
+        game._timing_window = None
+        game.state.characters["worker"].intrigue = 4
+        return game
+
+    def test_search_is_reproducible_legal_and_does_not_mutate_root(self):
+        game = Game(example_scenario("BTX"))
+        before = game.state_key("m")
+        budget = SearchBudget(node_limit=18, rollout_depth=7, seed=42)
+        first = FullInformationMctsMastermindAgent(budget)
+        second = FullInformationMctsMastermindAgent(budget)
+
+        chosen_a = first.search(game)
+        chosen_b = second.search(game)
+
+        self.assertEqual(chosen_a.command, chosen_b.command)
+        self.assertIn(chosen_a, game.action_offers("m"))
+        self.assertEqual(game.state_key("m"), before)
+        self.assertEqual(first.last_trace.nodes, budget.node_limit)
+        self.assertEqual(
+            [(item.action_id, item.visits, item.mean_value)
+             for item in first.last_trace.root_actions],
+            [(item.action_id, item.visits, item.mean_value)
+             for item in second.last_trace.root_actions])
+
+    def test_search_selects_an_immediate_mastermind_win(self):
+        game = self.immediate_win_game()
+        agent = FullInformationMctsMastermindAgent(
+            SearchBudget(node_limit=12, rollout_depth=5, seed=3))
+        chosen = agent.search(game)
+        successor = game.transition(chosen).game
+        self.assertEqual(chosen.command, {"actor": "m", "action": "choose", "index": 1})
+        self.assertEqual(successor.winner, "mastermind")
+        self.assertEqual(agent.last_trace.stop_reason, "node_limit")
+        self.assertTrue(all(-1 <= item.mean_value <= 1
+                            for item in agent.last_trace.root_actions))
+
+    def test_wall_clock_limit_is_a_secondary_safety_stop(self):
+        agent = FullInformationMctsMastermindAgent(SearchBudget(
+            node_limit=10000, rollout_depth=4, time_limit_ms=1, seed=1))
+        agent.search(Game(example_scenario("BTX")))
+        self.assertEqual(agent.last_trace.stop_reason, "time_limit")
+        self.assertLess(agent.last_trace.nodes, 10000)
+
+    def test_fully_expanded_finite_tree_stops_before_node_budget(self):
+        game = self.immediate_win_game()
+        game._pending = op("choice", options=[
+            option("立即结束", [op("heroes_die")])])
+        game._return_phase = "day_end"
+        game._decision_actor = "m"
+        game._decision_public_phase = "day_end"
+        game.state.phase = "decision"
+        agent = FullInformationMctsMastermindAgent(
+            SearchBudget(node_limit=100, rollout_depth=3, seed=9))
+        agent.search(game)
+        self.assertEqual(agent.last_trace.stop_reason, "tree_exhausted")
+        self.assertEqual(agent.last_trace.nodes, 2)
+
+    def test_every_ruleset_can_supply_mcts_root_actions(self):
+        for module in ("FS", "BTX", "MZ", "MC", "HSA", "WM", "AHR", "LL"):
+            with self.subTest(module=module):
+                game = Game(example_scenario(module))
+                agent = FullInformationMctsMastermindAgent(
+                    SearchBudget(node_limit=2, rollout_depth=1, seed=5))
+                chosen = agent.search(game)
+                self.assertIn(chosen, game.action_offers("m"))
 
 
 if __name__ == "__main__":

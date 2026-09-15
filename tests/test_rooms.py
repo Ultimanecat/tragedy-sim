@@ -220,6 +220,32 @@ class RoomServiceTests(unittest.TestCase):
                           token=other["credential"]["admin_token"])
         self.assertEqual(invalid.exception.code, "INVALID_AI_STRATEGY")
 
+    def test_mcts_mastermind_uses_private_search_trace(self):
+        rooms = RoomService()
+        created = rooms.create({"module": "FS", "nickname": "Hero", "seat": "a",
+                                "protagonist_count": 1})
+        code = created["room"]["code"]
+        admin = created["credential"]["admin_token"]
+        hero = created["credential"]["room_token"]
+        updated = rooms.set_ai(code, {"seat": "m", "enabled": True,
+                                     "strategy": "mcts_mastermind"}, token=admin)
+        self.assertEqual(updated["room"]["seats"]["m"]["ai_type"], "mcts_mastermind")
+        rooms.ready(code, {"ready": True}, token=hero)
+        started = rooms.start(code, token=admin)
+        room = rooms._rooms[code]
+        self.assertGreaterEqual(started["room"]["game_revision"], 4)
+        self.assertTrue(room.ai_debug_traces)
+        self.assertEqual(room.ai_debug_traces[0]["trace"]["strategy"],
+                         "full_information_mcts")
+        self.assertNotIn("ai_debug_traces", json.dumps(rooms.get(code), ensure_ascii=False))
+        with self.assertRaises(ServiceError) as invalid:
+            second = RoomService()
+            other = second.create({"module": "FS", "nickname": "Host", "seat": "m"})
+            second.set_ai(other["room"]["code"], {"seat": "a", "enabled": True,
+                                                   "strategy": "mcts_mastermind"},
+                          token=other["credential"]["admin_token"])
+        self.assertEqual(invalid.exception.code, "INVALID_AI_STRATEGY")
+
     def test_four_room_tokens_can_complete_a_match_and_export_replay(self):
         self.join_all()
         for seat in "mabc":
