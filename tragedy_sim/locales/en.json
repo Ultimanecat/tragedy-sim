@@ -27,6 +27,6 @@
   },
   "locations": {"hospital": "Hospital", "shrine": "Shrine", "city": "City", "school": "School"},
   "counters": {"paranoia": "Paranoia", "goodwill": "Goodwill", "intrigue": "Intrigue", "hope": "Hope", "despair": "Despair", "guard": "Guard"},
-  "traits": {"student": "Student", "boy": "Boy", "girl": "Girl", "adult": "Adult", "man": "Man", "woman": "Woman"},
+  "traits": {"student": "Student", "boy": "Boy", "girl": "Girl", "adult": "Adult", "man": "Man", "woman": "Woman", "fictional": "Fictional", "construct": "Construct", "animal": "Animal", "tree": "Tree", "little_sister": "Little Sister"},
   "modules": {"FS": "First Steps", "BTX": "Basic Tragedy X", "MZ": "Midnight Zone", "MC": "Mystery Circle X", "HSA": "Haunted Stage Again", "WM": "Weird Mythology", "AHR": "Another Horizon Revised", "LL": "Last Liar"}
 }

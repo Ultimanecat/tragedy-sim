@@ -163,8 +163,12 @@ class ModuleSpec:
 _ALL_CHARACTERS = ("student", "girl", "rich", "class_rep", "teacher", "maiden",
                    "outsider", "irregular", "godly", "police", "worker", "informer",
                    "idol", "journalist", "boss", "forensic", "doctor", "patient", "nurse",
-                   "scholar", "illusion", "ai", "soldier", "black_cat", "transfer_student")
-_MC_CHARACTERS = (*tuple(cid for cid in _ALL_CHARACTERS if cid != "soldier"), "henchman")
+                   "scholar", "illusion", "ai", "soldier", "black_cat", "transfer_student",
+                   "young_girl", "guru", "copycat", "sacred_tree", "little_sister",
+                   "part_timer", "part_timer_question", "servant", "higher_being")
+# “Part-Timer?” is the reverse side/replacement of Part-Timer, never an initial cast member.
+_SCENARIO_CHARACTERS = tuple(cid for cid in _ALL_CHARACTERS if cid != "part_timer_question")
+_MC_CHARACTERS = (*tuple(cid for cid in _SCENARIO_CHARACTERS if cid != "soldier"), "henchman")
 _FS_PLOTS = ("murder_plan", "avenger", "protect", "ripper", "rumor", "hideous")
 _BTX_PLOTS = ("murder_plan", "sealed", "sign", "change", "bomb", "friends", "love",
               "lurking", "rumor", "virus", "threads", "unknown")
@@ -206,25 +210,25 @@ _LL_INCIDENTS = ("murder", "unease", "missing", "hospital", "executor", "metamor
 
 MODULES = {
     "FS": ModuleSpec("FirstSteps", _FS_PLOTS, 1, _FS_INCIDENTS,
-                     {"conspiracy": 1, "friend": 2}, False, False, _ALL_CHARACTERS, True),
+                     {"conspiracy": 1, "friend": 2}, False, False, _SCENARIO_CHARACTERS, True),
     "BTX": ModuleSpec("BasicTragedyX", _BTX_PLOTS, 2, _BTX_INCIDENTS,
-                      {"conspiracy": 1, "friend": 2}, True, True, _ALL_CHARACTERS, True),
+                      {"conspiracy": 1, "friend": 2}, True, True, _SCENARIO_CHARACTERS, True),
     "MZ": ModuleSpec("MidnightZone", _MZ_PLOTS, 2, _MZ_INCIDENTS,
-                     {"conspiracy": 1, "friend": 2}, True, True, _ALL_CHARACTERS, True),
+                     {"conspiracy": 1, "friend": 2}, True, True, _SCENARIO_CHARACTERS, True),
     "MC": ModuleSpec("MysteryCircle", _MC_PLOTS, 2, _MC_INCIDENTS,
                      {"conspiracy": 1, "friend": 2, "fool": 1}, True, True,
                      _MC_CHARACTERS, True),
     "HSA": ModuleSpec("HauntedStageAgain", _HSA_PLOTS, 2, _HSA_INCIDENTS,
-                      {"ghost": 1, "conspiracy": 1}, True, True, _ALL_CHARACTERS, True),
+                      {"ghost": 1, "conspiracy": 1}, True, True, _SCENARIO_CHARACTERS, True),
     "WM": ModuleSpec("WeirdMythology", _WM_PLOTS, 2, _WM_INCIDENTS,
                      {"deep_one": 1, "conspiracy": 1, "wizard": 1}, True, True,
-                     _ALL_CHARACTERS, True),
+                     _SCENARIO_CHARACTERS, True),
     "AHR": ModuleSpec("AnotherHorizonRevised", _AHR_PLOTS, 2, _AHR_INCIDENTS,
                       {"conspiracy": 1, "preacher": 1}, True, True,
-                      _ALL_CHARACTERS, True),
+                      _SCENARIO_CHARACTERS, True),
     "LL": ModuleSpec("LastLiar", _LL_PLOTS, 2, _LL_INCIDENTS,
                      {"serial": 1, "watcher": 1, "conspiracy": 1, "clown": 1},
-                     True, False, _ALL_CHARACTERS, True),
+                     True, False, _SCENARIO_CHARACTERS, True),
 }
 
 # Historical public name retained for callers and saved-game compatibility.
@@ -518,6 +522,45 @@ CHARACTERS = {
                                      (Ability("convert", 2, "将同区域另一名角色的一个密谋替换为友好",
                                               "convert_intrigue", "other"),),
                                      passive="编写剧本时指定登场日；每轮在该日开始时放置到学校。"),
+    "young_girl": CharacterDef("小女孩", "school", 1, ("student", "girl"),
+                               (Ability("release", 1, "本轮取消自身所有禁行区域", "release_self"),
+                                Ability("move", 3, "将自己移动到相邻版图", "adjacent_self", once=True)),
+                               ("shrine", "hospital", "city")),
+    "guru": CharacterDef("教主", "shrine", 3, ("adult", "woman"),
+                         (Ability("bless", 3, "任意一名不安达到临界的其他角色友好 +1",
+                                  "counter", "panicked_any_other", "goodwill", 1),
+                          Ability("discern", 4, "公开同区域一名不安达到临界的其他角色身份",
+                                  "reveal", "panicked_other", once=True)),
+                         passive="若其作为当事人的事件发生，该事件效果结算两次。"),
+    "copycat": CharacterDef("模仿者", "city", 2, ("student", "boy"),
+                            (Ability("identify", 3, "得知所有与自己身份相同的角色",
+                                     "copycat_identify", "self", once=True,
+                                     unrefusable=True, min_loop=2),),
+                            passive="身份复制剧本指定的另一名角色，不占用该身份的数量上限。"),
+    "sacred_tree": CharacterDef("御神木", "shrine", 4, ("tree",), (),
+                                ("school", "city", "hospital"),
+                                "主人公能力阶段可将其一个指示物移给同区域另一名角色；"
+                                "若拥有拒绝友好的身份，剧作家能力阶段必须发动同一效果。"),
+    "little_sister": CharacterDef("妹妹", "shrine", 3, ("girl", "little_sister"),
+                                  (Ability("borrow", 5, "令同区域一名成人发动一项友好能力",
+                                           "borrow_adult", unrefusable=True),),
+                                  passive="借用的能力不可拒绝；自身不能被分配拒绝友好的身份。"),
+    "part_timer": CharacterDef("临时工", "city", 1, ("adult", "man"), (),
+                               passive="无视分配的身份，始终视为平民；日末若身上共有至少 3 个指示物则死亡，"
+                                       "次日开始时由“临时工？”替换。"),
+    "part_timer_question": CharacterDef("临时工？", "city", 3, ("girl",),
+                                        (Ability("reveal_and_help", 3,
+                                                 "得知自身身份，并令同区域一名角色友好 +2",
+                                                 "part_timer_reveal", "same", once=True),),
+                                        passive="初始不登场；身份及是否为事件当事人与临时工一致。"),
+    "servant": CharacterDef("从者", "city", 3, ("adult", "woman"),
+                            (Ability("protect", 4, "本轮将版图上一名其他角色加入侍从对象",
+                                     "servant_protect", "any_other", once=True),),
+                            passive="同区域的大小姐、大人物或本轮指定对象移动时随行；其死亡时改由侍从死亡。"),
+    "higher_being": CharacterDef("上位存在", "shrine", 2, ("girl",),
+                                 (Ability("influence", 3, "同区域一名角色希望 +1 或绝望 +1",
+                                          "hope_or_despair", "same", once=True),),
+                                 passive="若拥有拒绝友好的身份且友好至少 1，剧作家也可在能力阶段发动此能力。"),
     "henchman": CharacterDef("手下", "school", 1, ("adult", "man"),
                               (Ability("prevent_incident", 3, "阻止自身担任当事人的今日事件发生",
                                        "prevent_incident", "self"),),
@@ -526,4 +569,4 @@ CHARACTERS = {
 
 TRAIT_NAMES = {"student": "学生", "boy": "少年", "girl": "少女", "adult": "成人",
                "man": "男性", "woman": "女性", "fictional": "虚构", "construct": "造物",
-               "animal": "动物"}
+               "animal": "动物", "tree": "树木", "little_sister": "妹妹"}

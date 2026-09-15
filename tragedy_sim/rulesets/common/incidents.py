@@ -12,7 +12,12 @@ def _incident(self):
         self._event('no_incident', '今日没有预定事件。')
         self._begin_night()
         return
-    culprit = self.state.characters[incident['culprit']]
+    culprit_id = incident['culprit']
+    if (culprit_id == 'part_timer' and 'part_timer_question' in self.state.characters
+            and not self.state.characters['part_timer'].alive
+            and self.state.characters['part_timer_question'].present):
+        culprit_id = 'part_timer_question'
+    culprit = self.state.characters[culprit_id]
     kind = incident['kind']
     threshold = CHARACTERS[culprit.id].limit
     prophet_alive = any((False for c in self.state.characters.values()))
@@ -79,7 +84,7 @@ def _incident(self):
         choices = [option(f'{c.name}：{COUNTER_NAMES[counter]} +1', [op('counter', target=c.id, counter=counter, amount=1)]) for c in living if c.location == culprit.location for counter in STANDARD_COUNTERS]
     if kind in ('murder', 'faraway', 'missing', 'unease', 'spreading', 'butterfly', 'poison_gas', 'exposure'):
         effects = [op('choice', prompt=f'结算{INCIDENT_NAMES[kind]}：选择合法目标', options=choices)]
-    self._queue_incident_resolution(effects)
+    self._queue_incident_resolution(effects, culprit=culprit.id)
 
 def _ahr_incident(self, incident):
     simulated = self._simulated_incident is not None
@@ -151,7 +156,7 @@ def _ahr_incident(self, incident):
         effects = [op('choice', actor=self.state.leader, prompt='隙间阳光：领队选择希望目标', options=[option(f'{c.name}希望 +1', [op('counter', target=c.id, counter='hope', amount=1)]) for c in living])]
     else:
         effects = [op('choice', prompt='绝望之暗：选择绝望目标', options=[option(f'{c.name}绝望 +1', [op('counter', target=c.id, counter='despair', amount=1)]) for c in living])]
-    self._queue_incident_resolution(effects)
+    self._queue_incident_resolution(effects, culprit=culprit.id)
 
 def _record_incident_end(self):
     if self._incident_before is not None:

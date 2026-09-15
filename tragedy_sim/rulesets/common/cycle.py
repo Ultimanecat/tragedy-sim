@@ -1,9 +1,9 @@
 """Shared First Steps and Basic Tragedy X rules."""
 from copy import deepcopy
-from ...cards import ACTORS, ACTOR_NAMES, PROTAGONISTS
-from ...catalog import CHARACTERS, MODULES, ROLE_NAMES
+from ...cards import ACTORS, ACTOR_NAMES, COUNTER_NAMES, PROTAGONISTS
+from ...catalog import CHARACTERS, MODULES, REFUSAL, ROLE_NAMES
 from ...engine import RuleError, State
-from ...effects.vocabulary import op
+from ...effects.vocabulary import op, option
 from ...model import TimingId
 
 def _configure_day_actions(self):
@@ -21,6 +21,18 @@ def _begin_night(self):
 def _start_master_abilities_forced(self):
     """Activate compulsory mastermind-phase abilities before optional ones."""
     queue = []
+    if 'sacred_tree' in self.state.characters:
+        tree = self.state.characters['sacred_tree']
+        if tree.present and tree.alive and self.roles['sacred_tree'] in REFUSAL:
+            choices = [option(
+                f"御神木（强制）：将一个{COUNTER_NAMES[counter]}指示物移给{target.name}",
+                [op('transfer', source='sacred_tree', target=target.id, counter=counter)])
+                for counter in COUNTER_NAMES if getattr(tree, counter)
+                for target in self._living()
+                if target.id != 'sacred_tree' and target.location == tree.location]
+            if choices:
+                queue.append(op('choice', prompt='御神木拥有拒绝友好的身份：剧作家必须转移一个指示物',
+                                options=choices))
     self._return_phase = 'master_abilities'
     self._open_timing_window(TimingId.MASTERMIND_ABILITY, queue,
                              'core.mastermind_mandatory')
@@ -67,6 +79,8 @@ def _queue_day_end_mandatory_batch(self):
                                            target=target)])
                                 for target in lone_targets],
                 })
+        if c.id == 'part_timer' and sum(getattr(c, counter) for counter in COUNTER_NAMES) >= 3:
+            victims.append(c.id)
     if not victims and (not target_choices) and (not loss_reasons):
         return
     self._mandatory_victims.extend(victims)
@@ -122,6 +136,8 @@ def _restore_board(self, *, apply_loop_rules=False):
     self.state = State(characters=deepcopy(self._initial), leader=old.leader, loop=old.loop, events=old.events)
     self.state.hands = {actor: list(self._deck(actor)) for actor in ACTORS}
     self.roles = dict(self.scenario['cast'])
+    if self.roles.get('part_timer') not in (None, 'ordinary'):
+        self.roles['part_timer_question'] = self.roles['part_timer']
     if apply_loop_rules:
         self._apply_current_roles()
     self.guards = dict.fromkeys(self.roles, 0)

@@ -515,9 +515,9 @@ class AbilityTests(unittest.TestCase):
             c.goodwill = 5
         opts = game.options("a")
         self.assertEqual({c["effects"][0]["target"] for c in opts if c.get("source") == "student"},
-                         {"girl", "rich", "class_rep"})
+                     {"girl", "rich", "class_rep", "young_girl"})
         teacher = [c for c in opts if c.get("source") == "teacher" and c.get("ability") == "adjust"]
-        self.assertEqual(len(teacher), 8)  # Four students, both signs.
+        self.assertEqual(len(teacher), 10)  # Five students, both signs.
         self.assertFalse(any(c["effects"][0]["target"] == "teacher" for c in teacher))
         self.assertFalse(any(c.get("source") == "rich" and
                              c["effects"][0].get("target") == "rich" for c in opts))

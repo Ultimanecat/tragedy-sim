@@ -37,6 +37,18 @@ class CharacterCatalogTests(unittest.TestCase):
             "black_cat": ("黑猫", "shrine", 0, ("animal",), (), ()),
             "transfer_student": ("转校生", "school", 2, ("student", "girl"), (), (("convert", 2),)),
             "henchman": ("手下", "school", 1, ("adult", "man"), (), (("prevent_incident", 3),)),
+            "young_girl": ("小女孩", "school", 1, ("student", "girl"),
+                           ("shrine", "hospital", "city"), (("release", 1), ("move", 3))),
+            "guru": ("教主", "shrine", 3, ("adult", "woman"), (),
+                     (("bless", 3), ("discern", 4))),
+            "copycat": ("模仿者", "city", 2, ("student", "boy"), (), (("identify", 3),)),
+            "sacred_tree": ("御神木", "shrine", 4, ("tree",),
+                            ("school", "city", "hospital"), ()),
+            "little_sister": ("妹妹", "shrine", 3, ("girl", "little_sister"), (), (("borrow", 5),)),
+            "part_timer": ("临时工", "city", 1, ("adult", "man"), (), ()),
+            "part_timer_question": ("临时工？", "city", 3, ("girl",), (), (("reveal_and_help", 3),)),
+            "servant": ("从者", "city", 3, ("adult", "woman"), (), (("protect", 4),)),
+            "higher_being": ("上位存在", "shrine", 2, ("girl",), (), (("influence", 3),)),
         }
         actual = {
             cid: (definition.name, definition.start, definition.limit, definition.traits,
@@ -49,8 +61,13 @@ class CharacterCatalogTests(unittest.TestCase):
                             if key != "MC"))
         self.assertIn("irregular", MODULES["MC"].characters)
         additions = {"godly", "boss", "scholar", "illusion", "ai", "black_cat",
-                     "transfer_student"}
+                     "transfer_student", "young_girl", "guru", "copycat", "sacred_tree",
+                     "little_sister", "part_timer", "servant",
+                     "higher_being"}
         self.assertTrue(all(additions <= set(spec.characters) for spec in MODULES.values()))
+        self.assertTrue(all("part_timer_question" not in spec.characters
+                            for spec in MODULES.values()))
+        self.assertEqual(len(CHARACTERS), 35)
 
 
 def special_scenario(character, *, role="ordinary", options=None, incidents=None,
@@ -260,6 +277,113 @@ class IrregularTests(unittest.TestCase):
         self.assertEqual(len(game.options("m")), 1)
         game.dispatch("m", "choose", index=1)
         self.assertEqual(game.known_roles["irregular"]["role"], "killer")
+
+
+class RemainingCharacterTests(unittest.TestCase):
+    def test_young_girl_releases_forbidden_areas_then_moves_adjacent(self):
+        game = Game(special_scenario("young_girl"))
+        child = game.state.characters["young_girl"]
+        child.goodwill = 3
+        game.state.phase = "goodwill"
+        use_ability(game, "young_girl", "release")
+        self.assertEqual(child.forbidden, ())
+        use_ability(game, "young_girl", "move")
+        self.assertNotEqual(child.location, "school")
+
+    def test_guru_targets_any_panicked_character_and_doubles_incident_effect(self):
+        game = Game(special_scenario("guru"))
+        game.state.characters["doctor"].paranoia = 2
+        game.state.characters["doctor"].location = "hospital"
+        game.state.characters["guru"].goodwill = 3
+        game.state.phase = "goodwill"
+        use_ability(game, "guru", "bless", "doctor")
+        self.assertEqual(game.state.characters["doctor"].goodwill, 1)
+        game._return_phase = "day_end"
+        game._queue_incident_resolution(
+            [op("counter", target="shrine", counter="intrigue", amount=2)], culprit="guru")
+        self.assertEqual(game.state.locations["shrine"], 4)
+
+    def test_copycat_role_does_not_consume_slot_and_information_is_private(self):
+        scenario = special_scenario(
+            "copycat", options={"copycat": {"role_source": "student"}})
+        scenario["cast"]["student"] = "ordinary"
+        game = Game(scenario)
+        game.state.loop = 2
+        game.state.characters["copycat"].goodwill = 3
+        game.state.phase = "goodwill"
+        use_ability(game, "copycat", "identify")
+        self.assertEqual(game.view("a")["protagonist_knowledge"]["same_role_groups"]["copycat"],
+                         ["copycat", "student"])
+        self.assertNotIn("protagonist_knowledge", game.view("m"))
+
+    def test_sacred_tree_transfers_a_counter(self):
+        game = Game(special_scenario("sacred_tree"))
+        game.state.characters["maiden"].location = "shrine"
+        game.state.characters["sacred_tree"].paranoia = 1
+        game.state.phase = "goodwill"
+        choose(game, "a", lambda item: item.get("key") == "character:sacred_tree:transfer")
+        self.assertEqual(game.state.characters["sacred_tree"].paranoia, 0)
+        self.assertEqual(game.state.characters["maiden"].paranoia, 1)
+
+    def test_little_sister_borrows_adult_ability_without_adult_goodwill(self):
+        game = Game(special_scenario("little_sister"))
+        game.state.characters["doctor"].location = "shrine"
+        game.state.characters["little_sister"].goodwill = 5
+        game.state.phase = "goodwill"
+        choose(game, "a", lambda item: item.get("borrowed_source") == "doctor"
+               and any(effect.get("target") == "little_sister"
+                       and effect.get("amount") == 1 for effect in item["effects"]))
+        self.assertEqual(game.state.phase, "refusal")
+        self.assertEqual(len(game.options("m")), 1)
+        game.dispatch("m", "choose", index=1)
+        self.assertEqual(game.state.characters["little_sister"].paranoia, 1)
+        self.assertIn("goodwill:doctor:adjust", game.day_used)
+
+    def test_part_timer_replacement_inherits_role_and_culprit(self):
+        game = Game(special_scenario(
+            "part_timer", role="brain",
+            incidents=[{"day": 2, "kind": "suicide", "culprit": "part_timer"}]))
+        self.assertEqual(game.roles["part_timer"], "ordinary")
+        self.assertEqual(game.roles["part_timer_question"], "brain")
+        worker = game.state.characters["part_timer"]
+        worker.goodwill = worker.paranoia = worker.intrigue = 1
+        game.state.phase = "day_end"
+        game._queue_day_end_mandatory_batch()
+        game._return_phase = "day_end"
+        game._drain()
+        self.assertFalse(worker.alive)
+        game.state.round = 2
+        game._prepare_day_start()
+        replacement = game.state.characters["part_timer_question"]
+        self.assertTrue(replacement.present)
+        replacement.paranoia = 3
+        game.state.phase = "incident"
+        game.dispatch("m", "next")
+        self.assertFalse(replacement.alive)
+
+    def test_servant_follows_and_replaces_death(self):
+        scenario = special_scenario(
+            "servant", options={"servant": {"initial_location": "school"}})
+        scenario["cast"]["rich"] = "ordinary"
+        game = Game(scenario)
+        servant = game.state.characters["servant"]
+        rich = game.state.characters["rich"]
+        before = {cid: c.location for cid, c in game.state.characters.items()}
+        rich.location = "city"
+        game._return_phase = "action_counters"
+        game._queue = game._after_character_movements(before)
+        game._drain()
+        self.assertEqual(servant.location, "city")
+        game._kill(["rich"])
+        self.assertTrue(rich.alive)
+        self.assertFalse(servant.alive)
+
+    def test_higher_being_places_hope_or_despair(self):
+        game = Game(special_scenario("higher_being"))
+        game.state.characters["higher_being"].goodwill = 3
+        game.state.phase = "goodwill"
+        use_ability(game, "higher_being", "influence", "higher_being")
+        self.assertEqual(game.state.characters["higher_being"].hope, 1)
 
 
 if __name__ == "__main__":

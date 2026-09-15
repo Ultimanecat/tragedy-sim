@@ -23,6 +23,8 @@ def initialize(self):
         if "ll_secret_order" not in self.scenario:
             self.scenario["ll_secret_order"] = random.SystemRandom().sample(["A", "B", "C"], 3)
     self.roles = dict(self.scenario["cast"])
+    if self.roles.get("part_timer") not in (None, "ordinary"):
+        self.roles["part_timer_question"] = self.roles["part_timer"]
     self.ex_cards = dict.fromkeys(self.roles, 0)
     self.ex_gauge = 0
     self.board_ex = dict.fromkeys(LOCATIONS, 0)
@@ -87,6 +89,8 @@ def initialize(self):
     self._ll_friended_once = set()
     self._ll_restricted_day = None
     self._ll_will_pending = False
+    self._servant_targets = set()
+    self.protagonist_knowledge = {}
     self._at_loop_end = False
     self._simulated_incident = None
     self._choice_actor_override = None

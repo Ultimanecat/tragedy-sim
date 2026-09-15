@@ -32,6 +32,11 @@ def play(self, actor, card_id, target):
 
 
 def _apply_current_roles(self):
+    if "part_timer" in self.roles:
+        assigned = self.scenario["cast"]["part_timer"]
+        self.roles["part_timer"] = "ordinary"
+        if assigned != "ordinary":
+            self.roles["part_timer_question"] = assigned
     if self.scenario["main_plot"] == "mz_causal":
         for cid, count in self.ex_cards.items():
             if count:
@@ -95,6 +100,11 @@ def _ahr_refresh_roles(self):
     if self.module == "AHR":
         source = self.scenario["cast"] if self.ex_gauge % 2 == 0 else self.scenario["hidden_cast"]
         self.roles = dict(source)
+        if "part_timer" in self.roles:
+            assigned = self.roles["part_timer"]
+            self.roles["part_timer"] = "ordinary"
+            if assigned != "ordinary":
+                self.roles["part_timer_question"] = assigned
 
 
 def _ll_traitor_labels(self):
@@ -178,6 +188,21 @@ def _ignore_forbid(self, counter, target):
 
 def _kill(self, targets):
     # Snapshot simultaneous deaths (e.g. Hospital or two Serial Killers); no order bias.
+    targets = list(dict.fromkeys(targets))
+    if "servant" in self.state.characters:
+        servant = self.state.characters["servant"]
+        protected = {cid for cid in ("rich", "boss") if cid in self.state.characters}
+        protected.update(self._servant_targets)
+        replaced = [target for target in targets
+                    if target in protected and self.state.characters[target].alive
+                    and servant.present and servant.alive
+                    and self.state.characters[target].location == servant.location]
+        if replaced:
+            targets = [target for target in targets if target not in replaced]
+            targets.append("servant")
+            self._event("death_replaced",
+                        "侍从替代同区域侍从对象的死亡：" + "、".join(self.name(t) for t in replaced) + "免于死亡。",
+                        servant="servant", protected=replaced)
     killed = []
     key_death = False
     dying_magicians = []

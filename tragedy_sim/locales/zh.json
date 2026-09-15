@@ -27,6 +27,6 @@
   },
   "locations": {"hospital": "医院", "shrine": "神社", "city": "都市", "school": "学校"},
   "counters": {"paranoia": "不安", "goodwill": "友好", "intrigue": "密谋", "hope": "希望", "despair": "绝望", "guard": "护卫"},
-  "traits": {"student": "学生", "boy": "少年", "girl": "少女", "adult": "成人", "man": "男性", "woman": "女性"},
+  "traits": {"student": "学生", "boy": "少年", "girl": "少女", "adult": "成人", "man": "男性", "woman": "女性", "fictional": "虚构", "construct": "造物", "animal": "动物", "tree": "树木", "little_sister": "妹妹"},
   "modules": {"FS": "First Steps", "BTX": "Basic Tragedy X", "MZ": "Midnight Zone", "MC": "Mystery Circle X", "HSA": "Haunted Stage Again", "WM": "Weird Mythology", "AHR": "Another Horizon Revised", "LL": "Last Liar"}
 }

@@ -6,6 +6,8 @@ from ...domain import ComponentStore
 
 def initialize(self):
     self.roles = dict(self.scenario['cast'])
+    if self.roles.get('part_timer') not in (None, 'ordinary'):
+        self.roles['part_timer_question'] = self.roles['part_timer']
     self.ex_cards = dict.fromkeys(self.roles, 0)
     self.ex_gauge = 0
     self.board_ex = dict.fromkeys(LOCATIONS, 0)
@@ -57,6 +59,8 @@ def initialize(self):
     self._at_loop_end = False
     self._simulated_incident = None
     self._choice_actor_override = None
+    self._servant_targets = set()
+    self.protagonist_knowledge = {}
     self.state.phase = 'day_start'
     self._event('loop_started', f"第 1 轮回开始，共 {self.scenario['loops']} 轮，每轮 {self.scenario['days']} 天。", timing=TimingId.LOOP_START)
     self._start_loop_placements()

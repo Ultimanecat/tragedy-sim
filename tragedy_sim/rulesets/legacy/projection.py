@@ -77,6 +77,8 @@ def view(self, viewer="spectator", language="zh"):
                   incidents=deepcopy(self.incident_records), guess_remaining=list(self._guess_remaining))
     if self.module == "LL" and viewer in PROTAGONISTS:
         result["protagonist_secret"] = self._ll_secrets[viewer]
+    if viewer in PROTAGONISTS:
+        result["protagonist_knowledge"] = deepcopy(self.protagonist_knowledge)
     if viewer == "m":
         result["secret"] = {"roles": dict(self.roles), "initial_roles": dict(self.scenario["cast"]),
                             "main_plot": self.scenario["main_plot"], "subplots": list(self.scenario["subplots"]),

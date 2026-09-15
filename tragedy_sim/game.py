@@ -33,11 +33,12 @@ from .transcript import describe_decision
 class Game(ActionGame):
     def __init__(self, scenario=None):
         self.scenario = validate_scenario(example_scenario() if scenario is None else scenario)
+        cast_ids = list(self.scenario["cast"])
         chars = [Character(cid, CHARACTERS[cid].name, CHARACTERS[cid].start,
                            CHARACTERS[cid].forbidden,
                            action_targetable=CHARACTERS[cid].action_targetable,
                            echo_board_actions=CHARACTERS[cid].echo_board_actions)
-                 for cid in self.scenario["cast"]]
+                 for cid in cast_ids]
         super().__init__(chars, module=self.scenario["module"])
         self.ruleset = get_ruleset(self.module)
         self.script = ScriptDefinition.from_mapping(self.scenario)
@@ -219,8 +220,12 @@ class Game(ActionGame):
     def _incident_score(self, character, counter='paranoia'):
         return self.ruleset.operations['_incident_score'](self, character, counter)
 
-    def _queue_incident_resolution(self, effects, normal_end=None):
-        return self.ruleset.operations['_queue_incident_resolution'](self, effects, normal_end)
+    def _queue_incident_resolution(self, effects, normal_end=None, culprit=None):
+        return self.ruleset.operations['_queue_incident_resolution'](
+            self, effects, normal_end, culprit=culprit)
+
+    def _after_character_movements(self, before_locations):
+        return self.ruleset.operations['_after_character_movements'](self, before_locations)
 
     def _can_target_action(self, actor, target):
         return self.ruleset.operations['_can_target_action'](self, actor, target)
@@ -280,8 +285,15 @@ class Game(ActionGame):
         return self.ruleset.operations['_ignore_forbid'](self, counter, target)
 
     def resolve(self):
+        before_locations = {cid: character.location
+                            for cid, character in self.state.characters.items()}
         self._reveal_and_move()
         self._ignore_intrigue.clear()
+        follow_effects = self._after_character_movements(before_locations)
+        if follow_effects:
+            self._return_phase = "action_counters"
+            self._queue = list(follow_effects)
+            self._drain()
         detail = "移动已结算。请剧作家确认行动结算中的能力，再继续结算计数物。"
         # Always pause here, not only when a relevant role exists; the public phase reveals no role.
         self._event("resolution_window", detail)
@@ -298,8 +310,9 @@ class Game(ActionGame):
     def _scoped_targets(self, source, scope):
         return self.ruleset.operations['_scoped_targets'](self, source, scope)
 
-    def _ability_options(self, source, ability, *, private=False):
-        return self.ruleset.operations['_ability_options'](self, source, ability, private=private)
+    def _ability_options(self, source, ability, *, private=False, ignore_threshold=False):
+        return self.ruleset.operations['_ability_options'](
+            self, source, ability, private=private, ignore_threshold=ignore_threshold)
 
     def options(self, actor):
         return self.ruleset.operations['options'](self, actor)

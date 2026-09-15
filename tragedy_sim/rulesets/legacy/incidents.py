@@ -20,6 +20,10 @@ def _incident(self):
         self._event("no_incident", "今日没有预定事件。")
         self._begin_night()
         return
+    if (incident["culprit"] == "part_timer" and "part_timer_question" in self.state.characters
+            and not self.state.characters["part_timer"].alive
+            and self.state.characters["part_timer_question"].present):
+        incident = {**incident, "culprit": "part_timer_question"}
     if self.module == "HSA":
         self._hsa_incident(incident)
         return
@@ -89,7 +93,7 @@ def _incident(self):
                       if kind == "silver_bullet" else op("night")]
         if simulated and kind == "silver_bullet":
             effects.append(op("finish_loop", reason="A.I. 结算银色子弹效果使轮回结束"))
-        self._queue_incident_resolution(effects, normal_end)
+        self._queue_incident_resolution(effects, normal_end, culprit=culprit.id)
         return
     if self.module == "MZ":
         effects = self._mz_incident_effects(kind, culprit.id)
@@ -97,7 +101,7 @@ def _incident(self):
         # therefore contributes its announced name, not its secret effect.
         if not simulated:
             self._occurred_incidents.append({"kind": public_kind, "culprit": culprit.id})
-        self._queue_incident_resolution(effects)
+        self._queue_incident_resolution(effects, culprit=culprit.id)
         return
     living = self._living()
     choices, effects = [], []
@@ -157,7 +161,7 @@ def _incident(self):
     if kind in ("murder", "faraway", "missing", "unease", "spreading", "butterfly",
                 "poison_gas", "exposure"):
         effects = [op("choice", prompt=f"结算{INCIDENT_NAMES[kind]}：选择合法目标", options=choices)]
-    self._queue_incident_resolution(effects)
+    self._queue_incident_resolution(effects, culprit=culprit.id)
 
 
 def _hsa_incident(self, incident):
@@ -337,7 +341,7 @@ def _wm_incident(self, incident):
     dagon_kills = self._wm_dagon_active and kind != "dagon_whisper"
     normal_end = [op("incident_done"), *([op("heroes_die")] if dagon_kills else []),
                   op("night")]
-    self._queue_incident_resolution(effects, normal_end)
+    self._queue_incident_resolution(effects, normal_end, culprit=culprit.id)
 
 
 def _ahr_incident(self, incident):
@@ -444,7 +448,7 @@ def _ahr_incident(self, incident):
         effects = [op("choice", prompt="绝望之暗：选择绝望目标", options=[
             option(f"{c.name}绝望 +1", [op("counter", target=c.id, counter="despair", amount=1)])
             for c in living])]
-    self._queue_incident_resolution(effects)
+    self._queue_incident_resolution(effects, culprit=culprit.id)
 
 
 def _ll_incident(self, incident):
@@ -529,7 +533,7 @@ def _ll_incident(self, incident):
         effects = [op("choice", prompt="绝望之暗：选择一名角色", options=[
             option(f"{c.name}绝望 +1", [op("counter", target=c.id, counter="despair", amount=1)])
             for c in living])]
-    self._queue_incident_resolution(effects)
+    self._queue_incident_resolution(effects, culprit=culprit.id)
 
 
 def _mc_incident_location(self, culprit_id):

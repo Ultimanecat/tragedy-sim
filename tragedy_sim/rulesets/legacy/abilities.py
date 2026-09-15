@@ -54,13 +54,16 @@ def _scoped_targets(self, source, scope):
         selected = [c for c in selected if "student" in CHARACTERS[c.id].traits]
     if scope == "panicked_other":
         selected = [c for c in selected if c.paranoia >= CHARACTERS[c.id].limit]
+    if scope == "panicked_any_other":
+        selected = [c for c in living
+                    if c.id != source and c.paranoia >= CHARACTERS[c.id].limit]
     targets = [c.id for c in selected]
     if scope == "same_or_location":
         targets.extend(ability_locations)
     return targets
 
 
-def _ability_options(self, source, ability, *, private=False):
+def _ability_options(self, source, ability, *, private=False, ignore_threshold=False):
     c = self.state.characters[source]
     key = f"goodwill:{source}:{ability.id}"
     used_day = self.day_used if private else self.public_day_used
@@ -69,7 +72,7 @@ def _ability_options(self, source, ability, *, private=False):
                        if self.module == "AHR" and self.ex_gauge % 2
                        else self._count(c, "goodwill"))
     if (not c.alive or self.state.loop < ability.min_loop
-            or ability_counter < ability.threshold or key in used_day
+            or (not ignore_threshold and ability_counter < ability.threshold) or key in used_day
             or (ability.once and key in used_loop)):
         return []
     targets = self._scoped_targets(source, ability.scope)
@@ -139,6 +142,43 @@ def _ability_options(self, source, ability, *, private=False):
                           [op("simulate_incident",
                               incident=incident.get("public_kind", incident["kind"]))])
                    for incident in self.scenario["incidents"]]
+    elif ability.kind == "adjacent_self":
+        x, y = COORDS[c.location]
+        results = [option(f"{label} → {LOCATIONS[location]}",
+                          [op("move", target=source, location=location)])
+                   for location, coords in COORDS.items()
+                   if abs(x - coords[0]) + abs(y - coords[1]) == 1
+                   and location not in c.forbidden]
+    elif ability.kind == "release_self":
+        results = [option(label, [op("release_self", target=source)])]
+    elif ability.kind == "copycat_identify":
+        results = [option(label, [op("copycat_identify", target=source)])]
+    elif ability.kind == "part_timer_reveal":
+        results = [option(f"{label} → {self.name(target)}",
+                          [op("learn_role", target=source),
+                           op("counter", target=target, counter="goodwill", amount=2)])
+                   for target in targets]
+    elif ability.kind == "servant_protect":
+        results = [option(f"{label} → {self.name(target)}",
+                          [op("servant_protect", target=target)]) for target in targets]
+    elif ability.kind == "hope_or_despair":
+        results = [option(f"{label} → {self.name(target)} {COUNTER_NAMES[counter]} +1",
+                          [op("counter", target=target, counter=counter, amount=1)])
+                   for target in targets for counter in ("hope", "despair")]
+    elif ability.kind == "borrow_adult":
+        for adult in (target for target in targets
+                      if "adult" in CHARACTERS[target].traits):
+            for borrowed in CHARACTERS[adult].abilities:
+                adult_key = f"goodwill:{adult}:{borrowed.id}"
+                if not self._available_key(adult_key, borrowed.once):
+                    continue
+                for borrowed_option in self._ability_options(
+                        adult, borrowed, private=True, ignore_threshold=True):
+                    results.append(option(
+                        f"{label}；{borrowed_option['label']}",
+                        [op("mark_ability", key=adult_key, once=borrowed.once),
+                         *borrowed_option["effects"]],
+                        borrowed_source=adult, borrowed_ability=borrowed.id))
     for result in results:
         result.update(key=key, once=ability.once, source=source, ability=ability.id,
                       unrefusable=ability.unrefusable, goodwill=True)
@@ -178,6 +218,14 @@ def options(self, actor):
                 for choice in self._ability_options(c.id, CHARACTERS[c.id].abilities[0], private=True):
                     choice["goodwill"] = False
                     result.append(choice)
+            if (c.id == "higher_being" and self.roles[c.id] in REFUSAL
+                    and c.goodwill >= 1):
+                for target in self._scoped_targets(c.id, "same"):
+                    for counter in ("hope", "despair"):
+                        result.append(option(
+                            f"上位存在（剧作家）：{self.name(target)}{COUNTER_NAMES[counter]} +1",
+                            [op("counter", target=target, counter=counter, amount=1)],
+                            key="goodwill:higher_being:influence", once=True))
         if "rumor" in self.scenario["subplots"]:
             result += self._counter_options(None, "plot:rumor", list(LOCATIONS), "intrigue", 1,
                                             "流言四起（每轮一次）", True)
@@ -260,6 +308,19 @@ def options(self, actor):
         for c in self._living():
             for ability in CHARACTERS[c.id].abilities:
                 result += self._ability_options(c.id, ability)
+        if "sacred_tree" in self.state.characters:
+            tree = self.state.characters["sacred_tree"]
+            key = "character:sacred_tree:transfer"
+            if tree.present and tree.alive and self._available_key(key):
+                targets = [c.id for c in self._living()
+                           if c.id != "sacred_tree" and c.location == tree.location]
+                for counter in COUNTER_NAMES:
+                    if not getattr(tree, counter):
+                        continue
+                    result += [option(
+                        f"御神木：将一个{COUNTER_NAMES[counter]}指示物移给{self.name(target)}",
+                        [op("transfer", source="sacred_tree", target=target, counter=counter)],
+                        key=key) for target in targets]
     elif phase == "day_end":
         for c in self._living():
             if self._has(c.id, "killer"):

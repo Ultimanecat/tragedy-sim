@@ -73,6 +73,46 @@ def simulated_incident_done(game, effect):
                 incident=kind, source="ai")
 
 
+def learn_role(game, effect):
+    target = effect["target"]
+    game.protagonist_knowledge.setdefault("roles", {})[target] = game.roles[target]
+    game._event("private_information_gained",
+                f"主人公获得了关于{game.name(target)}身份的私密信息。",
+                character=target)
+
+
+def copycat_identify(game, effect):
+    target = effect["target"]
+    role = game.roles[target]
+    matches = sorted(cid for cid, assigned in game.roles.items()
+                     if assigned == role and game.state.characters[cid].present)
+    game.protagonist_knowledge.setdefault("same_role_groups", {})[target] = matches
+    game._event("private_information_gained", "主人公得知了所有与模仿者身份相同的角色。",
+                character=target)
+
+
+def servant_protect(game, effect):
+    target = effect["target"]
+    game._servant_targets.add(target)
+    game._event("servant_target_added", f"{game.name(target)}在本轮成为侍从对象。",
+                target=target)
+
+
+def mark_ability(game, effect):
+    key = effect["key"]
+    game._mark(key, effect.get("once", False))
+    game.public_day_used.add(key)
+    if effect.get("once", False):
+        game.public_loop_used.add(key)
+
+
+def release_self(game, effect):
+    target = effect["target"]
+    game.state.characters[target].forbidden = ()
+    game._event("movement_restrictions_removed",
+                f"本轮取消{game.name(target)}的所有禁行区域。", target=target)
+
+
 HANDLERS = {
     "character_arrived": character_arrived,
     "reset_character_counters": reset_character_counters,
@@ -80,4 +120,9 @@ HANDLERS = {
     "convert_intrigue": convert_intrigue,
     "simulate_incident": simulate_incident,
     "simulated_incident_done": simulated_incident_done,
+    "learn_role": learn_role,
+    "copycat_identify": copycat_identify,
+    "servant_protect": servant_protect,
+    "mark_ability": mark_ability,
+    "release_self": release_self,
 }

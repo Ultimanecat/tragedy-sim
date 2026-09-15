@@ -18,6 +18,9 @@ const characterNames = {
   boss: "大人物", forensic: "鉴识官", doctor: "医生", patient: "住院患者",
   nurse: "护士", scholar: "学者", illusion: "幻想", ai: "A.I.", soldier: "军人",
   black_cat: "黑猫", transfer_student: "转校生", henchman: "手下",
+  young_girl: "小女孩", guru: "教主", copycat: "模仿者", sacred_tree: "御神木",
+  little_sister: "妹妹", part_timer: "临时工", part_timer_question: "临时工？",
+  servant: "从者", higher_being: "上位存在",
 };
 
 const cardOrder = {

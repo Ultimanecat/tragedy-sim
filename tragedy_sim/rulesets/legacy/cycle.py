@@ -33,6 +33,19 @@ def _begin_night(self):
 def _start_master_abilities_forced(self):
     """Activate compulsory mastermind-phase abilities before optional ones."""
     queue = []
+    if ("sacred_tree" in self.state.characters
+            and self._has("sacred_tree", self.roles["sacred_tree"])):
+        tree = self.state.characters["sacred_tree"]
+        if self.roles["sacred_tree"] in REFUSAL:
+            choices = [option(
+                f"御神木（强制）：将一个{COUNTER_NAMES[counter]}指示物移给{target.name}",
+                [op("transfer", source="sacred_tree", target=target.id, counter=counter)])
+                for counter in COUNTER_NAMES if getattr(tree, counter)
+                for target in self._living()
+                if target.id != "sacred_tree" and target.location == tree.location]
+            if choices:
+                queue.append(op("choice", prompt="御神木拥有拒绝友好的身份：剧作家必须转移一个指示物",
+                                options=choices))
     if self.module == "MC" and self.ex_gauge >= 1:
         sources = [c.id for c in self._living() if self._has(c.id, "psychiatrist")]
         if sources:
@@ -164,6 +177,8 @@ def _queue_day_end_mandatory_batch(self):
             self.day_used.add(witness_key)
             victims.append(c.id)
             ex_gain += 1
+        if c.id == "part_timer" and sum(getattr(c, counter) for counter in COUNTER_NAMES) >= 3:
+            victims.append(c.id)
 
     if self.module == "HSA" and "zombie:kill" not in self.day_used:
         zombie_options = []
@@ -323,6 +338,8 @@ def _restore_board(self, *, apply_loop_rules=False):
                        loop=old.loop, events=old.events)
     self.state.hands = {actor: list(self._deck(actor)) for actor in ACTORS}
     self.roles = dict(self.scenario["cast"])
+    if self.roles.get("part_timer") not in (None, "ordinary"):
+        self.roles["part_timer_question"] = self.roles["part_timer"]
     if apply_loop_rules:
         self._apply_current_roles()
     self.guards = dict.fromkeys(self.roles, 0)
