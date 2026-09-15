@@ -36,7 +36,7 @@ def mc_psychiatrist_batch(game, effect):
     for source in remaining:
         c = game.state.characters[source]
         targets = [target.id for target in game._living()
-                   if target.id != source and target.location == c.location]
+                   if target.id != source and target.location in game._ability_locations(source)]
         rest = [cid for cid in remaining if cid != source]
         choices += [option(f"{c.name}（心理医生·强制）：移除{game.name(target)}的 1 不安",
                            [op("counter", target=target, counter="paranoia", amount=-1,

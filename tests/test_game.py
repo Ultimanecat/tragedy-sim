@@ -32,7 +32,8 @@ def make(module="FS", main=None, subplots=None, roles=None, kind=None, culprit="
     return Game({"id": "test", "title": "规则测试", "module": module, "days": days, "loops": loops,
                  "main_plot": main, "subplots": subplots,
                  "cast": {c: roles.get(c, "ordinary") for c in MODULES[module].characters
-                          if c != "irregular"},
+                          if c not in {"irregular", "godly", "boss", "scholar", "illusion",
+                                       "ai", "black_cat", "transfer_student"}},
                  "incidents": [] if kind is None else [{"day": 1, "kind": kind, "culprit": culprit}]})
 
 
@@ -880,7 +881,8 @@ def generated_scenario(module, main, xs):
     roles = list(needed.elements())
     # A girl is first so Sign With Me gets a valid Key Person.
     cast_order = ["girl", *[c for c in MODULES[module].characters
-                            if c not in ("girl", "irregular")]]
+                            if c not in ("girl", "irregular", "godly", "boss", "scholar",
+                                         "illusion", "ai", "black_cat", "transfer_student")]]
     cast = {cid: roles[i] if i < len(roles) else "ordinary" for i, cid in enumerate(cast_order)}
     return {"id": "generated", "title": "组合测试", "module": module, "days": 3, "loops": 2,
             "main_plot": main, "subplots": xs, "cast": cast, "incidents": []}

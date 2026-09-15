@@ -29,7 +29,8 @@ def _intrigue_forbids_cancel(self, count):
     return ActionGame._intrigue_forbids_cancel(self, count)
 
 def _has(self, cid, role):
-    if not self.state.characters[cid].alive and (not False):
+    if (not self.state.characters[cid].present
+            or (not self.state.characters[cid].alive and (not False))):
         return False
     return self.roles[cid] == role or (self.roles[cid] == 'factor' and (role == 'key' and self.state.locations['city'] >= 2 or (role == 'conspiracy' and self.state.locations['school'] >= 2)))
 

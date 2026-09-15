@@ -5,7 +5,9 @@ from ...effects.vocabulary import op, option
 
 def _incident(self):
     scheduled_day = self._scheduled_day()
-    incident = next((i for i in self.scenario['incidents'] if i['day'] == scheduled_day), None)
+    simulated = self._simulated_incident is not None
+    incident = self._simulated_incident or next(
+        (i for i in self.scenario['incidents'] if i['day'] == scheduled_day), None)
     if incident is None:
         self._event('no_incident', '今日没有预定事件。')
         self._begin_night()
@@ -16,18 +18,26 @@ def _incident(self):
     prophet_alive = any((False for c in self.state.characters.values()))
     prophet_blocks = any((False for c in self.state.characters.values()))
     forced = False
-    incident_paranoia = culprit.paranoia
+    incident_paranoia = self._incident_score(culprit)
     prevented = culprit.id in self._prevented_incident_culprits
-    happened = culprit.alive and (not prevented) and (forced or (not prophet_blocks and incident_paranoia >= threshold))
+    happened = simulated or (culprit.present and culprit.alive and (not prevented)
+                and (forced or (not prophet_blocks and incident_paranoia >= threshold)))
     public_kind = incident.get('public_kind', kind)
     record = {'day': self.state.round, 'kind': public_kind, 'happened': happened, 'effective': False}
-    self.incident_records.append(record)
-    self._event('incident_status', f'第 {self.state.round} 天「{INCIDENT_NAMES[public_kind]}」：' + ('发生。' if happened else '未发生。'), incident=public_kind, happened=happened)
+    if not simulated:
+        self.incident_records.append(record)
+        self._event('incident_status', f'第 {self.state.round} 天「{INCIDENT_NAMES[public_kind]}」：' + ('发生。' if happened else '未发生。'), incident=public_kind, happened=happened)
     if not happened:
         self._begin_night()
         return
-    self._incident_before = self._public_board()
     self._incident_effect = False
+    if not simulated:
+        self._incident_before = self._public_board()
+    if culprit.id == 'black_cat':
+        self._queue = [op('incident_done'), op('night')]
+        self._return_phase = 'day_end'
+        self._drain()
+        return
     living = self._living()
     choices, effects = ([], [])
     if kind in ('murder', 'faraway'):
@@ -69,22 +79,31 @@ def _incident(self):
         choices = [option(f'{c.name}：{COUNTER_NAMES[counter]} +1', [op('counter', target=c.id, counter=counter, amount=1)]) for c in living if c.location == culprit.location for counter in STANDARD_COUNTERS]
     if kind in ('murder', 'faraway', 'missing', 'unease', 'spreading', 'butterfly', 'poison_gas', 'exposure'):
         effects = [op('choice', prompt=f'结算{INCIDENT_NAMES[kind]}：选择合法目标', options=choices)]
-    self._queue = effects + [op('incident_done'), op('night')]
-    self._return_phase = 'day_end'
-    self._drain()
+    self._queue_incident_resolution(effects)
 
 def _ahr_incident(self, incident):
+    simulated = self._simulated_incident is not None
     kind = incident['kind']
     culprit = self.state.characters[incident['culprit']]
     threshold = CHARACTERS[culprit.id].limit - (kind == 'impulsive_murder')
-    score = self._count(culprit, 'intrigue') if kind == 'imaginary_incident' else self._count(culprit, 'goodwill') if self.ex_gauge % 2 or kind == 'hope_light' else self._count(culprit, 'paranoia')
-    happened = culprit.alive and (kind == 'dimension_swap' or score >= threshold)
-    self.incident_records.append({'day': self.state.round, 'kind': kind, 'happened': happened, 'effective': False})
-    self._event('incident_status', f'第 {self.state.round} 天「{INCIDENT_NAMES[kind]}」：' + ('发生。' if happened else '未发生。'), incident=kind, happened=happened)
+    score_counter = ('intrigue' if kind == 'imaginary_incident' else 'goodwill'
+                     if self.ex_gauge % 2 or kind == 'hope_light' else 'paranoia')
+    score = self._incident_score(culprit, score_counter)
+    happened = simulated or (culprit.present and culprit.alive and (kind == 'dimension_swap' or score >= threshold))
+    if not simulated:
+        self.incident_records.append({'day': self.state.round, 'kind': kind, 'happened': happened, 'effective': False})
+        self._event('incident_status', f'第 {self.state.round} 天「{INCIDENT_NAMES[kind]}」：' + ('发生。' if happened else '未发生。'), incident=kind, happened=happened)
     if not happened:
         self._begin_night()
         return
-    self._incident_before = self._public_board()
+    self._incident_effect = False
+    if not simulated:
+        self._incident_before = self._public_board()
+    if culprit.id == 'black_cat':
+        self._queue = [op('incident_done'), op('night')]
+        self._return_phase = 'day_end'
+        self._drain()
+        return
     living = self._living()
 
     def murder_effects():
@@ -132,9 +151,7 @@ def _ahr_incident(self, incident):
         effects = [op('choice', actor=self.state.leader, prompt='隙间阳光：领队选择希望目标', options=[option(f'{c.name}希望 +1', [op('counter', target=c.id, counter='hope', amount=1)]) for c in living])]
     else:
         effects = [op('choice', prompt='绝望之暗：选择绝望目标', options=[option(f'{c.name}绝望 +1', [op('counter', target=c.id, counter='despair', amount=1)]) for c in living])]
-    self._queue = effects + [op('incident_done'), op('night')]
-    self._return_phase = 'day_end'
-    self._drain()
+    self._queue_incident_resolution(effects)
 
 def _record_incident_end(self):
     if self._incident_before is not None:

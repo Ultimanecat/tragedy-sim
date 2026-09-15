@@ -12,10 +12,12 @@ const manifestPath = path.join(webRoot, "src", "generated", "game-assets.json");
 
 const characterNames = {
   student: "男学生", girl: "女学生", rich: "大小姐", class_rep: "班长",
-  teacher: "教师", maiden: "巫女", outsider: "异界人", irregular: "局外人", police: "刑警",
+  teacher: "教师", maiden: "巫女", outsider: "异界人", irregular: "局外人",
+  godly: "神灵", police: "刑警",
   worker: "职员", informer: "情报商", idol: "偶像", journalist: "媒体人",
-  forensic: "鉴识官", doctor: "医生", patient: "住院患者", nurse: "护士",
-  soldier: "军人", henchman: "手下",
+  boss: "大人物", forensic: "鉴识官", doctor: "医生", patient: "住院患者",
+  nurse: "护士", scholar: "学者", illusion: "幻想", ai: "A.I.", soldier: "军人",
+  black_cat: "黑猫", transfer_student: "转校生", henchman: "手下",
 };
 
 const cardOrder = {

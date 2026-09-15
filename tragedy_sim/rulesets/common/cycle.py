@@ -26,7 +26,7 @@ def _start_master_abilities_forced(self):
                              'core.mastermind_mandatory')
 
 def _start_loop_placements(self):
-    queue = []
+    queue = self._character_loop_effects()
     if queue:
         self._return_phase = 'day_start'
         self._queue = queue
@@ -48,11 +48,25 @@ def _queue_day_end_mandatory_batch(self):
     loss_reasons = []
     ex_gain = 0
     for c in living:
-        others = [target for target in living if target.id != c.id and target.location == c.location]
+        lone_targets = []
+        for location in self._ability_locations(c.id):
+            others = [target for target in living
+                      if target.id != c.id and target.location == location]
+            if len(others) == 1 and others[0].id not in lone_targets:
+                lone_targets.append(others[0].id)
         serial_key = f'mandatory:serial:{c.id}'
-        if self._has(c.id, 'serial') and serial_key not in self.day_used and (len(others) == 1):
+        if self._has(c.id, 'serial') and serial_key not in self.day_used and lone_targets:
             self.day_used.add(serial_key)
-            victims.append(others[0].id)
+            if len(lone_targets) == 1:
+                victims.append(lone_targets[0])
+            else:
+                target_choices.append({
+                    'prompt': f'{c.name}（杀人狂·强制）：选择能力使用区域',
+                    'options': [option(f'使{self.name(target)}死亡',
+                                       [op('mandatory_poison_mark', source=c.id,
+                                           target=target)])
+                                for target in lone_targets],
+                })
     if not victims and (not target_choices) and (not loss_reasons):
         return
     self._mandatory_victims.extend(victims)
@@ -127,7 +141,11 @@ def _restore_board(self, *, apply_loop_rules=False):
     self._movement_locks.clear()
     self._sealed_boards.clear()
     self._prevented_incident_culprits.clear()
+    self._simulated_incident = None
+    self._choice_actor_override = None
+    self._board_echo_placements.clear()
     self._loop_initial_locations = {cid: CHARACTERS[cid].start for cid in self.roles}
+    self._apply_character_setup()
     self._announced_roles.clear()
     self.incident_records = []
 
@@ -135,6 +153,7 @@ def _new_loop(self):
     self._restore_board(apply_loop_rules=True)
     s = self.state
     s.loop += 1
+    self._apply_character_setup()
     s.phase = 'day_start'
     self._event('loop_started', f'第 {s.loop} 轮回开始：位置、存活、计数物、手牌、护卫及本轮效果已重置；历史日志和已公开信息保留。', timing=TimingId.LOOP_START)
     if 'threads' in self.scenario['subplots']:

@@ -26,7 +26,9 @@ class ActionCardResolver(PhaseResolver):
         targets = [
             target for target in (*view["characters"], *LOCATIONS)
             if target not in occupied
-            and (target in LOCATIONS or view["characters"][target]["alive"])
+            and (target in LOCATIONS or (view["characters"][target]["present"]
+                                         and view["characters"][target]["alive"]
+                                         and view["characters"][target]["action_targetable"]))
             and game._can_target_action(actor, target)
         ]
         return [

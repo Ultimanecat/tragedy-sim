@@ -21,7 +21,7 @@ def ahr_alice(game, effect):
         choices = [option(f"{c.name}希望 +1",
                           [op("counter", target=c.id, counter="hope", amount=1)])
                    for c in game._living()
-                   if c.id != source.id and c.location == source.location]
+                   if c.id != source.id and c.location in game._ability_locations(source.id)]
         if choices:
             game._queue.insert(0, op("choice", prompt="爱丽丝：选择同区域另一名角色希望 +1",
                                      options=choices))
@@ -45,7 +45,8 @@ def ahr_will(game, effect):
 
 
 def ahr_singularity_first(game, effect):
-    game._ahr_singularity_occurred = True
+    if game._simulated_incident is None:
+        game._ahr_singularity_occurred = True
 
 
 def ahr_singularity_hidden(game, effect):

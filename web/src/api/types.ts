@@ -74,6 +74,7 @@ export interface CatalogResponse {
 
 export interface CharacterView extends NamedItem {
   location: LocationId;
+  present?: boolean;
   forbidden: LocationId[];
   paranoia: number;
   goodwill: number;
@@ -87,6 +88,7 @@ export interface CharacterView extends NamedItem {
   abilities: AbilityDefinition[];
   passive: string;
   initial_location: LocationId;
+  territory?: LocationId | null;
   ex_cards: number;
   friended_token: boolean;
   death_token: boolean;
@@ -108,6 +110,9 @@ export interface SecretView {
   main_plot: string;
   subplots: string[];
   incidents: Array<Record<string, unknown>>;
+  character_options?: Record<string, {
+    entry_loop?: number; entry_day?: number; territory?: LocationId;
+  }>;
   loss_reasons: string[];
   current_loop_days: number;
   ability_day_used: string[];

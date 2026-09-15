@@ -160,10 +160,11 @@ class ModuleSpec:
     friend_gender_split: bool = False
 
 
-_ALL_CHARACTERS = ("student", "girl", "rich", "class_rep", "teacher", "maiden", "outsider", "irregular",
-                   "police", "worker", "informer", "idol", "journalist", "forensic", "doctor",
-                   "patient", "nurse", "soldier")
-_MC_CHARACTERS = (*_ALL_CHARACTERS[:-1], "henchman")
+_ALL_CHARACTERS = ("student", "girl", "rich", "class_rep", "teacher", "maiden",
+                   "outsider", "irregular", "godly", "police", "worker", "informer",
+                   "idol", "journalist", "boss", "forensic", "doctor", "patient", "nurse",
+                   "scholar", "illusion", "ai", "soldier", "black_cat", "transfer_student")
+_MC_CHARACTERS = (*tuple(cid for cid in _ALL_CHARACTERS if cid != "soldier"), "henchman")
 _FS_PLOTS = ("murder_plan", "avenger", "protect", "ripper", "rumor", "hideous")
 _BTX_PLOTS = ("murder_plan", "sealed", "sign", "change", "bomb", "friends", "love",
               "lurking", "rumor", "virus", "threads", "unknown")
@@ -435,6 +436,8 @@ class CharacterDef:
     abilities: tuple[Ability, ...] = ()
     forbidden: tuple[str, ...] = ()
     passive: str = ""
+    action_targetable: bool = True
+    echo_board_actions: bool = False
 
 
 CHARACTERS = {
@@ -459,6 +462,11 @@ CHARACTERS = {
                               (Ability("reveal", 3, "公开自身身份", "reveal", "self",
                                        unrefusable=True, min_loop=2),),
                               passive="编写剧本时，必须获得本模组中存在、但所选规则 X/Y 未使用的一项身份。"),
+    "godly": CharacterDef("神灵", "shrine", 3, ("man", "woman"),
+                          (Ability("culprit", 3, "公开信息表上的一个事件当事人", "culprit_any", once=True),
+                           Ability("purify", 5, "同区域角色或当前版图密谋 -1", "counter",
+                                   "same_or_location", "intrigue", -1)),
+                          passive="编写剧本时指定登场轮回；此前不放置在版图上。"),
     "police": CharacterDef("刑警", "city", 3, ("adult", "man"),
                            (Ability("culprit", 4, "公开本轮已发生的一起事件的当事人", "culprit", once=True),
                             Ability("guard", 5, "同区域角色获得一次死亡替代护卫", "guard", once=True))),
@@ -472,6 +480,10 @@ CHARACTERS = {
     "journalist": CharacterDef("媒体人", "city", 2, ("adult", "man"),
                                (Ability("alarm", 2, "任意另一名角色不安 +1", "counter", "any_other", "paranoia", 1),
                                 Ability("intrigue", 2, "同区域角色或当前版图密谋 +1", "counter", "same_or_location", "intrigue", 1))),
+    "boss": CharacterDef("大人物", "city", 4, ("adult", "man"),
+                         (Ability("reveal", 5, "公开领地中另一名角色的身份", "reveal",
+                                  "territory_other", once=True),),
+                         passive="编写剧本时指定一块领地；使用角色能力时也可以视为身处领地。"),
     "forensic": CharacterDef("鉴识官", "city", 3, ("adult", "man"),
                              (Ability("transfer", 2, "在同区域另两名角色间移动一个计数物", "transfer", once=True),
                               Ability("reveal_dead", 5, "公开任意一具尸体的身份", "reveal", "any_corpse", once=True))),
@@ -482,13 +494,36 @@ CHARACTERS = {
     "patient": CharacterDef("住院患者", "hospital", 2, ("boy",), (), ("shrine", "city", "school")),
     "nurse": CharacterDef("护士", "hospital", 3, ("adult", "woman"),
                           (Ability("calm", 2, "同区域另一名不安达临界角色不安 -1（不可拒绝）", "counter", "panicked_other", unrefusable=True),)),
+    "scholar": CharacterDef("学者", "hospital", 2, ("adult", "man"),
+                            (Ability("reset", 3, "移除自身所有指示物；使用 Ex 槽时由领队令其 ±1",
+                                     "reset_all"),),
+                            passive="每轮开始时，剧作家在其身上放置一个友好、不安或密谋指示物。"),
+    "illusion": CharacterDef("幻想", "shrine", 3, ("fictional", "woman"),
+                             (Ability("relocate", 3, "将同区域任意一名角色移至任意版图",
+                                      "relocate", once=True),
+                              Ability("vanish", 4, "本轮将自身从版图上移除", "vanish")),
+                             passive="不能被放置行动牌；其所在版图上的行动牌也会对其生效。",
+                             action_targetable=False, echo_board_actions=True),
+    "ai": CharacterDef("A.I.", "city", 4, ("construct",),
+                       (Ability("incident", 3, "结算公开信息表上的一个事件效果",
+                                "ai_incident", once=True),),
+                       ("hospital", "shrine", "school"),
+                       "不能是平民；判定其作为当事人的事件时，身上所有指示物均视作不安。"),
     "soldier": CharacterDef("军人", "hospital", 3, ("adult", "man"),
                             (Ability("alarm", 2, "同区域角色不安 +2", "counter", "same", "paranoia", 2, True),
                              Ability("protect", 5, "本轮主人公不会死亡", "protect", once=True))),
+    "black_cat": CharacterDef("黑猫", "shrine", 0, ("animal",), (),
+                              passive="每轮开始时神社密谋 +1；其作为当事人的事件发生后不产生事件效果。"),
+    "transfer_student": CharacterDef("转校生", "school", 2, ("student", "girl"),
+                                     (Ability("convert", 2, "将同区域另一名角色的一个密谋替换为友好",
+                                              "convert_intrigue", "other"),),
+                                     passive="编写剧本时指定登场日；每轮在该日开始时放置到学校。"),
     "henchman": CharacterDef("手下", "school", 1, ("adult", "man"),
                               (Ability("prevent_incident", 3, "阻止自身担任当事人的今日事件发生",
                                        "prevent_incident", "self"),),
                               passive="每轮开始时由剧作家决定初始区域。"),
 }
 
-TRAIT_NAMES = {"student": "学生", "boy": "少年", "girl": "少女", "adult": "成人", "man": "男性", "woman": "女性"}
+TRAIT_NAMES = {"student": "学生", "boy": "少年", "girl": "少女", "adult": "成人",
+               "man": "男性", "woman": "女性", "fictional": "虚构", "construct": "造物",
+               "animal": "动物"}

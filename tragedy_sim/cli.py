@@ -75,7 +75,7 @@ def board(game: ActionGame, viewer: str = "spectator") -> None:
     for loc, name in LOCATIONS.items():
         print(f"  {loc} {name}（密谋 {view['locations'][loc]}）")
         for char in view["characters"].values():
-            if char["location"] == loc:
+            if char["present"] and char["location"] == loc:
                 mind = f" / 希望 {char['hope']} / 绝望 {char['despair']}" if game.module in ("AHR", "LL") else ""
                 print(f"    {char['id']:<9} {char['name']}：友好 {char['goodwill']} / "
                       f"不安 {char['paranoia']} / 密谋 {char['intrigue']}{mind}"
@@ -231,7 +231,7 @@ def match_board(game, viewer="spectator"):
                  if v["module"] == "HSA" and v["board_ex"][loc] else "")
         print(f"  {label} [{loc}] {board_counter}={v['locations'][loc]}{curse}")
         for c in v["characters"].values():
-            if c["location"] == loc:
+            if c["present"] and c["location"] == loc:
                 panic = " 达临界" if c["alive"] and c["paranoia"] >= c["paranoia_limit"] else ""
                 special = "诅咒牌" if v["module"] == "HSA" else "Ex牌"
                 ex = f" · {special} {c.get('ex_cards', 0)}" if c.get("ex_cards", 0) else ""
@@ -525,6 +525,8 @@ def main(argv=None):
                 print(f"{char['name']} [{char['id']}]：{' / '.join(char['traits'])}；不安临界 {char['paranoia_limit']}")
                 print(f"初始区域：{LOCATIONS[char['initial_location']]}；当前区域：{LOCATIONS[char['location']]}")
                 print("禁行区域：" + ("、".join(LOCATIONS[loc] for loc in char["forbidden"]) or "无"))
+                if char.get("territory"):
+                    print("领地：" + LOCATIONS[char["territory"]])
                 for a in char["abilities"]:
                     print(f"  {a['id']}：友好 ≥ {a['threshold']}，{a['text']}" + ("（每轮一次）" if a["once"] else "（每日一次）"))
                 if char["passive"]:

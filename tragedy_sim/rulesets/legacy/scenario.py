@@ -3,14 +3,14 @@ from collections import Counter
 from copy import deepcopy
 from ...catalog import CHARACTERS, INCIDENT_NAMES, MODULES, PLOTS, ROLE_NAMES
 from ...engine import RuleError
-from ..scenario_roles import selected_role_counts
+from ..scenario_roles import character_genders, selected_role_counts, validate_character_options
 HSA_GROUP_INCIDENTS = {"frenzied_night", "curse_awakening", "filth_overflow", "dead_apocalypse"}
 
 def validate_scenario(data: dict) -> dict:
     required = {"id", "title", "module", "days", "loops", "main_plot", "subplots", "cast", "incidents"}
     if (not isinstance(data, dict)
             or set(data) - required - {"table_talk", "wm_replacement_plot", "hidden_cast",
-                                       "ll_secret_order"}
+                                       "ll_secret_order", "character_options"}
             or required - set(data)):
         raise RuleError("剧本字段不完整或含不支持的字段；请参考 examples 中的 JSON")
     if any(not isinstance(data[k], str) or not data[k] for k in ("id", "title", "module", "main_plot")):
@@ -41,6 +41,7 @@ def validate_scenario(data: dict) -> dict:
     if any(c not in spec.characters or not isinstance(r, str) or r not in ROLE_NAMES
            for c, r in cast.items()):
         raise RuleError("剧本包含未知角色或无效身份")
+    validate_character_options(data, cast)
     hidden_cast = data.get("hidden_cast")
     if module == "AHR":
         if hidden_cast is None:
@@ -87,8 +88,7 @@ def validate_scenario(data: dict) -> dict:
             if role != "friend":
                 continue
             traits = CHARACTERS[cid].traits
-            gender = "male" if "boy" in traits or "man" in traits else "female"
-            genders[gender] += 1
+            genders.update(character_genders(traits))
         if genders["male"] > 1 or genders["female"] > 1:
             raise RuleError(f"{module} 的亲友最多男女各一名")
     if "sign" in plots and any("girl" not in CHARACTERS[c].traits for c, r in cast.items() if r == "key"):
@@ -99,10 +99,10 @@ def validate_scenario(data: dict) -> dict:
     if data["main_plot"] == "hsa_noble":
         key = next(c for c, role in cast.items() if role == "key")
         vampire = next(c for c, role in cast.items() if role == "vampire")
-        def gender(cid):
-            traits = CHARACTERS[cid].traits
-            return "male" if "boy" in traits or "man" in traits else "female"
-        if gender(key) == gender(vampire):
+        key_genders = character_genders(CHARACTERS[key].traits)
+        vampire_genders = character_genders(CHARACTERS[vampire].traits)
+        if not ({("male", "female"), ("female", "male")} &
+                {(first, second) for first in key_genders for second in vampire_genders}):
             raise RuleError("高贵的血族要求关键人物与吸血鬼为异性")
     if not isinstance(data["incidents"], list):
         raise RuleError("incidents 必须是数组")
@@ -175,4 +175,5 @@ def validate_scenario(data: dict) -> dict:
         result["hidden_cast"] = deepcopy(hidden_cast)
     result["incidents"].sort(key=lambda i: i["day"])
     result.setdefault("table_talk", False)
+    result.setdefault("character_options", {})
     return result

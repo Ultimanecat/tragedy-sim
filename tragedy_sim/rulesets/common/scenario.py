@@ -3,7 +3,7 @@ from collections import Counter
 from copy import deepcopy
 from ...catalog import CHARACTERS, INCIDENT_NAMES, MODULES, PLOTS, ROLE_NAMES
 from ...engine import RuleError
-from ..scenario_roles import selected_role_counts
+from ..scenario_roles import character_genders, selected_role_counts, validate_character_options
 def validate_scenario(data: dict) -> dict:
     required = {'id', 'title', 'module', 'days', 'loops', 'main_plot', 'subplots', 'cast', 'incidents'}
     if isinstance(data, dict) and 'hidden_cast' in data:
@@ -12,7 +12,7 @@ def validate_scenario(data: dict) -> dict:
         raise RuleError('只有 LL 可以设置 ll_secret_order')
     if isinstance(data, dict) and 'wm_replacement_plot' in data:
         raise RuleError('只有疯狂的真相可以设置 wm_replacement_plot')
-    if not isinstance(data, dict) or set(data) - required - {'table_talk'} or required - set(data):
+    if not isinstance(data, dict) or set(data) - required - {'table_talk', 'character_options'} or required - set(data):
         raise RuleError('剧本字段不完整或含不支持的字段；请参考 examples 中的 JSON')
     if any((not isinstance(data[k], str) or not data[k] for k in ('id', 'title', 'module', 'main_plot'))):
         raise RuleError('剧本名称、ID、模组、规则 Y 必须是非空字符串')
@@ -34,6 +34,7 @@ def validate_scenario(data: dict) -> dict:
         raise RuleError('剧本需要至少三名已支持角色')
     if any((c not in spec.characters or not isinstance(r, str) or r not in ROLE_NAMES for c, r in cast.items())):
         raise RuleError('剧本包含未知角色或无效身份')
+    validate_character_options(data, cast)
     expected = Counter()
     for p in plots:
         expected.update(PLOTS[p][2])
@@ -52,8 +53,7 @@ def validate_scenario(data: dict) -> dict:
             if role != 'friend':
                 continue
             traits = CHARACTERS[cid].traits
-            gender = 'male' if 'boy' in traits or 'man' in traits else 'female'
-            genders[gender] += 1
+            genders.update(character_genders(traits))
         if genders['male'] > 1 or genders['female'] > 1:
             raise RuleError(f'{module} 的亲友最多男女各一名')
     if 'sign' in plots and any(('girl' not in CHARACTERS[c].traits for c, r in cast.items() if r == 'key')):
@@ -88,4 +88,5 @@ def validate_scenario(data: dict) -> dict:
     result = deepcopy(data)
     result['incidents'].sort(key=lambda i: i['day'])
     result.setdefault('table_talk', False)
+    result.setdefault('character_options', {})
     return result

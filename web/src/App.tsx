@@ -196,6 +196,7 @@ function CharacterDetailsDialog({ character, game, onClose }: {
           </p>}
           <p>属性：{character.traits.join("、") || "无"}</p>
           <p>禁行：{character.forbidden.map(id => game.labels.locations[id]).join("、") || "无"}</p>
+          {character.territory && <p>领地：{game.labels.locations[character.territory]}</p>}
         </div>
       </div>
       <div className="character-dialog-rules">
@@ -222,7 +223,7 @@ export function Board({ game, catalog, targetOffers = [], selectedOffer, ability
   return <>
     <section className="board" aria-label="游戏版图">
       {locations.map(location => {
-        const characters = Object.values(game.characters).filter(character => character.location === location);
+        const characters = Object.values(game.characters).filter(character => character.present !== false && character.location === location);
         const density = characters.length >= 9 ? "packed" : characters.length >= 5 ? "crowded" : "normal";
         return <BoardLocation id={location} offer={offerByTarget.get(location)} density={density}
           selected={selectedOffer?.parameters.target === location} onSelect={onTarget} key={location}>
@@ -856,6 +857,11 @@ export default function App() {
         {game.protagonist_secret && <section className="panel personal-secret"><h2>你的 Last Liar 秘密</h2><strong>秘密 {game.protagonist_secret}</strong><p>此编号只对当前主人公可见，请勿向其他玩家展示。</p></section>}
         {game.secret && <section className="panel secret"><h2>剧作家资料</h2><p>规则 Y：{itemName(catalog?.plots, game.secret.main_plot)}</p><p>规则 X：{game.secret.subplots.map(id => itemName(catalog?.plots, id)).join("、")}</p><p>本轮实际天数：{game.secret.current_loop_days}</p>
           <details><summary>身份配置</summary>{Object.entries(game.secret.roles).map(([id, role]) => <p key={id}>{game.characters[id]?.name ?? id}：{itemName(catalog?.roles, role)}{game.secret?.hidden_roles?.[id] ? `／里身份 ${itemName(catalog?.roles, game.secret.hidden_roles[id])}` : ""}</p>)}</details>
+          {Object.keys(game.secret.character_options ?? {}).length > 0 && <details><summary>特殊角色设置</summary>
+            {Object.entries(game.secret.character_options ?? {}).map(([id, setting]) => <p key={id}>{game.characters[id]?.name ?? id}：{
+              setting.entry_loop ? `第 ${setting.entry_loop} 轮登场` : setting.entry_day ? `每轮第 ${setting.entry_day} 天登场` :
+                setting.territory ? `领地 ${game.labels.locations[setting.territory]}` : "—"
+            }</p>)}</details>}
           <details><summary>事件当事人</summary>{game.secret.incidents.map((incident, index) => <p key={index}>第 {String(incident.day)} 天 · {itemName(catalog?.incidents, incident.kind)}：{targetName(game, incident.culprit)}</p>)}</details>
           {(game.secret.ability_day_used.length > 0 || game.secret.ability_loop_used.length > 0) && <details><summary>完整能力使用记录</summary>
             {game.secret.ability_day_used.map(key => <p key={`day-${key}`}>今日：{abilityUseName(game, key, catalog)}</p>)}

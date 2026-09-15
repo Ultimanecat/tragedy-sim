@@ -5,6 +5,7 @@ from ..effect_resolver import MATCH_EFFECT_HANDLERS
 from ..phases import PHASE_RESOLVERS
 from .base import RulesetDefinition
 from .legacy import roles, abilities, incidents, cycle, knowledge, projection, setup
+from . import characters
 from .fs import DEFINITION as FS_DEFINITION
 from .btx import DEFINITION as BTX_DEFINITION
 
@@ -13,7 +14,7 @@ from .legacy.scenario import validate_scenario as _validate
 
 
 _OPERATIONS = {}
-for module in (roles, abilities, incidents, cycle, knowledge, projection):
+for module in (roles, abilities, incidents, cycle, knowledge, projection, characters):
     if _OPERATIONS.keys() & module.OPERATIONS.keys():
         raise ValueError('Duplicate ruleset operation')
     _OPERATIONS.update(module.OPERATIONS)

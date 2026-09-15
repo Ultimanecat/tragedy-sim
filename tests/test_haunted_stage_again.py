@@ -36,7 +36,9 @@ def scenario(main="hsa_noble", subplots=None, *, holders=None, incidents=None, d
         needed.update(PLOTS[plot][2])
     for role, cap in MODULES["HSA"].role_caps.items():
         needed[role] = min(needed[role], cap)
-    cast = dict.fromkeys((cid for cid in MODULES["HSA"].characters if cid != "irregular"),
+    cast = dict.fromkeys((cid for cid in MODULES["HSA"].characters if cid not in {
+        "irregular", "godly", "boss", "scholar", "illusion", "ai", "black_cat",
+        "transfer_student"}),
                          "ordinary")
     holders = dict(holders or {})
     if "hsa_girl_crisis" in subplots and "key" not in holders.values():

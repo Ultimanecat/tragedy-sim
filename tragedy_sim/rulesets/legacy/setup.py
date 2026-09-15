@@ -26,6 +26,7 @@ def initialize(self):
     self.ex_cards = dict.fromkeys(self.roles, 0)
     self.ex_gauge = 0
     self.board_ex = dict.fromkeys(LOCATIONS, 0)
+    self._apply_character_setup()
     self._apply_current_roles()
     self.known_roles = {}
     self.role_announcements = []
@@ -87,6 +88,8 @@ def initialize(self):
     self._ll_restricted_day = None
     self._ll_will_pending = False
     self._at_loop_end = False
+    self._simulated_incident = None
+    self._choice_actor_override = None
     self.state.phase = "day_start"
     self._event("loop_started", f"第 1 轮回开始，共 {self.scenario['loops']} 轮，每轮 {self.scenario['days']} 天。",
                 timing=TimingId.LOOP_START)

@@ -13,7 +13,7 @@ def ll_internet_celeb(game, effect):
                           [op("counter", target=c.id, counter="paranoia", amount=1),
                            op("counter", target=c.id, counter="goodwill", amount=1)])
                    for c in game._living()
-                   if c.id != source.id and c.location == source.location]
+                   if c.id != source.id and c.location in game._ability_locations(source.id)]
         if choices:
             game._queue.insert(0, op("choice", prompt="网络红人：选择同区域另一名角色",
                                      options=choices))

@@ -214,6 +214,8 @@ def character_details(view, cid):
              f"初始：{locations[c['initial_location']]}　当前：{locations[c['location']]}",
              f"禁行：{'、'.join(locations[t] for t in c['forbidden']) or '无'}",
              f"{'存活' if c['alive'] else '尸体'}　友好 {c['goodwill']}　不安临界 {c['paranoia']}/{c['paranoia_limit']}　密谋 {c['intrigue']}　护卫 {c['guard']}{ex}", ""]
+    if c.get("territory"):
+        lines.insert(3, f"领地：{locations[c['territory']]}")
     for a in c["abilities"]:
         limit = "每轮一次" if a["once"] else "每日一次"
         lines.append(f"友好 ≥{a['threshold']} · {limit}\n{a['text']}\n")
@@ -274,6 +276,17 @@ def secret_dossier(view):
         initial_name = label("roles", s["initial_roles"][cid], language,
                              fallback=ROLE_NAMES[s["initial_roles"][cid]])
         lines += [f"{target_name(view, cid)}：{role_name}（初始 {initial_name}）", ROLE_RULES[role], ""]
+    if s.get("character_options"):
+        lines.append("特殊角色设置")
+        for cid, setting in s["character_options"].items():
+            if "entry_loop" in setting:
+                detail = f"第 {setting['entry_loop']} 轮登场"
+            elif "entry_day" in setting:
+                detail = f"每轮第 {setting['entry_day']} 天登场"
+            else:
+                detail = f"领地：{view['labels']['locations'][setting['territory']]}"
+            lines.append(f"{target_name(view, cid)}：{detail}")
+        lines.append("")
     lines.append("事件当事人")
     for item in s["incidents"]:
         public_name = (f"（公开名：{label('incidents', item['public_kind'], language, fallback=INCIDENT_NAMES[item['public_kind']])}）"

@@ -39,7 +39,9 @@ def scenario(main="sealed", subplots=None, *, holders=None, incidents=None, days
         needed.update(PLOTS[plot][2])
     for role, cap in MODULES["MZ"].role_caps.items():
         needed[role] = min(needed[role], cap)
-    cast = dict.fromkeys((cid for cid in MODULES["MZ"].characters if cid != "irregular"),
+    cast = dict.fromkeys((cid for cid in MODULES["MZ"].characters if cid not in {
+        "irregular", "godly", "boss", "scholar", "illusion", "ai", "black_cat",
+        "transfer_student"}),
                          "ordinary")
     holders = dict(holders or {})
     cast.update(holders)

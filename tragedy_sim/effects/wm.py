@@ -7,7 +7,8 @@ def wm_extinction(game, effect):
     if game._wm_extinction_occurred:
         game._event("extinction_repeated", "灭绝之灾此前已经发生过，本次不产生效果。")
     else:
-        game._wm_extinction_occurred = True
+        if game._simulated_incident is None:
+            game._wm_extinction_occurred = True
         game._incident_effect = True
         game._event("extinction_first", "灭绝之灾首次发生：所有角色与主人公死亡。")
         game._queue = [op("kill_many", targets=[c.id for c in game._living()]),

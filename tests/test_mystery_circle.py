@@ -20,7 +20,9 @@ def scenario(main="murder_plan", subplots=None, *, holders=None, incidents=None,
     for role, cap in MODULES["MC"].role_caps.items():
         needed[role] = min(needed[role], cap)
     cast = dict.fromkeys((cid for cid in MODULES["MC"].characters
-                          if cid != "irregular" and (include_henchman or cid != "henchman")),
+                          if cid not in {"irregular", "godly", "boss", "scholar", "illusion",
+                                         "ai", "black_cat", "transfer_student"}
+                          and (include_henchman or cid != "henchman")),
                          "ordinary")
     holders = dict(holders or {})
     cast.update(holders)
@@ -105,6 +107,17 @@ class MysteryCircleTests(unittest.TestCase):
         self.assertEqual(fake.ex_cards["doctor"], 1)
         self.assertFalse(fake._can_target_action("a", "doctor"))
         self.assertTrue(fake._can_target_action("m", "doctor"))
+
+    def test_ai_copied_incident_does_not_apply_mc_occurrence_ex_gain(self):
+        copied = Game(scenario(
+            holders={"ai": "brain"},
+            incidents=[{"day": 1, "kind": "suicide", "culprit": "doctor"}]))
+        copied.state.characters["ai"].goodwill = 3
+        copied.state.phase = "goodwill"
+        choose(copied, lambda item: item.get("source") == "ai")
+        choose(copied, lambda item: item.get("accept"))
+        self.assertEqual(copied.ex_gauge, 0)
+        self.assertEqual(copied.incident_records, [])
 
     def test_area_incidents_and_unease(self):
         terror = Game(scenario(incidents=[

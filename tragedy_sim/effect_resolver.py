@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, TYPE_CHECKING
 
-from .effects import ahr, board, flow, hsa, knowledge, ll, mc, movement, mz, outcomes, wm
+from .effects import ahr, board, characters, flow, hsa, knowledge, ll, mc, movement, mz, outcomes, wm
 
 if TYPE_CHECKING:
     from .game import Game
@@ -68,6 +68,7 @@ CORE_EFFECT_HANDLERS = EffectHandlerRegistry({
 
 # Effects used by FS/BTX. This deliberately excludes every later-ruleset handler.
 BASIC_EFFECT_HANDLERS = (CORE_EFFECT_HANDLERS
+    .extended(characters.HANDLERS)
     .extended(board.HANDLERS)
     .extended(movement.HANDLERS)
     .extended(knowledge.HANDLERS)

@@ -65,7 +65,8 @@ def _intrigue_forbids_cancel(self, count):
 
 
 def _has(self, cid, role):
-    if (not self.state.characters[cid].alive
+    if (not self.state.characters[cid].present
+            or not self.state.characters[cid].alive
             and not (self.module == "HSA" and role in ("ghost", "zombie"))):
         return False
     return (self.roles[cid] == role
@@ -229,10 +230,9 @@ def _kill(self, targets):
         self._publish_role(target, self.roles[target])
         self._change_ex_gauge(1)
     for target in dying_preachers:
-        location = self.state.characters[target].location
         options = [option(f"{c.name}绝望 +1",
                           [op("counter", target=c.id, counter="despair", amount=1)])
-                   for c in self._living() if c.location == location]
+                   for c in self._living() if c.location in self._ability_locations(target)]
         self._ahr_world_shift("布道者死亡")
         if options:
             self._queue.insert(0, op("choice", prompt="布道者死亡：选择同区域一名角色绝望 +1",

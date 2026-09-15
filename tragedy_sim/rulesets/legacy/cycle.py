@@ -42,7 +42,8 @@ def _start_master_abilities_forced(self):
         for c in self.state.characters.values():
             if not c.alive and self._has(c.id, "ghost"):
                 targets = [target.id for target in self._living()
-                           if target.location in {c.location, self._loop_initial_locations[c.id]}]
+                           if target.location in {*self._ability_locations(c.id),
+                                                  self._loop_initial_locations[c.id]}]
                 if targets:
                     groups.append({"prompt": "鬼魂强制能力：选择不安目标", "options": [
                         option(f"{c.name}（鬼魂）：{self.name(target)}不安 +1",
@@ -64,7 +65,7 @@ def _start_master_abilities_forced(self):
 
 
 def _start_loop_placements(self):
-    queue = []
+    queue = self._character_loop_effects()
     if self.module == "MC" and "henchman" in self.state.characters:
         queue.append(op(
             "choice", prompt="轮回开始：剧作家决定手下的初始区域",
@@ -124,16 +125,31 @@ def _queue_day_end_mandatory_batch(self):
     loss_reasons = []
     ex_gain = 0
     for c in living:
-        others = [target for target in living if target.id != c.id and target.location == c.location]
+        lone_targets = []
+        for location in self._ability_locations(c.id):
+            others = [target for target in living
+                      if target.id != c.id and target.location == location]
+            if len(others) == 1 and others[0].id not in lone_targets:
+                lone_targets.append(others[0].id)
         serial_key = f"mandatory:serial:{c.id}"
-        if self._has(c.id, "serial") and serial_key not in self.day_used and len(others) == 1:
+        if self._has(c.id, "serial") and serial_key not in self.day_used and lone_targets:
             self.day_used.add(serial_key)
-            victims.append(others[0].id)
+            if len(lone_targets) == 1:
+                victims.append(lone_targets[0])
+            else:
+                target_choices.append({
+                    "prompt": f"{c.name}（杀人狂·强制）：选择能力使用区域",
+                    "options": [option(f"使{self.name(target)}死亡",
+                                       [op("mandatory_poison_mark", source=c.id,
+                                           target=target)])
+                                for target in lone_targets],
+                })
         poison_key = f"mandatory:poisoner:{c.id}"
         if (self._has(c.id, "poisoner") and self.ex_gauge >= 2
                 and self._available_key(poison_key, True)):
             self._mark(poison_key, True)
-            poison_targets = [target.id for target in living if target.location == c.location]
+            poison_targets = [target.id for target in living
+                              if target.location in self._ability_locations(c.id)]
             target_choices.append({
                 "prompt": "投毒者强制能力已触发：选择同区域一名角色死亡",
                 "options": [option(f"{c.name}（投毒者·强制）：使{self.name(target)}死亡",
@@ -337,7 +353,11 @@ def _restore_board(self, *, apply_loop_rules=False):
     self._movement_locks.clear()
     self._sealed_boards.clear()
     self._prevented_incident_culprits.clear()
+    self._simulated_incident = None
+    self._choice_actor_override = None
+    self._board_echo_placements.clear()
     self._loop_initial_locations = {cid: CHARACTERS[cid].start for cid in self.roles}
+    self._apply_character_setup()
     if self.module == "MC":
         self.ex_cards = dict.fromkeys(self.ex_cards, 0)
     if self.module == "HSA":
@@ -360,6 +380,7 @@ def _new_loop(self):
         self._wm_dagon_active = False
     s = self.state
     s.loop += 1
+    self._apply_character_setup()
     s.phase = "day_start"
     self._event("loop_started", f"第 {s.loop} 轮回开始：位置、存活、计数物、手牌、护卫及本轮效果已重置；历史日志和已公开信息保留。",
                 timing=TimingId.LOOP_START)

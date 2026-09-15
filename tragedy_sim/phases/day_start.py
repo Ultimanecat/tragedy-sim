@@ -9,8 +9,9 @@ class DayStartResolver(NextPhaseResolver):
     phase = PhaseId.DAY_START
 
     def execute(self, game, actor: str, action: str,
-                arguments: dict[str, Any]) -> None:
+        arguments: dict[str, Any]) -> None:
         state = game.state
+        game._prepare_day_start()
         game._configure_day_actions()
         state.phase = "mastermind"
         game._event("day_started", f"第 {state.round} 天开始，领队为{ACTOR_NAMES[state.leader]}。",

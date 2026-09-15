@@ -33,7 +33,10 @@ from .transcript import describe_decision
 class Game(ActionGame):
     def __init__(self, scenario=None):
         self.scenario = validate_scenario(example_scenario() if scenario is None else scenario)
-        chars = [Character(cid, CHARACTERS[cid].name, CHARACTERS[cid].start, CHARACTERS[cid].forbidden)
+        chars = [Character(cid, CHARACTERS[cid].name, CHARACTERS[cid].start,
+                           CHARACTERS[cid].forbidden,
+                           action_targetable=CHARACTERS[cid].action_targetable,
+                           echo_board_actions=CHARACTERS[cid].echo_board_actions)
                  for cid in self.scenario["cast"]]
         super().__init__(chars, module=self.scenario["module"])
         self.ruleset = get_ruleset(self.module)
@@ -199,7 +202,25 @@ class Game(ActionGame):
         raise RuleError("完整对局不能随意重置轮回")
 
     def _living(self):
-        return [c for c in self.state.characters.values() if c.alive]
+        return [c for c in self.state.characters.values() if c.present and c.alive]
+
+    def _apply_character_setup(self):
+        return self.ruleset.operations['_apply_character_setup'](self)
+
+    def _character_loop_effects(self):
+        return self.ruleset.operations['_character_loop_effects'](self)
+
+    def _prepare_day_start(self):
+        return self.ruleset.operations['_prepare_day_start'](self)
+
+    def _ability_locations(self, cid):
+        return self.ruleset.operations['_ability_locations'](self, cid)
+
+    def _incident_score(self, character, counter='paranoia'):
+        return self.ruleset.operations['_incident_score'](self, character, counter)
+
+    def _queue_incident_resolution(self, effects, normal_end=None):
+        return self.ruleset.operations['_queue_incident_resolution'](self, effects, normal_end)
 
     def _can_target_action(self, actor, target):
         return self.ruleset.operations['_can_target_action'](self, actor, target)
@@ -368,7 +389,11 @@ class Game(ActionGame):
                     if effect["options"]:
                         self._pending = effect
                         self._pending_source = source
-                        self._decision_actor = effect.get("actor", "m")
+                        intended_actor = effect.get("actor", "m")
+                        self._decision_actor = (self._choice_actor_override
+                                                if self._choice_actor_override
+                                                and intended_actor == "m"
+                                                else intended_actor)
                         origin = self.state.phase
                         if origin in ("decision", "refusal"):
                             origin = self._return_phase

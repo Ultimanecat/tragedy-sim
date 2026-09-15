@@ -25,6 +25,9 @@ class Character:
     hope: int = 0
     despair: int = 0
     alive: bool = True
+    present: bool = True
+    action_targetable: bool = True
+    echo_board_actions: bool = False
 
 
 @dataclass(frozen=True)
@@ -76,9 +79,11 @@ class ActionGame:
                 raise RuleError("未知地点")
             if char.location in char.forbidden:
                 raise RuleError("初始位置不能是禁行区域")
-            if type(char.alive) is not bool or any(type(getattr(char, c)) is not int or getattr(char, c) < 0
-                                                 for c in COUNTER_NAMES):
-                raise RuleError("计数物必须是非负整数，alive 必须是布尔值")
+            if (type(char.alive) is not bool or type(char.present) is not bool
+                    or type(char.action_targetable) is not bool or type(char.echo_board_actions) is not bool
+                    or any(type(getattr(char, c)) is not int or getattr(char, c) < 0
+                           for c in COUNTER_NAMES)):
+                raise RuleError("计数物必须是非负整数，角色状态必须是布尔值")
             ids.add(char.id)
         self.module = module
         self.mastermind_plays = 3
@@ -86,6 +91,7 @@ class ActionGame:
         self._ignored_placement_indexes = set()
         self._initial = deepcopy({c.id: c for c in characters})
         self.state = State(characters=deepcopy(self._initial), leader=leader)
+        self._board_echo_placements: list[tuple[int, Placement]] = []
         self.state.hands = {actor: list(deck(actor, module)) for actor in ACTORS}
 
     def _deck(self, actor):
@@ -139,8 +145,14 @@ class ActionGame:
             raise RuleError("手中没有这张牌：检查牌名、所属玩家或本轮使用次数")
         if target not in s.characters and target not in LOCATIONS:
             raise RuleError("目标不存在")
-        if target in s.characters and not s.characters[target].alive:
-            raise RuleError("不能向尸体放置行动牌")
+        if target in s.characters:
+            character = s.characters[target]
+            if not character.present:
+                raise RuleError("不能向尚未登场或已离场的角色放置行动牌")
+            if not character.alive:
+                raise RuleError("不能向尸体放置行动牌")
+            if not character.action_targetable:
+                raise RuleError("该角色不能被放置行动牌")
         if any((p.actor == "m") == (actor == "m") and p.target == target for p in s.pending):
             raise RuleError("同阵营不能在同一角色或地点上重复出牌")
         # All action cards may legally target locations, including ineffective bluffs.
@@ -170,12 +182,22 @@ class ActionGame:
         if len(s.pending) != count:
             raise RuleError("行动牌数量与本日规则不符")
         self._event("cards_revealed", f"同时揭示 {count} 张行动牌。", cards=[asdict(p) for p in s.pending])
+        self._board_echo_placements = [
+            (index, Placement(placement.actor, placement.card, character.id))
+            for index, placement in enumerate(s.pending)
+            for character in s.characters.values()
+            if (character.present and character.alive and character.echo_board_actions
+                and placement.target == character.location)
+        ]
         s.face_up = True
         s.phase = "action_counters"
 
     def _active_placements(self):
-        return [p for index, p in enumerate(self.state.pending)
-                if index not in self._ignored_placement_indexes]
+        originals = [p for index, p in enumerate(self.state.pending)
+                     if index not in self._ignored_placement_indexes]
+        echoes = [placement for index, placement in self._board_echo_placements
+                  if index not in self._ignored_placement_indexes]
+        return originals + echoes
 
     def _movement_is_forbidden(self, target: str, effects: set[str]) -> bool:
         """Ruleset policy point for cards that also count as Forbid Movement."""
@@ -289,6 +311,7 @@ class ActionGame:
             else:
                 s.hands[p.actor].append(p.card)
         s.pending.clear()
+        self._board_echo_placements.clear()
         self._ignored_placement_indexes.clear()
         s.face_up = False
         s.phase = "resolved"

@@ -287,7 +287,8 @@ class TragedyApp:
             location_plays = self._placements(view, loc)
             if location_plays:
                 tk.Label(area, text=location_plays, bg=PANEL, fg=MUTED, font=("Microsoft YaHei UI", 9), anchor="w").pack(fill="x", pady=(0, 4))
-            chars = [c for c in view["characters"].values() if c["location"] == loc]
+            chars = [c for c in view["characters"].values()
+                     if c["present"] and c["location"] == loc]
             if not chars:
                 tk.Label(area, text="暂无角色", bg=PANEL, fg=MUTED, pady=12).pack(fill="x")
             for c in chars:

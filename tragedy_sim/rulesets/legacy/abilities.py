@@ -33,7 +33,8 @@ def _counter_options(self, source, key, targets, counter, amount, label, once=Fa
 def _scoped_targets(self, source, scope):
     s = self.state.characters[source]
     living = self._living()
-    same = [c for c in living if c.location == s.location]
+    ability_locations = self._ability_locations(source)
+    same = [c for c in living if c.location in ability_locations]
     if scope == "self":
         return [source]
     if scope == "rich":
@@ -42,7 +43,10 @@ def _scoped_targets(self, source, scope):
         same = [c for c in same if c.id != source]
     if scope in ("corpse", "any_corpse"):
         return [c.id for c in self.state.characters.values() if not c.alive
-                and (scope == "any_corpse" or c.location == s.location)]
+                and (scope == "any_corpse" or c.location in ability_locations)]
+    if scope == "territory_other":
+        territory = self.scenario["character_options"][source]["territory"]
+        return [c.id for c in living if c.id != source and c.location == territory]
     selected = living if scope == "any_other" else same
     if scope in ("other", "other_student", "any_other", "panicked_other"):
         selected = [c for c in selected if c.id != source]
@@ -52,7 +56,7 @@ def _scoped_targets(self, source, scope):
         selected = [c for c in selected if c.paranoia >= CHARACTERS[c.id].limit]
     targets = [c.id for c in selected]
     if scope == "same_or_location":
-        targets.append(s.location)
+        targets.extend(ability_locations)
     return targets
 
 
@@ -92,6 +96,11 @@ def _ability_options(self, source, ability, *, private=False):
     elif ability.kind == "culprit":
         results = [option(f"{label} → 第 {r['day']} 天的{INCIDENT_NAMES[r['kind']]}",
                           [op("culprit", day=r["day"])]) for r in self.incident_records if r["happened"]]
+    elif ability.kind == "culprit_any":
+        results = [option(f"{label} → 第 {incident['day']} 天的"
+                          f"{INCIDENT_NAMES[incident.get('public_kind', incident['kind'])]}",
+                          [op("culprit", day=incident["day"])])
+                   for incident in self.scenario["incidents"]]
     elif ability.kind == "plot":
         for plot in MODULE_PLOTS[self.module]:
             if PLOTS[plot][1] == "X":
@@ -111,6 +120,25 @@ def _ability_options(self, source, ability, *, private=False):
                                               [op("transfer", source=a, target=b, counter=counter)]))
         if len(others) >= 2 and not results:
             results = [option(f"{label}：没有可移动的指示物", [])]
+    elif ability.kind == "reset_all":
+        results = [option(label, [op("reset_character_counters", target=source)])]
+    elif ability.kind == "relocate":
+        results = [option(f"{label} → {self.name(target)}移至{LOCATIONS[location]}",
+                          [op("move", target=target, location=location)])
+                   for target in self._scoped_targets(source, "same")
+                   for location in LOCATIONS
+                   if location not in self.state.characters[target].forbidden]
+    elif ability.kind == "vanish":
+        results = [option(label, [op("vanish", target=source)])]
+    elif ability.kind == "convert_intrigue":
+        results = [option(f"{label} → {self.name(target)}",
+                          [op("convert_intrigue", target=target)]) for target in targets]
+    elif ability.kind == "ai_incident":
+        results = [option(f"{label} → 第 {incident['day']} 天的"
+                          f"{INCIDENT_NAMES[incident.get('public_kind', incident['kind'])]}",
+                          [op("simulate_incident",
+                              incident=incident.get("public_kind", incident["kind"]))])
+                   for incident in self.scenario["incidents"]]
     for result in results:
         result.update(key=key, once=ability.once, source=source, ability=ability.id,
                       unrefusable=ability.unrefusable, goodwill=True)
@@ -131,8 +159,9 @@ def options(self, actor):
         for c in self._living():
             key = f"cultist:{c.id}"
             if self.roles[c.id] == "cultist" and self._available_key(key):
-                result.append(option(f"{c.name}（邪教徒）：忽略{LOCATIONS[c.location]}及该区域角色的禁止密谋",
-                                     [op("ignore_intrigue", location=c.location)], key=key))
+                for location in self._ability_locations(c.id):
+                    result.append(option(f"{c.name}（邪教徒）：忽略{LOCATIONS[location]}及该区域角色的禁止密谋",
+                                         [op("ignore_intrigue", location=location)], key=key))
     elif phase == "master_abilities":
         for c in self._living():
             if self._has(c.id, "brain"):
@@ -216,7 +245,8 @@ def options(self, actor):
                 if not self._has(magician.id, "magician"):
                     continue
                 for target in self._living():
-                    if target.location != magician.location or target.goodwill < 1:
+                    if (target.location not in self._ability_locations(magician.id)
+                            or target.goodwill < 1):
                         continue
                     x, y = COORDS[target.location]
                     for location, (dx, dy) in COORDS.items():
@@ -238,7 +268,7 @@ def options(self, actor):
                     for t in self._living():
                         # Factor borrows a death ability, not the Key Person identity.
                         if ((self.module == "LL" or self.roles[t.id] == "key")
-                                and t.id != c.id and t.location == c.location
+                                and t.id != c.id and t.location in self._ability_locations(c.id)
                                 and self._count(t, "intrigue") >= 2):
                             result.append(option(f"{c.name}（杀手）：使{t.name}死亡", [op("kill", target=t.id)], key=key))
                 key = f"killer:heroes:{c.id}"
@@ -260,14 +290,16 @@ def options(self, actor):
                 key = f"ninja:{c.id}"
                 if self._available_key(key):
                     for target in self._living():
-                        if target.location == c.location and target.intrigue >= 2:
+                        if (target.location in self._ability_locations(c.id)
+                                and target.intrigue >= 2):
                             result.append(option(f"{c.name}（忍者）：使{target.name}死亡",
                                                  [op("kill", target=target.id)], key=key))
             if self._has(c.id, "vampire"):
                 key = f"vampire:key:{c.id}"
                 if self._available_key(key):
                     for target in self._living():
-                        if (target.location == c.location and self._has(target.id, "key")
+                        if (target.location in self._ability_locations(c.id)
+                                and self._has(target.id, "key")
                                 and target.intrigue >= 2):
                             result.append(option(f"{c.name}（吸血鬼）：使{target.name}死亡",
                                                  [op("kill", target=target.id)], key=key))
@@ -285,7 +317,7 @@ def options(self, actor):
                 key = f"nightmare:kill:{c.id}"
                 if self._available_key(key):
                     for target in self._living():
-                        if target.location == c.location:
+                        if target.location in self._ability_locations(c.id):
                             result.append(option(f"{c.name}（梦魇）：使{target.name}死亡",
                                                  [op("kill", target=target.id)], key=key))
                 key = f"nightmare:heroes:{c.id}"
@@ -300,12 +332,13 @@ def options(self, actor):
             if self.module == "AHR" and self._has(c.id, "piper"):
                 if self.ex_gauge >= 2 and self._available_key(f"piper:kill:{c.id}", True):
                     for target in self._living():
-                        if target.location == c.location:
+                        if target.location in self._ability_locations(c.id):
                             result.append(option(f"{c.name}（吹笛人）：使{target.name}死亡",
                                                  [op("kill", target=target.id)],
                                                  key=f"piper:kill:{c.id}", once=True))
                 for corpse in self.state.characters.values():
-                    if not corpse.alive and corpse.location == c.location:
+                    if (not corpse.alive
+                            and corpse.location in self._ability_locations(c.id)):
                         result.append(option(f"{c.name}（吹笛人）：{corpse.name}尸体密谋 +1",
                                              [op("counter", target=corpse.id, counter="intrigue", amount=1),
                                               op("ahr_corpse_intrigue_check")],

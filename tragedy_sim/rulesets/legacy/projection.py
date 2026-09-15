@@ -40,6 +40,7 @@ def view(self, viewer="spectator", language="zh"):
                     guard=self.guards[cid], abilities=[asdict(a) for a in definition.abilities],
                     passive=definition.passive,
                     initial_location=self._loop_initial_locations.get(cid, definition.start),
+                    territory=self.scenario.get("character_options", {}).get(cid, {}).get("territory"),
                     ex_cards=self.ex_cards.get(cid, 0),
                     friended_token=(self.module == "LL" and cid in self._ll_friended_once),
                     death_token=(self.module == "LL" and cid in self._ll_dead_once))
@@ -79,7 +80,9 @@ def view(self, viewer="spectator", language="zh"):
     if viewer == "m":
         result["secret"] = {"roles": dict(self.roles), "initial_roles": dict(self.scenario["cast"]),
                             "main_plot": self.scenario["main_plot"], "subplots": list(self.scenario["subplots"]),
-                            "incidents": deepcopy(self.scenario["incidents"]), "loss_reasons": list(self.loss_reasons),
+                            "incidents": deepcopy(self.scenario["incidents"]),
+                            "character_options": deepcopy(self.scenario.get("character_options", {})),
+                            "loss_reasons": list(self.loss_reasons),
                             "current_loop_days": self._current_loop_days(),
                             "ability_day_used": sorted(self.day_used), "ability_loop_used": sorted(self.loop_used)}
         if self.module == "AHR":
