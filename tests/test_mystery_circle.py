@@ -20,7 +20,8 @@ def scenario(main="murder_plan", subplots=None, *, holders=None, incidents=None,
     for role, cap in MODULES["MC"].role_caps.items():
         needed[role] = min(needed[role], cap)
     cast = dict.fromkeys((cid for cid in MODULES["MC"].characters
-                          if include_henchman or cid != "henchman"), "ordinary")
+                          if cid != "irregular" and (include_henchman or cid != "henchman")),
+                         "ordinary")
     holders = dict(holders or {})
     cast.update(holders)
     assigned = Counter(holders.values())

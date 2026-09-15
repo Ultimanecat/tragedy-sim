@@ -23,7 +23,8 @@ def scenario(main="ahr_closed_future", subplots=None, *, holders=None, hidden=No
         needed.update(PLOTS[plot][2])
     for role, cap in MODULES["AHR"].role_caps.items():
         needed[role] = min(needed[role], cap)
-    cast = dict.fromkeys(MODULES["AHR"].characters, "ordinary")
+    cast = dict.fromkeys((cid for cid in MODULES["AHR"].characters if cid != "irregular"),
+                         "ordinary")
     holders = dict(holders or {})
     cast.update(holders)
     assigned = Counter(holders.values())

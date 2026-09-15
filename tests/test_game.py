@@ -31,7 +31,8 @@ def make(module="FS", main=None, subplots=None, roles=None, kind=None, culprit="
                       else {"worker": "witch", "maiden": "conspiracy"})
     return Game({"id": "test", "title": "规则测试", "module": module, "days": days, "loops": loops,
                  "main_plot": main, "subplots": subplots,
-                 "cast": {c: roles.get(c, "ordinary") for c in MODULES[module].characters},
+                 "cast": {c: roles.get(c, "ordinary") for c in MODULES[module].characters
+                          if c != "irregular"},
                  "incidents": [] if kind is None else [{"day": 1, "kind": kind, "culprit": culprit}]})
 
 
@@ -487,6 +488,17 @@ class AbilityTests(unittest.TestCase):
         accept(game)
         self.assertEqual(game.known_roles["doctor"]["role"], "brain")
 
+    def test_forensic_may_empty_fire_transfer_when_two_others_have_no_counters(self):
+        game = make()
+        game.state.phase = "goodwill"
+        game.state.characters["forensic"].goodwill = 2
+        self.assertTrue(any(choice.get("source") == "forensic" and
+                            "没有可移动的指示物" in choice["label"]
+                            for choice in game.options("a")))
+        ability(game, "forensic", "transfer")
+        accept(game)
+        self.assertIn("goodwill:forensic:transfer", game.public_loop_used)
+
     def test_doctor_releases_patient_for_entire_loop(self):
         game = make()
         game.state.phase = "goodwill"
@@ -506,9 +518,11 @@ class AbilityTests(unittest.TestCase):
         teacher = [c for c in opts if c.get("source") == "teacher" and c.get("ability") == "adjust"]
         self.assertEqual(len(teacher), 8)  # Four students, both signs.
         self.assertFalse(any(c["effects"][0]["target"] == "teacher" for c in teacher))
-        ability(game, "rich", "befriend", "rich")
+        self.assertFalse(any(c.get("source") == "rich" and
+                             c["effects"][0].get("target") == "rich" for c in opts))
+        ability(game, "rich", "befriend", "student")
         accept(game)
-        self.assertEqual(game.state.characters["rich"].goodwill, 6)
+        self.assertEqual(game.state.characters["student"].goodwill, 6)
         game.state.characters["rich"].location = "hospital"
         game.public_day_used.clear()
         self.assertFalse(any(c.get("source") == "rich" for c in game.options("a")))
@@ -827,7 +841,7 @@ class MatchAndVisibilityTests(unittest.TestCase):
             data = generated_scenario(module, main, chosen)
             allowed = list(MODULES[module].incidents)
             data["incidents"] = [{"day": n, "kind": rng.choice(allowed), "culprit": c}
-                                 for n, c in enumerate(rng.sample(list(MODULES[module].characters), 3), 1)]
+                                 for n, c in enumerate(rng.sample(list(data["cast"]), 3), 1)]
             game = Game(data)
             for step in range(600):
                 if game.winner:
@@ -865,7 +879,8 @@ def generated_scenario(module, main, xs):
         needed[role] = min(needed[role], cap)
     roles = list(needed.elements())
     # A girl is first so Sign With Me gets a valid Key Person.
-    cast_order = ["girl", *[c for c in MODULES[module].characters if c != "girl"]]
+    cast_order = ["girl", *[c for c in MODULES[module].characters
+                            if c not in ("girl", "irregular")]]
     cast = {cid: roles[i] if i < len(roles) else "ordinary" for i, cid in enumerate(cast_order)}
     return {"id": "generated", "title": "组合测试", "module": module, "days": 3, "loops": 2,
             "main_plot": main, "subplots": xs, "cast": cast, "incidents": []}

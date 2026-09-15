@@ -39,7 +39,8 @@ def scenario(main="sealed", subplots=None, *, holders=None, incidents=None, days
         needed.update(PLOTS[plot][2])
     for role, cap in MODULES["MZ"].role_caps.items():
         needed[role] = min(needed[role], cap)
-    cast = dict.fromkeys(MODULES["MZ"].characters, "ordinary")
+    cast = dict.fromkeys((cid for cid in MODULES["MZ"].characters if cid != "irregular"),
+                         "ordinary")
     holders = dict(holders or {})
     cast.update(holders)
     assigned = Counter(holders.values())

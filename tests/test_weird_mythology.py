@@ -23,7 +23,8 @@ def scenario(main="wm_gospel", subplots=None, *, holders=None, incidents=None, d
         needed.update(PLOTS[plot][2])
     for role, cap in MODULES["WM"].role_caps.items():
         needed[role] = min(needed[role], cap)
-    cast = dict.fromkeys(MODULES["WM"].characters, "ordinary")
+    cast = dict.fromkeys((cid for cid in MODULES["WM"].characters if cid != "irregular"),
+                         "ordinary")
     holders = dict(holders or {})
     cast.update(holders)
     assigned = Counter(holders.values())

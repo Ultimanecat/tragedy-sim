@@ -3,6 +3,7 @@ from collections import Counter
 from copy import deepcopy
 from ...catalog import CHARACTERS, INCIDENT_NAMES, MODULES, PLOTS, ROLE_NAMES
 from ...engine import RuleError
+from ..scenario_roles import selected_role_counts
 HSA_GROUP_INCIDENTS = {"frenzied_night", "curse_awakening", "filth_overflow", "dead_apocalypse"}
 
 def validate_scenario(data: dict) -> dict:
@@ -65,8 +66,7 @@ def validate_scenario(data: dict) -> dict:
         expected.update(PLOTS[p][2])
     for role, cap in spec.role_caps.items():
         expected[role] = min(expected[role], cap)
-    actual = Counter(cast.values())
-    actual.pop("ordinary", None)
+    actual = selected_role_counts(cast, plots, spec.plots)
     if "hideous" in plots:
         if actual.get("curmudgeon", 0) > 2:
             raise RuleError("最黑暗的剧本允许 0–2 名暴徒")

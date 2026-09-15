@@ -26,7 +26,8 @@ def scenario(main="ll_final_plan", subplots=None, *, holders=None, incidents=Non
     if "ll_fabricated_secret" in subplots and needed["secret_key"] == 0:
         extra = next(role for role in ("killer", "brain", "fragment") if needed[role] == 0)
         needed[extra] += 1
-    cast = dict.fromkeys(MODULES["LL"].characters, "ordinary")
+    cast = dict.fromkeys((cid for cid in MODULES["LL"].characters if cid != "irregular"),
+                         "ordinary")
     holders = dict(holders or {})
     if main == "ll_treacherous_world":
         holders.setdefault("girl", "key")

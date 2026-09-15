@@ -26,8 +26,10 @@ def _scoped_targets(self, source, scope):
     same = [c for c in living if c.location == s.location]
     if scope == 'self':
         return [source]
-    if scope == 'rich' and s.location not in ('school', 'city'):
-        return []
+    if scope == 'rich':
+        if s.location not in ('school', 'city'):
+            return []
+        same = [c for c in same if c.id != source]
     if scope in ('corpse', 'any_corpse'):
         return [c.id for c in self.state.characters.values() if not c.alive and (scope == 'any_corpse' or c.location == s.location)]
     selected = living if scope == 'any_other' else same
@@ -48,7 +50,9 @@ def _ability_options(self, source, ability, *, private=False):
     used_day = self.day_used if private else self.public_day_used
     used_loop = self.loop_used if private else self.public_loop_used
     ability_counter = self._count(c, 'goodwill')
-    if not c.alive or ability_counter < ability.threshold or key in used_day or (ability.once and key in used_loop):
+    if (not c.alive or self.state.loop < ability.min_loop
+            or ability_counter < ability.threshold or key in used_day
+            or (ability.once and key in used_loop)):
         return []
     targets = self._scoped_targets(source, ability.scope)
     label = f'{c.name} · {ability.text}'
@@ -85,6 +89,8 @@ def _ability_options(self, source, ability, *, private=False):
                     count = self.guards[a] if counter == 'guard' else getattr(self.state.characters[a], counter)
                     if count:
                         results.append(option(f"{label}：{self.name(a)} → {self.name(b)}，{COUNTER_NAMES.get(counter, '护卫')}", [op('transfer', source=a, target=b, counter=counter)]))
+        if len(others) >= 2 and not results:
+            results = [option(f'{label}：没有可移动的指示物', [])]
     for result in results:
         result.update(key=key, once=ability.once, source=source, ability=ability.id, unrefusable=ability.unrefusable, goodwill=True)
     return results

@@ -49,6 +49,7 @@ export interface AbilityDefinition {
   amount: number;
   once: boolean;
   unrefusable: boolean;
+  min_loop: number;
 }
 export interface CardDefinition extends NamedItem {
   effect: string;

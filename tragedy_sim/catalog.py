@@ -160,7 +160,7 @@ class ModuleSpec:
     friend_gender_split: bool = False
 
 
-_ALL_CHARACTERS = ("student", "girl", "rich", "class_rep", "teacher", "maiden", "outsider",
+_ALL_CHARACTERS = ("student", "girl", "rich", "class_rep", "teacher", "maiden", "outsider", "irregular",
                    "police", "worker", "informer", "idol", "journalist", "forensic", "doctor",
                    "patient", "nurse", "soldier")
 _MC_CHARACTERS = (*_ALL_CHARACTERS[:-1], "henchman")
@@ -423,6 +423,7 @@ class Ability:
     amount: int = -1
     once: bool = False
     unrefusable: bool = False
+    min_loop: int = 1
 
 
 @dataclass(frozen=True)
@@ -454,6 +455,10 @@ CHARACTERS = {
     "outsider": CharacterDef("异界人", "shrine", 2, ("girl",),
                              (Ability("kill", 4, "同区域另一名角色死亡", "kill", "other", once=True),
                               Ability("revive", 5, "同区域一具尸体复活", "revive", "corpse", once=True)), ("hospital",)),
+    "irregular": CharacterDef("局外人", "school", 3, ("student", "boy"),
+                              (Ability("reveal", 3, "公开自身身份", "reveal", "self",
+                                       unrefusable=True, min_loop=2),),
+                              passive="编写剧本时，必须获得本模组中存在、但所选规则 X/Y 未使用的一项身份。"),
     "police": CharacterDef("刑警", "city", 3, ("adult", "man"),
                            (Ability("culprit", 4, "公开本轮已发生的一起事件的当事人", "culprit", once=True),
                             Ability("guard", 5, "同区域角色获得一次死亡替代护卫", "guard", once=True))),

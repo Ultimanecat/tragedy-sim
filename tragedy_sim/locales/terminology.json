@@ -7,6 +7,7 @@
     "teacher": {"zh": "教师", "en": "Teacher", "ja": "教師"},
     "maiden": {"zh": "巫女", "en": "Shrine Maiden", "ja": "巫女"},
     "outsider": {"zh": "异界人", "en": "Alien", "ja": "異世界人"},
+    "irregular": {"zh": "局外人", "en": "Irregular", "ja": "イレギュラー"},
     "police": {"zh": "刑警", "en": "Police Officer", "ja": "刑事"},
     "worker": {"zh": "职员", "en": "Office Worker", "ja": "サラリーマン"},
     "informer": {"zh": "情报商", "en": "Informer", "ja": "情報屋"},

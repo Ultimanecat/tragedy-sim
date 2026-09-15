@@ -200,7 +200,7 @@ function CharacterDetailsDialog({ character, game, onClose }: {
       </div>
       <div className="character-dialog-rules">
         {character.abilities.length ? character.abilities.map(ability => <p key={`${ability.id}-${ability.threshold}`}>
-          <strong>友好 {ability.threshold}</strong>：{ability.text}{ability.once ? "（限次）" : ""}{ability.unrefusable ? "（不可拒绝）" : ""}
+          <strong>友好 {ability.threshold}</strong>：{ability.text}{ability.min_loop > 1 ? `（第 ${ability.min_loop} 轮起）` : ""}{ability.once ? "（限次）" : ""}{ability.unrefusable ? "（不可拒绝）" : ""}
         </p>) : <p className="muted">没有角色固有能力。</p>}
         {character.passive && <p><strong>被动</strong>：{character.passive}</p>}
       </div>
