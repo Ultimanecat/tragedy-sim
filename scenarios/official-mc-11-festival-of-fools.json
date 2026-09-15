@@ -1,0 +1,8 @@
+{
+  "id": "official-mc-11-festival-of-fools", "title": "The Festival of Fools", "module": "MC",
+  "days": 4, "loops": 6, "main_plot": "mc_event_web", "subplots": ["mc_fool_dance", "mc_isolation"],
+  "cast": {"rich": "fool", "class_rep": "ordinary", "maiden": "paranoid", "police": "psychiatrist", "worker": "friend", "journalist": "ordinary", "doctor": "ordinary", "patient": "ordinary", "henchman": "conspiracy"},
+  "character_options": {"henchman": {"initial_location": "school"}},
+  "incidents": [{"day": 1, "kind": "suspicious_letter", "culprit": "class_rep"}, {"day": 2, "kind": "unease", "culprit": "henchman"}, {"day": 3, "kind": "unease", "culprit": "patient"}, {"day": 4, "kind": "omen", "culprit": "rich"}],
+  "table_talk": true
+}

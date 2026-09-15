@@ -1,0 +1,8 @@
+{
+  "id": "official-mz-05-in-the-hands-of-evil-fate", "title": "In the Hands of Evil Fate", "module": "MZ",
+  "days": 4, "loops": 4, "loop_options": [3, 4], "main_plot": "mz_secret_record", "subplots": ["mz_gods_dice", "mz_factor"],
+  "cast": {"student": "obsessive", "rich": "ordinary", "maiden": "ordinary", "outsider": "conspiracy", "godly": "brain", "police": "serial", "worker": "factor", "doctor": "ordinary", "patient": "key"},
+  "character_options": {"godly": {"entry_loop": 2}},
+  "incidents": [{"day": 2, "kind": "fake_incident", "public_kind": "hospital", "culprit": "student"}, {"day": 3, "kind": "unease", "culprit": "rich"}, {"day": 4, "kind": "serial_murder", "culprit": "doctor"}],
+  "table_talk": true
+}

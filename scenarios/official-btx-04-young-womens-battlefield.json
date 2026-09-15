@@ -1,0 +1,7 @@
+{
+  "id": "official-btx-04-young-womens-battlefield", "title": "Young Women's Battlefield", "module": "BTX",
+  "days": 6, "loops": 4, "loop_options": [3, 4], "main_plot": "sign", "subplots": ["love", "lurking"],
+  "cast": {"student": "ordinary", "girl": "friend", "class_rep": "loved", "maiden": "key", "police": "ordinary", "worker": "lover", "informer": "serial", "patient": "ordinary", "nurse": "ordinary"},
+  "incidents": [{"day": 3, "kind": "foul_play", "culprit": "worker"}, {"day": 4, "kind": "unease", "culprit": "class_rep"}, {"day": 6, "kind": "suicide", "culprit": "girl"}],
+  "table_talk": true
+}

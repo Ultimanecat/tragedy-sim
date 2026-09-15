@@ -1,0 +1,7 @@
+{
+  "id": "official-btx-10-prologue", "title": "Prologue", "module": "BTX",
+  "days": 7, "loops": 5, "loop_options": [4, 5], "main_plot": "murder_plan", "subplots": ["friends", "love"],
+  "cast": {"student": "lover", "girl": "loved", "rich": "killer", "maiden": "key", "police": "conspiracy", "worker": "ordinary", "informer": "friend", "doctor": "brain", "patient": "friend"},
+  "incidents": [{"day": 2, "kind": "unease", "culprit": "worker"}, {"day": 4, "kind": "suicide", "culprit": "girl"}, {"day": 5, "kind": "hospital", "culprit": "student"}, {"day": 7, "kind": "murder", "culprit": "police"}],
+  "table_talk": true
+}

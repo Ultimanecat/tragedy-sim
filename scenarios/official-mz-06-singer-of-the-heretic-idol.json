@@ -1,0 +1,8 @@
+{
+  "id": "official-mz-06-singer-of-the-heretic-idol", "title": "Singer of the Heretic Idol", "module": "MZ",
+  "days": 4, "loops": 8, "loop_options": [6, 7, 8], "main_plot": "sealed", "subplots": ["mz_love_hate", "mz_doom_song"],
+  "cast": {"student": "obsessive", "class_rep": "friend", "irregular": "immortal", "maiden": "ordinary", "illusion": "brain", "idol": "ordinary", "journalist": "prophet", "doctor": "cultist", "henchman": "ordinary"},
+  "character_options": {"henchman": {"initial_location": "city"}},
+  "incidents": [{"day": 1, "kind": "suicide", "culprit": "idol"}, {"day": 2, "kind": "fake_incident", "public_kind": "breakthrough", "culprit": "henchman"}, {"day": 3, "kind": "fake_incident", "public_kind": "riot", "culprit": "class_rep"}, {"day": 4, "kind": "fake_incident", "public_kind": "hospital", "culprit": "student"}],
+  "table_talk": true
+}

@@ -32,6 +32,7 @@ export interface ScenarioSummary {
   module: ModuleId;
   days: number;
   loops: number;
+  loop_options: number[];
   source: "tutorial" | "library";
 }
 export interface ScenariosResponse {

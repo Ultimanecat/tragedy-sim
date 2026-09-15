@@ -1,0 +1,8 @@
+{
+  "id": "official-mz-07-spinning-duplicate-spiral", "title": "Spinning Duplicate Spiral", "module": "MZ",
+  "days": 6, "loops": 4, "main_plot": "mz_causal", "subplots": ["mz_love_hate", "mz_death_show"],
+  "cast": {"student": "magician", "rich": "ordinary", "irregular": "prophet", "maiden": "serial", "police": "magician", "idol": "friend", "journalist": "conspiracy", "doctor": "ordinary", "patient": "immortal"},
+  "role_slots": {"magician": 2, "serial": 1, "friend": 1, "conspiracy": 1, "immortal": 1},
+  "incidents": [{"day": 3, "kind": "fake_suicide", "culprit": "student"}, {"day": 4, "kind": "missing", "culprit": "rich"}, {"day": 5, "kind": "riot", "culprit": "journalist"}, {"day": 6, "kind": "confession", "culprit": "patient"}],
+  "table_talk": true
+}

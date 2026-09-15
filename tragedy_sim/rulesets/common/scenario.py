@@ -3,7 +3,8 @@ from collections import Counter
 from copy import deepcopy
 from ...catalog import CHARACTERS, INCIDENT_NAMES, MODULES, PLOTS, ROLE_NAMES
 from ...engine import RuleError
-from ..scenario_roles import character_genders, selected_role_counts, validate_character_options
+from ..scenario_roles import (character_genders, selected_role_counts,
+                              validate_character_options, validate_scenario_metadata)
 def validate_scenario(data: dict) -> dict:
     required = {'id', 'title', 'module', 'days', 'loops', 'main_plot', 'subplots', 'cast', 'incidents'}
     if isinstance(data, dict) and 'hidden_cast' in data:
@@ -12,7 +13,9 @@ def validate_scenario(data: dict) -> dict:
         raise RuleError('只有 LL 可以设置 ll_secret_order')
     if isinstance(data, dict) and 'wm_replacement_plot' in data:
         raise RuleError('只有疯狂的真相可以设置 wm_replacement_plot')
-    if not isinstance(data, dict) or set(data) - required - {'table_talk', 'character_options'} or required - set(data):
+    if (not isinstance(data, dict)
+            or set(data) - required - {'table_talk', 'character_options', 'loop_options',
+                                       'special_rules', 'role_slots'} or required - set(data)):
         raise RuleError('剧本字段不完整或含不支持的字段；请参考 examples 中的 JSON')
     if any((not isinstance(data[k], str) or not data[k] for k in ('id', 'title', 'module', 'main_plot'))):
         raise RuleError('剧本名称、ID、模组、规则 Y 必须是非空字符串')
@@ -35,11 +38,14 @@ def validate_scenario(data: dict) -> dict:
     if any((c not in spec.characters or not isinstance(r, str) or r not in ROLE_NAMES for c, r in cast.items())):
         raise RuleError('剧本包含未知角色或无效身份')
     validate_character_options(data, cast)
+    validate_scenario_metadata(data)
     expected = Counter()
     for p in plots:
         expected.update(PLOTS[p][2])
     for role, cap in spec.role_caps.items():
         expected[role] = min(expected[role], cap)
+    if "role_slots" in data:
+        expected = Counter(data["role_slots"])
     actual = selected_role_counts(cast, plots, spec.plots)
     if 'hideous' in plots:
         if actual.get('curmudgeon', 0) > 2:

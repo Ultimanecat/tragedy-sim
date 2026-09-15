@@ -38,12 +38,12 @@ INCIDENT_NAMES.update({"serial_murder": "连续杀人", "covert_activity": "隐�
 INCIDENT_NAMES.update({"terror_attack": "恐怖袭击", "omen": "前兆",
                        "bizarre_murder": "猎奇杀人", "suspicious_letter": "可疑信件",
                        "lockdown": "封锁", "silver_bullet": "银色子弹"})
-INCIDENT_NAMES.update({"frenzied_murder": "癫狂杀人", "funeral": "送葬",
-                       "curse_declaration": "宣告诅咒", "barricade": "孤守",
+INCIDENT_NAMES.update({"frenzied_murder": "疯狂杀人", "funeral": "送葬",
+                       "curse_declaration": "言灵诅咒", "barricade": "孤守",
                        "frenzied_night": "疯狂之夜", "curse_awakening": "诅咒活化",
                        "filth_overflow": "污秽溢出", "dead_apocalypse": "死者默示录"})
-INCIDENT_NAMES.update({"mass_suicide": "集体自杀", "extinction": "灭绝之灾",
-                       "dagon_whisper": "达贡黑井之息", "discovery": "发现"})
+INCIDENT_NAMES.update({"mass_suicide": "集体自杀", "extinction": "灭绝之火",
+                       "dagon_whisper": "廷达罗斯之嗅", "discovery": "发现"})
 INCIDENT_NAMES.update({"impulsive_murder": "冲动杀人", "dimension_swap": "次元转换",
                        "dimension_distortion": "次元歪曲", "dimension_break": "次元断层",
                        "lost_property": "遗失之物", "imaginary_incident": "空想事件",
@@ -67,21 +67,21 @@ PLOTS = {
     "lurking": ("潜伏的杀人狂", "X", {"friend": 1, "serial": 1}),
     "virus": ("妄想扩大病毒", "X", {"conspiracy": 1}),
     "threads": ("因果线", "X", {}),
-    "unknown": ("未知因子 X", "X", {"factor": 1}),
+    "unknown": ("未知因子 χ", "X", {"factor": 1}),
     "mz_secret_record": ("绝密报告", "Y", {"key": 1, "brain": 1, "conspiracy": 1}),
     "mz_battle": ("男子汉的战争", "Y", {"ninja": 1}),
-    "mz_approaching": ("魔爪渐近", "Y", {"key": 1, "cultist": 1, "ninja": 1}),
+    "mz_approaching": ("魔爪渐进", "Y", {"key": 1, "cultist": 1, "ninja": 1}),
     "mz_causal": ("因果之绊", "Y", {"friend": 1, "serial": 1, "conspiracy": 1}),
     "mz_love_hate": ("爱与恨的螺旋", "X", {"friend": 1, "obsessive": 1}),
     "mz_witch_tea": ("魔女的茶会", "X", {"friend": 1, "conspiracy": 1, "witch": 2}),
     "mz_gods_dice": ("诸神之骰", "X", {"serial": 1, "obsessive": 1}),
-    "mz_factor": ("X 异因子", "X", {"factor": 1}),
+    "mz_factor": ("χ 异因子", "X", {"factor": 1}),
     "mz_death_show": ("死亡真人秀", "X", {"magician": 1, "immortal": 1}),
-    "mz_clear_mind": ("心无重障", "X", {"conspiracy": 1, "magician": 1}),
-    "mz_doom_song": ("灭亡颂歌", "X", {"prophet": 1}),
+    "mz_clear_mind": ("心无灵犀", "X", {"conspiracy": 1, "magician": 1}),
+    "mz_doom_song": ("灭亡讴歌", "X", {"prophet": 1}),
     "mc_event_web": ("事件交织的罗网", "Y", {"fool": 1, "conspiracy": 1}),
     "mc_tightrope": ("命悬一线的计划", "Y", {"killer": 1, "brain": 1}),
-    "mc_dark_school": ("黑暗学园", "Y", {"brain": 1}),
+    "mc_dark_school": ("黑暗学院", "Y", {"brain": 1}),
     "mc_strychnine": ("士的宁毒液", "Y", {"key": 1, "poisoner": 1, "fool": 1}),
     "mc_isolation": ("隔离病房惊魂记", "X", {"conspiracy": 1, "paranoid": 1,
                                                  "psychiatrist": 1}),
@@ -168,6 +168,7 @@ _ALL_CHARACTERS = ("student", "girl", "rich", "class_rep", "teacher", "maiden",
                    "part_timer", "part_timer_question", "servant", "higher_being")
 # “Part-Timer?” is the reverse side/replacement of Part-Timer, never an initial cast member.
 _SCENARIO_CHARACTERS = tuple(cid for cid in _ALL_CHARACTERS if cid != "part_timer_question")
+_MZ_CHARACTERS = (*_SCENARIO_CHARACTERS, "henchman")
 _MC_CHARACTERS = (*tuple(cid for cid in _SCENARIO_CHARACTERS if cid != "soldier"), "henchman")
 _FS_PLOTS = ("murder_plan", "avenger", "protect", "ripper", "rumor", "hideous")
 _BTX_PLOTS = ("murder_plan", "sealed", "sign", "change", "bomb", "friends", "love",
@@ -214,7 +215,7 @@ MODULES = {
     "BTX": ModuleSpec("BasicTragedyX", _BTX_PLOTS, 2, _BTX_INCIDENTS,
                       {"conspiracy": 1, "friend": 2}, True, True, _SCENARIO_CHARACTERS, True),
     "MZ": ModuleSpec("MidnightZone", _MZ_PLOTS, 2, _MZ_INCIDENTS,
-                     {"conspiracy": 1, "friend": 2}, True, True, _SCENARIO_CHARACTERS, True),
+                     {"conspiracy": 1, "friend": 2}, True, True, _MZ_CHARACTERS, True),
     "MC": ModuleSpec("MysteryCircle", _MC_PLOTS, 2, _MC_INCIDENTS,
                      {"conspiracy": 1, "friend": 2, "fool": 1}, True, True,
                      _MC_CHARACTERS, True),

@@ -1,0 +1,10 @@
+{
+  "id": "official-mc-10-unknowns-of-academic-city", "title": "The Unknowns of the Tragedies in the Academic City", "module": "MC",
+  "days": 7, "loops": 4, "main_plot": "mc_strychnine", "subplots": ["mc_detective", "lurking"],
+  "cast": {"girl": "friend", "rich": "detective", "maiden": "poisoner", "outsider": "key", "informer": "ordinary", "idol": "friend", "boss": "conspiracy", "doctor": "fool", "patient": "serial"},
+  "role_slots": {"friend": 2, "detective": 1, "poisoner": 1, "key": 1, "conspiracy": 1, "fool": 1, "serial": 1},
+  "character_options": {"boss": {"territory": "school"}},
+  "special_rules": {"all_locations_count_as": "school"},
+  "incidents": [{"day": 2, "kind": "fake_suicide", "culprit": "maiden"}, {"day": 3, "kind": "suicide", "culprit": "girl"}, {"day": 5, "kind": "bizarre_murder", "culprit": "boss"}, {"day": 6, "kind": "serial_murder", "culprit": "doctor"}],
+  "table_talk": true
+}

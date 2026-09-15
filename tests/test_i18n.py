@@ -26,10 +26,17 @@ class InternationalizationTests(unittest.TestCase):
 
     def test_entity_terminology_is_complete(self):
         data = terminology()
-        for group in ("characters", "roles", "incidents"):
+        for group in ("characters", "plots", "roles", "incidents"):
             for key, translations in data[group].items():
                 self.assertEqual(set(translations), {"zh", "en", "ja"}, (group, key))
                 self.assertTrue(all(translations.values()), (group, key))
+
+    def test_wiki_cross_checked_terms(self):
+        self.assertEqual(label("characters", "irregular", "en"), "Mystery Boy")
+        self.assertEqual(label("characters", "forensic", "zh"), "鉴别员")
+        self.assertEqual(label("plots", "mz_factor", "en"), "Unsafe Trigger")
+        self.assertEqual(label("plots", "mz_clear_mind", "ja"), "通わぬ心")
+        self.assertEqual(label("incidents", "dagon_whisper", "zh"), "廷达罗斯之嗅")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,7 @@
+{
+  "id": "official-btx-02-traditional-ensemble-murder", "title": "Traditional Ensemble Murder", "module": "BTX",
+  "days": 7, "loops": 5, "loop_options": [3, 4, 5], "main_plot": "murder_plan", "subplots": ["rumor", "lurking"],
+  "cast": {"student": "serial", "girl": "key", "rich": "killer", "maiden": "friend", "police": "brain", "worker": "ordinary", "informer": "ordinary", "doctor": "conspiracy", "patient": "ordinary"},
+  "incidents": [{"day": 2, "kind": "unease", "culprit": "patient"}, {"day": 4, "kind": "hospital", "culprit": "maiden"}, {"day": 5, "kind": "missing", "culprit": "student"}, {"day": 7, "kind": "murder", "culprit": "worker"}],
+  "table_talk": true
+}

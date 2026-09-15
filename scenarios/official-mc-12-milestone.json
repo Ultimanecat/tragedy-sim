@@ -1,0 +1,8 @@
+{
+  "id": "official-mc-12-milestone", "title": "Milestone", "module": "MC",
+  "days": 7, "loops": 5, "loop_options": [4, 5], "main_plot": "mc_tightrope", "subplots": ["mc_absolute", "mc_detective"],
+  "cast": {"girl": "conspiracy", "rich": "killer", "irregular": "poisoner", "outsider": "obsessive", "police": "detective", "informer": "ordinary", "idol": "friend", "patient": "brain", "scholar": "ordinary", "henchman": "ordinary"},
+  "special_rules": {"disabled_mastermind_cards": ["fg"]},
+  "incidents": [{"day": 1, "kind": "hospital", "culprit": "informer"}, {"day": 2, "kind": "terror_attack", "culprit": "outsider"}, {"day": 4, "kind": "omen", "culprit": "henchman"}, {"day": 5, "kind": "bizarre_murder", "culprit": "girl"}, {"day": 6, "kind": "silver_bullet", "culprit": "scholar"}, {"day": 7, "kind": "bizarre_murder", "culprit": "rich"}],
+  "table_talk": true
+}

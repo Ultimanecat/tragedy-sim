@@ -165,7 +165,7 @@ class GameService:
                                         "early_final_guess": spec.early_final_guess}},
             "locations": [{"id": key, "name": label("locations", key, language, fallback=value)} for key, value in LOCATIONS.items()],
             "counters": [{"id": key, "name": label("counters", key, language, fallback=value)} for key, value in COUNTER_NAMES.items()],
-            "plots": [{"id": plot, "name": PLOTS[plot][0], "type": PLOTS[plot][1],
+            "plots": [{"id": plot, "name": label("plots", plot, language, fallback=PLOTS[plot][0]), "type": PLOTS[plot][1],
                        "rule": PLOT_RULES[plot], "roles": PLOTS[plot][2]}
                       for plot in spec.plots],
             "roles": [{"id": role, "name": label("roles", role, language, fallback=ROLE_NAMES[role]), "rule": ROLE_RULES[role]}

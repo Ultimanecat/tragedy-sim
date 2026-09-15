@@ -45,6 +45,10 @@ class GameServiceTests(unittest.TestCase):
         self.assertEqual(next(r["name"] for r in english["roles"] if r["id"] == "key"), "Key Person")
         self.assertEqual(next(r["name"] for r in japanese["roles"] if r["id"] == "serial"), "シリアルキラー")
         self.assertEqual(next(c["name"] for c in english["characters"] if c["id"] == "student"), "Boy Student")
+        self.assertEqual(next(p["name"] for p in english["plots"]
+                              if p["id"] == "murder_plan"), "Murder Plan")
+        self.assertEqual(next(p["name"] for p in japanese["plots"]
+                              if p["id"] == "unknown"), "不定因子χ")
         with self.assertRaises(ServiceError) as caught:
             self.service.get_catalog("BTX", "xx")
         self.assertEqual(caught.exception.code, "UNSUPPORTED_LANGUAGE")

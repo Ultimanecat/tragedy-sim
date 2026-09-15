@@ -1,0 +1,7 @@
+{
+  "id": "official-fs-01-first-script", "title": "The First Script", "module": "FS",
+  "days": 4, "loops": 3, "loop_options": [2, 3], "main_plot": "murder_plan", "subplots": ["ripper"],
+  "cast": {"student": "ordinary", "girl": "key", "maiden": "serial", "police": "conspiracy", "worker": "killer", "doctor": "brain"},
+  "incidents": [{"day": 2, "kind": "murder", "culprit": "worker"}, {"day": 3, "kind": "suicide", "culprit": "girl"}],
+  "table_talk": true
+}

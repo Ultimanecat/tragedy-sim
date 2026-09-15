@@ -79,7 +79,8 @@ def _start_master_abilities_forced(self):
 
 def _start_loop_placements(self):
     queue = self._character_loop_effects()
-    if self.module == "MC" and "henchman" in self.state.characters:
+    if (self.module == "MC" and "henchman" in self.state.characters
+            and "henchman" not in self.scenario.get("character_options", {})):
         queue.append(op(
             "choice", prompt="轮回开始：剧作家决定手下的初始区域",
             options=[option(f"手下从{LOCATIONS[location]}开始",
@@ -253,7 +254,9 @@ def _resolve_loop_end(self, forced=False):
                  (main == "mc_event_web" and self.ex_gauge >= 3) or
                  (main == "mc_tightrope" and self.ex_gauge <= 1) or
                  (main == "mc_dark_school"
-                  and s.locations["school"] >= s.loop - 1) or
+                  and (sum(s.locations.values()) if self.scenario.get("special_rules", {}).get(
+                       "all_locations_count_as") == "school" else s.locations["school"])
+                  >= s.loop - 1) or
                  ("mc_gunpowder" in self.scenario["subplots"]
                   and sum(c.intrigue for c in self._living()) >= 12) or
                  ("mz_death_show" in self.scenario["subplots"]

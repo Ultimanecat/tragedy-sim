@@ -36,6 +36,7 @@ python -m tragedy_sim --serve
 
 浏览器打开 `http://127.0.0.1:8765/`。当前 Web 页面用于本地单机调试，支持选择规则集或 JSON 剧本、
 切换座位视角、完整操作、存取中间状态，以及在对局结束后查看/导出回放。
+大厅内置八个原创教学局，以及 22 个由项目维护者所提供卡图人工录入的 FS、BT/BTX、MZ、MC 官方剧本。
 版图位于手牌上方；行动牌可以直接拖到服务端标出的合法角色或版图，也始终可以使用“点击牌、点击版图目标、
 确认执行”的操作方式。可发动角色能力时，先在版图点击带“可发动”标记的角色，再选择具体能力。
 公开日志可以按今日、本轮回或全部范围筛选和搜索；完整对局回放以决策时间轴显示每次选择及其结算记录，
@@ -221,9 +222,9 @@ python -m tragedy_sim --load session.json
 复制 [FS 示例](examples/fs-tutorial.json)、[BTX 示例](examples/btx-tutorial.json)、
 [MZ 示例](examples/mz-tutorial.json)、
 [MC 示例](examples/mc-tutorial.json) 或 [HSA 示例](examples/hsa-tutorial.json) 后修改。
-文件包含身份与当事人答案，主人公请勿提前阅读；这是原创教学剧本，不是官方剧本转录。
+示例文件包含身份与当事人答案，主人公请勿提前阅读；`examples/` 中的是原创教学剧本。
 
-Web 大厅会从 `GET /v1/scenarios` 读取可选剧本。仓库内置的八个原创教学剧本始终可选；把核对后的新剧本 JSON
+Web 大厅会从 `GET /v1/scenarios` 读取可选剧本。仓库内置八个原创教学剧本和 22 个已核对的官方剧本；把新剧本 JSON
 放入 `scenarios/` 后，服务会自动发现并严格校验，再只向大厅公开标题、规则集、天数和轮回数。秘密身份与事件答案不会
 通过目录接口下发。具体约定见 [剧本数据目录](scenarios/README.md)。
 
@@ -234,16 +235,17 @@ Web 大厅会从 `GET /v1/scenarios` 读取可选剧本。仓库内置的八个�
 伪造事件还必须用 `public_kind` 填写主人公看到的已知事件 ID（可来自其他模组），实际类型只在剧作家资料中出现。
 身份数量、上限、少女条件、模组、日期和重复当事人会在开始前检查。
 
-神灵、大人物和转校生还需要顶层 `character_options`，分别填写登场轮回、公开领地和每轮登场日：
+神灵、大人物、转校生和需要固定初始位置的手下还需要顶层 `character_options`：
 
 ```json
 {"godly": {"entry_loop": 2}, "boss": {"territory": "hospital"},
- "transfer_student": {"entry_day": 3}}
+ "transfer_student": {"entry_day": 3}, "henchman": {"initial_location": "city"}}
 ```
 
 只填写本剧本实际登场的特殊角色；A.I. 不能被分配为平民。
 
-当前接受 1–8 天、1–8 轮和各模组速查表允许的角色，包括神灵及转校生的延迟登场。暂不支持任意额外剧本规则或目录外扩展角色；
+当前接受 1–8 天、1–8 轮和全部 35 名已支持角色，包括延迟登场、卡面轮回数选项、精确身份槽，以及少量经过
+白名单校验的官方剧本特殊规则。暂不支持目录外扩展角色或任意自定义规则；
 不支持的字段会明确报错，不会静默忽略。也不自动 OCR 或导入整个资源包。
 后续规则集采用 Haunted Stage Again（HSA）与 Another Horizon Revised（AHR）；旧版 HS / AH 不列入实现范围。
 

@@ -1,0 +1,9 @@
+{
+  "id": "official-btx-11-neverending-happy-sad-story", "title": "Neverending Happy & Sad Story", "module": "BTX",
+  "days": 6, "loops": 4, "main_plot": "bomb", "subplots": ["rumor", "love"],
+  "cast": {"girl": "ordinary", "rich": "loved", "class_rep": "ordinary", "irregular": "brain", "outsider": "ordinary", "godly": "witch", "worker": "ordinary", "idol": "ordinary", "boss": "conspiracy", "patient": "lover", "nurse": "ordinary"},
+  "character_options": {"godly": {"entry_loop": 4}, "boss": {"territory": "school"}},
+  "special_rules": {"disabled_mastermind_cards": ["fg"]},
+  "incidents": [{"day": 2, "kind": "butterfly", "culprit": "class_rep"}, {"day": 3, "kind": "unease", "culprit": "outsider"}, {"day": 4, "kind": "missing", "culprit": "worker"}, {"day": 5, "kind": "butterfly", "culprit": "nurse"}, {"day": 6, "kind": "missing", "culprit": "patient"}],
+  "table_talk": true
+}

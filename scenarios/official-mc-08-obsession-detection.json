@@ -1,0 +1,7 @@
+{
+  "id": "official-mc-08-obsession-detection", "title": "Obsession Detection", "module": "MC",
+  "days": 5, "loops": 4, "main_plot": "mc_dark_school", "subplots": ["mc_twins", "mc_fool_dance"],
+  "cast": {"student": "brain", "rich": "fool", "maiden": "ordinary", "outsider": "twin", "police": "paranoid", "worker": "ordinary", "journalist": "ordinary", "patient": "friend"},
+  "incidents": [{"day": 1, "kind": "omen", "culprit": "rich"}, {"day": 2, "kind": "silver_bullet", "culprit": "police"}, {"day": 4, "kind": "hospital", "culprit": "maiden"}, {"day": 5, "kind": "serial_murder", "culprit": "outsider"}],
+  "table_talk": true
+}

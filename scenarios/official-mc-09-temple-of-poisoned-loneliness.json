@@ -1,0 +1,7 @@
+{
+  "id": "official-mc-09-temple-of-poisoned-loneliness", "title": "The Temple of Poisoned Loneliness", "module": "MC",
+  "days": 5, "loops": 4, "loop_options": [3, 4], "main_plot": "mc_event_web", "subplots": ["mc_absolute", "mc_twins"],
+  "cast": {"student": "paranoid", "girl": "ordinary", "rich": "ordinary", "maiden": "twin", "worker": "ordinary", "journalist": "conspiracy", "idol": "ordinary", "patient": "fool", "nurse": "obsessive"},
+  "incidents": [{"day": 1, "kind": "unease", "culprit": "nurse"}, {"day": 2, "kind": "serial_murder", "culprit": "idol"}, {"day": 3, "kind": "serial_murder", "culprit": "maiden"}, {"day": 4, "kind": "serial_murder", "culprit": "patient"}, {"day": 5, "kind": "serial_murder", "culprit": "maiden"}],
+  "table_talk": true
+}

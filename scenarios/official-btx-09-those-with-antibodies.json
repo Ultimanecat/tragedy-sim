@@ -1,0 +1,7 @@
+{
+  "id": "official-btx-09-those-with-antibodies", "title": "Those with Antibodies", "module": "BTX",
+  "days": 4, "loops": 5, "loop_options": [4, 5], "main_plot": "change", "subplots": ["threads", "virus"],
+  "cast": {"girl": "ordinary", "rich": "conspiracy", "class_rep": "ordinary", "maiden": "cultist", "police": "ordinary", "worker": "ordinary", "informer": "ordinary", "doctor": "ordinary", "patient": "ordinary", "journalist": "time_traveler"},
+  "incidents": [{"day": 1, "kind": "butterfly", "culprit": "rich"}, {"day": 2, "kind": "foul_play", "culprit": "journalist"}, {"day": 3, "kind": "spreading", "culprit": "doctor"}, {"day": 4, "kind": "missing", "culprit": "police"}],
+  "table_talk": true
+}

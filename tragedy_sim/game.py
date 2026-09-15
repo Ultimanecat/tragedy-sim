@@ -220,9 +220,10 @@ class Game(ActionGame):
     def _incident_score(self, character, counter='paranoia'):
         return self.ruleset.operations['_incident_score'](self, character, counter)
 
-    def _queue_incident_resolution(self, effects, normal_end=None, culprit=None):
+    def _queue_incident_resolution(self, effects, normal_end=None, culprit=None,
+                                   repeat=True):
         return self.ruleset.operations['_queue_incident_resolution'](
-            self, effects, normal_end, culprit=culprit)
+            self, effects, normal_end, culprit=culprit, repeat=repeat)
 
     def _after_character_movements(self, before_locations):
         return self.ruleset.operations['_after_character_movements'](self, before_locations)
@@ -399,6 +400,15 @@ class Game(ActionGame):
             before_queue = tuple(self._queue)
             try:
                 if kind == "choice":
+                    # A repeated incident choice is opened only after the first
+                    # resolution. Targets killed by the first copy are no longer
+                    # legal for the second; unkillable targets remain selectable.
+                    effect["options"] = [choice for choice in effect["options"]
+                                         if not any(
+                                             nested.get("kind") == "kill"
+                                             and nested.get("target") in self.state.characters
+                                             and not self.state.characters[nested["target"]].alive
+                                             for nested in choice.get("effects", []))]
                     if effect["options"]:
                         self._pending = effect
                         self._pending_source = source

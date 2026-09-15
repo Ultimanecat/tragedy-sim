@@ -40,9 +40,9 @@ def _incident(self):
     kind = incident["kind"]
     threshold = CHARACTERS[culprit.id].limit
     if self.module == "MC" and kind == "omen":
-        threshold -= 1
+        threshold -= 2 if culprit.id == "guru" else 1
     elif self.module == "MC" and kind == "bizarre_murder":
-        threshold += 1
+        threshold += 2 if culprit.id == "guru" else 1
     prophet_alive = any(self._has(c.id, "prophet") for c in self.state.characters.values())
     if ("mz_doom_song" in self.scenario["subplots"] and self.roles[culprit.id] == "ordinary"
             and prophet_alive):
@@ -85,7 +85,13 @@ def _incident(self):
         effects = ([] if simulated else [op(
             "ex_gauge", amount=0 if kind == "silver_bullet" else
             (2 if kind == "bizarre_murder" else 1))])
-        effects += self._mc_incident_effects(kind, culprit.id)
+        incident_effects = self._mc_incident_effects(kind, culprit.id)
+        if culprit.id == "guru":
+            incident_effects = list(incident_effects) + list(incident_effects)
+            self._event("incident_effect_doubled",
+                        "教祖担任当事人：本次事件效果结算两次。",
+                        character="guru")
+        effects += incident_effects
         if self._has(culprit.id, "fool"):
             effects.append(op("clear_paranoia", target=culprit.id))
         normal_end = [op("incident_done"),
@@ -93,7 +99,8 @@ def _incident(self):
                       if kind == "silver_bullet" else op("night")]
         if simulated and kind == "silver_bullet":
             effects.append(op("finish_loop", reason="A.I. 结算银色子弹效果使轮回结束"))
-        self._queue_incident_resolution(effects, normal_end, culprit=culprit.id)
+        self._queue_incident_resolution(effects, normal_end, culprit=culprit.id,
+                                        repeat=False)
         return
     if self.module == "MZ":
         effects = self._mz_incident_effects(kind, culprit.id)
@@ -177,7 +184,8 @@ def _hsa_incident(self, incident):
     else:
         culprit = self.state.characters[incident["culprit"]]
         board = culprit.location
-        threshold = CHARACTERS[culprit.id].limit - (kind == "funeral")
+        threshold = CHARACTERS[culprit.id].limit - (
+            (2 if culprit.id == "guru" else 1) if kind == "funeral" else 0)
         happened = simulated or (culprit.present and culprit.alive
                                   and self._incident_score(culprit) >= threshold)
     record = {"day": self.state.round, "kind": kind, "happened": happened, "effective": False}
@@ -265,7 +273,8 @@ def _wm_incident(self, incident):
     simulated = self._simulated_incident is not None
     kind = incident["kind"]
     culprit = self.state.characters[incident["culprit"]]
-    threshold = CHARACTERS[culprit.id].limit - (kind == "funeral")
+    threshold = CHARACTERS[culprit.id].limit - (
+        (2 if culprit.id == "guru" else 1) if kind == "funeral" else 0)
     if kind == "dagon_whisper":
         incident_score = culprit.intrigue
     elif culprit.id == "ai":
@@ -348,7 +357,8 @@ def _ahr_incident(self, incident):
     simulated = self._simulated_incident is not None
     kind = incident["kind"]
     culprit = self.state.characters[incident["culprit"]]
-    threshold = CHARACTERS[culprit.id].limit - (kind == "impulsive_murder")
+    threshold = CHARACTERS[culprit.id].limit - (
+        (2 if culprit.id == "guru" else 1) if kind == "impulsive_murder" else 0)
     score_counter = ("intrigue" if kind == "imaginary_incident" else
                      "goodwill" if (self.ex_gauge % 2 or kind == "hope_light")
                      else "paranoia")

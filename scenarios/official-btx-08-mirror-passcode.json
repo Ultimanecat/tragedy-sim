@@ -1,0 +1,7 @@
+{
+  "id": "official-btx-08-mirror-passcode", "title": "Mirror Passcode", "module": "BTX",
+  "days": 7, "loops": 4, "loop_options": [3, 4], "main_plot": "sign", "subplots": ["unknown", "virus"],
+  "cast": {"student": "ordinary", "girl": "key", "rich": "factor", "irregular": "cultist", "worker": "ordinary", "informer": "conspiracy", "journalist": "ordinary", "patient": "ordinary", "nurse": "ordinary"},
+  "incidents": [{"day": 3, "kind": "missing", "culprit": "rich"}, {"day": 4, "kind": "unease", "culprit": "journalist"}, {"day": 5, "kind": "hospital", "culprit": "irregular"}, {"day": 7, "kind": "murder", "culprit": "student"}],
+  "table_talk": true
+}

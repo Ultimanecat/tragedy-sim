@@ -778,7 +778,9 @@ export default function App() {
       <select aria-label="剧本" value={effectiveScenarioId} disabled={!availableScenarios.length}
         onChange={event => setScenarioId(event.target.value)}>
         {availableScenarios.map(item => <option key={item.id} value={item.id}>
-          {item.title} · {item.days} 天/{item.loops} 轮
+          {item.title} · {item.days} 天/{item.loop_options.length > 1
+            ? `${item.loop_options[0]}–${item.loop_options.at(-1)} 轮（默认 ${item.loops}）`
+            : `${item.loops} 轮`}
         </option>)}</select>
       <button className="primary" disabled={busy} onClick={createGame}>新建对局</button>
       <label className="file-button">载入存档/剧本<input type="file" accept="application/json" onChange={event => event.target.files?.[0] && void restore(event.target.files[0])} /></label>

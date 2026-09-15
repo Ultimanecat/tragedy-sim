@@ -6,6 +6,7 @@ from tragedy_sim import Game, RuleError
 from tragedy_sim.catalog import CHARACTERS, MODULES
 from tragedy_sim.effects.vocabulary import op, option
 from tragedy_sim.scenario import validate_scenario
+from tragedy_sim.scenario_library import ScenarioLibrary
 
 
 class CharacterCatalogTests(unittest.TestCase):
@@ -302,6 +303,53 @@ class RemainingCharacterTests(unittest.TestCase):
         game._queue_incident_resolution(
             [op("counter", target="shrine", counter="intrigue", amount=2)], culprit="guru")
         self.assertEqual(game.state.locations["shrine"], 4)
+
+    def test_guru_doubles_mc_printed_effect_but_not_ex_gauge_gain(self):
+        scenario = ScenarioLibrary().get("official-mc-11-festival-of-fools")
+        scenario["cast"]["guru"] = scenario["cast"].pop("rich")
+        for incident in scenario["incidents"]:
+            if incident["culprit"] == "rich":
+                incident["culprit"] = "guru"
+        game = Game(scenario)
+        game.state.round = 4
+        game.state.characters["guru"].paranoia = 1
+        game.state.phase = "incident"
+
+        game.dispatch("m", "next")
+        choose(game, "m", lambda item: any(
+            effect.get("target") == "maiden" for effect in item.get("effects", [])))
+        choose(game, "m", lambda item: any(
+            effect.get("target") == "maiden" for effect in item.get("effects", [])))
+
+        self.assertEqual(game.ex_gauge, 1)
+        self.assertEqual(game.state.characters["maiden"].paranoia, 2)
+        self.assertEqual(game.state.characters["guru"].paranoia, 0)
+        self.assertTrue(any(event["kind"] == "incident_effect_doubled"
+                            for event in game.state.events))
+
+    def test_guru_repeated_murder_recalculates_living_targets(self):
+        scenario = ScenarioLibrary().get("official-fs-01-first-script")
+        scenario["cast"]["guru"] = scenario["cast"].pop("worker")
+        for incident in scenario["incidents"]:
+            if incident["culprit"] == "worker":
+                incident["culprit"] = "guru"
+        game = Game(scenario)
+        game.state.round = 2
+        for cid in ("guru", "student", "police"):
+            game.state.characters[cid].location = "shrine"
+        game.state.characters["guru"].paranoia = 3
+        game.state.phase = "incident"
+
+        game.dispatch("m", "next")
+        choose(game, "m", lambda item: any(
+            effect.get("target") == "student" for effect in item.get("effects", [])))
+        self.assertFalse(game.state.characters["student"].alive)
+        self.assertFalse(any(
+            effect.get("target") == "student"
+            for item in game.options("m") for effect in item.get("effects", [])))
+        choose(game, "m", lambda item: any(
+            effect.get("target") == "police" for effect in item.get("effects", [])))
+        self.assertFalse(game.state.characters["police"].alive)
 
     def test_copycat_role_does_not_consume_slot_and_information_is_private(self):
         scenario = special_scenario(

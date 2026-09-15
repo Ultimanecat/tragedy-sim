@@ -1,0 +1,7 @@
+{
+  "id": "official-btx-03-future-assassin", "title": "The Future Assassin", "module": "BTX",
+  "days": 5, "loops": 5, "loop_options": [4, 5], "main_plot": "change", "subplots": ["lurking", "friends"],
+  "cast": {"girl": "ordinary", "class_rep": "friend", "maiden": "friend", "outsider": "ordinary", "informer": "conspiracy", "idol": "cultist", "journalist": "ordinary", "doctor": "serial", "patient": "time_traveler"},
+  "incidents": [{"day": 2, "kind": "butterfly", "culprit": "class_rep"}, {"day": 4, "kind": "faraway", "culprit": "doctor"}, {"day": 5, "kind": "hospital", "culprit": "informer"}],
+  "table_talk": true
+}

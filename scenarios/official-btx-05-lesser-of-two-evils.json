@@ -1,0 +1,7 @@
+{
+  "id": "official-btx-05-lesser-of-two-evils", "title": "Lesser of Two Evils", "module": "BTX",
+  "days": 7, "loops": 4, "loop_options": [3, 4], "main_plot": "sealed", "subplots": ["lurking", "unknown"],
+  "cast": {"student": "ordinary", "girl": "ordinary", "rich": "brain", "maiden": "friend", "worker": "serial", "informer": "ordinary", "journalist": "factor", "patient": "ordinary", "nurse": "cultist"},
+  "incidents": [{"day": 2, "kind": "unease", "culprit": "rich"}, {"day": 4, "kind": "missing", "culprit": "nurse"}, {"day": 5, "kind": "missing", "culprit": "student"}, {"day": 7, "kind": "suicide", "culprit": "journalist"}],
+  "table_talk": true
+}

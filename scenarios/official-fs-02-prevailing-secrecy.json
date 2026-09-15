@@ -1,0 +1,7 @@
+{
+  "id": "official-fs-02-prevailing-secrecy", "title": "Prevailing Secrecy", "module": "FS",
+  "days": 5, "loops": 4, "loop_options": [3, 4], "main_plot": "protect", "subplots": ["rumor"],
+  "cast": {"student": "cultist", "girl": "ordinary", "maiden": "conspiracy", "worker": "ordinary", "doctor": "key", "patient": "ordinary"},
+  "incidents": [{"day": 1, "kind": "unease", "culprit": "maiden"}, {"day": 3, "kind": "hospital", "culprit": "student"}, {"day": 5, "kind": "faraway", "culprit": "patient"}],
+  "table_talk": true
+}

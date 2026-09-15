@@ -1,0 +1,8 @@
+{
+  "id": "official-btx-07-future-of-the-gods", "title": "The Future of the Gods", "module": "BTX",
+  "days": 7, "loops": 4, "main_plot": "change", "subplots": ["lurking", "love"],
+  "cast": {"student": "time_traveler", "rich": "ordinary", "maiden": "cultist", "godly": "loved", "police": "ordinary", "worker": "serial", "idol": "lover", "patient": "ordinary", "nurse": "friend"},
+  "character_options": {"godly": {"entry_loop": 3}},
+  "incidents": [{"day": 2, "kind": "suicide", "culprit": "idol"}, {"day": 4, "kind": "unease", "culprit": "maiden"}, {"day": 5, "kind": "butterfly", "culprit": "police"}, {"day": 7, "kind": "foul_play", "culprit": "patient"}],
+  "table_talk": true
+}

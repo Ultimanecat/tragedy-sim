@@ -3,14 +3,16 @@ from collections import Counter
 from copy import deepcopy
 from ...catalog import CHARACTERS, INCIDENT_NAMES, MODULES, PLOTS, ROLE_NAMES
 from ...engine import RuleError
-from ..scenario_roles import character_genders, selected_role_counts, validate_character_options
+from ..scenario_roles import (character_genders, selected_role_counts,
+                              validate_character_options, validate_scenario_metadata)
 HSA_GROUP_INCIDENTS = {"frenzied_night", "curse_awakening", "filth_overflow", "dead_apocalypse"}
 
 def validate_scenario(data: dict) -> dict:
     required = {"id", "title", "module", "days", "loops", "main_plot", "subplots", "cast", "incidents"}
     if (not isinstance(data, dict)
             or set(data) - required - {"table_talk", "wm_replacement_plot", "hidden_cast",
-                                       "ll_secret_order", "character_options"}
+                                       "ll_secret_order", "character_options", "loop_options",
+                                       "special_rules", "role_slots"}
             or required - set(data)):
         raise RuleError("剧本字段不完整或含不支持的字段；请参考 examples 中的 JSON")
     if any(not isinstance(data[k], str) or not data[k] for k in ("id", "title", "module", "main_plot")):
@@ -42,6 +44,7 @@ def validate_scenario(data: dict) -> dict:
            for c, r in cast.items()):
         raise RuleError("剧本包含未知角色或无效身份")
     validate_character_options(data, cast)
+    validate_scenario_metadata(data)
     hidden_cast = data.get("hidden_cast")
     if module == "AHR":
         if hidden_cast is None:
@@ -67,6 +70,8 @@ def validate_scenario(data: dict) -> dict:
         expected.update(PLOTS[p][2])
     for role, cap in spec.role_caps.items():
         expected[role] = min(expected[role], cap)
+    if "role_slots" in data:
+        expected = Counter(data["role_slots"])
     actual = selected_role_counts(cast, plots, spec.plots)
     if "hideous" in plots:
         if actual.get("curmudgeon", 0) > 2:

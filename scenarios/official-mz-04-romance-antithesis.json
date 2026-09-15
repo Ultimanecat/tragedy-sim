@@ -1,0 +1,7 @@
+{
+  "id": "official-mz-04-romance-antithesis", "title": "Romance Antithesis", "module": "MZ",
+  "days": 5, "loops": 4, "loop_options": [3, 4], "main_plot": "mz_battle", "subplots": ["mz_factor", "mz_love_hate"],
+  "cast": {"student": "ordinary", "girl": "obsessive", "rich": "friend", "maiden": "ordinary", "outsider": "factor", "police": "ordinary", "worker": "ninja"},
+  "incidents": [{"day": 2, "kind": "confession", "culprit": "rich"}, {"day": 3, "kind": "confession", "culprit": "worker"}, {"day": 4, "kind": "unease", "culprit": "girl"}],
+  "table_talk": true
+}

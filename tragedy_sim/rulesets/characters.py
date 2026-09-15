@@ -8,6 +8,10 @@ from ..effects.vocabulary import op, option
 
 def _apply_character_setup(self):
     options = self.scenario.get("character_options", {})
+    for card in self.scenario.get("special_rules", {}).get(
+            "disabled_mastermind_cards", []):
+        while card in self.state.hands["m"]:
+            self.state.hands["m"].remove(card)
     if "godly" in self.state.characters:
         entry = options["godly"]["entry_loop"]
         self.state.characters["godly"].present = self.state.loop >= entry
@@ -19,6 +23,10 @@ def _apply_character_setup(self):
         location = options.get("servant", {}).get("initial_location", "city")
         self.state.characters["servant"].location = location
         self._initial["servant"].location = location
+    if "henchman" in options:
+        location = options["henchman"]["initial_location"]
+        self.state.characters["henchman"].location = location
+        self._initial["henchman"].location = location
 
 
 def _character_loop_effects(self):
@@ -76,6 +84,9 @@ def _ability_locations(self, cid):
     result = [character.location]
     if cid == "boss":
         territory = self.scenario["character_options"]["boss"]["territory"]
+        if self.scenario.get("special_rules", {}).get(
+                "all_locations_count_as") == territory:
+            return tuple(self.state.locations)
         if territory not in result:
             result.append(territory)
     return tuple(result)
@@ -88,8 +99,9 @@ def _incident_score(self, character, counter="paranoia"):
     return self._count(character, counter)
 
 
-def _queue_incident_resolution(self, effects, normal_end=None, *, culprit=None):
-    if culprit == "guru":
+def _queue_incident_resolution(self, effects, normal_end=None, *, culprit=None,
+                               repeat=True):
+    if culprit == "guru" and repeat:
         effects = list(effects) + list(effects)
         self._event("incident_effect_doubled", "教祖担任当事人：本次事件效果结算两次。",
                     character="guru")

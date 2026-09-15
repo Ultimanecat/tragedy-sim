@@ -1,0 +1,7 @@
+{
+  "id": "official-btx-01-machina-solar-cogwheel", "title": "Machina Solar Cogwheel", "module": "BTX",
+  "days": 6, "loops": 5, "loop_options": [4, 5], "main_plot": "change", "subplots": ["love", "friends"],
+  "cast": {"rich": "conspiracy", "class_rep": "ordinary", "outsider": "friend", "informer": "loved", "forensic": "friend", "ai": "time_traveler", "patient": "cultist", "scholar": "lover"},
+  "incidents": [{"day": 3, "kind": "murder", "culprit": "informer"}, {"day": 4, "kind": "butterfly", "culprit": "ai"}, {"day": 5, "kind": "suicide", "culprit": "rich"}, {"day": 6, "kind": "hospital", "culprit": "scholar"}],
+  "table_talk": true
+}

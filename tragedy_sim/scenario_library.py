@@ -57,6 +57,7 @@ class ScenarioLibrary:
             "module": scenario["module"],
             "days": scenario["days"],
             "loops": scenario["loops"],
+            "loop_options": scenario.get("loop_options", [scenario["loops"]]),
             "source": source,
         } for scenario, source in self._entries().values()
             if module is None or scenario["module"] == module]
