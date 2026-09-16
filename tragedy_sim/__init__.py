@@ -13,7 +13,8 @@ from .replay import ReplayArchive, ReplaySession
 from .service import GameService, LocalGameClient, PROTOCOL_VERSION, ServiceError
 from .mcts import FullInformationMctsMastermindAgent
 from .optimized_mcts import OptimizedMctsMastermindAgent
-from .belief import CatalogBeliefSampler, HiddenWorldHypothesis, PublicEvidence
+from .belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
+                     HiddenWorldHypothesis, PublicEvidence)
 from .search import MastermindEvaluator, RootActionStats, SearchBudget, SearchTrace
 
 __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "ActivationRule", "Character",
@@ -21,7 +22,8 @@ __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "Activat
            "Effect", "EffectResult", "EndgamePlan", "FlowPlan", "Game", "GameModel", "KillCharacter",
            "GameService", "LocalGameClient", "PROTOCOL_VERSION", "ServiceError",
            "FullInformationMctsMastermindAgent", "OptimizedMctsMastermindAgent",
-           "CatalogBeliefSampler", "HiddenWorldHypothesis", "PublicEvidence",
+           "CatalogBeliefSampler", "ConstraintBeliefSampler",
+           "HiddenWorldHypothesis", "PublicEvidence",
            "MastermindEvaluator", "RootActionStats",
            "SearchBudget", "SearchTrace",
            "MATCH_FLOW", "MatchFlow", "Observation", "PHASE_LABELS", "PhaseCursor", "PhaseDefinition", "PhaseId",

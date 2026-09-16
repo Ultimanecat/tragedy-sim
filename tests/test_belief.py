@@ -4,7 +4,8 @@ import random
 import unittest
 
 from tragedy_sim import Game
-from tragedy_sim.belief import CatalogBeliefSampler, PublicEvidence
+from tragedy_sim.belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
+                                PublicEvidence)
 from tragedy_sim.scenario import example_scenario
 
 
@@ -55,6 +56,48 @@ class PublicEvidenceTests(unittest.TestCase):
         evidence = PublicEvidence.from_view(Game(example_scenario("FS")).view("a"))
         with self.assertRaises(ValueError):
             CatalogBeliefSampler().sample(evidence, 0, rng=random.Random(1))
+
+
+class ConstraintBeliefSamplerTests(unittest.TestCase):
+    def test_generates_multiple_valid_worlds_without_catalog_identity(self):
+        game = Game(example_scenario("BTX"))
+        evidence = PublicEvidence.from_view(game.view("a"))
+        worlds = ConstraintBeliefSampler().sample(
+            evidence, 12, rng=random.Random(21))
+        self.assertEqual(len(worlds), 12)
+        self.assertGreater(len({world.main_plot for world in worlds}), 1)
+        self.assertTrue(all(set(dict(world.roles)) == set(evidence.characters)
+                            for world in worlds))
+        self.assertTrue(all(tuple((day, public) for day, _, public, _ in world.incidents)
+                            == evidence.schedule for world in worlds))
+        self.assertTrue(all(world.scenario_id.startswith("belief-") for world in worlds))
+
+    def test_public_reveals_are_hard_constraints(self):
+        view = Game(example_scenario("BTX")).view("a")
+        view["known_roles"] = {"girl": {"role": "key", "loop": 1, "day": 1}}
+        view["known_culprits"] = {"2": "doctor"}
+        view["known_plots"] = ["rumor"]
+        evidence = PublicEvidence.from_view(view)
+        worlds = ConstraintBeliefSampler().sample(
+            evidence, 8, rng=random.Random(4))
+        self.assertEqual(len(worlds), 8)
+        for world in worlds:
+            self.assertEqual(dict(world.roles)["girl"], "key")
+            self.assertIn("rumor", world.subplots)
+            self.assertEqual(next(culprit for day, _, _, culprit in world.incidents
+                                  if day == 2), "doctor")
+
+    def test_generation_is_seeded_across_all_rulesets(self):
+        for module in ("FS", "BTX", "MZ", "MC", "HSA", "WM", "AHR", "LL"):
+            with self.subTest(module=module):
+                evidence = PublicEvidence.from_view(
+                    Game(example_scenario(module)).view("a"))
+                first = ConstraintBeliefSampler().sample(
+                    evidence, 3, rng=random.Random(7))
+                second = ConstraintBeliefSampler().sample(
+                    evidence, 3, rng=random.Random(7))
+                self.assertEqual(first, second)
+                self.assertEqual(len(first), 3)
 
 
 if __name__ == "__main__":
