@@ -9,7 +9,8 @@ from threading import Condition, RLock
 import time
 from typing import Any
 
-from .ai import AgentPolicy, FixedStrategyMastermindAgent, RandomAgent
+from .ai import (AgentPolicy, BaselineProtagonistAgent,
+                 FixedStrategyMastermindAgent, RandomAgent)
 from .mcts import FullInformationMctsMastermindAgent
 from .optimized_mcts import OptimizedMctsMastermindAgent
 from .search import SearchBudget
@@ -306,12 +307,15 @@ class RoomService:
         strategy = request.get("strategy", "random")
         mastermind_strategies = {
             "fixed_mastermind", "mcts_mastermind", "optimized_mcts_mastermind"}
-        if strategy not in ("random", *mastermind_strategies):
+        protagonist_strategies = {"baseline_protagonist"}
+        if strategy not in ("random", *mastermind_strategies, *protagonist_strategies):
             raise ServiceError(
                 "INVALID_AI_STRATEGY",
-                "AI 策略必须是 random、fixed_mastermind、mcts_mastermind 或 optimized_mcts_mastermind")
+                "AI 策略必须是 random、baseline_protagonist、fixed_mastermind、mcts_mastermind 或 optimized_mcts_mastermind")
         if strategy in mastermind_strategies and seat != "m":
             raise ServiceError("INVALID_AI_STRATEGY", "剧作家策略 AI 只能坐在剧作家席位", status=409)
+        if strategy in protagonist_strategies and seat == "m":
+            raise ServiceError("INVALID_AI_STRATEGY", "基础干扰主人公 AI 只能坐在主人公席位", status=409)
         room = self._room(code)
         with room.lock:
             self._require_admin(room, token)
@@ -326,12 +330,15 @@ class RoomService:
                     raise ServiceError("SEAT_OCCUPIED", "该座位已经有人", status=409)
                 room.seats[seat] = _Occupant(
                     nickname=("随机 AI" if strategy == "random" else
+                              "基础干扰主人公 AI" if strategy == "baseline_protagonist" else
                               "定式剧作家 AI" if strategy == "fixed_mastermind" else
                               "朴素 MCTS 剧作家 AI" if strategy == "mcts_mastermind"
                               else "优化 MCTS 剧作家 AI"),
                     token=secrets.token_urlsafe(24), ready=True,
                     last_seen=self._clock(), ai=True, ai_type=strategy,
                     ai_policy=(self._ai_agent if strategy == "random" else
+                               BaselineProtagonistAgent()
+                               if strategy == "baseline_protagonist" else
                                FixedStrategyMastermindAgent()
                                if strategy == "fixed_mastermind" else
                                FullInformationMctsMastermindAgent(

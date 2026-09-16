@@ -28,6 +28,87 @@ class RandomAgent:
         return self._rng.choice(offers)
 
 
+class BaselineProtagonistAgent:
+    """A low-strength protagonist baseline using public information only.
+
+    It tries to undo a successful mastermind movement on the following day.
+    It also reserves Forbid Intrigue for the current leader so two protagonist
+    copies cannot accidentally cancel each other.  Other decisions are random.
+    """
+
+    MOVEMENT_CARDS = frozenset({"h", "v", "d"})
+
+    def __init__(self, rng: random.Random | random.SystemRandom | None = None):
+        self._rng = rng or random.SystemRandom()
+
+    @classmethod
+    def _reverse_moves(cls, view: dict[str, Any]) -> list[tuple[str, str]]:
+        day, loop = view.get("round"), view.get("loop")
+        if type(day) is not int or day <= 1 or type(loop) is not int:
+            return []
+        events = [event for event in view.get("events", ())
+                  if event.get("loop") == loop and event.get("round") == day - 1]
+        moved = {event.get("character") for event in events
+                 if event.get("kind") == "character_moved"}
+        result: list[tuple[str, str]] = []
+        for event in events:
+            if event.get("kind") != "cards_revealed":
+                continue
+            for placement in event.get("cards", ()):
+                target, card = placement.get("target"), placement.get("card")
+                if (placement.get("actor") == "m" and target in moved
+                        and card in cls.MOVEMENT_CARDS
+                        and (card, target) not in result):
+                    result.append((card, target))
+        return result
+
+    @staticmethod
+    def _play_fields(offer: dict[str, Any]) -> tuple[str | None, str | None]:
+        if offer.get("type") != "play":
+            return None, None
+        parameters = offer.get("parameters", {})
+        return parameters.get("card"), parameters.get("target")
+
+    def choose_action(self, *, participant: str, view: dict[str, Any],
+                      offers: Sequence[dict[str, Any]]) -> dict[str, Any]:
+        if participant == "m":
+            raise ValueError("baseline protagonist strategy cannot control seat m")
+        if not offers:
+            raise ValueError("cannot choose from an empty action list")
+
+        playable = list(offers)
+        leader = view.get("leader")
+        without_illegal_convention = [
+            offer for offer in playable
+            if self._play_fields(offer)[0] != "fi" or offer.get("actor") == leader]
+        if without_illegal_convention:
+            playable = without_illegal_convention
+
+        reversals = set(self._reverse_moves(view))
+        reversing = [offer for offer in playable
+                     if self._play_fields(offer) in reversals]
+        if reversing:
+            return self._rng.choice(reversing)
+
+        forbids = [offer for offer in playable
+                   if (self._play_fields(offer)[0] == "fi"
+                       and offer.get("actor") == leader)]
+        if forbids:
+            characters = view.get("characters", {})
+            locations = view.get("locations", {})
+
+            def pressure(offer: dict[str, Any]) -> int:
+                target = self._play_fields(offer)[1]
+                if target in characters:
+                    return int(characters[target].get("intrigue", 0))
+                return int(locations.get(target, 0))
+
+            highest = max(map(pressure, forbids))
+            return self._rng.choice([offer for offer in forbids
+                                     if pressure(offer) == highest])
+        return self._rng.choice(playable)
+
+
 @dataclass(frozen=True)
 class _Plan:
     kind: str

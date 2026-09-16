@@ -3,7 +3,8 @@
 import random
 import unittest
 
-from tragedy_sim.ai import FixedStrategyMastermindAgent, RandomAgent
+from tragedy_sim.ai import (BaselineProtagonistAgent,
+                            FixedStrategyMastermindAgent, RandomAgent)
 from tragedy_sim import Game
 from tragedy_sim.mcts import FullInformationMctsMastermindAgent
 from tragedy_sim.optimized_mcts import OptimizedMctsMastermindAgent
@@ -42,6 +43,59 @@ class AiPolicyTests(unittest.TestCase):
         chosen = RandomAgent(random.Random(3)).choose_action(
             participant="m", view=self.view, offers=offers)
         self.assertIn(chosen, offers)
+
+    def test_protagonist_baseline_reverses_public_mastermind_movement(self):
+        view = {
+            "loop": 1, "round": 2, "leader": "a",
+            "characters": {"girl": {"intrigue": 0}}, "locations": {},
+            "events": [
+                {"loop": 1, "round": 1, "kind": "cards_revealed", "cards": [
+                    {"actor": "m", "card": "h", "target": "girl"},
+                    {"actor": "a", "card": "g1", "target": "worker"},
+                ]},
+                {"loop": 1, "round": 1, "kind": "character_moved",
+                 "character": "girl", "location": "city"},
+            ],
+        }
+        offers = [
+            {"id": "random", "actor": "a", "type": "play",
+             "parameters": {"card": "g1", "target": "girl"}},
+            {"id": "reverse", "actor": "a", "type": "play",
+             "parameters": {"card": "h", "target": "girl"}},
+        ]
+        chosen = BaselineProtagonistAgent(random.Random(2)).choose_action(
+            participant="a", view=view, offers=offers)
+        self.assertEqual(chosen["id"], "reverse")
+
+    def test_protagonist_baseline_reserves_forbid_intrigue_for_logical_leader(self):
+        view = {
+            "loop": 1, "round": 1, "leader": "b", "events": [],
+            "characters": {"girl": {"intrigue": 1}, "worker": {"intrigue": 3}},
+            "locations": {"school": 0},
+        }
+        offers = [
+            {"id": "a-forbid", "actor": "a", "type": "play",
+             "parameters": {"card": "fi", "target": "worker"}},
+            {"id": "a-other", "actor": "a", "type": "play",
+             "parameters": {"card": "g1", "target": "girl"}},
+        ]
+        agent = BaselineProtagonistAgent(random.Random(3))
+        self.assertEqual(agent.choose_action(
+            participant="a", view=view, offers=offers)["id"], "a-other")
+
+        controlled = offers + [
+            {"id": "b-low", "actor": "b", "type": "play",
+             "parameters": {"card": "fi", "target": "girl"}},
+            {"id": "b-high", "actor": "b", "type": "play",
+             "parameters": {"card": "fi", "target": "worker"}},
+        ]
+        self.assertEqual(agent.choose_action(
+            participant="a", view=view, offers=controlled)["id"], "b-high")
+
+    def test_protagonist_baseline_rejects_mastermind_seat(self):
+        with self.assertRaises(ValueError):
+            BaselineProtagonistAgent().choose_action(
+                participant="m", view={}, offers=[offer("next")])
 
     def test_assassination_playbook_builds_intrigue_then_moves_killer(self):
         agent = FixedStrategyMastermindAgent(random.Random(1), "key_assassination")

@@ -60,7 +60,7 @@ python -m tragedy_sim --host-room --port 8765
 
 终端会同时显示本机地址和检测到的局域网地址，例如 `http://192.168.1.23:8765/`。房主打开页面，
 选择规则集、主人公玩家人数、昵称和座位后创建房间，再分享页面中的邀请链接或六位数字房间码。支持 1 名剧作家加 1–3 名
-主人公玩家；房主可用随机 AI 填充任意空位，也可在剧作家席位选择定式 AI、朴素 MCTS 或优化 MCTS。定式 AI 会从规则失败、
+主人公玩家；房主可用随机 AI 填充任意空位，主人公席位还可选择“基础干扰主人公 AI”，剧作家席位可选择定式 AI、朴素 MCTS 或优化 MCTS。基础干扰 AI 只使用公开信息，会在下一天尝试逆转剧作家的成功移动，并约定仅逻辑领队使用禁止密谋，其他决策随机。定式 AI 会从规则失败、
 事件引爆和关键人物暗杀等当前剧本可用路径中选定一条并持续执行。朴素 MCTS 保留为完整行动空间基线；优化 MCTS 使用
 轻量搜索副本、渐进拓宽和行动先验。两者都使用可复现的节点预算、随机 rollout 和
 剧作家视角局面评价；大厅使用较小预算以保持交互速度，目前也不保证战胜真人反制。
@@ -74,8 +74,7 @@ python -m tragedy_sim --host-room --port 8765
 python -m benchmarks.mcts_search --strategy naive --module BTX --nodes 64 --depth 24 --seed 0
 python -m benchmarks.mcts_search --strategy optimized --module BTX --nodes 64 --depth 24 --seed 0
 python -m benchmarks.mcts_matrix --strategy both --nodes 12 --depth 8 --seed 0
-python -m benchmarks.ai_self_play --strategy naive --scenario official-fs-01-first-script --games 3 --nodes 12 --depth 8
-python -m benchmarks.ai_self_play --strategy optimized --scenario official-fs-01-first-script --games 3 --nodes 12 --depth 8
+python -m benchmarks.ai_self_play --strategy all --all-recorded --games 3 --nodes 8 --depth 8 --protagonists baseline --progress
 ```
 
 `mcts_matrix` 会在八个规则集的首个分支局面比较根分支数、延迟和峰值内存。优化 MCTS 还会在实际落子后保留匹配子树，
@@ -84,6 +83,7 @@ python -m benchmarks.ai_self_play --strategy optimized --scenario official-fs-01
 
 优化 MCTS 在 FS/BTX 使用由剧本设置编译的局面估值：分别考虑主规则、身份失败路线、事件日期、阈值、位置、轮回进度及
 主人公公开知识，并生成私有贡献明细；其他规则集暂时显式回退旧通用估值。朴素 MCTS 始终保留旧估值，作为性能和棋力对照。
+当前可复现自对弈结果及其限制见 [AI 基准结果](docs/ai-benchmark-results.md)。
 
 C3 的主人公信息集搜索仍在开发中。当前 `PublicEvidence` 已建立严格的信息边界；`ConstraintBeliefSampler` 不查询剧本 ID，
 而是按规则 X/Y 身份槽、公开事件日程和已揭示事实生成经校验的隐藏世界。标准粒子已经可以物化并重放显式公开命令，

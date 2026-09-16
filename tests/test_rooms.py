@@ -220,6 +220,52 @@ class RoomServiceTests(unittest.TestCase):
                           token=other["credential"]["admin_token"])
         self.assertEqual(invalid.exception.code, "INVALID_AI_STRATEGY")
 
+    def test_baseline_protagonist_ai_is_selectable_for_protagonist_seats(self):
+        rooms = RoomService()
+        created = rooms.create({"module": "FS", "nickname": "Host", "seat": "m"})
+        code = created["room"]["code"]
+        admin = created["credential"]["admin_token"]
+        for seat in "abc":
+            updated = rooms.set_ai(code, {
+                "seat": seat, "enabled": True, "strategy": "baseline_protagonist",
+            }, token=admin)
+            self.assertEqual(updated["room"]["seats"][seat]["ai_type"],
+                             "baseline_protagonist")
+            self.assertEqual(updated["room"]["seats"][seat]["nickname"],
+                             "基础干扰主人公 AI")
+        with self.assertRaises(ServiceError) as invalid:
+            other = RoomService()
+            room = other.create({"module": "FS", "nickname": "Hero", "seat": "a",
+                                 "protagonist_count": 1})
+            other.set_ai(room["room"]["code"], {
+                "seat": "m", "enabled": True, "strategy": "baseline_protagonist",
+            }, token=room["credential"]["admin_token"])
+        self.assertEqual(invalid.exception.code, "INVALID_AI_STRATEGY")
+
+    def test_single_participant_baseline_ai_controls_all_logical_heroes(self):
+        rooms = RoomService()
+        created = rooms.create({"module": "FS", "nickname": "Host", "seat": "m",
+                                "protagonist_count": 1})
+        code = created["room"]["code"]
+        admin = created["credential"]["admin_token"]
+        host = created["credential"]["room_token"]
+        rooms.set_ai(code, {"seat": "a", "enabled": True,
+                            "strategy": "baseline_protagonist"}, token=admin)
+        rooms.ready(code, {"ready": True}, token=host)
+        rooms.start(code, token=admin)
+        for _ in range(10):
+            if any(item["ai"] for item in rooms._rooms[code].executors):
+                break
+            actions = rooms.game_actions(code, token=host)
+            self.assertTrue(actions["actions"])
+            rooms.game_command(code, {
+                "action_id": actions["actions"][0]["id"],
+                "expected_revision": actions["revision"],
+            }, token=host)
+        executed = [item for item in rooms._rooms[code].executors if item["ai"]]
+        self.assertEqual({item["actor"] for item in executed[:3]}, {"a", "b", "c"})
+        self.assertTrue(all(item["participant"] == "a" for item in executed[:3]))
+
     def test_mcts_mastermind_uses_private_search_trace(self):
         rooms = RoomService()
         created = rooms.create({"module": "FS", "nickname": "Hero", "seat": "a",
