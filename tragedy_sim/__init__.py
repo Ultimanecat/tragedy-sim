@@ -14,7 +14,9 @@ from .service import GameService, LocalGameClient, PROTOCOL_VERSION, ServiceErro
 from .mcts import FullInformationMctsMastermindAgent
 from .optimized_mcts import OptimizedMctsMastermindAgent
 from .belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
-                     HiddenWorldHypothesis, PublicEvidence)
+                     HiddenWorldHypothesis, ParticleReplayResult,
+                     ParticleReplayer, ParticleAdvanceResult,
+                     ObservationParticleAdvancer, PublicEvidence, PublicSnapshot)
 from .search import MastermindEvaluator, RootActionStats, SearchBudget, SearchTrace
 
 __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "ActivationRule", "Character",
@@ -23,7 +25,9 @@ __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "Activat
            "GameService", "LocalGameClient", "PROTOCOL_VERSION", "ServiceError",
            "FullInformationMctsMastermindAgent", "OptimizedMctsMastermindAgent",
            "CatalogBeliefSampler", "ConstraintBeliefSampler",
-           "HiddenWorldHypothesis", "PublicEvidence",
+           "HiddenWorldHypothesis", "ParticleReplayResult", "ParticleReplayer",
+           "ParticleAdvanceResult", "ObservationParticleAdvancer",
+           "PublicEvidence", "PublicSnapshot",
            "MastermindEvaluator", "RootActionStats",
            "SearchBudget", "SearchTrace",
            "MATCH_FLOW", "MatchFlow", "Observation", "PHASE_LABELS", "PhaseCursor", "PhaseDefinition", "PhaseId",

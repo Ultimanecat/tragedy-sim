@@ -10,9 +10,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from collections import Counter
+from copy import deepcopy
 from itertools import combinations
+import hashlib
+import json
 import random
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from .catalog import MODULES, PLOTS
 from .engine import RuleError
@@ -20,11 +23,31 @@ from .scenario import validate_scenario
 from .scenario_library import ScenarioLibrary
 
 
+_PRESENTATION_FIELDS = {
+    "description", "label", "labels", "language", "message", "module_name",
+    "name", "passive", "phase_name", "scenario_id", "text", "timepoint",
+    "title", "traits",
+}
+
+
+def _semantic_projection(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            key: _semantic_projection(item)
+            for key, item in value.items()
+            if key not in _PRESENTATION_FIELDS
+        }
+    if isinstance(value, (list, tuple)):
+        return [_semantic_projection(item) for item in value]
+    return deepcopy(value)
+
+
 @dataclass(frozen=True)
 class PublicEvidence:
     module: str
     days: int
     loops: int
+    table_talk: bool
     characters: tuple[str, ...]
     schedule: tuple[tuple[int, str], ...]
     known_roles: tuple[tuple[str, str], ...]
@@ -50,11 +73,29 @@ class PublicEvidence:
         return cls(
             module=str(view["module"]), days=int(view["days"]),
             loops=int(view["loops"]),
+            table_talk=bool(view.get("table_talk", False)),
             characters=tuple(sorted(view.get("characters", {}))),
             schedule=schedule, known_roles=known_roles,
             known_culprits=known_culprits,
             known_plots=tuple(sorted(str(item) for item in view.get("known_plots", ()))),
         )
+
+
+@dataclass(frozen=True)
+class PublicSnapshot:
+    """Canonical protagonist-visible state, stripped of presentation metadata."""
+
+    key: str
+
+    @classmethod
+    def from_view(cls, view: Mapping[str, Any]) -> "PublicSnapshot":
+        projection = _semantic_projection(view)
+        return cls(json.dumps(projection, ensure_ascii=False, sort_keys=True,
+                              separators=(",", ":"), allow_nan=False))
+
+    @property
+    def digest(self) -> str:
+        return hashlib.sha256(self.key.encode("utf-8")).hexdigest()[:16]
 
 
 @dataclass(frozen=True)
@@ -79,6 +120,90 @@ class HiddenWorldHypothesis:
                  str(item.get("public_kind", item["kind"])), str(item["culprit"]))
                 for item in scenario["incidents"])),
         )
+
+    def materialize(self, evidence: PublicEvidence) -> dict[str, Any]:
+        """Build a validated standard script without consulting a real game."""
+        incidents = []
+        for day, kind, public_kind, culprit in self.incidents:
+            incident = {"day": day, "kind": kind, "culprit": culprit}
+            if public_kind != kind:
+                incident["public_kind"] = public_kind
+            incidents.append(incident)
+        return validate_scenario({
+            "id": self.scenario_id, "title": "ISMCTS sampled world",
+            "module": evidence.module, "days": evidence.days,
+            "loops": evidence.loops, "main_plot": self.main_plot,
+            "subplots": list(self.subplots), "cast": dict(self.roles),
+            "incidents": incidents, "table_talk": evidence.table_talk,
+        })
+
+
+@dataclass(frozen=True)
+class ParticleReplayResult:
+    accepted: bool
+    game: Any | None
+    decisions: int
+    reason: str | None = None
+
+
+class ParticleReplayer:
+    """Replay an explicitly public command stream inside one sampled world."""
+
+    def replay(self, hypothesis: HiddenWorldHypothesis,
+               evidence: PublicEvidence,
+               commands: Sequence[Mapping[str, Any]], *,
+               viewer: str,
+               expected: PublicSnapshot | None = None) -> ParticleReplayResult:
+        # Local import keeps the belief data model independent from the engine.
+        from .game import Game
+
+        try:
+            game = Game(hypothesis.materialize(evidence))
+        except RuleError as exc:
+            return ParticleReplayResult(False, None, 0, f"invalid_particle:{exc}")
+        for index, supplied in enumerate(commands):
+            command = deepcopy(dict(supplied))
+            actor = command.get("actor")
+            if actor != game.controller or command not in game.search_actions(actor):
+                return ParticleReplayResult(False, None, index, "public_command_illegal")
+            game = game.transition(command).game
+        if expected is not None and PublicSnapshot.from_view(game.view(viewer)) != expected:
+            return ParticleReplayResult(False, None, len(commands),
+                                        "public_snapshot_mismatch")
+        return ParticleReplayResult(True, game, len(commands))
+
+
+@dataclass(frozen=True)
+class ParticleAdvanceResult:
+    successors: tuple[Any, ...]
+    tested_actions: int
+
+
+class ObservationParticleAdvancer:
+    """Infer hidden actions by matching their protagonist-visible consequence."""
+
+    def advance(self, game: Any, *, viewer: str,
+                observed: PublicSnapshot,
+                public_command: Mapping[str, Any] | None = None,
+                max_successors: int | None = None) -> ParticleAdvanceResult:
+        if max_successors is not None and (
+                type(max_successors) is not int or max_successors < 1):
+            raise ValueError("max_successors must be a positive integer or None")
+        legal = list(game.search_actions(game.controller))
+        if public_command is not None:
+            command = dict(public_command)
+            legal = [command] if command in legal else []
+        successors = []
+        tested = 0
+        for command in legal:
+            tested += 1
+            candidate = game.transition(command).game
+            if PublicSnapshot.from_view(candidate.view(viewer)) != observed:
+                continue
+            successors.append(candidate)
+            if max_successors is not None and len(successors) >= max_successors:
+                break
+        return ParticleAdvanceResult(tuple(successors), tested)
 
 
 class CatalogBeliefSampler:

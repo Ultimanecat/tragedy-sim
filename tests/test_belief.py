@@ -1,11 +1,14 @@
 """Information-boundary tests for C3 hidden-world sampling."""
 
+from copy import deepcopy
 import random
 import unittest
 
 from tragedy_sim import Game
 from tragedy_sim.belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
-                                PublicEvidence)
+                                HiddenWorldHypothesis, ParticleReplayer,
+                                ObservationParticleAdvancer, PublicEvidence,
+                                PublicSnapshot)
 from tragedy_sim.scenario import example_scenario
 
 
@@ -47,7 +50,7 @@ class PublicEvidenceTests(unittest.TestCase):
         self.assertEqual(first, second)
 
         impossible = PublicEvidence(
-            evidence.module, evidence.days, evidence.loops,
+            evidence.module, evidence.days, evidence.loops, evidence.table_talk,
             evidence.characters, evidence.schedule,
             ((evidence.characters[0], "not-a-role"),), (), ())
         self.assertEqual(sampler.sample(impossible, 2, rng=random.Random(1)), ())
@@ -98,6 +101,105 @@ class ConstraintBeliefSamplerTests(unittest.TestCase):
                     evidence, 3, rng=random.Random(7))
                 self.assertEqual(first, second)
                 self.assertEqual(len(first), 3)
+
+
+class ParticleReplayTests(unittest.TestCase):
+    def test_public_snapshot_ignores_identity_labels_and_localized_messages(self):
+        view = Game(example_scenario("BTX")).view("a")
+        original = PublicSnapshot.from_view(view)
+        changed = dict(view)
+        changed["scenario_id"] = "not-evidence"
+        changed["title"] = "not-evidence"
+        changed["language"] = "en"
+        changed["labels"] = {"not": "evidence"}
+        changed["events"] = [dict(event, message="translated", timepoint="translated")
+                             for event in view["events"]]
+        self.assertEqual(PublicSnapshot.from_view(changed), original)
+        self.assertEqual(PublicSnapshot.from_view(
+            Game(example_scenario("BTX")).view("a", language="en")), original)
+        self.assertEqual(len(original.digest), 16)
+
+        changed_counter = deepcopy(view)
+        changed_counter["characters"]["girl"]["intrigue"] += 1
+        self.assertNotEqual(PublicSnapshot.from_view(changed_counter), original)
+
+    def test_actual_particle_replays_to_the_same_public_snapshot(self):
+        initial = Game(example_scenario("FS"))
+        game = initial
+        for _ in range(8):
+            action = game.search_actions(game.controller)[0]
+            game = game.transition(action).game
+        evidence = PublicEvidence.from_view(initial.view("a"))
+        hypothesis = HiddenWorldHypothesis.from_scenario(initial.scenario)
+        result = ParticleReplayer().replay(
+            hypothesis, evidence, game.history, viewer="a",
+            expected=PublicSnapshot.from_view(game.view("a")))
+        self.assertTrue(result.accepted, result.reason)
+        self.assertEqual(result.decisions, len(game.history))
+        self.assertEqual(PublicSnapshot.from_view(result.game.view("a")),
+                         PublicSnapshot.from_view(game.view("a")))
+
+    def test_illegal_public_command_and_mismatched_phenomenon_reject_particle(self):
+        initial = Game(example_scenario("BTX"))
+        evidence = PublicEvidence.from_view(initial.view("a"))
+        hypothesis = HiddenWorldHypothesis.from_scenario(initial.scenario)
+        illegal = ParticleReplayer().replay(
+            hypothesis, evidence,
+            [{"actor": "a", "action": "next"}], viewer="a")
+        self.assertFalse(illegal.accepted)
+        self.assertEqual(illegal.reason, "public_command_illegal")
+
+        impossible_view = deepcopy(initial.view("a"))
+        impossible_view["locations"]["school"] = 9
+        mismatch = ParticleReplayer().replay(
+            hypothesis, evidence, (), viewer="a",
+            expected=PublicSnapshot.from_view(impossible_view))
+        self.assertFalse(mismatch.accepted)
+        self.assertEqual(mismatch.reason, "public_snapshot_mismatch")
+
+
+class ObservationParticleAdvancerTests(unittest.TestCase):
+    def test_hidden_action_is_inferred_from_public_consequence(self):
+        game = Game(example_scenario("BTX"))
+        command = game.search_actions("m")[0]
+        actual = game.transition(command).game
+        result = ObservationParticleAdvancer().advance(
+            game, viewer="a", observed=PublicSnapshot.from_view(actual.view("a")))
+        self.assertEqual(result.tested_actions, 1)
+        self.assertEqual(len(result.successors), 1)
+        self.assertEqual(PublicSnapshot.from_view(result.successors[0].view("a")),
+                         PublicSnapshot.from_view(actual.view("a")))
+
+    def test_unrevealed_card_keeps_all_observationally_equivalent_actions(self):
+        game = Game(example_scenario("BTX"))
+        game = game.transition(game.search_actions("m")[0]).game
+        actual_command = game.search_actions("m")[17]
+        actual = game.transition(actual_command).game
+        result = ObservationParticleAdvancer().advance(
+            game, viewer="a", observed=PublicSnapshot.from_view(actual.view("a")))
+        self.assertGreater(result.tested_actions, 20)
+        self.assertGreater(len(result.successors), 1)
+        self.assertTrue(all(PublicSnapshot.from_view(item.view("a")) ==
+                            PublicSnapshot.from_view(actual.view("a"))
+                            for item in result.successors))
+
+    def test_public_command_restricts_branch_and_limits_are_validated(self):
+        game = Game(example_scenario("FS"))
+        command = game.search_actions("m")[0]
+        actual = game.transition(command).game
+        advancer = ObservationParticleAdvancer()
+        result = advancer.advance(
+            game, viewer="a", observed=PublicSnapshot.from_view(actual.view("a")),
+            public_command=command)
+        self.assertEqual((result.tested_actions, len(result.successors)), (1, 1))
+        rejected = advancer.advance(
+            game, viewer="a", observed=PublicSnapshot.from_view(actual.view("a")),
+            public_command={"actor": "a", "action": "next"})
+        self.assertEqual((rejected.tested_actions, rejected.successors), (0, ()))
+        with self.assertRaises(ValueError):
+            advancer.advance(game, viewer="a",
+                             observed=PublicSnapshot.from_view(game.view("a")),
+                             max_successors=0)
 
 
 if __name__ == "__main__":
