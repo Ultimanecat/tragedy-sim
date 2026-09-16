@@ -11,7 +11,7 @@ WeirdMythology（WM）的全部 12 个规则 X/Y、11 种事件与跨轮回 Ex �
 AnotherHorizonRevised（AHR）的表里世界、双身份最终猜测、希望/绝望牌和全部规则/事件，
 以及 LastLiar（LL）的主人公秘密、背叛者胜利、最终决战与全部规则/事件。
 内置各模组速查表对应的角色池及能力（MC 使用“手下”替换“军人”）。以用户提供的中文模组速查表为优先依据。
-这是支持真人、随机 AI、定式剧作家 AI 或完全信息 MCTS 剧作家 AI 的热座/局域网裁判工具，不含公网大厅。
+这是支持真人、随机 AI、定式剧作家 AI、朴素或优化完全信息 MCTS 剧作家 AI 的热座/局域网裁判工具，不含公网大厅。
 
 ## Web 前端与 JSON 服务
 
@@ -60,8 +60,9 @@ python -m tragedy_sim --host-room --port 8765
 
 终端会同时显示本机地址和检测到的局域网地址，例如 `http://192.168.1.23:8765/`。房主打开页面，
 选择规则集、主人公玩家人数、昵称和座位后创建房间，再分享页面中的邀请链接或六位数字房间码。支持 1 名剧作家加 1–3 名
-主人公玩家；房主可用随机 AI 填充任意空位，也可在剧作家席位选择定式 AI 或完全信息 MCTS AI。定式 AI 会从规则失败、
-事件引爆和关键人物暗杀等当前剧本可用路径中选定一条并持续执行。MCTS AI 使用可复现的节点预算、随机 rollout 和
+主人公玩家；房主可用随机 AI 填充任意空位，也可在剧作家席位选择定式 AI、朴素 MCTS 或优化 MCTS。定式 AI 会从规则失败、
+事件引爆和关键人物暗杀等当前剧本可用路径中选定一条并持续执行。朴素 MCTS 保留为完整行动空间基线；优化 MCTS 使用
+轻量搜索副本、渐进拓宽和行动先验。两者都使用可复现的节点预算、随机 rollout 和
 剧作家视角局面评价；大厅使用较小预算以保持交互速度，目前也不保证战胜真人反制。
 所需席位全部入座并准备后由房主开始。页面通过 SSE 接收 revision 变化通知，仅在房间或游戏状态变化时更新；
 事件流断开时会自动重连并临时使用低频条件轮询；
@@ -70,8 +71,10 @@ python -m tragedy_sim --host-room --port 8765
 开发者可重跑搜索与固定剧本自对弈基准：
 
 ```powershell
-python -m benchmarks.mcts_search --module BTX --nodes 64 --depth 24 --seed 0
-python -m benchmarks.ai_self_play --scenario official-fs-01-first-script --games 3 --nodes 12 --depth 8
+python -m benchmarks.mcts_search --strategy naive --module BTX --nodes 64 --depth 24 --seed 0
+python -m benchmarks.mcts_search --strategy optimized --module BTX --nodes 64 --depth 24 --seed 0
+python -m benchmarks.ai_self_play --strategy naive --scenario official-fs-01-first-script --games 3 --nodes 12 --depth 8
+python -m benchmarks.ai_self_play --strategy optimized --scenario official-fs-01-first-script --games 3 --nodes 12 --depth 8
 ```
 
 完整 MCTS 决策追踪只保存在房间服务的进程内调试记录，不进入任何玩家状态、SSE 消息或对局 replay。

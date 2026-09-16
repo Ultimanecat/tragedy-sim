@@ -12,13 +12,15 @@ from .model import (DecisionRecord, GameModel, Observation, PhaseCursor, PhaseId
 from .replay import ReplayArchive, ReplaySession
 from .service import GameService, LocalGameClient, PROTOCOL_VERSION, ServiceError
 from .mcts import FullInformationMctsMastermindAgent
+from .optimized_mcts import OptimizedMctsMastermindAgent
 from .search import MastermindEvaluator, RootActionStats, SearchBudget, SearchTrace
 
 __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "ActivationRule", "Character",
            "ComponentStore", "ControllerPolicy", "CounterChange", "CustomEffect", "DecisionRecord",
            "Effect", "EffectResult", "EndgamePlan", "FlowPlan", "Game", "GameModel", "KillCharacter",
            "GameService", "LocalGameClient", "PROTOCOL_VERSION", "ServiceError",
-           "FullInformationMctsMastermindAgent", "MastermindEvaluator", "RootActionStats",
+           "FullInformationMctsMastermindAgent", "OptimizedMctsMastermindAgent",
+           "MastermindEvaluator", "RootActionStats",
            "SearchBudget", "SearchTrace",
            "MATCH_FLOW", "MatchFlow", "Observation", "PHASE_LABELS", "PhaseCursor", "PhaseDefinition", "PhaseId",
            "LegacyEffect", "MandatoryWindow", "PhaseKey", "ReplayArchive", "ReplaySession", "ResolutionStep",

@@ -27,6 +27,9 @@ class SearchGame(Protocol):
     def transition(self, action: Any) -> Any: ...
     def state_key(self, viewer: str = "spectator") -> str: ...
     def clone(self) -> "SearchGame": ...
+    def search_clone(self) -> "SearchGame": ...
+    def search_actions(self, actor: str) -> list[dict[str, Any]]: ...
+    def search_transition(self, action: dict[str, Any]) -> "SearchGame": ...
 
 
 @dataclass(frozen=True)
@@ -80,6 +83,9 @@ class SearchTrace:
     stop_reason: str
     selected_action_id: str
     root_actions: tuple[RootActionStats, ...] = field(default_factory=tuple)
+    candidate_actions: int = 0
+    expanded_actions: int = 0
+    forced_transitions: int = 0
 
     @staticmethod
     def hash_state_key(state_key: str) -> str:

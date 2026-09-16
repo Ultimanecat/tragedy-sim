@@ -81,6 +81,9 @@ class Game(ActionGame):
         return self.ruleset.phases.resolve(phase).timing(self)
 
     def dispatch(self, actor, action, **args):
+        self._dispatch(actor, action, args, atomic=True)
+
+    def _dispatch(self, actor, action, args, *, atomic):
         if actor not in ACTORS:
             raise RuleError("未知玩家、命令或参数")
         try:
@@ -89,7 +92,7 @@ class Game(ActionGame):
             raise RuleError(str(exc)) from exc
         resolver = self.ruleset.phases.resolve(self.state.phase)
         resolver.authorize(self, actor, action)
-        snapshot = deepcopy(self.__dict__)
+        snapshot = deepcopy(self.__dict__) if atomic else None
         before = self.phase_cursor
         decision_timing = self._current_timing()
         event_start = len(self.state.events)
@@ -97,8 +100,9 @@ class Game(ActionGame):
         try:
             resolver.execute(self, actor, action, args)
         except Exception:
-            self.__dict__.clear()
-            self.__dict__.update(snapshot)
+            if snapshot is not None:
+                self.__dict__.clear()
+                self.__dict__.update(snapshot)
             raise
         command = {"actor": actor, "action": action, **deepcopy(args)}
         self.history.append(command)
@@ -153,6 +157,36 @@ class Game(ActionGame):
         clone = deepcopy(self)
         clone.ruleset = self.ruleset
         return clone
+
+    def search_clone(self):
+        """Clone current rule state without replay-only historical diagnostics."""
+        recent_events = deepcopy(self.state.events[-1:])
+        memo = {
+            id(self.ruleset): self.ruleset,
+            id(self.script): self.script,
+            id(self.history): [],
+            id(self.decisions): [],
+            id(self._resolution_traces): [],
+            id(self._activation_history): [],
+            id(self.state.events): recent_events,
+        }
+        clone = deepcopy(self, memo)
+        clone.ruleset = self.ruleset
+        clone.script = self.script
+        return clone
+
+    def search_actions(self, actor):
+        """Legal raw commands without presentation labels or cryptographic IDs."""
+        return self.legal_actions(actor)
+
+    def search_transition(self, action):
+        """Fast detached transition for trusted commands from ``search_actions``."""
+        command = deepcopy(dict(action))
+        actor = command.pop("actor")
+        name = command.pop("action")
+        successor = self.search_clone()
+        successor._dispatch(actor, name, command, atomic=False)
+        return successor
 
     def rule_context(self, timing=None):
         timing = timing or self._current_timing()

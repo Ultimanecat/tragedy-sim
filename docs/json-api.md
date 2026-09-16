@@ -176,7 +176,8 @@ action ID 会因 revision 变化失效。服务端在提交时重新计算授权
 房主可向空座位提交 `{"seat":"a","enabled":true,"strategy":"random"}`；AI 自动准备，后续只从该参与者当前
 由服务端授权的 `ActionOffer` 中选择，不在 AI 层复制规则。`strategy` 省略时为 `random`；剧作家席位还可选择
 `fixed_mastermind`，它会从私密剧本中识别规则失败、事件引爆、关键人物暗杀等可行路径，开局选定一条并按稳定行动参数
-持续执行；也可选择 `mcts_mastermind`，由完全信息 MCTS 在隔离的游戏副本上调用 `ActionOffer` 和状态转移。提交
+持续执行；也可选择 `mcts_mastermind`（保留的朴素基线）或 `optimized_mcts_mastermind`（轻量副本、渐进拓宽和
+行动先验），由完全信息 MCTS 在隔离的游戏副本上调用合法行动和状态转移。提交
 `enabled:false` 可在开局前移除 AI，不能用此接口替换真人。公开座位的 `ai_type` 用于界面标识策略，不会公开定式 AI
 本局路线或 MCTS 节点价值。MCTS 完整 Trace 仅保留在服务进程内，不进入玩家响应、SSE 或 replay。
 每次真人行动后，房间层会连续执行 AI 行动，直到轮到真人或产生胜负。

@@ -9,13 +9,17 @@ from time import perf_counter
 
 from tragedy_sim import Game
 from tragedy_sim.mcts import FullInformationMctsMastermindAgent
+from tragedy_sim.optimized_mcts import OptimizedMctsMastermindAgent
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
 
 
-def play(scenario_id: str, seed: int, nodes: int, depth: int) -> tuple[str, int, float]:
+def play(scenario_id: str, seed: int, nodes: int, depth: int,
+         strategy: str) -> tuple[str, int, float]:
     game = Game(ScenarioLibrary().get(scenario_id))
-    mastermind = FullInformationMctsMastermindAgent(SearchBudget(
+    agent_type = (FullInformationMctsMastermindAgent if strategy == "naive"
+                  else OptimizedMctsMastermindAgent)
+    mastermind = agent_type(SearchBudget(
         node_limit=nodes, rollout_depth=depth, seed=seed))
     protagonists = random.Random(seed)
     decisions = 0
@@ -39,11 +43,12 @@ def main() -> None:
     parser.add_argument("--nodes", type=int, default=12)
     parser.add_argument("--depth", type=int, default=8)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--strategy", choices=("naive", "optimized"), default="naive")
     args = parser.parse_args()
-    results = [play(args.scenario, args.seed + index, args.nodes, args.depth)
+    results = [play(args.scenario, args.seed + index, args.nodes, args.depth, args.strategy)
                for index in range(args.games)]
     mastermind_wins = sum(winner == "mastermind" for winner, _, _ in results)
-    print(f"scenario: {args.scenario}; games: {args.games}")
+    print(f"scenario: {args.scenario}; games: {args.games}; strategy: {args.strategy}")
     print(f"mastermind wins: {mastermind_wins}/{args.games} ({mastermind_wins / args.games:.1%})")
     print(f"mean decisions: {mean(item[1] for item in results):.1f}")
     print(f"mean elapsed: {mean(item[2] for item in results):.3f}s")
