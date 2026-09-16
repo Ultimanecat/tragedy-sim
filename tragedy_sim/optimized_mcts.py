@@ -16,6 +16,7 @@ from typing import Any, Sequence
 
 from .search import (Evaluator, MastermindEvaluator, RootActionStats,
                      SearchBudget, SearchGame, SearchTrace)
+from .evaluation import ScenarioConditionedEvaluator
 
 
 def _command_key(command: dict[str, Any]) -> str:
@@ -56,7 +57,7 @@ class OptimizedMctsMastermindAgent:
         if not 0 < widening_exponent <= 1:
             raise ValueError("widening_exponent must be in (0, 1]")
         self.budget = budget or SearchBudget()
-        self.evaluator = evaluator or MastermindEvaluator()
+        self.evaluator = evaluator or ScenarioConditionedEvaluator()
         self.widening_constant = widening_constant
         self.widening_exponent = widening_exponent
         self.last_trace: SearchTrace | None = None

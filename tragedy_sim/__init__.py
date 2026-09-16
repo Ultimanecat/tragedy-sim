@@ -20,6 +20,8 @@ from .belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
                      ObservationCheckpoint, ObservationParticleAdvancer,
                      PublicEvidence, PublicSnapshot)
 from .search import MastermindEvaluator, RootActionStats, SearchBudget, SearchTrace
+from .evaluation import (EvaluationContribution, PositionEvaluation, PositionFeatures,
+                         ScenarioConditionedEvaluator, ScenarioEvaluationContext)
 
 __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "ActivationRule", "Character",
            "ComponentStore", "ControllerPolicy", "CounterChange", "CustomEffect", "DecisionRecord",
@@ -32,6 +34,8 @@ __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "Activat
            "ParticleAdvanceResult", "ObservationParticleAdvancer",
            "ObservationCheckpoint", "PublicEvidence", "PublicSnapshot",
            "MastermindEvaluator", "RootActionStats",
+           "EvaluationContribution", "PositionEvaluation", "PositionFeatures",
+           "ScenarioConditionedEvaluator", "ScenarioEvaluationContext",
            "SearchBudget", "SearchTrace",
            "MATCH_FLOW", "MatchFlow", "Observation", "PHASE_LABELS", "PhaseCursor", "PhaseDefinition", "PhaseId",
            "LegacyEffect", "MandatoryWindow", "PhaseKey", "ReplayArchive", "ReplaySession", "ResolutionStep",
