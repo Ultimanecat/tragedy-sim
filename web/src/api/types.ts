@@ -226,7 +226,7 @@ export interface RoomOccupant {
   ready: boolean;
   connected: boolean;
   ai: boolean;
-  ai_type: "random" | "baseline_protagonist" | "fixed_mastermind" | "mcts_mastermind" | "optimized_mcts_mastermind" | "strategic_mcts_mastermind" | null;
+  ai_type: "random" | "baseline_protagonist" | "defensive_protagonist" | "fixed_mastermind" | "mcts_mastermind" | "optimized_mcts_mastermind" | "strategic_mcts_mastermind" | null;
 }
 export interface RoomState {
   code: string;

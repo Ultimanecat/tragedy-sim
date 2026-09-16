@@ -266,6 +266,17 @@ class RoomServiceTests(unittest.TestCase):
         self.assertEqual({item["actor"] for item in executed[:3]}, {"a", "b", "c"})
         self.assertTrue(all(item["participant"] == "a" for item in executed[:3]))
 
+    def test_defensive_protagonist_ai_is_selectable(self):
+        rooms = RoomService()
+        created = rooms.create({"module": "FS", "nickname": "Host", "seat": "m"})
+        updated = rooms.set_ai(created["room"]["code"], {
+            "seat": "a", "enabled": True, "strategy": "defensive_protagonist",
+        }, token=created["credential"]["admin_token"])
+        self.assertEqual(updated["room"]["seats"]["a"]["ai_type"],
+                         "defensive_protagonist")
+        self.assertEqual(updated["room"]["seats"]["a"]["nickname"],
+                         "公开信息防守主人公 AI")
+
     def test_mcts_mastermind_uses_private_search_trace(self):
         rooms = RoomService()
         created = rooms.create({"module": "FS", "nickname": "Hero", "seat": "a",

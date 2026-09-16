@@ -109,6 +109,118 @@ class BaselineProtagonistAgent:
         return self._rng.choice(playable)
 
 
+class DefensiveProtagonistAgent(BaselineProtagonistAgent):
+    """Public-information defense policy for a stronger protagonist baseline."""
+
+    _DEFENSIVE_EFFECTS = {
+        "protect": 170, "protection": 170, "reveal": 125,
+        "culprit": 135, "revive": 150, "counter": 90,
+    }
+
+    @staticmethod
+    def _known_role(view: dict[str, Any], target: str) -> str | None:
+        known = view.get("known_roles", {}).get(target)
+        return known.get("role") if isinstance(known, dict) else None
+
+    @staticmethod
+    def _known_culprit_urgency(view: dict[str, Any], target: str) -> int:
+        day = int(view.get("round", 1))
+        result = 0
+        for raw_day, culprit in view.get("known_culprits", {}).items():
+            try:
+                incident_day = int(raw_day)
+            except (TypeError, ValueError):
+                continue
+            if culprit != target or incident_day < day:
+                continue
+            result = max(result, 180 if incident_day == day
+                         else max(100, 160 - 15 * (incident_day - day)))
+        return result
+
+    @classmethod
+    def _ability_value(cls, character: dict[str, Any], amount: int) -> int:
+        current = int(character.get("goodwill", 0))
+        best = 0
+        for ability in character.get("abilities", ()):
+            threshold = ability.get("threshold")
+            if type(threshold) is not int or not current < threshold <= current + amount:
+                continue
+            value = cls._DEFENSIVE_EFFECTS.get(str(ability.get("kind")), 65)
+            if ability.get("counter") == "paranoia" and ability.get("amount", 0) < 0:
+                value = max(value, 145)
+            best = max(best, value)
+        return best
+
+    def _play_score(self, offer: dict[str, Any], view: dict[str, Any],
+                    reversals: set[tuple[str, str]]) -> int:
+        card, target = self._play_fields(offer)
+        if card is None or target is None:
+            return 0
+        characters = view.get("characters", {})
+        character = characters.get(target, {})
+        role = self._known_role(view, target)
+        score = 0
+        if (card, target) in reversals:
+            score = max(score, 130)
+        if card == "p-1" and target in characters:
+            score = max(score, self._known_culprit_urgency(view, target))
+            paranoia = int(character.get("paranoia", 0))
+            limit = max(1, int(character.get("paranoia_limit", 1)))
+            score = max(score, 35 + round(80 * paranoia / limit))
+        elif card == "fi" and offer.get("actor") == view.get("leader"):
+            intrigue = (int(character.get("intrigue", 0)) if target in characters
+                        else int(view.get("locations", {}).get(target, 0)))
+            score = max(score, 90 + 20 * intrigue)
+            if role in {"key", "friend"}:
+                score += 35
+        elif card == "fm" and target in characters:
+            if role in {"key", "friend"}:
+                score = max(score, 125)
+            if int(character.get("intrigue", 0)) >= 2:
+                score = max(score, 105)
+        elif card in {"g1", "g2"} and target in characters:
+            amount = 2 if card == "g2" else 1
+            score = max(score, self._ability_value(character, amount))
+            if role == "time_traveler":
+                score = max(score, 190)
+        elif card == "p1" and target in characters:
+            if self._known_culprit_urgency(view, target):
+                score -= 150
+            if role in {"key", "friend", "time_traveler"}:
+                score -= 70
+        return score
+
+    @classmethod
+    def _choice_score(cls, offer: dict[str, Any]) -> int:
+        if offer.get("type") != "choose":
+            return 0
+        ui = offer.get("ui", {})
+        score = cls._DEFENSIVE_EFFECTS.get(str(ui.get("effect")), 20)
+        if (ui.get("counter") == "paranoia"
+                and isinstance(ui.get("amount"), int) and ui["amount"] < 0):
+            score = max(score, 150)
+        return score
+
+    def choose_action(self, *, participant: str, view: dict[str, Any],
+                      offers: Sequence[dict[str, Any]]) -> dict[str, Any]:
+        if participant == "m":
+            raise ValueError("defensive protagonist strategy cannot control seat m")
+        if not offers:
+            raise ValueError("cannot choose from an empty action list")
+        leader = view.get("leader")
+        playable = [offer for offer in offers
+                    if (self._play_fields(offer)[0] != "fi"
+                        or offer.get("actor") == leader)]
+        if not playable:
+            playable = list(offers)
+        reversals = set(self._reverse_moves(view))
+        scored = [(self._play_score(offer, view, reversals)
+                   if offer.get("type") == "play" else self._choice_score(offer), offer)
+                  for offer in playable]
+        best = max(score for score, _ in scored)
+        return self._rng.choice([offer for score, offer in scored if score == best])
+
+
 @dataclass(frozen=True)
 class _Plan:
     kind: str

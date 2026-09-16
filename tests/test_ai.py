@@ -3,7 +3,7 @@
 import random
 import unittest
 
-from tragedy_sim.ai import (BaselineProtagonistAgent,
+from tragedy_sim.ai import (BaselineProtagonistAgent, DefensiveProtagonistAgent,
                             FixedStrategyMastermindAgent, RandomAgent)
 from tragedy_sim import Game
 from tragedy_sim.mcts import FullInformationMctsMastermindAgent
@@ -97,6 +97,50 @@ class AiPolicyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             BaselineProtagonistAgent().choose_action(
                 participant="m", view={}, offers=[offer("next")])
+
+    def test_defensive_protagonist_calms_known_current_culprit(self):
+        view = {
+            "loop": 2, "round": 3, "leader": "a", "events": [],
+            "known_culprits": {"3": "doctor"}, "known_roles": {},
+            "characters": {
+                "doctor": {"paranoia": 1, "paranoia_limit": 2, "goodwill": 0,
+                           "intrigue": 0, "abilities": []},
+                "girl": {"paranoia": 2, "paranoia_limit": 3, "goodwill": 0,
+                         "intrigue": 0, "abilities": []},
+            }, "locations": {},
+        }
+        offers = [
+            {"id": "culprit", "actor": "a", "type": "play",
+             "parameters": {"card": "p-1", "target": "doctor"}},
+            {"id": "random", "actor": "a", "type": "play",
+             "parameters": {"card": "p-1", "target": "girl"}},
+        ]
+        chosen = DefensiveProtagonistAgent(random.Random(1)).choose_action(
+            participant="a", view=view, offers=offers)
+        self.assertEqual(chosen["id"], "culprit")
+
+    def test_defensive_protagonist_unlocks_public_defensive_ability(self):
+        view = {
+            "loop": 1, "round": 1, "leader": "a", "events": [],
+            "known_culprits": {}, "known_roles": {}, "locations": {},
+            "characters": {
+                "girl": {"paranoia": 0, "paranoia_limit": 3, "goodwill": 0,
+                         "intrigue": 0, "abilities": [
+                             {"threshold": 2, "kind": "counter",
+                              "counter": "paranoia", "amount": -1}]},
+                "worker": {"paranoia": 0, "paranoia_limit": 2, "goodwill": 0,
+                           "intrigue": 0, "abilities": []},
+            },
+        }
+        offers = [
+            {"id": "ability", "actor": "a", "type": "play",
+             "parameters": {"card": "g2", "target": "girl"}},
+            {"id": "empty", "actor": "a", "type": "play",
+             "parameters": {"card": "g2", "target": "worker"}},
+        ]
+        chosen = DefensiveProtagonistAgent(random.Random(1)).choose_action(
+            participant="a", view=view, offers=offers)
+        self.assertEqual(chosen["id"], "ability")
 
     def test_assassination_playbook_builds_intrigue_then_moves_killer(self):
         agent = FixedStrategyMastermindAgent(random.Random(1), "key_assassination")

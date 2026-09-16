@@ -11,7 +11,8 @@ from time import perf_counter
 from typing import Any, Sequence
 
 from tragedy_sim import Game
-from tragedy_sim.ai import BaselineProtagonistAgent, FixedStrategyMastermindAgent
+from tragedy_sim.ai import (BaselineProtagonistAgent, DefensiveProtagonistAgent,
+                            FixedStrategyMastermindAgent)
 from tragedy_sim.mcts import FullInformationMctsMastermindAgent
 from tragedy_sim.optimized_mcts import OptimizedMctsMastermindAgent
 from tragedy_sim.strategic_mcts import StrategicMctsMastermindAgent
@@ -20,7 +21,7 @@ from tragedy_sim.search import SearchBudget
 
 
 MASTERMIND_STRATEGIES = ("random", "fixed", "naive", "optimized", "strategic")
-PROTAGONIST_STRATEGIES = ("random", "baseline")
+PROTAGONIST_STRATEGIES = ("random", "baseline", "defensive")
 
 
 @dataclass(frozen=True)
@@ -87,7 +88,9 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         FixedStrategyMastermindAgent(random.Random(f"mastermind:{seed}"))
         if strategy == "fixed" else random.Random(f"mastermind:{seed}"))
     protagonists = {
-        seat: (BaselineProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
+        seat: (DefensiveProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
+               if protagonist_strategy == "defensive" else
+               BaselineProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
                if protagonist_strategy == "baseline"
                else random.Random(f"hero:{seed}:{seat}"))
         for seat in "abc"
@@ -111,7 +114,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             actor = game.controller
             policy = protagonists[actor]
             action = (_choose_policy_action(policy, actor, game, actions)
-                      if protagonist_strategy == "baseline" else policy.choice(actions))
+                      if protagonist_strategy in {"baseline", "defensive"}
+                      else policy.choice(actions))
         game = game.transition(action).game
         decisions += 1
     if game.winner is None:

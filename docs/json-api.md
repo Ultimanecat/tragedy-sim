@@ -176,7 +176,8 @@ action ID 会因 revision 变化失效。服务端在提交时重新计算授权
 房主可向空座位提交 `{"seat":"a","enabled":true,"strategy":"random"}`；AI 自动准备，后续只从该参与者当前
 由服务端授权的 `ActionOffer` 中选择，不在 AI 层复制规则。`strategy` 省略时为 `random`；主人公席位可选择
 `baseline_protagonist`，它只读取主人公视图中的公开揭示和移动记录，下一天优先逆转剧作家的成功移动，并且只有逻辑领队
-会使用禁止密谋；其余决策随机。剧作家席位还可选择
+会使用禁止密谋；其余决策随机。`defensive_protagonist` 在相同信息边界上另考虑已公开事件当事人、身份、计数物及角色的
+结构化好感能力，优先执行确定的防守行动。剧作家席位还可选择
 `fixed_mastermind`，它会从私密剧本中识别规则失败、事件引爆、关键人物暗杀等可行路径，开局选定一条并按稳定行动参数
 持续执行；也可选择 `mcts_mastermind`（保留的朴素基线）、`optimized_mcts_mastermind`（轻量副本、渐进拓宽和
 行动先验）或 `strategic_mcts_mastermind`（另加剧本路线先验与剧作家策略 rollout），由完全信息 MCTS 在隔离的游戏副本上调用合法行动和状态转移。提交
