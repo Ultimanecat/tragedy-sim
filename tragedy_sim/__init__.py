@@ -16,7 +16,8 @@ from .optimized_mcts import OptimizedMctsMastermindAgent
 from .belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
                      HiddenWorldHypothesis, ParticleReplayResult,
                      ParticleReplayer, ParticleAdvanceResult,
-                     ObservationParticleAdvancer, PublicEvidence, PublicSnapshot)
+                     ObservationCheckpoint, ObservationParticleAdvancer,
+                     PublicEvidence, PublicSnapshot)
 from .search import MastermindEvaluator, RootActionStats, SearchBudget, SearchTrace
 
 __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "ActivationRule", "Character",
@@ -27,7 +28,7 @@ __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "Activat
            "CatalogBeliefSampler", "ConstraintBeliefSampler",
            "HiddenWorldHypothesis", "ParticleReplayResult", "ParticleReplayer",
            "ParticleAdvanceResult", "ObservationParticleAdvancer",
-           "PublicEvidence", "PublicSnapshot",
+           "ObservationCheckpoint", "PublicEvidence", "PublicSnapshot",
            "MastermindEvaluator", "RootActionStats",
            "SearchBudget", "SearchTrace",
            "MATCH_FLOW", "MatchFlow", "Observation", "PHASE_LABELS", "PhaseCursor", "PhaseDefinition", "PhaseId",

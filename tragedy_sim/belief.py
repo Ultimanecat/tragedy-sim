@@ -99,6 +99,20 @@ class PublicSnapshot:
 
 
 @dataclass(frozen=True)
+class ObservationCheckpoint:
+    """Compact semantic observations after one real engine decision."""
+
+    decision: int
+    digests: tuple[tuple[str, str], ...]
+
+    def for_viewer(self, viewer: str) -> str:
+        try:
+            return dict(self.digests)[viewer]
+        except KeyError as exc:
+            raise ValueError(f"checkpoint has no viewer {viewer}") from exc
+
+
+@dataclass(frozen=True)
 class HiddenWorldHypothesis:
     """Private particle.  Never serialize this object into a player response."""
 
@@ -183,13 +197,14 @@ class ObservationParticleAdvancer:
     """Infer hidden actions by matching their protagonist-visible consequence."""
 
     def advance(self, game: Any, *, viewer: str,
-                observed: PublicSnapshot,
+                observed: PublicSnapshot | str,
                 public_command: Mapping[str, Any] | None = None,
                 max_successors: int | None = None) -> ParticleAdvanceResult:
         if max_successors is not None and (
                 type(max_successors) is not int or max_successors < 1):
             raise ValueError("max_successors must be a positive integer or None")
         legal = list(game.search_actions(game.controller))
+        observed_digest = observed.digest if isinstance(observed, PublicSnapshot) else observed
         if public_command is not None:
             command = dict(public_command)
             legal = [command] if command in legal else []
@@ -198,7 +213,7 @@ class ObservationParticleAdvancer:
         for command in legal:
             tested += 1
             candidate = game.transition(command).game
-            if PublicSnapshot.from_view(candidate.view(viewer)) != observed:
+            if PublicSnapshot.from_view(candidate.view(viewer)).digest != observed_digest:
                 continue
             successors.append(candidate)
             if max_successors is not None and len(successors) >= max_successors:

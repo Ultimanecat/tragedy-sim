@@ -202,5 +202,38 @@ class ObservationParticleAdvancerTests(unittest.TestCase):
                              max_successors=0)
 
 
+class ObservationCheckpointTests(unittest.TestCase):
+    def test_real_dispatch_records_only_public_snapshot_digests(self):
+        game = Game(example_scenario("BTX"))
+        initial = game.observation_checkpoints("a")
+        self.assertEqual(len(initial), 1)
+        self.assertEqual(initial[0],
+                         (0, PublicSnapshot.from_view(game.view("a")).digest))
+        action = game.search_actions("m")[0]
+        game.dispatch("m", action["action"])
+        checkpoints = game.observation_checkpoints("a")
+        self.assertEqual(len(checkpoints), 2)
+        self.assertEqual(checkpoints[-1],
+                         (1, PublicSnapshot.from_view(game.view("a")).digest))
+        self.assertNotIn("next", repr(checkpoints))
+
+    def test_simulation_does_not_append_real_observation_history(self):
+        game = Game(example_scenario("FS"))
+        action = game.action_offers("m")[0]
+        successor = game.transition(action).game
+        self.assertEqual(len(game.observation_checkpoints("a")), 1)
+        self.assertEqual(len(successor.observation_checkpoints("a")), 1)
+
+    def test_checkpoint_digest_can_drive_hidden_particle_advance(self):
+        game = Game(example_scenario("BTX"))
+        action = game.search_actions("m")[0]
+        game.dispatch("m", action["action"])
+        observed_digest = game.observation_checkpoints("a")[-1][1]
+        initial = Game(example_scenario("BTX"))
+        result = ObservationParticleAdvancer().advance(
+            initial, viewer="a", observed=observed_digest)
+        self.assertEqual(len(result.successors), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

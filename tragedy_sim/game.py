@@ -43,6 +43,22 @@ class Game(ActionGame):
         self.ruleset = get_ruleset(self.module)
         self.script = ScriptDefinition.from_mapping(self.scenario)
         self.ruleset.initialize(self)
+        self._observation_checkpoints = []
+        self._record_observation_checkpoint()
+
+    def _record_observation_checkpoint(self):
+        from .belief import ObservationCheckpoint, PublicSnapshot
+        digests = tuple(
+            (viewer, PublicSnapshot.from_view(self.view(viewer)).digest)
+            for viewer in ("a", "b", "c")
+        )
+        self._observation_checkpoints.append(
+            ObservationCheckpoint(len(self.history), digests))
+
+    def observation_checkpoints(self, viewer):
+        """Private AI input containing hashes of public facts, never commands."""
+        return tuple((item.decision, item.for_viewer(viewer))
+                     for item in self._observation_checkpoints)
 
     @property
     def controller(self):
@@ -81,9 +97,9 @@ class Game(ActionGame):
         return self.ruleset.phases.resolve(phase).timing(self)
 
     def dispatch(self, actor, action, **args):
-        self._dispatch(actor, action, args, atomic=True)
+        self._dispatch(actor, action, args, atomic=True, record_observation=True)
 
-    def _dispatch(self, actor, action, args, *, atomic):
+    def _dispatch(self, actor, action, args, *, atomic, record_observation=False):
         if actor not in ACTORS:
             raise RuleError("未知玩家、命令或参数")
         try:
@@ -112,6 +128,8 @@ class Game(ActionGame):
             arguments=deepcopy(args), description=description,
             before=before, after=self.phase_cursor, timing=decision_timing, steps=steps,
         ))
+        if record_observation:
+            self._record_observation_checkpoint()
 
     @property
     def phase_cursor(self):
@@ -142,7 +160,7 @@ class Game(ActionGame):
     def simulate(self, actor, action, **args):
         """Apply one action to a detached clone, leaving this world untouched."""
         successor = self.clone()
-        successor.dispatch(actor, action, **args)
+        successor._dispatch(actor, action, args, atomic=True, record_observation=False)
         return SimulationResult(successor, successor.decisions[-1])
 
     def transition(self, action):
@@ -185,7 +203,7 @@ class Game(ActionGame):
         actor = command.pop("actor")
         name = command.pop("action")
         successor = self.search_clone()
-        successor._dispatch(actor, name, command, atomic=False)
+        successor._dispatch(actor, name, command, atomic=False, record_observation=False)
         return successor
 
     def rule_context(self, timing=None):
