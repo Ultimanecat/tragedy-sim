@@ -5,7 +5,8 @@ import random
 import unittest
 
 from tragedy_sim import Game
-from tragedy_sim.belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
+from tragedy_sim.belief import (BeliefParticleFilter, CatalogBeliefSampler,
+                                ConstraintBeliefSampler,
                                 HiddenWorldHypothesis, ParticleReplayer,
                                 ObservationParticleAdvancer, PublicEvidence,
                                 PublicSnapshot)
@@ -233,6 +234,69 @@ class ObservationCheckpointTests(unittest.TestCase):
         result = ObservationParticleAdvancer().advance(
             initial, viewer="a", observed=observed_digest)
         self.assertEqual(len(result.successors), 1)
+
+
+class BeliefParticleFilterTests(unittest.TestCase):
+    @staticmethod
+    def initial_particles():
+        source = Game(example_scenario("BTX"))
+        evidence = PublicEvidence.from_view(source.view("a"))
+        hypotheses = ConstraintBeliefSampler().sample(
+            evidence, 4, rng=random.Random(31))
+        particles = BeliefParticleFilter.materialize(hypotheses, evidence)
+        return source, particles
+
+    def test_hidden_wide_branch_is_bounded_without_collapsing_to_one_answer(self):
+        source, particles = self.initial_particles()
+        first = source.search_actions("m")[0]
+        source = source.transition(first).game
+        filterer = BeliefParticleFilter(max_particles=12, rng=random.Random(5))
+        setup = filterer.advance(
+            particles, viewer="a",
+            observed=PublicSnapshot.from_view(source.view("a")))
+        self.assertEqual(len(setup.particles), len(particles))
+
+        hidden = source.search_actions("m")[23]
+        observed_game = source.transition(hidden).game
+        result = filterer.advance(
+            setup.particles, viewer="a",
+            observed=PublicSnapshot.from_view(observed_game.view("a")))
+        self.assertEqual(result.input_particles, len(particles))
+        self.assertGreater(result.matching_successors, 20)
+        self.assertGreater(result.unique_successors, 12)
+        self.assertEqual(len(result.particles), 12)
+        self.assertGreater(len({item.state_key("m") for item in result.particles}), 1)
+        expected = PublicSnapshot.from_view(observed_game.view("a"))
+        self.assertTrue(all(PublicSnapshot.from_view(item.view("a")) == expected
+                            for item in result.particles))
+
+    def test_resampling_is_seeded_and_contradictions_eliminate_all_particles(self):
+        source, particles = self.initial_particles()
+        source = source.transition(source.search_actions("m")[0]).game
+        particles = BeliefParticleFilter(max_particles=16).advance(
+            particles, viewer="a",
+            observed=PublicSnapshot.from_view(source.view("a"))).particles
+        observed = PublicSnapshot.from_view(
+            source.transition(source.search_actions("m")[7]).game.view("a"))
+
+        def keys():
+            result = BeliefParticleFilter(
+                max_particles=7, rng=random.Random(18)).advance(
+                    particles, viewer="a", observed=observed)
+            return tuple(item.state_key("m") for item in result.particles)
+
+        sampled = keys()
+        self.assertEqual(sampled, keys())
+        self.assertEqual(len(sampled), 7)
+        impossible = "0" * 16
+        rejected = BeliefParticleFilter(max_particles=7).advance(
+            particles, viewer="a", observed=impossible)
+        self.assertFalse(rejected.particles)
+        self.assertEqual(rejected.matching_successors, 0)
+
+    def test_particle_limit_is_validated(self):
+        with self.assertRaises(ValueError):
+            BeliefParticleFilter(max_particles=0)
 
 
 if __name__ == "__main__":

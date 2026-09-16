@@ -221,6 +221,72 @@ class ObservationParticleAdvancer:
         return ParticleAdvanceResult(tuple(successors), tested)
 
 
+@dataclass(frozen=True)
+class ParticleFilterResult:
+    particles: tuple[Any, ...]
+    input_particles: int
+    tested_actions: int
+    matching_successors: int
+    unique_successors: int
+
+
+class BeliefParticleFilter:
+    """Bound an observation update without choosing one hidden explanation."""
+
+    def __init__(self, *, max_particles: int = 64,
+                 rng: random.Random | None = None):
+        if type(max_particles) is not int or max_particles < 1:
+            raise ValueError("max_particles must be a positive integer")
+        self.max_particles = max_particles
+        self.rng = rng or random.Random(0)
+        self.advancer = ObservationParticleAdvancer()
+
+    @staticmethod
+    def materialize(hypotheses: Sequence[HiddenWorldHypothesis],
+                    evidence: PublicEvidence) -> tuple[Any, ...]:
+        from .game import Game
+
+        particles = []
+        for hypothesis in hypotheses:
+            try:
+                particles.append(Game(hypothesis.materialize(evidence)))
+            except RuleError:
+                continue
+        return tuple(particles)
+
+    def advance(self, particles: Sequence[Any], *, viewer: str,
+                observed: PublicSnapshot | str,
+                public_command: Mapping[str, Any] | None = None
+                ) -> ParticleFilterResult:
+        reservoir: list[Any] = []
+        seen_keys: set[str] = set()
+        tested = 0
+        matching = 0
+        unique = 0
+        for particle in particles:
+            advanced = self.advancer.advance(
+                particle, viewer=viewer, observed=observed,
+                public_command=public_command)
+            tested += advanced.tested_actions
+            matching += len(advanced.successors)
+            for successor in advanced.successors:
+                private_key = successor.state_key("m")
+                if private_key in seen_keys:
+                    continue
+                seen_keys.add(private_key)
+                unique += 1
+                if len(reservoir) < self.max_particles:
+                    reservoir.append(successor)
+                    continue
+                replacement = self.rng.randrange(unique)
+                if replacement < self.max_particles:
+                    reservoir[replacement] = successor
+        return ParticleFilterResult(
+            particles=tuple(reservoir), input_particles=len(particles),
+            tested_actions=tested, matching_successors=matching,
+            unique_successors=unique)
+
+
 class CatalogBeliefSampler:
     """Filter server-owned scripts using protagonist-visible evidence only."""
 
