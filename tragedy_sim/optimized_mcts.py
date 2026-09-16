@@ -62,6 +62,7 @@ class OptimizedMctsMastermindAgent:
         self.last_trace: SearchTrace | None = None
         self._candidate_actions = 0
         self._forced_transitions = 0
+        self._retained_root: _OptimizedNode | None = None
 
     @property
     def plan_name(self) -> str:
@@ -181,6 +182,7 @@ class OptimizedMctsMastermindAgent:
 
     def _trace_for_forced_action(self, game: SearchGame, typed: Any,
                                  root_hash: str, started: float) -> None:
+        self._retained_root = None
         self.last_trace = SearchTrace(
             strategy=self.plan_name, seed=self.budget.seed,
             root_key_hash=root_hash, node_limit=self.budget.node_limit,
@@ -191,7 +193,29 @@ class OptimizedMctsMastermindAgent:
             root_actions=(RootActionStats(
                 action_id=typed.id, actor=typed.actor, kind=typed.kind,
                 parameters=dict(typed.parameters), visits=0, mean_value=0.0),),
-            candidate_actions=1, expanded_actions=0, forced_transitions=0)
+            candidate_actions=1, expanded_actions=0, forced_transitions=0,
+            reused_nodes=0, retained_tree_nodes=0)
+
+    @staticmethod
+    def _tree_size(root: _OptimizedNode) -> int:
+        return 1 + sum(OptimizedMctsMastermindAgent._tree_size(child)
+                       for child in root.children)
+
+    def _take_matching_subtree(self, root_key: str) -> tuple[_OptimizedNode | None, int]:
+        """Return a retained descendant matching the actual private state."""
+        if self._retained_root is None:
+            return None, 0
+        pending = [self._retained_root]
+        while pending:
+            candidate = pending.pop()
+            if candidate.game.state_key("m") == root_key:
+                candidate.parent = None
+                count = self._tree_size(candidate)
+                self._retained_root = None
+                return candidate, count
+            pending.extend(candidate.children)
+        self._retained_root = None
+        return None, 0
 
     def search(self, game: SearchGame) -> Any:
         if game.controller != "m":
@@ -210,7 +234,9 @@ class OptimizedMctsMastermindAgent:
 
         self._candidate_actions = 0
         self._forced_transitions = 0
-        root = _OptimizedNode(game.search_clone())
+        root, reused_nodes = self._take_matching_subtree(root_key)
+        if root is None:
+            root = _OptimizedNode(game.search_clone())
         deadline = (None if self.budget.time_limit_ms is None else
                     started + self.budget.time_limit_ms / 1000)
         nodes = 1
@@ -270,6 +296,15 @@ class OptimizedMctsMastermindAgent:
                         for terminal, visits, value, _ in ranked)
         selected = rng.choice([typed for terminal, visits, value, typed in ranked
                                if (terminal, visits, value) == best_rank])
+        retained = children.get(_command_key(raw_actions[
+            next(index for index, typed in enumerate(typed_offers)
+                 if typed.id == selected.id)]))
+        if retained is not None:
+            # Detach the chosen branch immediately so discarded siblings and
+            # ancestors can be collected between real decisions.
+            retained.parent = None
+        self._retained_root = retained
+        retained_tree_nodes = self._tree_size(retained) if retained is not None else 0
         root_stats = tuple(RootActionStats(
             action_id=typed.id, actor=typed.actor, kind=typed.kind,
             parameters=dict(typed.parameters),
@@ -288,7 +323,9 @@ class OptimizedMctsMastermindAgent:
             stop_reason=stop_reason, selected_action_id=selected.id,
             root_actions=root_stats, candidate_actions=self._candidate_actions,
             expanded_actions=nodes - 1,
-            forced_transitions=self._forced_transitions)
+            forced_transitions=self._forced_transitions,
+            reused_nodes=reused_nodes,
+            retained_tree_nodes=retained_tree_nodes)
         return selected
 
     def choose_game_action(self, *, participant: str, game: SearchGame,

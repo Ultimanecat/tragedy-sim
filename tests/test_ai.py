@@ -287,6 +287,25 @@ class OptimizedMctsTests(unittest.TestCase):
         self.assertEqual(agent.last_trace.stop_reason, "forced_action")
         self.assertEqual(agent.last_trace.nodes, 1)
 
+    def test_selected_subtree_is_reused_only_when_state_matches(self):
+        game = Game(example_scenario("FS"))
+        game = game.search_transition(game.search_actions("m")[0])
+        agent = OptimizedMctsMastermindAgent(
+            SearchBudget(node_limit=18, rollout_depth=7, seed=13))
+        selected = agent.search(game)
+        retained_after_first = agent.last_trace.retained_tree_nodes
+        self.assertGreaterEqual(retained_after_first, 1)
+
+        successor = game.transition(selected).game
+        self.assertEqual(successor.controller, "m")
+        agent.search(successor)
+        self.assertEqual(agent.last_trace.reused_nodes, retained_after_first)
+
+        unrelated = Game(example_scenario("BTX"))
+        unrelated = unrelated.search_transition(unrelated.search_actions("m")[0])
+        agent.search(unrelated)
+        self.assertEqual(agent.last_trace.reused_nodes, 0)
+
     def test_every_ruleset_can_supply_optimized_root_actions(self):
         for module in ("FS", "BTX", "MZ", "MC", "HSA", "WM", "AHR", "LL"):
             with self.subTest(module=module):

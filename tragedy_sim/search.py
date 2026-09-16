@@ -86,6 +86,8 @@ class SearchTrace:
     candidate_actions: int = 0
     expanded_actions: int = 0
     forced_transitions: int = 0
+    reused_nodes: int = 0
+    retained_tree_nodes: int = 0
 
     @staticmethod
     def hash_state_key(state_key: str) -> str:

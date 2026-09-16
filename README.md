@@ -73,11 +73,14 @@ python -m tragedy_sim --host-room --port 8765
 ```powershell
 python -m benchmarks.mcts_search --strategy naive --module BTX --nodes 64 --depth 24 --seed 0
 python -m benchmarks.mcts_search --strategy optimized --module BTX --nodes 64 --depth 24 --seed 0
+python -m benchmarks.mcts_matrix --strategy both --nodes 12 --depth 8 --seed 0
 python -m benchmarks.ai_self_play --strategy naive --scenario official-fs-01-first-script --games 3 --nodes 12 --depth 8
 python -m benchmarks.ai_self_play --strategy optimized --scenario official-fs-01-first-script --games 3 --nodes 12 --depth 8
 ```
 
-完整 MCTS 决策追踪只保存在房间服务的进程内调试记录，不进入任何玩家状态、SSE 消息或对局 replay。
+`mcts_matrix` 会在八个规则集的首个分支局面比较根分支数、延迟和峰值内存。优化 MCTS 还会在实际落子后保留匹配子树，
+后续决策状态吻合时复用访问统计；状态不吻合即安全丢弃。完整 MCTS 决策追踪只保存在房间服务的进程内调试记录，
+不进入任何玩家状态、SSE 消息或对局 replay。
 
 只有一名主人公玩家时，该玩家控制 A/B/C；有两名时，A、B 各自出牌，当天真人领队代管 C，并随日期轮流担任
 真人领队。界面会分别显示引擎逻辑领队和真人领队。Last Liar（LL）由于个人秘密与背叛者规则，强制三名主人公
