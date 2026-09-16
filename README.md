@@ -82,6 +82,9 @@ python -m benchmarks.ai_self_play --strategy optimized --scenario official-fs-01
 后续决策状态吻合时复用访问统计；状态不吻合即安全丢弃。完整 MCTS 决策追踪只保存在房间服务的进程内调试记录，
 不进入任何玩家状态、SSE 消息或对局 replay。
 
+C3 的主人公信息集搜索仍在开发中。当前 `PublicEvidence` / `CatalogBeliefSampler` 已建立严格的信息边界和可复现目录粒子
+过滤，但目录候选不等于完整的规则允许世界；在组合粒子生成与公开 Observation 重放完成前，不会把它作为可选 AI 暴露。
+
 只有一名主人公玩家时，该玩家控制 A/B/C；有两名时，A、B 各自出牌，当天真人领队代管 C，并随日期轮流担任
 真人领队。界面会分别显示引擎逻辑领队和真人领队。Last Liar（LL）由于个人秘密与背叛者规则，强制三名主人公
 玩家参与，即总共四人。
