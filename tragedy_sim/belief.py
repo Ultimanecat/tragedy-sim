@@ -318,19 +318,25 @@ class CatalogBeliefSampler:
         plots = {scenario["main_plot"], *scenario["subplots"]}
         return all(plot in plots for plot in evidence.known_plots)
 
-    def candidates(self, evidence: PublicEvidence) -> tuple[HiddenWorldHypothesis, ...]:
+    def candidates(self, evidence: PublicEvidence, *, witnesses=()
+                   ) -> tuple[HiddenWorldHypothesis, ...]:
+        from .witness import FsbtxWitnessMatcher
+
+        matcher = FsbtxWitnessMatcher()
         hypotheses = []
         for summary in self.library.list(evidence.module):
             scenario = self.library.get(summary["id"])
             if self._matches(evidence, scenario):
-                hypotheses.append(HiddenWorldHypothesis.from_scenario(scenario))
+                hypothesis = HiddenWorldHypothesis.from_scenario(scenario)
+                if matcher.matches(hypothesis, witnesses):
+                    hypotheses.append(hypothesis)
         return tuple(sorted(hypotheses, key=lambda item: item.scenario_id))
 
     def sample(self, evidence: PublicEvidence, count: int, *,
-               rng: random.Random) -> tuple[HiddenWorldHypothesis, ...]:
+               rng: random.Random, witnesses=()) -> tuple[HiddenWorldHypothesis, ...]:
         if type(count) is not int or count < 1:
             raise ValueError("count must be a positive integer")
-        candidates = self.candidates(evidence)
+        candidates = self.candidates(evidence, witnesses=witnesses)
         if not candidates:
             return ()
         return tuple(rng.choice(candidates) for _ in range(count))
@@ -407,8 +413,10 @@ class ConstraintBeliefSampler:
         return incidents
 
     def sample(self, evidence: PublicEvidence, count: int, *,
-               rng: random.Random, max_attempts: int | None = None
+               rng: random.Random, max_attempts: int | None = None, witnesses=()
                ) -> tuple[HiddenWorldHypothesis, ...]:
+        from .witness import FsbtxWitnessMatcher
+
         if type(count) is not int or count < 1:
             raise ValueError("count must be a positive integer")
         plot_sets = self._plot_sets(evidence)
@@ -417,6 +425,7 @@ class ConstraintBeliefSampler:
         limit = max_attempts or max(200, count * 100)
         hypotheses: list[HiddenWorldHypothesis] = []
         signatures: set[tuple[Any, ...]] = set()
+        matcher = FsbtxWitnessMatcher()
         for attempt in range(limit):
             main, subplots = rng.choice(plot_sets)
             cast = self._cast(
@@ -436,6 +445,8 @@ class ConstraintBeliefSampler:
             except RuleError:
                 continue
             hypothesis = HiddenWorldHypothesis.from_scenario(validated)
+            if not matcher.matches(hypothesis, witnesses):
+                continue
             signature = (hypothesis.main_plot, hypothesis.subplots,
                          hypothesis.roles, hypothesis.incidents)
             if signature in signatures:

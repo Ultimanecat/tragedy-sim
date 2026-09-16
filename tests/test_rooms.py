@@ -288,6 +288,17 @@ class RoomServiceTests(unittest.TestCase):
         self.assertEqual(updated["room"]["seats"]["a"]["nickname"],
                          "历史风险主人公 AI")
 
+    def test_ismcts_protagonist_ai_is_selectable(self):
+        rooms = RoomService()
+        created = rooms.create({"module": "BTX", "nickname": "Host", "seat": "m"})
+        updated = rooms.set_ai(created["room"]["code"], {
+            "seat": "a", "enabled": True, "strategy": "ismcts_protagonist",
+        }, token=created["credential"]["admin_token"])
+        self.assertEqual(updated["room"]["seats"]["a"]["ai_type"],
+                         "ismcts_protagonist")
+        self.assertEqual(updated["room"]["seats"]["a"]["nickname"],
+                         "ISMCTS 主人公 AI")
+
     def test_mcts_mastermind_uses_private_search_trace(self):
         rooms = RoomService()
         created = rooms.create({"module": "FS", "nickname": "Hero", "seat": "a",

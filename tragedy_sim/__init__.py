@@ -14,12 +14,15 @@ from .service import GameService, LocalGameClient, PROTOCOL_VERSION, ServiceErro
 from .mcts import FullInformationMctsMastermindAgent
 from .optimized_mcts import OptimizedMctsMastermindAgent
 from .strategic_mcts import StrategicMctsMastermindAgent
+from .ismcts import IsmctsProtagonistAgent, IsmctsTrace, PublicStateDeterminizer
 from .belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
                      BeliefParticleFilter, HiddenWorldHypothesis,
                      ParticleFilterResult, ParticleReplayResult,
                      ParticleReplayer, ParticleAdvanceResult,
                      ObservationCheckpoint, ObservationParticleAdvancer,
                      PublicEvidence, PublicSnapshot)
+from .witness import (FsbtxWitnessCompiler, FsbtxWitnessMatcher, PublicWitness,
+                      WitnessEvaluation, WitnessStrength, WitnessVerdict)
 from .search import MastermindEvaluator, RootActionStats, SearchBudget, SearchTrace
 from .evaluation import (EvaluationContribution, PositionEvaluation, PositionFeatures,
                          ScenarioConditionedEvaluator, ScenarioEvaluationContext)
@@ -32,11 +35,14 @@ __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "Activat
            "GameService", "LocalGameClient", "PROTOCOL_VERSION", "ServiceError",
            "FullInformationMctsMastermindAgent", "OptimizedMctsMastermindAgent",
            "StrategicMctsMastermindAgent",
+           "IsmctsProtagonistAgent", "IsmctsTrace", "PublicStateDeterminizer",
            "CatalogBeliefSampler", "ConstraintBeliefSampler",
            "BeliefParticleFilter", "ParticleFilterResult",
            "HiddenWorldHypothesis", "ParticleReplayResult", "ParticleReplayer",
            "ParticleAdvanceResult", "ObservationParticleAdvancer",
            "ObservationCheckpoint", "PublicEvidence", "PublicSnapshot",
+           "FsbtxWitnessCompiler", "FsbtxWitnessMatcher", "PublicWitness",
+           "WitnessEvaluation", "WitnessStrength", "WitnessVerdict",
            "MastermindEvaluator", "RootActionStats",
            "EvaluationContribution", "PositionEvaluation", "PositionFeatures",
            "ScenarioConditionedEvaluator", "ScenarioEvaluationContext",
