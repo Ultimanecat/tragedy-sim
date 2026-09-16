@@ -4,6 +4,7 @@ import random
 import unittest
 
 from tragedy_sim.ai import (BaselineProtagonistAgent, DefensiveProtagonistAgent,
+                            RiskAwareProtagonistAgent,
                             FixedStrategyMastermindAgent, RandomAgent)
 from tragedy_sim import Game
 from tragedy_sim.mcts import FullInformationMctsMastermindAgent
@@ -141,6 +142,30 @@ class AiPolicyTests(unittest.TestCase):
         chosen = DefensiveProtagonistAgent(random.Random(1)).choose_action(
             participant="a", view=view, offers=offers)
         self.assertEqual(chosen["id"], "ability")
+
+    def test_risk_aware_protagonist_blocks_repeated_public_intrigue_target(self):
+        view = {
+            "loop": 2, "round": 1, "days": 4, "leader": "a",
+            "known_culprits": {}, "known_roles": {}, "schedule": [],
+            "characters": {
+                "girl": {"paranoia": 0, "paranoia_limit": 3, "goodwill": 0,
+                         "intrigue": 0, "abilities": []},
+                "worker": {"paranoia": 0, "paranoia_limit": 2, "goodwill": 0,
+                           "intrigue": 0, "abilities": []},
+            }, "locations": {},
+            "events": [{"kind": "cards_revealed", "loop": 1, "round": day,
+                        "cards": [{"actor": "m", "card": "i2", "target": "girl"}]}
+                       for day in (1, 2, 3)],
+        }
+        offers = [
+            {"id": "risk", "actor": "a", "type": "play",
+             "parameters": {"card": "fi", "target": "girl"}},
+            {"id": "other", "actor": "a", "type": "play",
+             "parameters": {"card": "fi", "target": "worker"}},
+        ]
+        chosen = RiskAwareProtagonistAgent(random.Random(1)).choose_action(
+            participant="a", view=view, offers=offers)
+        self.assertEqual(chosen["id"], "risk")
 
     def test_assassination_playbook_builds_intrigue_then_moves_killer(self):
         agent = FixedStrategyMastermindAgent(random.Random(1), "key_assassination")

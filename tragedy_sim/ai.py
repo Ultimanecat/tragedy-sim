@@ -221,6 +221,66 @@ class DefensiveProtagonistAgent(BaselineProtagonistAgent):
         return self._rng.choice([offer for score, offer in scored if score == best])
 
 
+class RiskAwareProtagonistAgent(DefensiveProtagonistAgent):
+    """Defensive policy that infers likely targets from public card history."""
+
+    @staticmethod
+    def _public_risk(view: dict[str, Any]) -> dict[str, dict[str, float]]:
+        current_loop = int(view.get("loop", 1))
+        current_day = int(view.get("round", 1))
+        days = max(1, int(view.get("days", 1)))
+        risk: dict[str, dict[str, float]] = {}
+        for event in view.get("events", ()):
+            if event.get("kind") != "cards_revealed":
+                continue
+            event_loop = int(event.get("loop", current_loop))
+            event_day = int(event.get("round", current_day))
+            age = max(0, (current_loop - event_loop) * days + current_day - event_day)
+            decay = 0.82 ** age
+            for placement in event.get("cards", ()):
+                if placement.get("actor") != "m":
+                    continue
+                target, card = placement.get("target"), placement.get("card")
+                if not isinstance(target, str):
+                    continue
+                scores = risk.setdefault(target, {
+                    "intrigue": 0.0, "paranoia": 0.0, "movement": 0.0,
+                })
+                if card == "i2":
+                    scores["intrigue"] += 5.0 * decay
+                elif card == "i1":
+                    scores["intrigue"] += 3.0 * decay
+                elif card in {"p1a", "p1b"}:
+                    scores["paranoia"] += 2.5 * decay
+                elif card in {"h", "v", "d"}:
+                    scores["movement"] += 1.5 * decay
+        return risk
+
+    def _play_score(self, offer: dict[str, Any], view: dict[str, Any],
+                    reversals: set[tuple[str, str]]) -> int:
+        score = super()._play_score(offer, view, reversals)
+        card, target = self._play_fields(offer)
+        if card is None or target is None:
+            return score
+        risk = self._public_risk(view).get(target, {})
+        intrigue = float(risk.get("intrigue", 0.0))
+        paranoia = float(risk.get("paranoia", 0.0))
+        movement = float(risk.get("movement", 0.0))
+        if card == "fi" and offer.get("actor") == view.get("leader"):
+            score += round(32 * intrigue)
+        elif card == "fm":
+            score += round(22 * (movement + 0.5 * intrigue))
+        elif card == "p-1":
+            character = view.get("characters", {}).get(target, {})
+            current_incident = any(item.get("day") == view.get("round")
+                                   for item in view.get("schedule", ()))
+            if int(character.get("paranoia", 0)) > 0 or current_incident:
+                score += round(30 * paranoia)
+        elif card == "p1":
+            score -= round(20 * paranoia)
+        return score
+
+
 @dataclass(frozen=True)
 class _Plan:
     kind: str

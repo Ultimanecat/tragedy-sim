@@ -12,6 +12,7 @@ from typing import Any, Sequence
 
 from tragedy_sim import Game
 from tragedy_sim.ai import (BaselineProtagonistAgent, DefensiveProtagonistAgent,
+                            RiskAwareProtagonistAgent,
                             FixedStrategyMastermindAgent)
 from tragedy_sim.mcts import FullInformationMctsMastermindAgent
 from tragedy_sim.optimized_mcts import OptimizedMctsMastermindAgent
@@ -21,7 +22,7 @@ from tragedy_sim.search import SearchBudget
 
 
 MASTERMIND_STRATEGIES = ("random", "fixed", "naive", "optimized", "strategic")
-PROTAGONIST_STRATEGIES = ("random", "baseline", "defensive")
+PROTAGONIST_STRATEGIES = ("random", "baseline", "defensive", "risk_aware")
 
 
 @dataclass(frozen=True)
@@ -88,7 +89,9 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         FixedStrategyMastermindAgent(random.Random(f"mastermind:{seed}"))
         if strategy == "fixed" else random.Random(f"mastermind:{seed}"))
     protagonists = {
-        seat: (DefensiveProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
+        seat: (RiskAwareProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
+               if protagonist_strategy == "risk_aware" else
+               DefensiveProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
                if protagonist_strategy == "defensive" else
                BaselineProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
                if protagonist_strategy == "baseline"
@@ -114,7 +117,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             actor = game.controller
             policy = protagonists[actor]
             action = (_choose_policy_action(policy, actor, game, actions)
-                      if protagonist_strategy in {"baseline", "defensive"}
+                      if protagonist_strategy in {"baseline", "defensive", "risk_aware"}
                       else policy.choice(actions))
         game = game.transition(action).game
         decisions += 1

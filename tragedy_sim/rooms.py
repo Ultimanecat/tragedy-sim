@@ -10,6 +10,7 @@ import time
 from typing import Any
 
 from .ai import (AgentPolicy, BaselineProtagonistAgent, DefensiveProtagonistAgent,
+                 RiskAwareProtagonistAgent,
                  FixedStrategyMastermindAgent, RandomAgent)
 from .mcts import FullInformationMctsMastermindAgent
 from .optimized_mcts import OptimizedMctsMastermindAgent
@@ -309,11 +310,12 @@ class RoomService:
         mastermind_strategies = {
             "fixed_mastermind", "mcts_mastermind", "optimized_mcts_mastermind",
             "strategic_mcts_mastermind"}
-        protagonist_strategies = {"baseline_protagonist", "defensive_protagonist"}
+        protagonist_strategies = {
+            "baseline_protagonist", "defensive_protagonist", "risk_aware_protagonist"}
         if strategy not in ("random", *mastermind_strategies, *protagonist_strategies):
             raise ServiceError(
                 "INVALID_AI_STRATEGY",
-                "AI 策略必须是 random、baseline_protagonist、defensive_protagonist、fixed_mastermind、mcts_mastermind、optimized_mcts_mastermind 或 strategic_mcts_mastermind")
+                "AI 策略必须是 random、baseline_protagonist、defensive_protagonist、risk_aware_protagonist、fixed_mastermind、mcts_mastermind、optimized_mcts_mastermind 或 strategic_mcts_mastermind")
         if strategy in mastermind_strategies and seat != "m":
             raise ServiceError("INVALID_AI_STRATEGY", "剧作家策略 AI 只能坐在剧作家席位", status=409)
         if strategy in protagonist_strategies and seat == "m":
@@ -334,6 +336,7 @@ class RoomService:
                     nickname=("随机 AI" if strategy == "random" else
                               "基础干扰主人公 AI" if strategy == "baseline_protagonist" else
                               "公开信息防守主人公 AI" if strategy == "defensive_protagonist" else
+                              "历史风险主人公 AI" if strategy == "risk_aware_protagonist" else
                               "定式剧作家 AI" if strategy == "fixed_mastermind" else
                               "朴素 MCTS 剧作家 AI" if strategy == "mcts_mastermind"
                               else "优化 MCTS 剧作家 AI" if strategy == "optimized_mcts_mastermind"
@@ -345,6 +348,8 @@ class RoomService:
                                if strategy == "baseline_protagonist" else
                                DefensiveProtagonistAgent()
                                if strategy == "defensive_protagonist" else
+                               RiskAwareProtagonistAgent()
+                               if strategy == "risk_aware_protagonist" else
                                FixedStrategyMastermindAgent()
                                if strategy == "fixed_mastermind" else
                                FullInformationMctsMastermindAgent(

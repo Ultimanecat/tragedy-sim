@@ -23,7 +23,8 @@ from .belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
 from .search import MastermindEvaluator, RootActionStats, SearchBudget, SearchTrace
 from .evaluation import (EvaluationContribution, PositionEvaluation, PositionFeatures,
                          ScenarioConditionedEvaluator, ScenarioEvaluationContext)
-from .ai import BaselineProtagonistAgent, DefensiveProtagonistAgent
+from .ai import (BaselineProtagonistAgent, DefensiveProtagonistAgent,
+                 RiskAwareProtagonistAgent)
 
 __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "ActivationRule", "Character",
            "ComponentStore", "ControllerPolicy", "CounterChange", "CustomEffect", "DecisionRecord",
@@ -41,6 +42,7 @@ __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "Activat
            "ScenarioConditionedEvaluator", "ScenarioEvaluationContext",
            "BaselineProtagonistAgent",
            "DefensiveProtagonistAgent",
+           "RiskAwareProtagonistAgent",
            "SearchBudget", "SearchTrace",
            "MATCH_FLOW", "MatchFlow", "Observation", "PHASE_LABELS", "PhaseCursor", "PhaseDefinition", "PhaseId",
            "LegacyEffect", "MandatoryWindow", "PhaseKey", "ReplayArchive", "ReplaySession", "ResolutionStep",
