@@ -13,6 +13,7 @@ from .replay import ReplayArchive, ReplaySession
 from .service import GameService, LocalGameClient, PROTOCOL_VERSION, ServiceError
 from .mcts import FullInformationMctsMastermindAgent
 from .optimized_mcts import OptimizedMctsMastermindAgent
+from .strategic_mcts import StrategicMctsMastermindAgent
 from .belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
                      BeliefParticleFilter, HiddenWorldHypothesis,
                      ParticleFilterResult, ParticleReplayResult,
@@ -29,6 +30,7 @@ __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "Activat
            "Effect", "EffectResult", "EndgamePlan", "FlowPlan", "Game", "GameModel", "KillCharacter",
            "GameService", "LocalGameClient", "PROTOCOL_VERSION", "ServiceError",
            "FullInformationMctsMastermindAgent", "OptimizedMctsMastermindAgent",
+           "StrategicMctsMastermindAgent",
            "CatalogBeliefSampler", "ConstraintBeliefSampler",
            "BeliefParticleFilter", "ParticleFilterResult",
            "HiddenWorldHypothesis", "ParticleReplayResult", "ParticleReplayer",

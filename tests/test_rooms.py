@@ -318,6 +318,22 @@ class RoomServiceTests(unittest.TestCase):
             }, token=other["credential"]["admin_token"])
         self.assertEqual(invalid.exception.code, "INVALID_AI_STRATEGY")
 
+    def test_strategic_mcts_is_a_selectable_mastermind_strategy(self):
+        rooms = RoomService()
+        created = rooms.create({"module": "FS", "nickname": "Hero", "seat": "a",
+                                "protagonist_count": 1})
+        code = created["room"]["code"]
+        admin = created["credential"]["admin_token"]
+        hero = created["credential"]["room_token"]
+        updated = rooms.set_ai(code, {"seat": "m", "enabled": True,
+                                     "strategy": "strategic_mcts_mastermind"}, token=admin)
+        self.assertEqual(updated["room"]["seats"]["m"]["nickname"],
+                         "策略 MCTS 剧作家 AI")
+        rooms.ready(code, {"ready": True}, token=hero)
+        rooms.start(code, token=admin)
+        trace = rooms._rooms[code].ai_debug_traces[0]["trace"]
+        self.assertEqual(trace["strategy"], "strategic_full_information_mcts")
+
     def test_four_room_tokens_can_complete_a_match_and_export_replay(self):
         self.join_all()
         for seat in "mabc":

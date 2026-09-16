@@ -8,6 +8,7 @@ from tragedy_sim.ai import (BaselineProtagonistAgent,
 from tragedy_sim import Game
 from tragedy_sim.mcts import FullInformationMctsMastermindAgent
 from tragedy_sim.optimized_mcts import OptimizedMctsMastermindAgent
+from tragedy_sim.strategic_mcts import StrategicMctsMastermindAgent
 from tragedy_sim.effects.vocabulary import op, option
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.search import MastermindEvaluator, SearchBudget, SearchTrace
@@ -367,6 +368,45 @@ class OptimizedMctsTests(unittest.TestCase):
                 agent = OptimizedMctsMastermindAgent(
                     SearchBudget(node_limit=2, rollout_depth=1, seed=5))
                 self.assertIn(agent.search(game), game.action_offers("m"))
+
+
+class StrategicMctsTests(unittest.TestCase):
+    def test_strategy_is_distinct_reproducible_and_legal(self):
+        game = Game(example_scenario("FS"))
+        game = game.search_transition(game.search_actions("m")[0])
+        budget = SearchBudget(node_limit=12, rollout_depth=6, seed=22)
+        first = StrategicMctsMastermindAgent(budget)
+        second = StrategicMctsMastermindAgent(budget)
+        chosen_a = first.search(game)
+        chosen_b = second.search(game)
+        self.assertEqual(chosen_a.command, chosen_b.command)
+        self.assertIn(chosen_a, game.action_offers("m"))
+        self.assertEqual(first.plan_name, "strategic_full_information_mcts")
+        self.assertEqual(first.last_trace.strategy, first.plan_name)
+
+    def test_route_priority_prefers_key_intrigue_and_alignment(self):
+        game = Game(example_scenario("FS"))
+        game = game.search_transition(game.search_actions("m")[0])
+        agent = StrategicMctsMastermindAgent(SearchBudget(
+            node_limit=2, rollout_depth=2, seed=1))
+        key = next(cid for cid, role in game.roles.items() if role == "key")
+        killer = next(cid for cid, role in game.roles.items() if role == "killer")
+        intrigue = {"actor": "m", "action": "play", "card": "i2", "target": key}
+        random_intrigue = {"actor": "m", "action": "play", "card": "i2",
+                           "target": "school"}
+        self.assertGreater(agent._priority(game, intrigue),
+                           agent._priority(game, random_intrigue))
+
+        game.state.characters[key].location = "school"
+        game.state.characters[killer].location = "city"
+        align = {"actor": "m", "action": "play", "card": "h", "target": key}
+        away = {"actor": "m", "action": "play", "card": "v", "target": key}
+        self.assertGreater(agent._priority(game, align), agent._priority(game, away))
+
+    def test_rollout_randomness_validation(self):
+        for value in (-0.1, 1.1):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                StrategicMctsMastermindAgent(rollout_randomness=value)
 
 
 if __name__ == "__main__":

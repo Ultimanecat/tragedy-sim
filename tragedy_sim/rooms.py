@@ -13,6 +13,7 @@ from .ai import (AgentPolicy, BaselineProtagonistAgent,
                  FixedStrategyMastermindAgent, RandomAgent)
 from .mcts import FullInformationMctsMastermindAgent
 from .optimized_mcts import OptimizedMctsMastermindAgent
+from .strategic_mcts import StrategicMctsMastermindAgent
 from .search import SearchBudget
 from .catalog import MODULES
 from .service import GameService, PROTOCOL_VERSION, SEATS, ServiceError
@@ -306,12 +307,13 @@ class RoomService:
             raise ServiceError("INVALID_REQUEST", "enabled 必须是布尔值")
         strategy = request.get("strategy", "random")
         mastermind_strategies = {
-            "fixed_mastermind", "mcts_mastermind", "optimized_mcts_mastermind"}
+            "fixed_mastermind", "mcts_mastermind", "optimized_mcts_mastermind",
+            "strategic_mcts_mastermind"}
         protagonist_strategies = {"baseline_protagonist"}
         if strategy not in ("random", *mastermind_strategies, *protagonist_strategies):
             raise ServiceError(
                 "INVALID_AI_STRATEGY",
-                "AI 策略必须是 random、baseline_protagonist、fixed_mastermind、mcts_mastermind 或 optimized_mcts_mastermind")
+                "AI 策略必须是 random、baseline_protagonist、fixed_mastermind、mcts_mastermind、optimized_mcts_mastermind 或 strategic_mcts_mastermind")
         if strategy in mastermind_strategies and seat != "m":
             raise ServiceError("INVALID_AI_STRATEGY", "剧作家策略 AI 只能坐在剧作家席位", status=409)
         if strategy in protagonist_strategies and seat == "m":
@@ -333,7 +335,8 @@ class RoomService:
                               "基础干扰主人公 AI" if strategy == "baseline_protagonist" else
                               "定式剧作家 AI" if strategy == "fixed_mastermind" else
                               "朴素 MCTS 剧作家 AI" if strategy == "mcts_mastermind"
-                              else "优化 MCTS 剧作家 AI"),
+                              else "优化 MCTS 剧作家 AI" if strategy == "optimized_mcts_mastermind"
+                              else "策略 MCTS 剧作家 AI"),
                     token=secrets.token_urlsafe(24), ready=True,
                     last_seen=self._clock(), ai=True, ai_type=strategy,
                     ai_policy=(self._ai_agent if strategy == "random" else
@@ -345,6 +348,9 @@ class RoomService:
                                    SearchBudget(node_limit=24, rollout_depth=12))
                                if strategy == "mcts_mastermind" else
                                OptimizedMctsMastermindAgent(
+                                   SearchBudget(node_limit=24, rollout_depth=12))
+                               if strategy == "optimized_mcts_mastermind" else
+                               StrategicMctsMastermindAgent(
                                    SearchBudget(node_limit=24, rollout_depth=12))),
                 )
                 self._bump(room)

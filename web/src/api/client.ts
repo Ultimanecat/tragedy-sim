@@ -317,7 +317,7 @@ export class ApiClient {
   }
 
   async setAiSeat(seat: Seat, enabled: boolean,
-                  strategy: "random" | "baseline_protagonist" | "fixed_mastermind" | "mcts_mastermind" | "optimized_mcts_mastermind" = "random") {
+                  strategy: "random" | "baseline_protagonist" | "fixed_mastermind" | "mcts_mastermind" | "optimized_mcts_mastermind" | "strategic_mcts_mastermind" = "random") {
     const room = this.requireRoom();
     return this.roomMutation("ai", { seat, enabled, strategy }, room.adminToken);
   }

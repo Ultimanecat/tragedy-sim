@@ -14,11 +14,12 @@ from tragedy_sim import Game
 from tragedy_sim.ai import BaselineProtagonistAgent, FixedStrategyMastermindAgent
 from tragedy_sim.mcts import FullInformationMctsMastermindAgent
 from tragedy_sim.optimized_mcts import OptimizedMctsMastermindAgent
+from tragedy_sim.strategic_mcts import StrategicMctsMastermindAgent
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
 
 
-MASTERMIND_STRATEGIES = ("random", "fixed", "naive", "optimized")
+MASTERMIND_STRATEGIES = ("random", "fixed", "naive", "optimized", "strategic")
 PROTAGONIST_STRATEGIES = ("random", "baseline")
 
 
@@ -82,6 +83,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     mastermind: Any = (
         FullInformationMctsMastermindAgent(budget) if strategy == "naive" else
         OptimizedMctsMastermindAgent(budget) if strategy == "optimized" else
+        StrategicMctsMastermindAgent(budget) if strategy == "strategic" else
         FixedStrategyMastermindAgent(random.Random(f"mastermind:{seed}"))
         if strategy == "fixed" else random.Random(f"mastermind:{seed}"))
     protagonists = {
@@ -98,7 +100,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             raise RuntimeError(f"no legal action at {game.phase_cursor}")
         if game.controller == "m":
             mastermind_decisions += 1
-            if strategy in {"naive", "optimized"}:
+            if strategy in {"naive", "optimized", "strategic"}:
                 action = mastermind.search(game)
                 search_nodes += mastermind.last_trace.nodes
             elif strategy == "fixed":
