@@ -224,7 +224,7 @@ class RoleAndIncidentEvaluationTests(unittest.TestCase):
         game.winner = "protagonists"
         self.assertEqual(self.evaluator(game), -1.0)
 
-    def test_phase_stability_loop_pressure_and_public_knowledge_are_explicit(self):
+    def test_phase_stability_and_loop_pressure_are_explicit(self):
         game = Game(example_scenario("BTX"))
         initial = self.evaluator.evaluate(game)
         self.assertTrue(initial.stable)
@@ -238,8 +238,8 @@ class RoleAndIncidentEvaluationTests(unittest.TestCase):
         self.assertIsNotNone(contribution(later, "match:loops_spent"))
         game.known_roles["girl"] = {"role": "key", "loop": 1, "day": 1}
         informed = self.evaluator.evaluate(game)
-        self.assertLess(informed.value, later.value)
-        self.assertIsNotNone(contribution(informed, "defense:knowledge"))
+        self.assertEqual(informed.value, later.value)
+        self.assertIsNone(contribution(informed, "defense:knowledge"))
 
 
 class RecordedScriptEvaluationWalkTests(unittest.TestCase):

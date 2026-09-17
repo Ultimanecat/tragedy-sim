@@ -10,6 +10,7 @@ from tragedy_sim.belief import (ConstraintBeliefSampler, HiddenWorldHypothesis,
                                 PublicEvidence)
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.witness import (FsbtxWitnessCompiler, FsbtxWitnessMatcher,
+                                 PublicEvidenceLedger,
                                  WitnessStrength, WitnessVerdict)
 
 
@@ -18,6 +19,21 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.game = Game(example_scenario("BTX"))
         self.view = self.game.view("a")
         self.hypothesis = HiddenWorldHypothesis.from_scenario(self.game.scenario)
+
+    def test_evidence_ledger_is_a_separate_idempotent_dimension(self):
+        ledger = PublicEvidenceLedger()
+        compiler = FsbtxWitnessCompiler()
+        first = ledger.update(self.view, compiler)
+        self.assertEqual(first, ledger.witnesses)
+        self.assertEqual(ledger.updates, 1)
+        ledger.update(self.view, compiler)
+        self.assertEqual(ledger.updates, 1)
+
+        changed = deepcopy(self.view)
+        changed["known_roles"] = {"girl": {"role": "key"}}
+        ledger.update(changed, compiler)
+        self.assertEqual(ledger.updates, 2)
+        self.assertEqual(ledger.hard_count, 1)
 
     def test_explicit_reveals_are_hard_constraints(self):
         view = deepcopy(self.view)

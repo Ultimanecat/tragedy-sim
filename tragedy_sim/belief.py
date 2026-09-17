@@ -104,12 +104,17 @@ class ObservationCheckpoint:
 
     decision: int
     digests: tuple[tuple[str, str], ...]
+    visible_commands: tuple[tuple[str, tuple[tuple[str, Any], ...]], ...] = ()
 
     def for_viewer(self, viewer: str) -> str:
         try:
             return dict(self.digests)[viewer]
         except KeyError as exc:
             raise ValueError(f"checkpoint has no viewer {viewer}") from exc
+
+    def command_for_viewer(self, viewer: str) -> dict[str, Any] | None:
+        command = dict(self.visible_commands).get(viewer)
+        return None if command is None else dict(command)
 
 
 @dataclass(frozen=True)
@@ -206,8 +211,10 @@ class ObservationParticleAdvancer:
         legal = list(game.search_actions(game.controller))
         observed_digest = observed.digest if isinstance(observed, PublicSnapshot) else observed
         if public_command is not None:
-            command = dict(public_command)
-            legal = [command] if command in legal else []
+            pattern = dict(public_command)
+            legal = [command for command in legal
+                     if all(command.get(key) == value
+                            for key, value in pattern.items())]
         successors = []
         tested = 0
         for command in legal:
@@ -464,3 +471,129 @@ class ConstraintBeliefSampler:
             if len(hypotheses) >= count:
                 break
         return tuple(hypotheses)
+
+
+@dataclass(frozen=True)
+class PersistentBeliefSync:
+    particles: tuple[Any, ...]
+    initialized: bool
+    processed: int
+    tested_actions: int
+    matching_successors: int
+    reason: str | None = None
+
+
+class PersistentBeliefState:
+    """Advance one seat's private particles through its public observations.
+
+    The tracker receives only protagonist-view snapshot hashes plus the subset
+    of each command that was public to that seat.  It never consumes the real
+    scenario or the server's hidden command history.
+    """
+
+    def __init__(self, *, max_particles: int = 24, seed: int = 0):
+        if type(max_particles) is not int or max_particles < 1:
+            raise ValueError("max_particles must be a positive integer")
+        self.max_particles = max_particles
+        self.rng = random.Random(seed)
+        self.filter = BeliefParticleFilter(
+            max_particles=max_particles, rng=self.rng)
+        self.particles: tuple[Any, ...] = ()
+        self.last_decision = -1
+        self._signature: tuple[Any, ...] | None = None
+        self._witness_signature: str | None = None
+
+    @staticmethod
+    def _static_signature(evidence: PublicEvidence) -> tuple[Any, ...]:
+        return (evidence.module, evidence.days, evidence.loops,
+                evidence.table_talk, evidence.characters, evidence.schedule)
+
+    def reset(self) -> None:
+        self.particles = ()
+        self.last_decision = -1
+        self._signature = None
+        self._witness_signature = None
+
+    def sync(self, evidence: PublicEvidence, *, viewer: str,
+             observations: Sequence[tuple[int, str, Mapping[str, Any] | None]],
+             witnesses=(), sampler: ConstraintBeliefSampler | None = None
+             ) -> PersistentBeliefSync:
+        records = tuple(observations)
+        if not records:
+            return PersistentBeliefSync(
+                self.particles, False, 0, 0, 0, "no_observations")
+        signature = self._static_signature(evidence)
+        initialized = False
+        if self._signature != signature or self.last_decision > records[-1][0]:
+            self.reset()
+        elif self._signature == signature and not self.particles:
+            # Particle depletion is a bounded-sampling failure, not proof that
+            # the public history is impossible.  Retry from the full record on
+            # the next decision with a fresh deterministic RNG position.
+            self.reset()
+        if self._signature is None:
+            source = sampler or ConstraintBeliefSampler()
+            hypotheses = source.sample(
+                evidence, self.max_particles, rng=self.rng,
+                witnesses=witnesses)
+            candidates = self.filter.materialize(hypotheses, evidence)
+            initial_decision, initial_digest, _ = records[0]
+            self.particles = tuple(
+                particle for particle in candidates
+                if PublicSnapshot.from_view(particle.view(viewer)).digest
+                == initial_digest)
+            self.last_decision = initial_decision
+            self._signature = signature
+            initialized = True
+        processed = tested = matching = 0
+        for decision, digest, public_command in records:
+            if decision <= self.last_decision:
+                continue
+            if decision != self.last_decision + 1:
+                self.particles = ()
+                self.last_decision = decision
+                return PersistentBeliefSync(
+                    (), initialized, processed, tested, matching,
+                    "observation_gap")
+            result = self.filter.advance(
+                self.particles, viewer=viewer, observed=digest,
+                public_command=public_command)
+            self.particles = result.particles
+            self.last_decision = decision
+            processed += 1
+            tested += result.tested_actions
+            matching += result.matching_successors
+            if not self.particles:
+                return PersistentBeliefSync(
+                    (), initialized, processed, tested, matching,
+                    "all_particles_rejected")
+        witness_signature = repr(tuple(witnesses))
+        if not witnesses:
+            self._witness_signature = witness_signature
+        elif self.particles and witness_signature != self._witness_signature:
+            from .witness import FsbtxWitnessMatcher
+
+            matcher = FsbtxWitnessMatcher()
+            weighted: list[tuple[Any, float]] = []
+            for particle in self.particles:
+                hypothesis = HiddenWorldHypothesis.from_scenario(
+                    particle.scenario)
+                if matcher.matches(hypothesis, witnesses):
+                    weighted.append((
+                        particle,
+                        2.0 ** min(9.0, matcher.soft_score(
+                            hypothesis, witnesses))))
+            if not weighted:
+                self.particles = ()
+                return PersistentBeliefSync(
+                    (), initialized, processed, tested, matching,
+                    "witnesses_rejected_all_particles")
+            if (len(weighted) != len(self.particles)
+                    or any(weight != 1.0 for _, weight in weighted)):
+                target = min(self.max_particles, max(len(self.particles), 1))
+                self.particles = tuple(self.rng.choices(
+                    [item for item, _ in weighted],
+                    weights=[weight for _, weight in weighted], k=target))
+            self._witness_signature = witness_signature
+        return PersistentBeliefSync(
+            self.particles, initialized, processed, tested, matching)

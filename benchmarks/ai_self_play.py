@@ -51,6 +51,7 @@ class ProtagonistPlayRecord:
     card: str
     target: str
     reason: str | None = None
+    belief_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,8 @@ class MatchResult:
     final_public_deaths: tuple[tuple[int, int, str, str], ...] = ()
     final_belief_roles: tuple[dict[str, Any], ...] = ()
     protagonist_plays: tuple[ProtagonistPlayRecord, ...] = ()
+    protagonist_evidence_seconds: float = 0.0
+    protagonist_search_seconds: float = 0.0
 
 
 def _policy_offer(game: Game, action: Any) -> dict[str, Any]:
@@ -149,6 +152,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     final_public_deaths: tuple[tuple[int, int, str, str], ...] = ()
     final_belief_roles: tuple[dict[str, Any], ...] = ()
     protagonist_plays: list[ProtagonistPlayRecord] = []
+    protagonist_evidence_ms = protagonist_search_ms = 0.0
     started = perf_counter()
     while game.winner is None and decisions < 1500:
         actions = game.action_offers(game.controller)
@@ -168,20 +172,31 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             actor = game.controller
             policy = protagonists[actor]
             if protagonist_strategy in {"baseline", "defensive", "risk_aware", "ismcts"}:
+                if hasattr(policy, "observe"):
+                    policy.observe(
+                        viewer=actor,
+                        records=game.observation_records(actor))
                 action, arguments = _choose_policy_action(policy, actor, game, actions)
             else:
                 action = policy.choice(actions)
         command = {**action.command, **(arguments or {})}
         if command.get("action") == "play" and command.get("actor") != "m":
             trace = getattr(protagonists[command["actor"]], "last_trace", None)
+            protagonist_evidence_ms += getattr(
+                trace, "evidence_elapsed_ms", 0.0)
+            protagonist_search_ms += getattr(trace, "search_elapsed_ms", 0.0)
             protagonist_plays.append(ProtagonistPlayRecord(
                 game.state.loop, game.state.round, command["actor"],
                 command["card"], command["target"],
-                getattr(trace, "fallback", None)))
-        # This is the real match trajectory, not a tree rollout.  Preserve the
-        # complete public journal so history-based protagonist policies and
-        # witness compilation see every prior loop.
-        game = game.transition(command).game
+                getattr(trace, "fallback", None),
+                getattr(trace, "belief_source", None)))
+        # This is the real match trajectory, not a tree rollout.  Real dispatch
+        # preserves the complete public journal and per-seat observation
+        # checkpoints used by persistent protagonist beliefs.
+        game.dispatch(
+            command["actor"], command["action"],
+            **{key: value for key, value in command.items()
+               if key not in {"actor", "action"}})
         new_loop_events = game.state.events[loop_event_cursor:]
         loop_event_cursor = len(game.state.events)
         if any(event.get("kind") == "final_guess_started" for event in new_loop_events):
@@ -235,7 +250,9 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         final_soft_witnesses=final_soft_witnesses,
         final_public_deaths=final_public_deaths,
         final_belief_roles=final_belief_roles,
-        protagonist_plays=tuple(protagonist_plays))
+        protagonist_plays=tuple(protagonist_plays),
+        protagonist_evidence_seconds=protagonist_evidence_ms / 1000,
+        protagonist_search_seconds=protagonist_search_ms / 1000)
 
 
 def _scenario_ids(args: argparse.Namespace, library: ScenarioLibrary) -> list[str]:

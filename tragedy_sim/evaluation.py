@@ -328,12 +328,6 @@ class ScenarioConditionedEvaluator:
         if features.phase == "loop_end" and getattr(game, "loss_reasons", ()):
             self._add(items, "match:current_loop_lost", 0.18, 1.0,
                       "当前轮回已经失败")
-        knowledge = features.known_roles + features.known_culprits + features.known_plots
-        if knowledge:
-            items.append(EvaluationContribution(
-                "defense:knowledge", -min(0.15, knowledge * 0.025),
-                min(1.0, knowledge / 6), f"主人公已确认 {knowledge} 项隐藏信息"))
-
         raw = sum(item.value for item in items)
         value = max(-0.92, min(0.92, math.tanh(raw)))
         report = PositionEvaluation(

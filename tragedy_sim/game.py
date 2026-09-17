@@ -46,18 +46,40 @@ class Game(ActionGame):
         self._observation_checkpoints = []
         self._record_observation_checkpoint()
 
-    def _record_observation_checkpoint(self):
+    @staticmethod
+    def _visible_command(viewer, command):
+        """Return only command fields already visible to this protagonist."""
+        if command is None or command.get("action") != "play":
+            return None
+        visible = {"actor": command["actor"], "action": "play",
+                   "target": command["target"]}
+        if command["actor"] == viewer:
+            visible["card"] = command["card"]
+        return visible
+
+    def _record_observation_checkpoint(self, command=None):
         from .belief import ObservationCheckpoint, PublicSnapshot
         digests = tuple(
             (viewer, PublicSnapshot.from_view(self.view(viewer)).digest)
             for viewer in ("a", "b", "c")
         )
+        visible_commands = tuple(
+            (viewer, tuple(sorted(visible.items())))
+            for viewer in ("a", "b", "c")
+            if (visible := self._visible_command(viewer, command)) is not None
+        )
         self._observation_checkpoints.append(
-            ObservationCheckpoint(len(self.history), digests))
+            ObservationCheckpoint(len(self.history), digests, visible_commands))
 
     def observation_checkpoints(self, viewer):
         """Private AI input containing hashes of public facts, never commands."""
         return tuple((item.decision, item.for_viewer(viewer))
+                     for item in self._observation_checkpoints)
+
+    def observation_records(self, viewer):
+        """Private AI input with hashes and explicitly visible command fields."""
+        return tuple((item.decision, item.for_viewer(viewer),
+                      item.command_for_viewer(viewer))
                      for item in self._observation_checkpoints)
 
     @property
@@ -129,7 +151,7 @@ class Game(ActionGame):
             before=before, after=self.phase_cursor, timing=decision_timing, steps=steps,
         ))
         if record_observation:
-            self._record_observation_checkpoint()
+            self._record_observation_checkpoint(command)
 
     @property
     def phase_cursor(self):

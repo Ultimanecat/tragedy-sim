@@ -528,6 +528,11 @@ class RoomService:
                 if offers:
                     observation = self.game_view(room.code, token=occupant.token)["state"]
                     policy = occupant.ai_policy or self._ai_agent
+                    if hasattr(policy, "observe"):
+                        real_game = self.games.unsafe_game(room.session_id)
+                        policy.observe(
+                            viewer=seat,
+                            records=real_game.observation_records(seat))
                     if hasattr(policy, "choose_game_action"):
                         search_game = self.games.mastermind_search_clone(
                             room.session_id, token=room.game_admin)

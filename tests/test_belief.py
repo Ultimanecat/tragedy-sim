@@ -8,7 +8,8 @@ from tragedy_sim import Game
 from tragedy_sim.belief import (BeliefParticleFilter, CatalogBeliefSampler,
                                 ConstraintBeliefSampler,
                                 HiddenWorldHypothesis, ParticleReplayer,
-                                ObservationParticleAdvancer, PublicEvidence,
+                                ObservationParticleAdvancer,
+                                PersistentBeliefState, PublicEvidence,
                                 PublicSnapshot)
 from tragedy_sim.scenario import example_scenario
 
@@ -234,6 +235,51 @@ class ObservationCheckpointTests(unittest.TestCase):
         result = ObservationParticleAdvancer().advance(
             initial, viewer="a", observed=observed_digest)
         self.assertEqual(len(result.successors), 1)
+
+    def test_visible_command_records_never_expose_an_opponents_dark_card(self):
+        game = Game(example_scenario("BTX"))
+        while game.controller == "m":
+            command = game.search_actions("m")[0]
+            game.dispatch(command["actor"], command["action"],
+                          **{key: value for key, value in command.items()
+                             if key not in {"actor", "action"}})
+        own = game.search_actions(game.controller)[0]
+        owner = own["actor"]
+        game.dispatch(owner, own["action"],
+                      **{key: value for key, value in own.items()
+                         if key not in {"actor", "action"}})
+        owner_record = game.observation_records(owner)[-1][2]
+        other = next(seat for seat in ("a", "b", "c") if seat != owner)
+        other_record = game.observation_records(other)[-1][2]
+        self.assertEqual(owner_record["card"], own["card"])
+        self.assertNotIn("card", other_record)
+        self.assertEqual(other_record["target"], own["target"])
+
+
+class PersistentBeliefStateTests(unittest.TestCase):
+    def test_particles_advance_across_all_public_checkpoints(self):
+        game = Game(example_scenario("BTX"))
+        for _ in range(2):
+            command = game.search_actions("m")[0]
+            game.dispatch(command["actor"], command["action"],
+                          **{key: value for key, value in command.items()
+                             if key not in {"actor", "action"}})
+        evidence = PublicEvidence.from_view(game.view("a"))
+        tracker = PersistentBeliefState(max_particles=4, seed=91)
+        result = tracker.sync(
+            evidence, viewer="a", observations=game.observation_records("a"))
+        self.assertTrue(result.initialized)
+        self.assertEqual(result.processed, 2)
+        self.assertTrue(result.particles)
+        expected = game.observation_checkpoints("a")[-1][1]
+        self.assertTrue(all(
+            PublicSnapshot.from_view(item.view("a")).digest == expected
+            for item in result.particles))
+
+        unchanged = tracker.sync(
+            evidence, viewer="a", observations=game.observation_records("a"))
+        self.assertFalse(unchanged.initialized)
+        self.assertEqual(unchanged.processed, 0)
 
 
 class BeliefParticleFilterTests(unittest.TestCase):

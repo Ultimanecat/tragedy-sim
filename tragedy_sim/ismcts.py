@@ -14,16 +14,19 @@ import hashlib
 import json
 import math
 import random
+from time import perf_counter
 from typing import Any, Mapping, Sequence
 
 from .ai import DefensiveProtagonistAgent
-from .belief import ConstraintBeliefSampler, PublicEvidence
-from .cards import ACTORS, COORDS, PROTAGONISTS
+from .belief import (ConstraintBeliefSampler, PersistentBeliefState,
+                     PublicEvidence)
+from .cards import ACTORS
 from .engine import Character, Placement, RuleError
 from .evaluation import ScenarioConditionedEvaluator
 from .game import Game
 from .search import SearchBudget
-from .witness import FsbtxWitnessCompiler, FsbtxWitnessMatcher
+from .witness import (FsbtxWitnessCompiler, FsbtxWitnessMatcher,
+                      PublicEvidenceLedger)
 
 
 def _command(offer: Mapping[str, Any]) -> dict[str, Any]:
@@ -61,6 +64,12 @@ class IsmctsTrace:
     selected_action_id: str
     root_actions: tuple[dict[str, Any], ...]
     belief_roles: tuple[dict[str, Any], ...] = ()
+    belief_source: str = "resampled"
+    observation_updates: int = 0
+    evidence_hard: int = 0
+    evidence_soft: int = 0
+    evidence_elapsed_ms: float = 0.0
+    search_elapsed_ms: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False,
@@ -180,12 +189,28 @@ class IsmctsProtagonistAgent:
         self.sampler = ConstraintBeliefSampler()
         self.compiler = FsbtxWitnessCompiler()
         self.matcher = FsbtxWitnessMatcher()
+        self.evidence_ledger = PublicEvidenceLedger()
         self.determinizer = PublicStateDeterminizer()
+        self.belief = PersistentBeliefState(
+            max_particles=particle_count, seed=rng_seed)
+        self._observation_viewer: str | None = None
+        self._observation_records: tuple[tuple[int, str, Mapping[str, Any] | None], ...] = ()
         self.last_trace: IsmctsTrace | None = None
 
     @property
     def plan_name(self) -> str:
         return "public_fs_btx_so_ismcts"
+
+    def observe(self, *, viewer: str,
+                records: Sequence[tuple[int, str, Mapping[str, Any] | None]]) -> None:
+        """Receive server-owned public observation records for one AI seat."""
+        if viewer not in {"a", "b", "c"}:
+            raise ValueError("viewer must be a protagonist seat")
+        self._observation_viewer = viewer
+        self._observation_records = tuple(
+            (int(decision), str(digest),
+             None if command is None else dict(command))
+            for decision, digest, command in records)
 
     @staticmethod
     def _reward(game: Game, evaluator: ScenarioConditionedEvaluator) -> float:
@@ -194,106 +219,6 @@ class IsmctsProtagonistAgent:
         if game.winner == "mastermind":
             return -1.0
         return -float(evaluator(game))
-
-    def _repeated_death_guard(self, view: dict[str, Any],
-                              offers: Sequence[dict[str, Any]],
-                              witnesses: Sequence[Any]
-                              ) -> tuple[dict[str, Any], str] | None:
-        pairs = Counter(
-            (witness.subject, str(witness.value))
-            for witness in witnesses
-            if witness.kind == "day_end_death_companion")
-        repeated = {pair: count for pair, count in pairs.items() if count >= 2}
-        if not repeated:
-            return None
-        characters = view.get("characters", {})
-        involved = {cid for pair in repeated for cid in pair}
-        actor = str(offers[0].get("actor", "")) if offers else ""
-        leader = str(view.get("leader", ""))
-        if leader in PROTAGONISTS and actor in PROTAGONISTS:
-            team_index = ((PROTAGONISTS.index(actor)
-                           - PROTAGONISTS.index(leader)) % len(PROTAGONISTS))
-        else:
-            team_index = 0 if actor == leader else 1
-        movement_offers = [offer for offer in offers
-                           if str(offer.get("type", offer.get("kind", ""))).removeprefix("core.") == "play"
-                           and offer.get("parameters", {}).get("card") in {"h", "v", "d"}
-                           and offer.get("parameters", {}).get("target") in involved]
-        directions = {"h": (1, 0), "v": (0, 1), "d": (1, 1)}
-        candidates: list[tuple[int, dict[str, Any]]] = []
-        for offer in offers:
-            if str(offer.get("type", offer.get("kind", ""))).removeprefix("core.") != "play":
-                continue
-            parameters = offer.get("parameters", {})
-            card, target = parameters.get("card"), parameters.get("target")
-            if card not in directions or target not in characters:
-                continue
-            origin = characters[target].get("location")
-            if origin not in COORDS:
-                continue
-            dx, dy = directions[card]
-            x, y = COORDS[origin]
-            destination = next(location for location, coords in COORDS.items()
-                               if coords == (x ^ dx, y ^ dy))
-            if destination in characters[target].get("forbidden", ()):
-                continue
-            for (victim, companion), count in repeated.items():
-                if target not in (victim, companion):
-                    continue
-                other = companion if target == victim else victim
-                if other not in characters:
-                    continue
-                if origin == characters[other].get("location") \
-                        and destination != characters[other].get("location"):
-                    candidates.append((count, offer))
-        selected_pair = max(repeated, key=lambda pair: (repeated[pair], pair))
-        first, second = selected_pair
-        separated = characters.get(first, {}).get("location") \
-            != characters.get(second, {}).get("location")
-        if actor != view.get("leader"):
-            # Cooperative convention: after two identical colocated deaths,
-            # the leader moves one member while the next protagonist locks the
-            # other.  On later days they lock one member each.  Merely asking
-            # every nonleader to "avoid movement" left the mastermind free to
-            # mirror the leader's move and reunite the pair.
-            lock_target: str | None = None
-            if team_index == 1:
-                if separated:
-                    lock_target = second
-                elif candidates:
-                    leader_target = next((
-                        placement.get("target")
-                        for placement in view.get("pending", ())
-                        if placement.get("actor") == leader
-                        and placement.get("target") in selected_pair
-                    ), None)
-                    if leader_target is None:
-                        leader_target = max(candidates, key=lambda item: item[0])[1] \
-                            .get("parameters", {}).get("target")
-                    lock_target = second if leader_target == first else first
-            if lock_target is not None:
-                locks = [offer for offer in offers
-                         if offer.get("parameters", {}).get("card") == "fm"
-                         and offer.get("parameters", {}).get("target") == lock_target]
-                if locks:
-                    return locks[0], "repeated_death_companion_lock"
-            safe = [offer for offer in offers if offer not in movement_offers]
-            if safe:
-                return (self.fallback.choose_action(
-                    participant=actor, view=view, offers=safe),
-                        "repeated_death_coordination_hold")
-            return None
-        if not candidates:
-            if separated:
-                forbids = [offer for offer in offers
-                           if offer.get("parameters", {}).get("card") == "fm"
-                           and offer.get("parameters", {}).get("target") == first]
-                if forbids:
-                    return forbids[0], "repeated_death_movement_lock"
-            return None
-        best = max(score for score, _ in candidates)
-        return (next(offer for score, offer in candidates if score == best),
-                "repeated_death_guard")
 
     def _rollout(self, game: Game, rng: random.Random) -> float:
         world = game
@@ -361,7 +286,7 @@ class IsmctsProtagonistAgent:
                     "unsupported_module_joint_guess", offers[0]["id"], ())
                 return chosen
             evidence = PublicEvidence.from_view(view)
-            witnesses = self.compiler.compile(view)
+            witnesses = self.evidence_ledger.update(view, self.compiler)
             rng = random.Random(
                 f"{self.budget.seed}:{self.rng_seed}:{participant}:final_guess")
             hypotheses = self.sampler.sample(
@@ -401,7 +326,9 @@ class IsmctsProtagonistAgent:
             self.last_trace = IsmctsTrace(
                 self.plan_name, self.rng_seed, evidence.module, len(hypotheses),
                 len(witnesses), 0, self.budget.rollout_depth,
-                "simultaneous_map_guess", offers[0]["id"], (), belief_roles)
+                "simultaneous_map_guess", offers[0]["id"], (), belief_roles,
+                "resampled", 0, self.evidence_ledger.hard_count,
+                self.evidence_ledger.soft_count)
             return chosen
         if view.get("module") not in ("FS", "BTX"):
             return self._fallback(participant, view, offers, "unsupported_module")
@@ -410,16 +337,9 @@ class IsmctsProtagonistAgent:
                 for offer in offers):
             return self._fallback(participant, view, offers, "unreconstructed_phase")
 
+        evidence_started = perf_counter()
         evidence = PublicEvidence.from_view(view)
-        witnesses = self.compiler.compile(view)
-        guarded = self._repeated_death_guard(view, offers, witnesses)
-        if guarded is not None:
-            chosen, reason = guarded
-            self.last_trace = IsmctsTrace(
-                self.plan_name, self.rng_seed, evidence.module, 0,
-                len(witnesses), 0, self.budget.rollout_depth,
-                reason, chosen["id"], ())
-            return chosen
+        witnesses = self.evidence_ledger.update(view, self.compiler)
         snapshot_hash = hashlib.sha256(json.dumps({
             "module": view.get("module"), "loop": view.get("loop"),
             "round": view.get("round"), "phase": view.get("phase"),
@@ -427,14 +347,30 @@ class IsmctsProtagonistAgent:
             "pending": view.get("pending")}, ensure_ascii=False, sort_keys=True,
             default=str).encode("utf-8")).hexdigest()[:16]
         rng = random.Random(f"{self.budget.seed}:{self.rng_seed}:{participant}:{snapshot_hash}")
-        hypotheses = self.sampler.sample(
-            evidence, self.particle_count, rng=rng, witnesses=witnesses)
-        particles = tuple(particle for hypothesis in hypotheses
-                          if (particle := self.determinizer.determinize(
-                              hypothesis, evidence, view, rng=rng)) is not None)
+        belief_source = "resampled"
+        observation_updates = 0
+        particles: tuple[Game, ...] = ()
+        if (self._observation_viewer == participant
+                and self._observation_records):
+            synced = self.belief.sync(
+                evidence, viewer=participant,
+                observations=self._observation_records,
+                witnesses=witnesses, sampler=self.sampler)
+            particles = tuple(synced.particles)
+            observation_updates = synced.processed
+            if particles:
+                belief_source = "persistent"
+        if not particles:
+            hypotheses = self.sampler.sample(
+                evidence, self.particle_count, rng=rng, witnesses=witnesses)
+            particles = tuple(particle for hypothesis in hypotheses
+                              if (particle := self.determinizer.determinize(
+                                  hypothesis, evidence, view, rng=rng)) is not None)
         if not particles:
             return self._fallback(participant, view, offers, "no_particles",
                                   len(witnesses))
+        evidence_elapsed_ms = (perf_counter() - evidence_started) * 1000
+        search_started = perf_counter()
 
         offers_by_key = {_key(_command(offer)): offer for offer in offers}
         stats = {key: _RootStat() for key in offers_by_key}
@@ -479,5 +415,8 @@ class IsmctsProtagonistAgent:
         self.last_trace = IsmctsTrace(
             self.plan_name, self.rng_seed, evidence.module, len(particles),
             len(witnesses), iterations, self.budget.rollout_depth, None,
-            chosen["id"], root_actions)
+            chosen["id"], root_actions, (), belief_source,
+            observation_updates, self.evidence_ledger.hard_count,
+            self.evidence_ledger.soft_count, evidence_elapsed_ms,
+            (perf_counter() - search_started) * 1000)
         return chosen

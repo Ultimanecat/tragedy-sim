@@ -1,6 +1,5 @@
 """Public-information protagonist ISMCTS tests."""
 
-from copy import deepcopy
 import random
 import unittest
 
@@ -18,6 +17,26 @@ def advance_to_protagonists(game: Game) -> Game:
 
 
 class IsmctsTests(unittest.TestCase):
+    def test_agent_reuses_particles_advanced_from_public_observations(self):
+        game = Game(example_scenario("BTX"))
+        while game.controller == "m":
+            command = game.search_actions("m")[0]
+            game.dispatch(command["actor"], command["action"],
+                          **{key: value for key, value in command.items()
+                             if key not in {"actor", "action"}})
+        actor = game.controller
+        offers = [offer.to_dict() for offer in game.action_offers(actor)]
+        agent = IsmctsProtagonistAgent(
+            SearchBudget(node_limit=1, rollout_depth=1, seed=23),
+            particle_count=4, rng_seed=23)
+        records = game.observation_records(actor)
+        agent.observe(viewer=actor, records=records)
+        chosen = agent.choose_action(
+            participant=actor, view=game.view(actor), offers=offers)
+        self.assertIn(chosen, offers)
+        self.assertEqual(agent.last_trace.belief_source, "persistent")
+        self.assertEqual(agent.last_trace.observation_updates, len(records) - 1)
+
     def test_determinized_world_matches_public_board_and_not_scenario_identity(self):
         actual = advance_to_protagonists(Game(example_scenario("BTX")))
         view = actual.view("a")
@@ -121,7 +140,7 @@ class IsmctsTests(unittest.TestCase):
         self.assertIn(chosen["arguments"]["guesses"]["girl"], {"key", "friend"})
         self.assertTrue(agent.last_trace.belief_roles)
 
-    def test_repeated_day_end_death_guard_separates_the_pair(self):
+    def test_evidence_filters_worlds_without_consuming_action_budget(self):
         game = advance_to_protagonists(Game(example_scenario("BTX")))
         view = game.view("a")
         for loop in (1, 2):
@@ -138,24 +157,11 @@ class IsmctsTests(unittest.TestCase):
             SearchBudget(node_limit=1, rollout_depth=1, seed=15),
             particle_count=2, rng_seed=15)
         chosen = agent.choose_action(participant="a", view=view, offers=offers)
-        self.assertIn(chosen["parameters"]["target"], {"student", "girl"})
-        self.assertIn(chosen["parameters"]["card"], {"h", "v", "d"})
-        self.assertEqual(agent.last_trace.fallback, "repeated_death_guard")
-
-        moved = chosen["parameters"]["target"]
-        teammate_view = deepcopy(view)
-        teammate_view["pending"] = [{"actor": "a", "target": moved, "card": None}]
-        teammate_offers = [
-            {**offer, "id": f"b-{offer['id']}", "actor": "b"}
-            for offer in offers
-            if offer["parameters"].get("target") != moved]
-        teammate = agent.choose_action(
-            participant="b", view=teammate_view, offers=teammate_offers)
-        self.assertEqual(teammate["parameters"].get("card"), "fm")
-        self.assertEqual(teammate["parameters"].get("target"),
-                         "girl" if moved == "student" else "student")
-        self.assertEqual(agent.last_trace.fallback,
-                         "repeated_death_companion_lock")
+        self.assertIn(chosen, offers)
+        self.assertIsNone(agent.last_trace.fallback)
+        self.assertGreater(agent.last_trace.evidence_soft, 0)
+        # Root branching, not evidence count, determines the minimum visits.
+        self.assertEqual(agent.last_trace.iterations, len(offers))
 
 
 if __name__ == "__main__":

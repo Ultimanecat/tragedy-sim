@@ -47,6 +47,39 @@ class WitnessEvaluation:
                      if verdict == WitnessVerdict.CONTRADICTED)
 
 
+@dataclass
+class PublicEvidenceLedger:
+    """Seat-private evidence dimension, independent from search accounting."""
+
+    module: str = ""
+    witnesses: tuple[PublicWitness, ...] = ()
+    updates: int = 0
+
+    def update(self, view: Mapping[str, Any],
+               compiler: "FsbtxWitnessCompiler") -> tuple[PublicWitness, ...]:
+        compiled = compiler.compile(view)
+        module = str(view.get("module", ""))
+        module_changed = self.module != module
+        if module_changed:
+            self.module = module
+            self.witnesses = ()
+            self.updates = 0
+        if module_changed or compiled != self.witnesses:
+            self.witnesses = compiled
+            self.updates += 1
+        return self.witnesses
+
+    @property
+    def hard_count(self) -> int:
+        return sum(item.strength == WitnessStrength.HARD
+                   for item in self.witnesses)
+
+    @property
+    def soft_count(self) -> int:
+        return sum(item.strength == WitnessStrength.SOFT
+                   for item in self.witnesses)
+
+
 class FsbtxWitnessCompiler:
     """Compile the conservative, rules-certain FS/BTX witness subset."""
 
