@@ -18,12 +18,12 @@ from typing import Any, Mapping, Sequence
 
 from .ai import DefensiveProtagonistAgent
 from .belief import ConstraintBeliefSampler, PublicEvidence
-from .cards import ACTORS
+from .cards import ACTORS, COORDS, PROTAGONISTS
 from .engine import Character, Placement, RuleError
 from .evaluation import ScenarioConditionedEvaluator
 from .game import Game
 from .search import SearchBudget
-from .witness import FsbtxWitnessCompiler
+from .witness import FsbtxWitnessCompiler, FsbtxWitnessMatcher
 
 
 def _command(offer: Mapping[str, Any]) -> dict[str, Any]:
@@ -60,6 +60,7 @@ class IsmctsTrace:
     fallback: str | None
     selected_action_id: str
     root_actions: tuple[dict[str, Any], ...]
+    belief_roles: tuple[dict[str, Any], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False,
@@ -178,6 +179,7 @@ class IsmctsProtagonistAgent:
         self.fallback = DefensiveProtagonistAgent(random.Random(rng_seed))
         self.sampler = ConstraintBeliefSampler()
         self.compiler = FsbtxWitnessCompiler()
+        self.matcher = FsbtxWitnessMatcher()
         self.determinizer = PublicStateDeterminizer()
         self.last_trace: IsmctsTrace | None = None
 
@@ -192,6 +194,106 @@ class IsmctsProtagonistAgent:
         if game.winner == "mastermind":
             return -1.0
         return -float(evaluator(game))
+
+    def _repeated_death_guard(self, view: dict[str, Any],
+                              offers: Sequence[dict[str, Any]],
+                              witnesses: Sequence[Any]
+                              ) -> tuple[dict[str, Any], str] | None:
+        pairs = Counter(
+            (witness.subject, str(witness.value))
+            for witness in witnesses
+            if witness.kind == "day_end_death_companion")
+        repeated = {pair: count for pair, count in pairs.items() if count >= 2}
+        if not repeated:
+            return None
+        characters = view.get("characters", {})
+        involved = {cid for pair in repeated for cid in pair}
+        actor = str(offers[0].get("actor", "")) if offers else ""
+        leader = str(view.get("leader", ""))
+        if leader in PROTAGONISTS and actor in PROTAGONISTS:
+            team_index = ((PROTAGONISTS.index(actor)
+                           - PROTAGONISTS.index(leader)) % len(PROTAGONISTS))
+        else:
+            team_index = 0 if actor == leader else 1
+        movement_offers = [offer for offer in offers
+                           if str(offer.get("type", offer.get("kind", ""))).removeprefix("core.") == "play"
+                           and offer.get("parameters", {}).get("card") in {"h", "v", "d"}
+                           and offer.get("parameters", {}).get("target") in involved]
+        directions = {"h": (1, 0), "v": (0, 1), "d": (1, 1)}
+        candidates: list[tuple[int, dict[str, Any]]] = []
+        for offer in offers:
+            if str(offer.get("type", offer.get("kind", ""))).removeprefix("core.") != "play":
+                continue
+            parameters = offer.get("parameters", {})
+            card, target = parameters.get("card"), parameters.get("target")
+            if card not in directions or target not in characters:
+                continue
+            origin = characters[target].get("location")
+            if origin not in COORDS:
+                continue
+            dx, dy = directions[card]
+            x, y = COORDS[origin]
+            destination = next(location for location, coords in COORDS.items()
+                               if coords == (x ^ dx, y ^ dy))
+            if destination in characters[target].get("forbidden", ()):
+                continue
+            for (victim, companion), count in repeated.items():
+                if target not in (victim, companion):
+                    continue
+                other = companion if target == victim else victim
+                if other not in characters:
+                    continue
+                if origin == characters[other].get("location") \
+                        and destination != characters[other].get("location"):
+                    candidates.append((count, offer))
+        selected_pair = max(repeated, key=lambda pair: (repeated[pair], pair))
+        first, second = selected_pair
+        separated = characters.get(first, {}).get("location") \
+            != characters.get(second, {}).get("location")
+        if actor != view.get("leader"):
+            # Cooperative convention: after two identical colocated deaths,
+            # the leader moves one member while the next protagonist locks the
+            # other.  On later days they lock one member each.  Merely asking
+            # every nonleader to "avoid movement" left the mastermind free to
+            # mirror the leader's move and reunite the pair.
+            lock_target: str | None = None
+            if team_index == 1:
+                if separated:
+                    lock_target = second
+                elif candidates:
+                    leader_target = next((
+                        placement.get("target")
+                        for placement in view.get("pending", ())
+                        if placement.get("actor") == leader
+                        and placement.get("target") in selected_pair
+                    ), None)
+                    if leader_target is None:
+                        leader_target = max(candidates, key=lambda item: item[0])[1] \
+                            .get("parameters", {}).get("target")
+                    lock_target = second if leader_target == first else first
+            if lock_target is not None:
+                locks = [offer for offer in offers
+                         if offer.get("parameters", {}).get("card") == "fm"
+                         and offer.get("parameters", {}).get("target") == lock_target]
+                if locks:
+                    return locks[0], "repeated_death_companion_lock"
+            safe = [offer for offer in offers if offer not in movement_offers]
+            if safe:
+                return (self.fallback.choose_action(
+                    participant=actor, view=view, offers=safe),
+                        "repeated_death_coordination_hold")
+            return None
+        if not candidates:
+            if separated:
+                forbids = [offer for offer in offers
+                           if offer.get("parameters", {}).get("card") == "fm"
+                           and offer.get("parameters", {}).get("target") == first]
+                if forbids:
+                    return forbids[0], "repeated_death_movement_lock"
+            return None
+        best = max(score for score, _ in candidates)
+        return (next(offer for score, offer in candidates if score == best),
+                "repeated_death_guard")
 
     def _rollout(self, game: Game, rng: random.Random) -> float:
         world = game
@@ -275,11 +377,21 @@ class IsmctsProtagonistAgent:
             marginals = {cid: Counter(dict(world.roles).get(cid)
                                       for world in hypotheses)
                          for cid in evidence.characters}
+            belief_roles = tuple({
+                "character": cid,
+                "counts": dict(sorted(counts.items())),
+            } for cid, counts in marginals.items())
 
             def joint_score(world: Any) -> int:
                 roles = dict(world.roles)
-                return sum(marginals[cid][roles[cid]]
-                           for cid in evidence.characters)
+                marginal_score = sum(marginals[cid][roles[cid]]
+                                     for cid in evidence.characters)
+                # A coherent script must also explain the observations as a
+                # joint whole.  This prevents several weak marginal modes from
+                # collectively displacing a repeatedly witnessed causal pair.
+                evidence_score = round(
+                    len(hypotheses) * self.matcher.soft_score(world, witnesses))
+                return marginal_score + evidence_score
 
             selected_world = max(hypotheses, key=joint_score)
             roles = dict(selected_world.roles)
@@ -289,7 +401,7 @@ class IsmctsProtagonistAgent:
             self.last_trace = IsmctsTrace(
                 self.plan_name, self.rng_seed, evidence.module, len(hypotheses),
                 len(witnesses), 0, self.budget.rollout_depth,
-                "simultaneous_map_guess", offers[0]["id"], ())
+                "simultaneous_map_guess", offers[0]["id"], (), belief_roles)
             return chosen
         if view.get("module") not in ("FS", "BTX"):
             return self._fallback(participant, view, offers, "unsupported_module")
@@ -300,6 +412,14 @@ class IsmctsProtagonistAgent:
 
         evidence = PublicEvidence.from_view(view)
         witnesses = self.compiler.compile(view)
+        guarded = self._repeated_death_guard(view, offers, witnesses)
+        if guarded is not None:
+            chosen, reason = guarded
+            self.last_trace = IsmctsTrace(
+                self.plan_name, self.rng_seed, evidence.module, 0,
+                len(witnesses), 0, self.budget.rollout_depth,
+                reason, chosen["id"], ())
+            return chosen
         snapshot_hash = hashlib.sha256(json.dumps({
             "module": view.get("module"), "loop": view.get("loop"),
             "round": view.get("round"), "phase": view.get("phase"),

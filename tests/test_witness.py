@@ -1,6 +1,7 @@
 """FS/BTX hard-witness regression tests."""
 
 from copy import deepcopy
+from dataclasses import replace
 import random
 import unittest
 
@@ -9,7 +10,7 @@ from tragedy_sim.belief import (ConstraintBeliefSampler, HiddenWorldHypothesis,
                                 PublicEvidence)
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.witness import (FsbtxWitnessCompiler, FsbtxWitnessMatcher,
-                                 WitnessVerdict)
+                                 WitnessStrength, WitnessVerdict)
 
 
 class FsbtxWitnessTests(unittest.TestCase):
@@ -102,6 +103,52 @@ class FsbtxWitnessTests(unittest.TestCase):
     def test_other_rulesets_compile_no_fs_btx_assumptions(self):
         self.view["module"] = "MZ"
         self.assertEqual(FsbtxWitnessCompiler().compile(self.view), ())
+
+    def test_repeated_day_end_death_is_soft_role_evidence(self):
+        view = deepcopy(self.view)
+        view["events"] = []
+        for loop in (1, 2, 3):
+            view["events"].extend([
+                {"kind": "loop_started", "loop": loop, "round": 1,
+                 "timing": "loop_start"},
+                {"kind": "character_moved", "loop": loop, "round": 1,
+                 "timing": "action_resolution", "character": "student",
+                 "location": view["characters"]["girl"]["initial_location"]},
+                {"kind": "character_died", "loop": loop, "round": 1,
+                 "timing": "day_end", "target": "girl"},
+                {"kind": "loop_lost", "loop": loop, "round": 1,
+                 "timing": "loop_end"},
+            ])
+        witnesses = FsbtxWitnessCompiler().compile(view)
+        soft = [item for item in witnesses
+                if item.strength == WitnessStrength.SOFT]
+        self.assertTrue(soft)
+        self.assertTrue(all(item.source.startswith("public_") for item in soft))
+
+        roles = dict(self.hypothesis.roles)
+        roles["student"] = "serial"
+        roles["girl"] = "key"
+        explanatory = replace(self.hypothesis, roles=tuple(sorted(roles.items())))
+        matcher = FsbtxWitnessMatcher()
+        self.assertGreater(matcher.soft_score(explanatory, witnesses),
+                           matcher.soft_score(self.hypothesis, witnesses))
+        # Soft evidence changes weight, never hard-rejects the alternative.
+        self.assertTrue(matcher.matches(self.hypothesis, witnesses))
+
+        evidence = PublicEvidence.from_view(view)
+        worlds = ConstraintBeliefSampler().sample(
+            evidence, 48, rng=random.Random(72), witnesses=witnesses)
+        self.assertEqual(len(worlds), 48)
+        student_serial = sum(dict(world.roles)["student"] == "serial"
+                             for world in worlds)
+        student_ordinary = sum(dict(world.roles)["student"] == "ordinary"
+                               for world in worlds)
+        other_serial = max(
+            sum(dict(world.roles)[cid] == "serial" for world in worlds)
+            for cid in evidence.characters if cid != "student")
+        self.assertGreater(student_serial, other_serial)
+        self.assertGreater(student_serial, student_ordinary,
+                           (student_serial, student_ordinary))
 
 
 if __name__ == "__main__":

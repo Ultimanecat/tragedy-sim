@@ -422,7 +422,9 @@ class ConstraintBeliefSampler:
         plot_sets = self._plot_sets(evidence)
         if not plot_sets:
             return ()
-        limit = max_attempts or max(200, count * 100)
+        has_soft = any(getattr(witness, "strength", None) == "soft"
+                       for witness in witnesses)
+        limit = max_attempts or max(200, count * (300 if has_soft else 100))
         hypotheses: list[HiddenWorldHypothesis] = []
         signatures: set[tuple[Any, ...]] = set()
         matcher = FsbtxWitnessMatcher()
@@ -447,6 +449,12 @@ class ConstraintBeliefSampler:
             hypothesis = HiddenWorldHypothesis.from_scenario(validated)
             if not matcher.matches(hypothesis, witnesses):
                 continue
+            if has_soft:
+                score = min(9.0, matcher.soft_score(hypothesis, witnesses))
+                # Keep every explanation possible while sampling worlds that
+                # explain repeated public phenomena more often.
+                if rng.random() >= min(1.0, 0.005 * (2.0 ** score)):
+                    continue
             signature = (hypothesis.main_plot, hypothesis.subplots,
                          hypothesis.roles, hypothesis.incidents)
             if signature in signatures:

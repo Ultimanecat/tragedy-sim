@@ -17,6 +17,7 @@ from tragedy_sim.ai import (BaselineProtagonistAgent, DefensiveProtagonistAgent,
 from tragedy_sim.mcts import FullInformationMctsMastermindAgent
 from tragedy_sim.optimized_mcts import OptimizedMctsMastermindAgent
 from tragedy_sim.strategic_mcts import StrategicMctsMastermindAgent
+from tragedy_sim.witness import FsbtxWitnessCompiler, WitnessStrength
 from tragedy_sim.ismcts import IsmctsProtagonistAgent
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
@@ -43,6 +44,16 @@ class FinalGuessRecord:
 
 
 @dataclass(frozen=True)
+class ProtagonistPlayRecord:
+    loop: int
+    day: int
+    actor: str
+    card: str
+    target: str
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
 class MatchResult:
     scenario_id: str
     module: str
@@ -58,6 +69,10 @@ class MatchResult:
     final_guesses: tuple[FinalGuessRecord, ...] = ()
     known_roles_before_final: int = 0
     cast_size: int = 0
+    final_soft_witnesses: tuple[str, ...] = ()
+    final_public_deaths: tuple[tuple[int, int, str, str], ...] = ()
+    final_belief_roles: tuple[dict[str, Any], ...] = ()
+    protagonist_plays: tuple[ProtagonistPlayRecord, ...] = ()
 
 
 def _policy_offer(game: Game, action: Any) -> dict[str, Any]:
@@ -130,6 +145,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     loop_losses: list[LoopLossRecord] = []
     final_guesses: list[FinalGuessRecord] = []
     known_roles_before_final = 0
+    final_soft_witnesses: tuple[str, ...] = ()
+    final_public_deaths: tuple[tuple[int, int, str, str], ...] = ()
+    final_belief_roles: tuple[dict[str, Any], ...] = ()
+    protagonist_plays: list[ProtagonistPlayRecord] = []
     started = perf_counter()
     while game.winner is None and decisions < 1500:
         actions = game.action_offers(game.controller)
@@ -153,7 +172,16 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             else:
                 action = policy.choice(actions)
         command = {**action.command, **(arguments or {})}
-        game = game.search_transition(command)
+        if command.get("action") == "play" and command.get("actor") != "m":
+            trace = getattr(protagonists[command["actor"]], "last_trace", None)
+            protagonist_plays.append(ProtagonistPlayRecord(
+                game.state.loop, game.state.round, command["actor"],
+                command["card"], command["target"],
+                getattr(trace, "fallback", None)))
+        # This is the real match trajectory, not a tree rollout.  Preserve the
+        # complete public journal so history-based protagonist policies and
+        # witness compilation see every prior loop.
+        game = game.transition(command).game
         new_loop_events = game.state.events[loop_event_cursor:]
         loop_event_cursor = len(game.state.events)
         if any(event.get("kind") == "final_guess_started" for event in new_loop_events):
@@ -161,7 +189,19 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                 fact.get("role") == scenario["cast"].get(cid)
                 for cid, fact in game.known_roles.items()
                 if isinstance(fact, dict))
+            final_soft_witnesses = tuple(
+                f"{item.kind}:{item.subject}:{item.value}"
+                for item in FsbtxWitnessCompiler().compile(game.view(game.controller))
+                if item.strength == WitnessStrength.SOFT)
+            final_public_deaths = tuple(
+                (int(event["loop"]), int(event["round"]),
+                 str(event.get("timing", "")), str(event.get("target", "")))
+                for event in game.view(game.controller)["events"]
+                if event.get("kind") == "character_died")
         if command.get("action") == "guess_all":
+            trace = getattr(protagonists[command["actor"]], "last_trace", None)
+            if trace is not None:
+                final_belief_roles = trace.belief_roles
             for cid, guessed in command["guesses"].items():
                 final_guesses.append(FinalGuessRecord(
                     cid, guessed, scenario["cast"][cid],
@@ -191,7 +231,11 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         elapsed_seconds=perf_counter() - started,
         loop_losses=tuple(loop_losses), final_guesses=tuple(final_guesses),
         known_roles_before_final=known_roles_before_final,
-        cast_size=len(scenario["cast"]))
+        cast_size=len(scenario["cast"]),
+        final_soft_witnesses=final_soft_witnesses,
+        final_public_deaths=final_public_deaths,
+        final_belief_roles=final_belief_roles,
+        protagonist_plays=tuple(protagonist_plays))
 
 
 def _scenario_ids(args: argparse.Namespace, library: ScenarioLibrary) -> list[str]:

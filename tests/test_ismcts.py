@@ -1,5 +1,6 @@
 """Public-information protagonist ISMCTS tests."""
 
+from copy import deepcopy
 import random
 import unittest
 
@@ -96,6 +97,65 @@ class IsmctsTests(unittest.TestCase):
         self.assertEqual(chosen["kind"], "core.guess_all")
         self.assertEqual(set(chosen["arguments"]["guesses"]), set(game.roles))
         self.assertEqual(agent.last_trace.fallback, "simultaneous_map_guess")
+
+    def test_joint_guess_uses_repeated_public_death_evidence(self):
+        game = Game(example_scenario("BTX"))
+        game._start_final_guess()
+        game.state.events = []
+        for loop in range(1, 5):
+            game.state.events.extend([
+                {"kind": "loop_started", "loop": loop, "round": 1,
+                 "timing": "loop_start", "message": ""},
+                {"kind": "character_died", "loop": loop, "round": 1,
+                 "timing": "day_end", "target": "girl", "message": ""},
+                {"kind": "loop_lost", "loop": loop, "round": 1,
+                 "timing": "loop_end", "message": ""},
+            ])
+        offers = [offer.to_dict() for offer in game.action_offers(game.controller)]
+        agent = IsmctsProtagonistAgent(
+            SearchBudget(node_limit=1, rollout_depth=1, seed=12),
+            particle_count=8, rng_seed=12)
+        chosen = agent.choose_action(
+            participant=game.controller, view=game.view(game.controller), offers=offers)
+        self.assertEqual(chosen["arguments"]["guesses"]["student"], "serial")
+        self.assertIn(chosen["arguments"]["guesses"]["girl"], {"key", "friend"})
+        self.assertTrue(agent.last_trace.belief_roles)
+
+    def test_repeated_day_end_death_guard_separates_the_pair(self):
+        game = advance_to_protagonists(Game(example_scenario("BTX")))
+        view = game.view("a")
+        for loop in (1, 2):
+            view["events"].extend([
+                {"kind": "loop_started", "loop": loop, "round": 1,
+                 "timing": "loop_start", "message": ""},
+                {"kind": "character_died", "loop": loop, "round": 1,
+                 "timing": "day_end", "target": "girl", "message": ""},
+                {"kind": "loop_lost", "loop": loop, "round": 1,
+                 "timing": "loop_end", "message": ""},
+            ])
+        offers = [offer.to_dict() for offer in game.action_offers("a")]
+        agent = IsmctsProtagonistAgent(
+            SearchBudget(node_limit=1, rollout_depth=1, seed=15),
+            particle_count=2, rng_seed=15)
+        chosen = agent.choose_action(participant="a", view=view, offers=offers)
+        self.assertIn(chosen["parameters"]["target"], {"student", "girl"})
+        self.assertIn(chosen["parameters"]["card"], {"h", "v", "d"})
+        self.assertEqual(agent.last_trace.fallback, "repeated_death_guard")
+
+        moved = chosen["parameters"]["target"]
+        teammate_view = deepcopy(view)
+        teammate_view["pending"] = [{"actor": "a", "target": moved, "card": None}]
+        teammate_offers = [
+            {**offer, "id": f"b-{offer['id']}", "actor": "b"}
+            for offer in offers
+            if offer["parameters"].get("target") != moved]
+        teammate = agent.choose_action(
+            participant="b", view=teammate_view, offers=teammate_offers)
+        self.assertEqual(teammate["parameters"].get("card"), "fm")
+        self.assertEqual(teammate["parameters"].get("target"),
+                         "girl" if moved == "student" else "student")
+        self.assertEqual(agent.last_trace.fallback,
+                         "repeated_death_companion_lock")
 
 
 if __name__ == "__main__":

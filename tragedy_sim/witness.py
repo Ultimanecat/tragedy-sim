@@ -52,6 +52,64 @@ class FsbtxWitnessCompiler:
 
     modules = frozenset({"FS", "BTX"})
 
+    @staticmethod
+    def _soft_death_witnesses(view: Mapping[str, Any]) -> list[PublicWitness]:
+        """Reconstruct conservative correlations from the public journal.
+
+        These are deliberately SOFT: a death can have another explanation and
+        a loop can fail for a plot condition unrelated to that death.
+        """
+        characters = view.get("characters", {})
+        initial = {
+            str(cid): str(character.get("initial_location", character.get("location", "")))
+            for cid, character in characters.items()
+        }
+        locations = dict(initial)
+        alive = {str(cid) for cid, character in characters.items()
+                 if bool(character.get("present", True))}
+        deaths_by_loop: dict[int, list[tuple[str, tuple[str, ...], int]]] = {}
+        result: list[PublicWitness] = []
+        for event in view.get("events", ()):
+            kind = event.get("kind")
+            event_loop = int(event.get("loop", view.get("loop", 1)))
+            event_day = int(event.get("round", view.get("round", 1)))
+            if kind == "loop_started":
+                locations = dict(initial)
+                alive = {str(cid) for cid, character in characters.items()
+                         if bool(character.get("present", True))}
+                continue
+            if kind == "character_moved":
+                target = event.get("character", event.get("target"))
+                destination = event.get("location")
+                if isinstance(target, str) and isinstance(destination, str):
+                    locations[target] = destination
+                continue
+            if kind == "character_died":
+                victim = event.get("target")
+                if not isinstance(victim, str):
+                    continue
+                companions = tuple(sorted(
+                    cid for cid in alive if cid != victim
+                    and locations.get(cid) == locations.get(victim)))
+                deaths_by_loop.setdefault(event_loop, []).append(
+                    (victim, companions, event_day))
+                if event.get("timing") == "day_end":
+                    for companion in companions:
+                        result.append(PublicWitness(
+                            "day_end_death_companion", victim, companion,
+                            event_loop, event_day, "day_end",
+                            "public_death_and_location", WitnessStrength.SOFT))
+                alive.discard(victim)
+                continue
+            if kind == "loop_lost":
+                for victim, companions, death_day in deaths_by_loop.get(event_loop, ()):
+                    result.append(PublicWitness(
+                        "loss_after_death", victim,
+                        {"companions": companions}, event_loop, death_day,
+                        str(event.get("timing", "loop_end")),
+                        "public_death_before_loop_loss", WitnessStrength.SOFT))
+        return result
+
     def compile(self, view: Mapping[str, Any]) -> tuple[PublicWitness, ...]:
         module = str(view.get("module", ""))
         if module not in self.modules:
@@ -101,6 +159,7 @@ class FsbtxWitnessCompiler:
                     "kind": str(record["kind"]),
                     "characters": observed_characters,
                 }, loop, incident_day, "incident", "public_incident_status"))
+        result.extend(self._soft_death_witnesses(view))
         return tuple(result)
 
 
@@ -152,7 +211,34 @@ class FsbtxWitnessMatcher:
                          + observed["intrigue"] + observed["guard"])
             return (WitnessVerdict.SATISFIED if score >= definition.limit
                     else WitnessVerdict.CONTRADICTED)
+        if witness.kind == "day_end_death_companion":
+            return (WitnessVerdict.SATISFIED
+                    if roles.get(str(witness.value)) == "serial"
+                    else WitnessVerdict.UNKNOWN)
+        if witness.kind == "loss_after_death":
+            return (WitnessVerdict.SATISFIED
+                    if roles.get(witness.subject) in {"key", "friend"}
+                    else WitnessVerdict.UNKNOWN)
         return WitnessVerdict.UNKNOWN
+
+    def soft_score(self, hypothesis: Any,
+                   witnesses: Sequence[PublicWitness]) -> float:
+        weights = {"day_end_death_companion": 1.5,
+                   "loss_after_death": 1.0}
+        by_kind: dict[str, float] = {}
+        for witness in witnesses:
+            if (witness.strength != WitnessStrength.SOFT
+                    or self.verdict(hypothesis, witness) != WitnessVerdict.SATISFIED):
+                continue
+            by_kind[witness.kind] = by_kind.get(witness.kind, 0.0) \
+                + weights.get(witness.kind, 0.5)
+        # Repetition should increase confidence.  Causal day-end co-location
+        # can become much stronger than the generic fact that a death preceded
+        # a failed loop, while each channel remains bounded independently.
+        caps = {"day_end_death_companion": 6.0,
+                "loss_after_death": 3.0}
+        return sum(min(caps.get(kind, 3.0), score)
+                   for kind, score in by_kind.items())
 
     def evaluate(self, hypothesis: Any,
                  witnesses: Sequence[PublicWitness]) -> WitnessEvaluation:
