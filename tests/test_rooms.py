@@ -290,14 +290,29 @@ class RoomServiceTests(unittest.TestCase):
 
     def test_ismcts_protagonist_ai_is_selectable(self):
         rooms = RoomService()
-        created = rooms.create({"module": "BTX", "nickname": "Host", "seat": "m"})
+        created = rooms.create({"module": "BTX", "nickname": "Host", "seat": "m",
+                                "protagonist_count": 1})
         updated = rooms.set_ai(created["room"]["code"], {
             "seat": "a", "enabled": True, "strategy": "ismcts_protagonist",
         }, token=created["credential"]["admin_token"])
         self.assertEqual(updated["room"]["seats"]["a"]["ai_type"],
                          "ismcts_protagonist")
         self.assertEqual(updated["room"]["seats"]["a"]["nickname"],
-                         "ISMCTS 主人公 AI")
+                         "团队 ISMCTS 主人公 AI")
+        policy = rooms._rooms[created["room"]["code"]].seats["a"].ai_policy
+        self.assertTrue(policy.controls_protagonist_team)
+
+        separate = RoomService()
+        three_player = separate.create({
+            "module": "BTX", "nickname": "Host", "seat": "m",
+            "protagonist_count": 3})
+        with self.assertRaises(ServiceError) as invalid:
+            separate.set_ai(three_player["room"]["code"], {
+                "seat": "a", "enabled": True,
+                "strategy": "ismcts_protagonist",
+            }, token=three_player["credential"]["admin_token"])
+        self.assertEqual(invalid.exception.code,
+                         "TEAM_AI_REQUIRES_TWO_PLAYER_MODE")
 
     def test_mcts_mastermind_uses_private_search_trace(self):
         rooms = RoomService()

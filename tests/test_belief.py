@@ -243,6 +243,10 @@ class ObservationCheckpointTests(unittest.TestCase):
             game.dispatch(command["actor"], command["action"],
                           **{key: value for key, value in command.items()
                              if key not in {"actor", "action"}})
+        self.assertTrue(all(
+            item["card"] is None
+            for item in game.protagonist_team_view()["pending"]
+            if item["actor"] == "m"))
         own = game.search_actions(game.controller)[0]
         owner = own["actor"]
         game.dispatch(owner, own["action"],
@@ -251,9 +255,28 @@ class ObservationCheckpointTests(unittest.TestCase):
         owner_record = game.observation_records(owner)[-1][2]
         other = next(seat for seat in ("a", "b", "c") if seat != owner)
         other_record = game.observation_records(other)[-1][2]
-        self.assertEqual(owner_record["card"], own["card"])
-        self.assertNotIn("card", other_record)
-        self.assertEqual(other_record["target"], own["target"])
+        self.assertEqual(owner_record.visibility, "public")
+        self.assertEqual(owner_record.pattern["card"], own["card"])
+        self.assertEqual(other_record.visibility, "partial")
+        self.assertIn("card", other_record.hidden_fields)
+        self.assertNotIn("card", other_record.pattern)
+        self.assertEqual(other_record.pattern["target"], own["target"])
+        hidden = [record for _, _, record in game.observation_records(owner)
+                  if record is not None and record.visibility == "hidden"]
+        self.assertTrue(hidden)
+        self.assertTrue(all(record.pattern is None for record in hidden))
+
+        teammate = game.search_actions(game.controller)[0]
+        game.dispatch(teammate["actor"], teammate["action"],
+                      **{key: value for key, value in teammate.items()
+                         if key not in {"actor", "action"}})
+        team_record = game.observation_records("team")[-1][2]
+        seat_record = game.observation_records(owner)[-1][2]
+        self.assertEqual(team_record.visibility, "public")
+        self.assertEqual(team_record.pattern["card"], teammate["card"])
+        self.assertEqual(seat_record.visibility, "partial")
+        pending = {item["actor"]: item for item in game.protagonist_team_view()["pending"]}
+        self.assertEqual(pending[teammate["actor"]]["card"], teammate["card"])
 
 
 class PersistentBeliefStateTests(unittest.TestCase):

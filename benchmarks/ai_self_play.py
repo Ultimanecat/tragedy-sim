@@ -107,10 +107,13 @@ def _policy_offer(game: Game, action: Any) -> dict[str, Any]:
 
 
 def _choose_policy_action(policy: Any, participant: str, game: Game,
-                          actions: Sequence[Any]) -> tuple[Any, dict[str, Any] | None]:
+                          actions: Sequence[Any], *, policy_view=None
+                          ) -> tuple[Any, dict[str, Any] | None]:
     offers = [_policy_offer(game, action) for action in actions]
     chosen = policy.choose_action(
-        participant=participant, view=game.view(participant), offers=offers)
+        participant=participant,
+        view=game.view(participant) if policy_view is None else policy_view,
+        offers=offers)
     action = actions[next(index for index, offer in enumerate(offers)
                           if offer["id"] == chosen["id"])]
     arguments = chosen.get("arguments")
@@ -118,7 +121,9 @@ def _choose_policy_action(policy: Any, participant: str, game: Game,
 
 
 def play(scenario_id: str, seed: int, nodes: int, depth: int,
-         strategy: str, protagonist_strategy: str = "baseline") -> MatchResult:
+         strategy: str, protagonist_strategy: str = "baseline", *,
+         protagonist_nodes: int | None = None,
+         protagonist_depth: int | None = None) -> MatchResult:
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -129,10 +134,15 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         StrategicMctsMastermindAgent(budget) if strategy == "strategic" else
         FixedStrategyMastermindAgent(random.Random(f"mastermind:{seed}"))
         if strategy == "fixed" else random.Random(f"mastermind:{seed}"))
+    protagonist_budget = SearchBudget(
+        node_limit=protagonist_nodes or nodes,
+        rollout_depth=protagonist_depth or depth, seed=seed)
+    team_ismcts = (IsmctsProtagonistAgent(
+        protagonist_budget,
+        particle_count=max(4, min(24, protagonist_nodes or nodes)), rng_seed=seed)
+        if protagonist_strategy == "ismcts" else None)
     protagonists = {
-        seat: (IsmctsProtagonistAgent(
-                   budget, particle_count=max(4, min(16, nodes)), rng_seed=seed)
-               if protagonist_strategy == "ismcts" else
+        seat: (team_ismcts if team_ismcts is not None else
                RiskAwareProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
                if protagonist_strategy == "risk_aware" else
                DefensiveProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
@@ -172,11 +182,17 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             actor = game.controller
             policy = protagonists[actor]
             if protagonist_strategy in {"baseline", "defensive", "risk_aware", "ismcts"}:
+                team_policy = bool(getattr(
+                    policy, "controls_protagonist_team", False))
                 if hasattr(policy, "observe"):
                     policy.observe(
-                        viewer=actor,
-                        records=game.observation_records(actor))
-                action, arguments = _choose_policy_action(policy, actor, game, actions)
+                        viewer="team" if team_policy else actor,
+                        records=game.observation_records(
+                            "team" if team_policy else actor))
+                action, arguments = _choose_policy_action(
+                    policy, "team" if team_policy else actor, game, actions,
+                    policy_view=(game.protagonist_team_view()
+                                 if team_policy else None))
             else:
                 action = policy.choice(actions)
         command = {**action.command, **(arguments or {})}
@@ -287,6 +303,8 @@ def main() -> None:
     parser.add_argument("--games", type=int, default=3)
     parser.add_argument("--nodes", type=int, default=12)
     parser.add_argument("--depth", type=int, default=12)
+    parser.add_argument("--protagonist-nodes", type=int)
+    parser.add_argument("--protagonist-depth", type=int)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--strategy", choices=("all", *MASTERMIND_STRATEGIES),
                         default="all")
@@ -296,7 +314,9 @@ def main() -> None:
     parser.add_argument("--progress", action="store_true",
                         help="print one progress line after each completed match")
     args = parser.parse_args()
-    if args.games < 1 or args.nodes < 1 or args.depth < 1:
+    if (args.games < 1 or args.nodes < 1 or args.depth < 1
+            or args.protagonist_nodes is not None and args.protagonist_nodes < 1
+            or args.protagonist_depth is not None and args.protagonist_depth < 1):
         parser.error("games, nodes and depth must be positive")
     library = ScenarioLibrary()
     scenarios = _scenario_ids(args, library)
@@ -307,7 +327,9 @@ def main() -> None:
         for strategy in strategies:
             for game_index in range(args.games):
                 result = play(scenario, args.seed + game_index, args.nodes, args.depth,
-                              strategy, args.protagonists)
+                              strategy, args.protagonists,
+                              protagonist_nodes=args.protagonist_nodes,
+                              protagonist_depth=args.protagonist_depth)
                 results.append(result)
                 if args.progress:
                     print(f"[{len(results)}/{total}] {scenario} {strategy} "

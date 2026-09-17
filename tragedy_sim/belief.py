@@ -30,6 +30,11 @@ _PRESENTATION_FIELDS = {
 }
 
 
+def _player_view(game: Any, viewer: str) -> Mapping[str, Any]:
+    return (game.protagonist_team_view() if viewer == "team"
+            else game.view(viewer))
+
+
 def _semantic_projection(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {
@@ -99,12 +104,33 @@ class PublicSnapshot:
 
 
 @dataclass(frozen=True)
+class CommandObservation:
+    """Explicit per-seat visibility for one command checkpoint."""
+
+    visibility: str
+    fields: tuple[tuple[str, Any], ...] = ()
+    hidden_fields: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.visibility not in {"public", "partial", "hidden"}:
+            raise ValueError("command visibility must be public, partial or hidden")
+        if self.visibility == "public" and self.hidden_fields:
+            raise ValueError("public command observations cannot hide fields")
+        if self.visibility == "hidden" and self.fields:
+            raise ValueError("hidden command observations cannot expose fields")
+
+    @property
+    def pattern(self) -> dict[str, Any] | None:
+        return dict(self.fields) if self.fields else None
+
+
+@dataclass(frozen=True)
 class ObservationCheckpoint:
     """Compact semantic observations after one real engine decision."""
 
     decision: int
     digests: tuple[tuple[str, str], ...]
-    visible_commands: tuple[tuple[str, tuple[tuple[str, Any], ...]], ...] = ()
+    command_observations: tuple[tuple[str, CommandObservation], ...] = ()
 
     def for_viewer(self, viewer: str) -> str:
         try:
@@ -113,8 +139,11 @@ class ObservationCheckpoint:
             raise ValueError(f"checkpoint has no viewer {viewer}") from exc
 
     def command_for_viewer(self, viewer: str) -> dict[str, Any] | None:
-        command = dict(self.visible_commands).get(viewer)
-        return None if command is None else dict(command)
+        observation = dict(self.command_observations).get(viewer)
+        return None if observation is None else observation.pattern
+
+    def visibility_for_viewer(self, viewer: str) -> CommandObservation | None:
+        return dict(self.command_observations).get(viewer)
 
 
 @dataclass(frozen=True)
@@ -186,7 +215,8 @@ class ParticleReplayer:
             if actor != game.controller or command not in game.search_actions(actor):
                 return ParticleReplayResult(False, None, index, "public_command_illegal")
             game = game.transition(command).game
-        if expected is not None and PublicSnapshot.from_view(game.view(viewer)) != expected:
+        if expected is not None and PublicSnapshot.from_view(
+                _player_view(game, viewer)) != expected:
             return ParticleReplayResult(False, None, len(commands),
                                         "public_snapshot_mismatch")
         return ParticleReplayResult(True, game, len(commands))
@@ -220,7 +250,8 @@ class ObservationParticleAdvancer:
         for command in legal:
             tested += 1
             candidate = game.transition(command).game
-            if PublicSnapshot.from_view(candidate.view(viewer)).digest != observed_digest:
+            if PublicSnapshot.from_view(
+                    _player_view(candidate, viewer)).digest != observed_digest:
                 continue
             successors.append(candidate)
             if max_successors is not None and len(successors) >= max_successors:
@@ -515,7 +546,7 @@ class PersistentBeliefState:
         self._witness_signature = None
 
     def sync(self, evidence: PublicEvidence, *, viewer: str,
-             observations: Sequence[tuple[int, str, Mapping[str, Any] | None]],
+             observations: Sequence[tuple[int, str, CommandObservation | None]],
              witnesses=(), sampler: ConstraintBeliefSampler | None = None
              ) -> PersistentBeliefSync:
         records = tuple(observations)
@@ -540,13 +571,13 @@ class PersistentBeliefState:
             initial_decision, initial_digest, _ = records[0]
             self.particles = tuple(
                 particle for particle in candidates
-                if PublicSnapshot.from_view(particle.view(viewer)).digest
+                if PublicSnapshot.from_view(_player_view(particle, viewer)).digest
                 == initial_digest)
             self.last_decision = initial_decision
             self._signature = signature
             initialized = True
         processed = tested = matching = 0
-        for decision, digest, public_command in records:
+        for decision, digest, command_observation in records:
             if decision <= self.last_decision:
                 continue
             if decision != self.last_decision + 1:
@@ -557,7 +588,8 @@ class PersistentBeliefState:
                     "observation_gap")
             result = self.filter.advance(
                 self.particles, viewer=viewer, observed=digest,
-                public_command=public_command)
+                public_command=(None if command_observation is None
+                                else command_observation.pattern))
             self.particles = result.particles
             self.last_decision = decision
             processed += 1

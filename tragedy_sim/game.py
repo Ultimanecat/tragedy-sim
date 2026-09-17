@@ -47,29 +47,40 @@ class Game(ActionGame):
         self._record_observation_checkpoint()
 
     @staticmethod
-    def _visible_command(viewer, command):
-        """Return only command fields already visible to this protagonist."""
-        if command is None or command.get("action") != "play":
+    def _command_observation(viewer, command):
+        """Classify exactly which command fields this protagonist observed."""
+        from .belief import CommandObservation
+
+        if command is None:
             return None
+        if command.get("action") != "play":
+            return CommandObservation("hidden", hidden_fields=("command",))
         visible = {"actor": command["actor"], "action": "play",
                    "target": command["target"]}
-        if command["actor"] == viewer:
+        if command["actor"] == viewer or (
+                viewer == "team" and command["actor"] in PROTAGONISTS):
             visible["card"] = command["card"]
-        return visible
+            return CommandObservation(
+                "public", tuple(sorted(visible.items())))
+        return CommandObservation(
+            "partial", tuple(sorted(visible.items())), ("card",))
 
     def _record_observation_checkpoint(self, command=None):
         from .belief import ObservationCheckpoint, PublicSnapshot
         digests = tuple(
-            (viewer, PublicSnapshot.from_view(self.view(viewer)).digest)
-            for viewer in ("a", "b", "c")
+            (viewer, PublicSnapshot.from_view(
+                self.protagonist_team_view() if viewer == "team"
+                else self.view(viewer)).digest)
+            for viewer in ("a", "b", "c", "team")
         )
-        visible_commands = tuple(
-            (viewer, tuple(sorted(visible.items())))
-            for viewer in ("a", "b", "c")
-            if (visible := self._visible_command(viewer, command)) is not None
+        command_observations = tuple(
+            (viewer, observation)
+            for viewer in ("a", "b", "c", "team")
+            if (observation := self._command_observation(viewer, command)) is not None
         )
         self._observation_checkpoints.append(
-            ObservationCheckpoint(len(self.history), digests, visible_commands))
+            ObservationCheckpoint(len(self.history), digests,
+                                  command_observations))
 
     def observation_checkpoints(self, viewer):
         """Private AI input containing hashes of public facts, never commands."""
@@ -79,8 +90,26 @@ class Game(ActionGame):
     def observation_records(self, viewer):
         """Private AI input with hashes and explicitly visible command fields."""
         return tuple((item.decision, item.for_viewer(viewer),
-                      item.command_for_viewer(viewer))
+                      item.visibility_for_viewer(viewer))
                      for item in self._observation_checkpoints)
+
+    def protagonist_team_view(self, language="zh"):
+        """Combined private view for one player controlling all protagonists."""
+        result = self.view("a", language)
+        result["team_hands"] = {
+            actor: [card for card in self._deck(actor)
+                    if card in self.state.hands[actor]]
+            for actor in PROTAGONISTS
+        }
+        for placement in result.get("pending", ()):
+            if placement.get("actor") in PROTAGONISTS:
+                matching = next((item for item in self.state.pending
+                                 if item.actor == placement["actor"]
+                                 and item.target == placement["target"]), None)
+                if matching is not None:
+                    placement["card"] = matching.card
+        result["viewer"] = "team"
+        return result
 
     @property
     def controller(self):

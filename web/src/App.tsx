@@ -807,7 +807,7 @@ export default function App() {
           return <article className={`${occupant ? "occupied" : ""} ${occupant?.ai ? "ai-seat" : ""}`} key={seat}>
             <small>{seat === "m" ? "剧作家" : `主人公 ${seat.toUpperCase()}`}</small>
             <strong>{occupant?.nickname ?? "空位"}{occupant?.ai && <small className="ai-badge">AI</small>}</strong>
-            <span>{occupant?.ai ? (occupant.ai_type === "baseline_protagonist" ? "逆向移动并由领队独占禁止密谋" : occupant.ai_type === "defensive_protagonist" ? "依据公开事件、身份与能力主动防守" : occupant.ai_type === "risk_aware_protagonist" ? "从公开揭牌历史估计剧作家目标" : occupant.ai_type === "ismcts_protagonist" ? "在符合公开现象的隐藏世界中搜索（FS/BTX）" : occupant.ai_type === "fixed_mastermind" ? "从可行获胜定式中择一执行" : occupant.ai_type === "mcts_mastermind" ? "完整行动空间的朴素蒙特卡洛树搜索" : occupant.ai_type === "optimized_mcts_mastermind" ? "渐进拓宽的优化蒙特卡洛树搜索" : occupant.ai_type === "strategic_mcts_mastermind" ? "剧本路线先验与策略 rollout" : "自动随机行动") : occupant ? (occupant.ready ? "已准备" : "尚未准备") : "等待加入"}</span>
+            <span>{occupant?.ai ? (occupant.ai_type === "baseline_protagonist" ? "逆向移动并由领队独占禁止密谋" : occupant.ai_type === "defensive_protagonist" ? "依据公开事件、身份与能力主动防守" : occupant.ai_type === "risk_aware_protagonist" ? "从公开揭牌历史估计剧作家目标" : occupant.ai_type === "ismcts_protagonist" ? "一名团队 AI 共享信念并控制三组主人公（FS/BTX）" : occupant.ai_type === "fixed_mastermind" ? "从可行获胜定式中择一执行" : occupant.ai_type === "mcts_mastermind" ? "完整行动空间的朴素蒙特卡洛树搜索" : occupant.ai_type === "optimized_mcts_mastermind" ? "渐进拓宽的优化蒙特卡洛树搜索" : occupant.ai_type === "strategic_mcts_mastermind" ? "剧本路线先验与策略 rollout" : "自动随机行动") : occupant ? (occupant.ready ? "已准备" : "尚未准备") : "等待加入"}</span>
             {!ownSeat && !occupant && <button disabled={busy || !nickname.trim()} onClick={() => void joinRoom(seat)}>坐到这里</button>}
             {client.room?.adminToken && !occupant && <button disabled={busy} onClick={() => void setAiRoomSeat(seat, true)}>随机 AI</button>}
             {client.room?.adminToken && !occupant && seat !== "m" && <button disabled={busy}
@@ -816,8 +816,8 @@ export default function App() {
               onClick={() => void setAiRoomSeat(seat, true, "defensive_protagonist")}>公开信息防守主人公 AI</button>}
             {client.room?.adminToken && !occupant && seat !== "m" && <button disabled={busy}
               onClick={() => void setAiRoomSeat(seat, true, "risk_aware_protagonist")}>历史风险主人公 AI</button>}
-            {client.room?.adminToken && !occupant && seat !== "m" && <button disabled={busy}
-              onClick={() => void setAiRoomSeat(seat, true, "ismcts_protagonist")}>ISMCTS 主人公 AI（FS/BTX）</button>}
+            {client.room?.adminToken && !occupant && seat !== "m" && roomInfo.room.protagonist_count === 1 && <button disabled={busy}
+              onClick={() => void setAiRoomSeat(seat, true, "ismcts_protagonist")}>团队 ISMCTS 主人公 AI（FS/BTX）</button>}
             {client.room?.adminToken && !occupant && seat === "m" && <button disabled={busy}
               onClick={() => void setAiRoomSeat(seat, true, "fixed_mastermind")}>定式剧作家 AI</button>}
             {client.room?.adminToken && !occupant && seat === "m" && <button disabled={busy}

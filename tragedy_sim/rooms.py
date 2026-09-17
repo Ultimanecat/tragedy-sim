@@ -330,6 +330,12 @@ class RoomService:
             required = ("m", *SEATS[1:1 + room.protagonist_count])
             if seat not in required:
                 raise ServiceError("SEAT_UNAVAILABLE", "该人数模式没有这个参与者席位", status=409)
+            if (request["enabled"] and strategy == "ismcts_protagonist"
+                    and room.protagonist_count != 1):
+                raise ServiceError(
+                    "TEAM_AI_REQUIRES_TWO_PLAYER_MODE",
+                    "团队 ISMCTS 主人公 AI 需要选择 1 名主人公玩家（两人局）",
+                    status=409)
             occupant = room.seats[seat]
             if request["enabled"]:
                 if occupant is not None:
@@ -339,7 +345,7 @@ class RoomService:
                               "基础干扰主人公 AI" if strategy == "baseline_protagonist" else
                               "公开信息防守主人公 AI" if strategy == "defensive_protagonist" else
                               "历史风险主人公 AI" if strategy == "risk_aware_protagonist" else
-                              "ISMCTS 主人公 AI" if strategy == "ismcts_protagonist" else
+                              "团队 ISMCTS 主人公 AI" if strategy == "ismcts_protagonist" else
                               "定式剧作家 AI" if strategy == "fixed_mastermind" else
                               "朴素 MCTS 剧作家 AI" if strategy == "mcts_mastermind"
                               else "优化 MCTS 剧作家 AI" if strategy == "optimized_mcts_mastermind"
@@ -526,13 +532,19 @@ class RoomService:
                     offers = [offer for offer in offers
                               if offer.get("type") != "final"]
                 if offers:
-                    observation = self.game_view(room.code, token=occupant.token)["state"]
                     policy = occupant.ai_policy or self._ai_agent
+                    team_policy = bool(getattr(
+                        policy, "controls_protagonist_team", False))
+                    real_game = self.games.unsafe_game(room.session_id)
+                    observation = (real_game.protagonist_team_view()
+                                   if team_policy else
+                                   self.game_view(room.code,
+                                                  token=occupant.token)["state"])
                     if hasattr(policy, "observe"):
-                        real_game = self.games.unsafe_game(room.session_id)
                         policy.observe(
-                            viewer=seat,
-                            records=real_game.observation_records(seat))
+                            viewer="team" if team_policy else seat,
+                            records=real_game.observation_records(
+                                "team" if team_policy else seat))
                     if hasattr(policy, "choose_game_action"):
                         search_game = self.games.mastermind_search_clone(
                             room.session_id, token=room.game_admin)
@@ -540,7 +552,8 @@ class RoomService:
                             participant=seat, game=search_game, offers=offers)
                     else:
                         offer = policy.choose_action(
-                            participant=seat, view=observation, offers=offers)
+                            participant="team" if team_policy else seat,
+                            view=observation, offers=offers)
                     arguments = offer.get("arguments")
                     comparable = {key: value for key, value in offer.items()
                                   if key != "arguments"}

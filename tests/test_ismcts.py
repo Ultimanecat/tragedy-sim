@@ -29,11 +29,12 @@ class IsmctsTests(unittest.TestCase):
         agent = IsmctsProtagonistAgent(
             SearchBudget(node_limit=1, rollout_depth=1, seed=23),
             particle_count=4, rng_seed=23)
-        records = game.observation_records(actor)
-        agent.observe(viewer=actor, records=records)
+        records = game.observation_records("team")
+        agent.observe(viewer="team", records=records)
         chosen = agent.choose_action(
-            participant=actor, view=game.view(actor), offers=offers)
+            participant="team", view=game.protagonist_team_view(), offers=offers)
         self.assertIn(chosen, offers)
+        self.assertTrue(agent.controls_protagonist_team)
         self.assertEqual(agent.last_trace.belief_source, "persistent")
         self.assertEqual(agent.last_trace.observation_updates, len(records) - 1)
 
@@ -65,7 +66,8 @@ class IsmctsTests(unittest.TestCase):
             particle_count=4, rng_seed=7)
         chosen = agent.choose_action(participant="a", view=view, offers=offers)
         self.assertIn(chosen, offers)
-        self.assertEqual(agent.last_trace.strategy, "public_fs_btx_so_ismcts")
+        self.assertEqual(agent.last_trace.strategy,
+                         "public_fs_btx_team_so_ismcts")
         self.assertGreater(agent.last_trace.particles, 0)
         self.assertTrue(any(item["visits"] for item in agent.last_trace.root_actions))
         self.assertTrue(all("availability" in item
@@ -79,6 +81,31 @@ class IsmctsTests(unittest.TestCase):
         self.assertEqual(agent.choose_action(
             participant="a", view=game.view("a"), offers=[offer]), offer)
         self.assertEqual(agent.last_trace.fallback, "unsupported_module")
+
+    def test_team_search_caches_the_remaining_cards_of_one_joint_node(self):
+        game = advance_to_protagonists(Game(example_scenario("BTX")))
+        agent = IsmctsProtagonistAgent(
+            SearchBudget(node_limit=6, rollout_depth=3, seed=41),
+            particle_count=4, rng_seed=41)
+        offers = [offer.to_dict() for offer in game.action_offers(game.controller)]
+        first = agent.choose_action(
+            participant="team", view=game.protagonist_team_view(), offers=offers)
+        self.assertEqual(agent.last_trace.iterations, 6)
+        self.assertTrue(agent.last_trace.planned_commands)
+
+        game = game.search_transition({
+            "actor": first["actor"],
+            "action": first["kind"].removeprefix("core."),
+            **first["parameters"],
+        })
+        followup_offers = [offer.to_dict()
+                           for offer in game.action_offers(game.controller)]
+        second = agent.choose_action(
+            participant="team", view=game.protagonist_team_view(),
+            offers=followup_offers)
+        self.assertIn(second, followup_offers)
+        self.assertEqual(agent.last_trace.fallback, "joint_plan_followup")
+        self.assertEqual(agent.last_trace.iterations, 0)
 
     def test_rollout_does_not_evaluate_before_current_day_end(self):
         game = Game(example_scenario("FS"))
@@ -160,8 +187,8 @@ class IsmctsTests(unittest.TestCase):
         self.assertIn(chosen, offers)
         self.assertIsNone(agent.last_trace.fallback)
         self.assertGreater(agent.last_trace.evidence_soft, 0)
-        # Root branching, not evidence count, determines the minimum visits.
-        self.assertEqual(agent.last_trace.iterations, len(offers))
+        # Evidence count does not change the configured joint-node budget.
+        self.assertEqual(agent.last_trace.iterations, 1)
 
 
 if __name__ == "__main__":

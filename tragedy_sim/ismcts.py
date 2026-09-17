@@ -12,14 +12,13 @@ from collections import Counter
 from copy import deepcopy
 import hashlib
 import json
-import math
 import random
 from time import perf_counter
 from typing import Any, Mapping, Sequence
 
 from .ai import DefensiveProtagonistAgent
-from .belief import (ConstraintBeliefSampler, PersistentBeliefState,
-                     PublicEvidence)
+from .belief import (CommandObservation, ConstraintBeliefSampler,
+                     PersistentBeliefState, PublicEvidence)
 from .cards import ACTORS
 from .engine import Character, Placement, RuleError
 from .evaluation import ScenarioConditionedEvaluator
@@ -70,6 +69,7 @@ class IsmctsTrace:
     evidence_soft: int = 0
     evidence_elapsed_ms: float = 0.0
     search_elapsed_ms: float = 0.0
+    planned_commands: tuple[dict[str, Any], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False,
@@ -194,23 +194,33 @@ class IsmctsProtagonistAgent:
         self.belief = PersistentBeliefState(
             max_particles=particle_count, seed=rng_seed)
         self._observation_viewer: str | None = None
-        self._observation_records: tuple[tuple[int, str, Mapping[str, Any] | None], ...] = ()
+        self._observation_records: tuple[tuple[int, str, CommandObservation | None], ...] = ()
+        self._joint_plan: list[dict[str, Any]] = []
+        self._joint_plan_position: tuple[int, int] | None = None
         self.last_trace: IsmctsTrace | None = None
 
     @property
     def plan_name(self) -> str:
-        return "public_fs_btx_so_ismcts"
+        return "public_fs_btx_team_so_ismcts"
+
+    @property
+    def controls_protagonist_team(self) -> bool:
+        return True
 
     def observe(self, *, viewer: str,
-                records: Sequence[tuple[int, str, Mapping[str, Any] | None]]) -> None:
+                records: Sequence[tuple[int, str, CommandObservation | None]]) -> None:
         """Receive server-owned public observation records for one AI seat."""
-        if viewer not in {"a", "b", "c"}:
-            raise ValueError("viewer must be a protagonist seat")
+        if viewer not in {"a", "b", "c", "team"}:
+            raise ValueError("viewer must be a protagonist seat or team")
+        if any(observation is not None
+               and not isinstance(observation, CommandObservation)
+               for _, _, observation in records):
+            raise ValueError("records must contain CommandObservation values")
         self._observation_viewer = viewer
         self._observation_records = tuple(
             (int(decision), str(digest),
-             None if command is None else dict(command))
-            for decision, digest, command in records)
+             observation)
+            for decision, digest, observation in records)
 
     @staticmethod
     def _reward(game: Game, evaluator: ScenarioConditionedEvaluator) -> float:
@@ -232,7 +242,26 @@ class IsmctsProtagonistAgent:
             actions = list(world.search_actions(world.controller))
             if not actions:
                 break
-            world = world.search_transition(rng.choice(actions))
+            coordinated = (world.controller != "m"
+                           and world.state.phase == "protagonists"
+                           and all(action.get("action") == "play"
+                                   for action in actions))
+            if not coordinated:
+                selected = rng.choice(actions)
+            else:
+                offers = [{
+                    "id": _key(action), "actor": action["actor"],
+                    "type": action["action"],
+                    "parameters": {key: value for key, value in action.items()
+                                   if key not in {"actor", "action"}},
+                } for action in actions]
+                chosen = DefensiveProtagonistAgent(rng).choose_action(
+                    participant="team",
+                    view=world.protagonist_team_view(), offers=offers)
+                selected = actions[next(
+                    index for index, offer in enumerate(offers)
+                    if offer["id"] == chosen["id"])]
+            world = world.search_transition(selected)
             new_events = world.state.events[event_cursor:]
             reached_boundary |= any(
                 event.get("loop") == root_loop
@@ -242,15 +271,55 @@ class IsmctsProtagonistAgent:
             # An immediate loss may advance into the next loop in the same
             # transition.  That is the failed day's stable boundary even
             # though the ordinary day_ended event is intentionally skipped.
-            reached_boundary |= world.state.loop != root_loop
+            reached_boundary |= (world.state.loop != root_loop
+                                 or world.state.round != root_day)
             event_cursor = len(world.state.events)
             if reached_boundary and depth + 1 >= self.budget.rollout_depth:
                 break
         else:
-            raise RuntimeError("ISMCTS rollout did not reach a stable day-end boundary")
+            raise RuntimeError(
+                "ISMCTS rollout did not reach a stable day-end boundary: "
+                f"phase={world.state.phase} loop={world.state.loop} "
+                f"day={world.state.round} controller={world.controller}")
         if world.winner is None and not reached_boundary:
             raise RuntimeError("ISMCTS rollout stopped before the current day ended")
+        if world.winner is None and world.state.loop != root_loop:
+            # Losing the current loop is an observed game setback, not an
+            # information bonus.  A reset erases the dead board position, so
+            # the ordinary state evaluator cannot recover this signal after
+            # the transition into the next loop.
+            return -0.90
         return self._reward(world, self.evaluator)
+
+    def _joint_successor(self, particle: Game, first: dict[str, Any],
+                         rng: random.Random
+                         ) -> tuple[tuple[dict[str, Any], ...], Game]:
+        """Apply one complete three-card protagonist placement node."""
+        commands: list[dict[str, Any]] = []
+        world = particle
+        selected = first
+        for _ in range(3):
+            commands.append(dict(selected))
+            world = world.search_transition(selected)
+            if world.state.phase != "protagonists":
+                break
+            actions = list(world.search_actions(world.controller))
+            if not actions or any(action.get("action") != "play"
+                                  for action in actions):
+                break
+            offers = [{
+                "id": _key(action), "actor": action["actor"],
+                "type": action["action"],
+                "parameters": {key: value for key, value in action.items()
+                               if key not in {"actor", "action"}},
+            } for action in actions]
+            chosen = DefensiveProtagonistAgent(rng).choose_action(
+                participant="team", view=world.protagonist_team_view(),
+                offers=offers)
+            selected = actions[next(
+                index for index, offer in enumerate(offers)
+                if offer["id"] == chosen["id"])]
+        return tuple(commands), world
 
     def _fallback(self, participant: str, view: dict[str, Any],
                   offers: Sequence[dict[str, Any]], reason: str,
@@ -340,6 +409,27 @@ class IsmctsProtagonistAgent:
         evidence_started = perf_counter()
         evidence = PublicEvidence.from_view(view)
         witnesses = self.evidence_ledger.update(view, self.compiler)
+        position = (int(view.get("loop", 0)), int(view.get("round", 0)))
+        offers_by_key = {_key(_command(offer)): offer for offer in offers}
+        if self._joint_plan_position != position:
+            self._joint_plan = []
+            self._joint_plan_position = None
+        if self._joint_plan:
+            planned = self._joint_plan[0]
+            chosen = offers_by_key.get(_key(planned))
+            if chosen is not None:
+                self._joint_plan.pop(0)
+                self.last_trace = IsmctsTrace(
+                    self.plan_name, self.rng_seed, evidence.module, 0,
+                    len(witnesses), 0, self.budget.rollout_depth,
+                    "joint_plan_followup", chosen["id"], (), (),
+                    "persistent", 0, self.evidence_ledger.hard_count,
+                    self.evidence_ledger.soft_count,
+                    (perf_counter() - evidence_started) * 1000, 0.0,
+                    tuple(self._joint_plan))
+                return chosen
+            self._joint_plan = []
+            self._joint_plan_position = None
         snapshot_hash = hashlib.sha256(json.dumps({
             "module": view.get("module"), "loop": view.get("loop"),
             "round": view.get("round"), "phase": view.get("phase"),
@@ -372,51 +462,53 @@ class IsmctsProtagonistAgent:
         evidence_elapsed_ms = (perf_counter() - evidence_started) * 1000
         search_started = perf_counter()
 
-        offers_by_key = {_key(_command(offer)): offer for offer in offers}
-        stats = {key: _RootStat() for key in offers_by_key}
-        # A node limit smaller than the root branching factor used to leave
-        # most cards completely unexamined.  Treat the configured limit as a
-        # minimum and visit every currently legal root action at least once.
-        iterations = max(1, self.budget.node_limit, len(offers_by_key))
+        bundle_stats: dict[str, _RootStat] = {}
+        bundle_commands: dict[str, tuple[dict[str, Any], ...]] = {}
+        first_keys = list(offers_by_key)
+        rng.shuffle(first_keys)
+        iterations = max(1, self.budget.node_limit)
         for iteration in range(iterations):
             particle = particles[iteration % len(particles)]
             legal = {_key(action): action
                      for action in particle.search_actions(particle.controller)}
-            available = [key for key in offers_by_key if key in legal]
-            if not available:
+            available_first = [key for key in first_keys if key in legal]
+            if not available_first:
                 continue
-            for key in available:
-                stats[key].availability += 1
-            unvisited = [key for key in available if stats[key].visits == 0]
-            if unvisited:
-                selected = rng.choice(unvisited)
-            else:
-                total = max(1, sum(stats[key].visits for key in available))
-                selected = max(
-                    available, key=lambda key: stats[key].mean
-                    + self.budget.exploration
-                    * math.sqrt(math.log(total + 1) / stats[key].visits))
-            successor = particle.search_transition(legal[selected])
+            first_key = available_first[iteration % len(available_first)]
+            commands, successor = self._joint_successor(
+                particle, legal[first_key], rng)
+            bundle_key = json.dumps(commands, ensure_ascii=False,
+                                    sort_keys=True, separators=(",", ":"))
+            stat = bundle_stats.setdefault(bundle_key, _RootStat())
+            bundle_commands[bundle_key] = commands
+            stat.availability += 1
             reward = self._rollout(successor, rng)
-            stats[selected].visits += 1
-            stats[selected].value_sum += reward
+            stat.visits += 1
+            stat.value_sum += reward
 
-        viable = [key for key, stat in stats.items() if stat.visits]
+        viable = [key for key, stat in bundle_stats.items() if stat.visits]
         if not viable:
             return self._fallback(participant, view, offers,
                                   "no_common_legal_action", len(witnesses))
         selected = max(viable, key=lambda key: (
-            stats[key].visits, stats[key].mean, stats[key].availability))
-        chosen = offers_by_key[selected]
+            bundle_stats[key].mean, bundle_stats[key].visits,
+            bundle_stats[key].availability))
+        selected_commands = bundle_commands[selected]
+        chosen = offers_by_key[_key(selected_commands[0])]
+        self._joint_plan = [dict(command)
+                            for command in selected_commands[1:]]
+        self._joint_plan_position = position if self._joint_plan else None
         root_actions = tuple({
-            "action_id": offers_by_key[key]["id"], "visits": stat.visits,
-            "availability": stat.availability, "mean_value": stat.mean,
-        } for key, stat in stats.items())
+            "bundle": [dict(command) for command in bundle_commands[key]],
+            "visits": stat.visits, "availability": stat.availability,
+            "mean_value": stat.mean,
+        } for key, stat in bundle_stats.items())
         self.last_trace = IsmctsTrace(
             self.plan_name, self.rng_seed, evidence.module, len(particles),
             len(witnesses), iterations, self.budget.rollout_depth, None,
             chosen["id"], root_actions, (), belief_source,
             observation_updates, self.evidence_ledger.hard_count,
             self.evidence_ledger.soft_count, evidence_elapsed_ms,
-            (perf_counter() - search_started) * 1000)
+            (perf_counter() - search_started) * 1000,
+            tuple(self._joint_plan))
         return chosen
