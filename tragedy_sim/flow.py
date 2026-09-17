@@ -40,7 +40,7 @@ class MatchFlow:
         "resolve": frozenset(),
         "next": frozenset(),
         "choose": frozenset(("index",)),
-        "guess": frozenset(("character", "role")),
+        "guess_all": frozenset(("guesses",)),
         "final": frozenset(),
     }
 
@@ -82,6 +82,7 @@ MATCH_FLOW = MatchFlow((
     PhaseDefinition(PhaseId.DECISION, ControllerPolicy.MASTERMIND, frozenset(("choose",))),
     PhaseDefinition(PhaseId.DAY_END, ControllerPolicy.MASTERMIND, frozenset(("choose", "next"))),
     PhaseDefinition(PhaseId.LOOP_END, ControllerPolicy.MASTERMIND, frozenset(("next", "final"))),
-    PhaseDefinition(PhaseId.FINAL_GUESS, ControllerPolicy.LEADER, frozenset(("guess",))),
+    PhaseDefinition(PhaseId.FINAL_GUESS, ControllerPolicy.LEADER,
+                    frozenset(("guess_all",))),
     PhaseDefinition(PhaseId.GAME_OVER, ControllerPolicy.NONE, frozenset()),
 ))

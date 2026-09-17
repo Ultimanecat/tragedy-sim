@@ -106,6 +106,12 @@ Content-Type: application/json
 {"action_id":"…","expected_revision":12}
 ```
 
+最终猜测是一次联合决策；该行动额外提交整张身份表，并在公开事件中返回 `correct/total`：
+
+```json
+{"action_id":"…","expected_revision":12,"arguments":{"guesses":{"student":"ordinary","girl":"key"}}}
+```
+
 revision 不匹配返回 HTTP 409 与 `STALE_REVISION`，客户端应刷新视图和合法行动，不能盲目重试旧命令。
 
 管理接口需要管理令牌：

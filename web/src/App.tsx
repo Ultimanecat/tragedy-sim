@@ -115,6 +115,12 @@ function winnerName(game: GameView) {
   return game.winner ? `${game.winner}胜利` : "";
 }
 
+function finalGuessScore(game: GameView) {
+  const result = [...game.events].reverse().find(event => event.kind === "final_guess_result");
+  return typeof result?.correct === "number" && typeof result?.total === "number"
+    ? ` · 最终猜测 ${result.correct}/${result.total}` : "";
+}
+
 const smallestPointerTarget: CollisionDetection = args => pointerWithin(args).sort((left, right) => {
   const leftRect = args.droppableRects.get(left.id);
   const rightRect = args.droppableRects.get(right.id);
@@ -310,13 +316,13 @@ function DraggableActionCard({ id, name, imageUrl, selected, busy, onSelect }: {
 
 export function Actions({ offers, catalog, game, busy, onAction }: {
   offers: ActionOffer[]; catalog: CatalogResponse | null; game: GameView;
-  busy: boolean; onAction: (offer: ActionOffer) => void;
+  busy: boolean; onAction: (offer: ActionOffer, args?: { guesses: Record<string, string> }) => void;
 }) {
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
-  const [selectedGuess, setSelectedGuess] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [selected, setSelected] = useState<ActionOffer | null>(null);
   const [draggedCard, setDraggedCard] = useState<string | null>(null);
+  const [guessAssignments, setGuessAssignments] = useState<Record<string, string>>({});
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
@@ -330,22 +336,18 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
     }
     return groups;
   }, [offers]);
-  const guessGroups = useMemo(() => {
-    const groups = new Map<string, ActionOffer[]>();
-    for (const item of offers.filter(candidate => candidate.type === "guess")) {
-      const key = String(item.parameters.character);
-      groups.set(key, [...(groups.get(key) ?? []), item]);
-    }
-    return groups;
-  }, [offers]);
-  const others = offers.filter(item => item.type !== "play" && item.type !== "guess");
+  const batchGuess = offers.find(item => item.type === "guess_all");
+  const guessCharacters = (batchGuess?.parameters.characters as string[] | undefined) ?? [];
+  const guessRoles = (batchGuess?.parameters.roles as string[] | undefined) ?? [];
+  const allGuessesReady = guessCharacters.length > 0
+    && guessCharacters.every(character => Boolean(guessAssignments[character]));
+  const others = offers.filter(item => item.type !== "play" && item.type !== "guess_all");
   const sourcedActions = others.filter(item => item.ui?.source && game.characters[item.ui.source]);
   const unsourcedActions = others.filter(item => !item.ui?.source || !game.characters[item.ui.source]);
   const sourceCharacters = [...new Set(sourcedActions.map(item => String(item.ui?.source)))];
   const selectedSourceActions = sourcedActions.filter(item => item.ui?.source === selectedSource);
   const actor = offers[0]?.actor;
   const choices = selectedCard ? playGroups.get(selectedCard) ?? [] : [];
-  const guesses = selectedGuess ? guessGroups.get(selectedGuess) ?? [] : [];
   const startDrag = (event: DragStartEvent) => {
     const card = String(event.active.data.current?.card ?? "");
     if (!playGroups.has(card)) return;
@@ -386,19 +388,25 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
           onSelect={() => { setSelectedCard(card); setSelected(null); }} />)}
       </div>
     </>}
-    {!!guessGroups.size && <>
-      <p className="step-label">1. 选择要猜测的角色/身份面</p><div className="guess-characters">
-        {[...guessGroups].map(([character, available]) => <button className={selectedGuess === character ? "selected" : ""}
-          disabled={busy} key={character} onClick={() => { setSelectedGuess(character); setSelected(null); }}>
-          {targetName(game, character)}<small>{available.length} 个身份候选</small>
-        </button>)}
-      </div>
-      {selectedGuess && <><p className="step-label">2. 选择身份</p><div className="action-grid">
-        {guesses.map(offer => <button className={selected?.id === offer.id ? "selected" : ""}
-          disabled={busy} key={offer.id} onClick={() => setSelected(offer)}>
-          {itemName(catalog?.roles, offer.parameters.role)}</button>)}
-      </div></>}
-    </>}
+    {batchGuess && <div className="batch-guess">
+      <p className="step-label">一次填写所有角色的初始身份，提交后统一判定</p>
+      {guessCharacters.map(character => <label key={character}>
+        <span>{targetName(game, character)}</span>
+        <select value={guessAssignments[character] ?? ""} disabled={busy}
+          onChange={event => setGuessAssignments(current => ({
+            ...current, [character]: event.target.value,
+          }))}>
+          <option value="">请选择身份</option>
+          {guessRoles.map(role => <option key={role} value={role}>
+            {itemName(catalog?.roles, role)}
+          </option>)}
+        </select>
+      </label>)}
+      <div className="confirm-bar"><span>
+        已填写 {guessCharacters.filter(character => guessAssignments[character]).length}/{guessCharacters.length}
+      </span><button className="primary" disabled={busy || !allGuessesReady}
+        onClick={() => onAction(batchGuess, { guesses: guessAssignments })}>统一提交最终猜测</button></div>
+    </div>}
     {selected && <div className="confirm-bar"><span>{selected.label}</span>
       <button className="primary" disabled={busy} onClick={() => onAction(selected)}>确认执行</button></div>}
     </section>
@@ -731,9 +739,9 @@ export default function App() {
     setViewer(next); setGame(null); setOffers([]); setReplayText(""); setError("");
   }
 
-  async function act(offer: ActionOffer) {
+  async function act(offer: ActionOffer, args?: { guesses: Record<string, string> }) {
     setBusy(true); setError(""); setOffers([]);
-    try { await client.command(offer.actor as Seat, offer.id); persist(); await refresh(viewer); }
+    try { await client.command(offer.actor as Seat, offer.id, args); persist(); await refresh(viewer); }
     catch (reason) {
       if (reason instanceof ApiError && reason.code === "STALE_REVISION") await refresh(viewer);
       setError(reason instanceof Error ? reason.message : "行动提交失败");
@@ -862,7 +870,9 @@ export default function App() {
           ? `${game.labels.actors[game.leader]} / ${roomInfo.room.seats[roomInfo.room.human_leader]?.nickname}`
           : `${game.labels.actors[game.leader]} · ${game.table_talk ? "允许讨论" : "禁止讨论"}`}</strong></div>
       </section>
-      {game.winner && <section className="outcome" role="status">{winnerName(game)}</section>}
+      {game.winner && <section className="outcome" role="status">
+        {winnerName(game)}{finalGuessScore(game)}
+      </section>}
       <section className={`turn-banner ${offers.length ? "active" : "waiting"}`} aria-live="polite">
         <div><small>{offers.length ? "YOUR TURN" : "CURRENT TURN"}</small><strong>{offers.length
           ? `现在轮到你以${game.labels.actors[offers[0].actor as Seat]}身份行动`

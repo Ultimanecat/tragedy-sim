@@ -132,13 +132,17 @@ export class ApiClient {
     return response;
   }
 
-  async command(actor: Seat, actionId: string): Promise<CommandResponse> {
+  async command(actor: Seat, actionId: string,
+                args?: { guesses: Record<string, string> }): Promise<CommandResponse> {
+    const body = { action_id: actionId,
+                   expected_revision: this.room?.gameRevision ?? this.session?.revision,
+                   ...(args ? { arguments: args } : {}) };
     if (this.room) {
       const response = await this.request<CommandResponse>("command",
         `/v1/rooms/${this.room.code}/game/commands`, {
           method: "POST",
           headers: { ...this.auth(this.room.roomToken), "Content-Type": "application/json" },
-          body: JSON.stringify({ action_id: actionId, expected_revision: this.room.gameRevision }),
+          body: JSON.stringify(body),
         });
       this.room.gameRevision = response.revision;
       return response;
@@ -148,7 +152,7 @@ export class ApiClient {
       `/v1/games/${session.sessionId}/commands`, {
         method: "POST",
         headers: { ...this.auth(session.seatTokens[actor]), "Content-Type": "application/json" },
-        body: JSON.stringify({ action_id: actionId, expected_revision: session.revision }),
+        body: JSON.stringify(body),
       });
     session.revision = response.revision;
     return response;

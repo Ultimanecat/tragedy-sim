@@ -7,7 +7,7 @@ export type Seat = "m" | "a" | "b" | "c";
 export type Viewer = Seat | "spectator";
 export type LocationId = "hospital" | "shrine" | "city" | "school";
 export type CounterId = "paranoia" | "goodwill" | "intrigue" | "hope" | "despair";
-export type ActionType = "next" | "play" | "resolve" | "choose" | "guess" | "final";
+export type ActionType = "next" | "play" | "resolve" | "choose" | "guess_all" | "final";
 
 export interface ApiErrorBody {
   protocol_version: typeof PROTOCOL_VERSION;
@@ -200,7 +200,7 @@ export interface ActionOffer {
   id: string;
   actor: Seat;
   type: ActionType | string;
-  parameters: Record<string, string | number | boolean>;
+  parameters: Record<string, string | number | boolean | string[] | Record<string, string>>;
   label: string;
   ui?: { source?: string; choice_key?: string; effect?: string; target?: string; counter?: string; amount?: number };
 }
@@ -212,7 +212,11 @@ export interface ActionsResponse {
   controlled_actors?: Seat[];
   actions: ActionOffer[];
 }
-export interface CommandRequest { action_id: string; expected_revision: number }
+export interface CommandRequest {
+  action_id: string;
+  expected_revision: number;
+  arguments?: { guesses: Record<string, string> };
+}
 export interface CommandResponse {
   protocol_version: typeof PROTOCOL_VERSION;
   session_id: string;

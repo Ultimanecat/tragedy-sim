@@ -95,19 +95,24 @@ describe("local game components", () => {
     expect(screen.getByRole("button", { name: ability.label })).toBeInTheDocument();
   });
 
-  it("groups AHR dual-identity guesses without exposing internal target ids", () => {
-    const offers: ActionOffer[] = [
-      { id: "surface-key", actor: "a", type: "guess", parameters: { character: "student@surface", role: "key" }, label: "男学生（表身份）是关键人物" },
-      { id: "surface-brain", actor: "a", type: "guess", parameters: { character: "student@surface", role: "brain" }, label: "男学生（表身份）是幕后黑手" },
-      { id: "hidden-key", actor: "a", type: "guess", parameters: { character: "student@hidden", role: "key" }, label: "男学生（里身份）是关键人物" },
-    ];
+  it("submits the final identity table as one decision", () => {
+    const offer: ActionOffer = {
+      id: "all-guesses", actor: "a", type: "guess_all",
+      parameters: { characters: ["student", "girl"], roles: ["ordinary", "key"] },
+      label: "一次提交全部最终猜测",
+    };
     const dispatch = vi.fn();
-    render(<Actions offers={offers} catalog={catalog} game={game} busy={false} onAction={dispatch} />);
-    expect(screen.queryByText("student@surface")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /男学生（表身份）2 个身份候选/ }));
-    fireEvent.click(screen.getByRole("button", { name: "关键人物" }));
-    fireEvent.click(screen.getByRole("button", { name: "确认执行" }));
-    expect(dispatch).toHaveBeenCalledWith(offers[0]);
+    render(<Actions offers={[offer]} catalog={catalog} game={game} busy={false} onAction={dispatch} />);
+    const submit = screen.getByRole("button", { name: "统一提交最终猜测" });
+    expect(submit).toBeDisabled();
+    const selectors = screen.getAllByRole("combobox");
+    fireEvent.change(selectors[0], { target: { value: "ordinary" } });
+    fireEvent.change(selectors[1], { target: { value: "key" } });
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+    expect(dispatch).toHaveBeenCalledWith(offer, {
+      guesses: { student: "ordinary", girl: "key" },
+    });
   });
 
   it("treats ruleset ability choices as opaque server-owned actions", () => {

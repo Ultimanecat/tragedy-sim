@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from .cards import ACTOR_NAMES, deck
-from .catalog import ROLE_NAMES
 from .flow import PHASE_LABELS
 
 
@@ -25,10 +24,8 @@ def describe_decision(game: Any, actor: str, action: str, args: dict[str, Any]) 
         choices = game.options(actor)
         label = choices[index - 1]["label"] if type(index) is int and 1 <= index <= len(choices) else f"选项 {index}"
         return f"{who}选择：{label}"
-    if action == "guess":
-        character = game.name(args["character"])
-        role = ROLE_NAMES.get(args["role"], args["role"])
-        return f"{who}猜测{character}的初始身份为{role}"
+    if action == "guess_all":
+        return f"{who}一次提交全部角色的最终身份猜测"
     if action == "final":
         return f"{who}决定提前进入最终猜测"
     return f"{who}执行 {action}"

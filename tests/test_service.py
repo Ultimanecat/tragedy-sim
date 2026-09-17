@@ -108,6 +108,31 @@ class GameServiceTests(unittest.TestCase):
                             and offer["ui"].get("counter") == "intrigue"
                             for offer in structured))
 
+    def test_final_guess_offer_requires_one_complete_assignment(self):
+        game = self.service.unsafe_game(self.session_id)
+        game._start_final_guess()
+        actor = game.controller
+        response = self.service.get_actions(
+            self.session_id, actor, token=self.tokens[actor])
+        self.assertEqual(len(response["actions"]), 1)
+        offer = response["actions"][0]
+        self.assertEqual(offer["type"], "guess_all")
+        self.assertEqual(set(offer["parameters"]["characters"]), set(game.roles))
+        with self.assertRaises(ServiceError) as missing:
+            self.service.dispatch(self.session_id, {
+                "action_id": offer["id"], "expected_revision": response["revision"],
+            }, token=self.tokens[actor])
+        self.assertEqual(missing.exception.code, "INVALID_REQUEST")
+        guesses = dict(game.scenario["cast"])
+        result = self.service.dispatch(self.session_id, {
+            "action_id": offer["id"], "expected_revision": response["revision"],
+            "arguments": {"guesses": guesses},
+        }, token=self.tokens[actor])
+        score = next(event for event in reversed(result["view"]["state"]["events"])
+                     if event["kind"] == "final_guess_result")
+        self.assertEqual((score["correct"], score["total"]),
+                         (len(guesses), len(guesses)))
+
     def test_wrong_seat_cannot_dispatch_and_snapshot_round_trips(self):
         actions = self.service.get_actions(self.session_id, "m", token=self.tokens["m"])
         command = {"action_id": actions["actions"][0]["id"],

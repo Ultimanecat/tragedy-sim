@@ -157,11 +157,13 @@ class AnotherHorizonRevisedTests(unittest.TestCase):
         self.assertEqual(game.state.phase, "loop_end")
         game._start_final_guess()
         self.assertEqual(len(game._guess_remaining), 2 * len(game.roles))
-        target = game._guess_remaining[0]
-        cid, side = target.rsplit("@", 1)
-        source = data["cast"] if side == "surface" else data["hidden_cast"]
-        game.dispatch(game.controller, "guess", character=target, role=source[cid])
-        self.assertNotEqual(game.state.phase, "game_over")
+        guesses = {}
+        for target in game._guess_remaining:
+            cid, side = target.rsplit("@", 1)
+            source = data["cast"] if side == "surface" else data["hidden_cast"]
+            guesses[target] = source[cid]
+        game.dispatch(game.controller, "guess_all", guesses=guesses)
+        self.assertEqual(game.winner, "protagonists")
 
 
 if __name__ == "__main__":

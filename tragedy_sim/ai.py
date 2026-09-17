@@ -76,6 +76,15 @@ class BaselineProtagonistAgent:
         if not offers:
             raise ValueError("cannot choose from an empty action list")
 
+        # An uninformed early final guess throws away the remaining loops and
+        # was the main cause of the old baseline repeating one loss and then
+        # guessing almost at random.  Preserve every remaining information-
+        # gathering loop; exhaustion enters final_guess automatically.
+        if view.get("phase") == "loop_end":
+            continuations = [offer for offer in offers if offer.get("type") == "next"]
+            if continuations:
+                return self._rng.choice(continuations)
+
         playable = list(offers)
         leader = view.get("leader")
         without_illegal_convention = [
@@ -207,6 +216,10 @@ class DefensiveProtagonistAgent(BaselineProtagonistAgent):
             raise ValueError("defensive protagonist strategy cannot control seat m")
         if not offers:
             raise ValueError("cannot choose from an empty action list")
+        if view.get("phase") == "loop_end":
+            continuations = [offer for offer in offers if offer.get("type") == "next"]
+            if continuations:
+                return self._rng.choice(continuations)
         leader = view.get("leader")
         playable = [offer for offer in offers
                     if (self._play_fields(offer)[0] != "fi"

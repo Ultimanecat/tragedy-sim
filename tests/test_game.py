@@ -82,8 +82,9 @@ def idle_step(game):
     elif phase in ("decision", "refusal"):
         game.dispatch(actor, "choose", index=1)
     elif phase == "final_guess":
-        cid = game.view()["guess_remaining"][0]
-        game.dispatch(actor, "guess", character=cid, role=game.scenario["cast"][cid])
+        game.dispatch(actor, "guess_all", guesses={
+            cid: game.scenario["cast"][cid]
+            for cid in game.view()["guess_remaining"]})
     else:
         game.dispatch(actor, "next")
 
@@ -272,8 +273,27 @@ class VictoryTests(unittest.TestCase):
                     idle_step(game)
                 self.assertEqual(game.winner, "protagonists")
             else:
-                game.dispatch(game.controller, "guess", character="student", role="key")
+                guesses = dict(game.scenario["cast"])
+                guesses["student"] = "key"
+                game.dispatch(game.controller, "guess_all", guesses=guesses)
                 self.assertEqual(game.winner, "mastermind")
+
+    def test_final_guess_is_submitted_together_and_reports_score(self):
+        game = make("BTX", kind="hospital", loops=1)
+        game.state.locations["hospital"] = 2
+        incident(game)
+        self.assertEqual(game.state.phase, "final_guess")
+        with self.assertRaises(RuleError):
+            game.dispatch(game.controller, "guess", character="student", role="ordinary")
+        guesses = dict(game.view("m")["secret"]["initial_roles"])
+        guesses["student"] = ("key" if guesses["student"] != "key" else "ordinary")
+        game.dispatch(game.controller, "guess_all", guesses=guesses)
+        result = next(event for event in reversed(game.state.events)
+                      if event["kind"] == "final_guess_result")
+        self.assertEqual(result["total"], len(guesses))
+        self.assertEqual(result["correct"], len(guesses) - 1)
+        self.assertEqual(len(result["guesses"]), len(guesses))
+        self.assertEqual(game.winner, "mastermind")
 
     def test_early_guess_only_btx_between_loops_and_by_leader(self):
         game = make("BTX", kind="hospital")
@@ -281,6 +301,8 @@ class VictoryTests(unittest.TestCase):
             game.dispatch("a", "final")
         game.state.locations["hospital"] = 2
         incident(game)
+        self.assertEqual({item["action"] for item in game.legal_actions("a")}, {"final"})
+        self.assertEqual({item["action"] for item in game.legal_actions("m")}, {"next"})
         with self.assertRaises(RuleError):
             game.dispatch("m", "final")
         game.dispatch("a", "final")

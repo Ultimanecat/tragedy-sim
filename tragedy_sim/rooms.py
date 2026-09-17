@@ -354,8 +354,8 @@ class RoomService:
                                RiskAwareProtagonistAgent()
                                if strategy == "risk_aware_protagonist" else
                                IsmctsProtagonistAgent(
-                                   SearchBudget(node_limit=24, rollout_depth=12),
-                                   particle_count=12)
+                                   SearchBudget(node_limit=96, rollout_depth=16),
+                                   particle_count=24)
                                if strategy == "ismcts_protagonist" else
                                FixedStrategyMastermindAgent()
                                if strategy == "fixed_mastermind" else
@@ -517,6 +517,14 @@ class RoomService:
                 if occupant is None or not occupant.ai:
                     continue
                 public, offers = self._participant_offers(room, seat)
+                # Early final guess is an out-of-turn optional team decision:
+                # the mastermind can simultaneously advance to the next loop.
+                # Current protagonist baselines have no confidence threshold
+                # for surrendering all remaining loops, so they must not make
+                # this irreversible side decision automatically.
+                if seat != "m":
+                    offers = [offer for offer in offers
+                              if offer.get("type") != "final"]
                 if offers:
                     observation = self.game_view(room.code, token=occupant.token)["state"]
                     policy = occupant.ai_policy or self._ai_agent
@@ -528,7 +536,10 @@ class RoomService:
                     else:
                         offer = policy.choose_action(
                             participant=seat, view=observation, offers=offers)
-                    if offer not in offers:
+                    arguments = offer.get("arguments")
+                    comparable = {key: value for key, value in offer.items()
+                                  if key != "arguments"}
+                    if comparable not in offers:
                         raise RuntimeError("AI selected an action outside its legal offers")
                     available.append((seat, occupant, offer, public["revision"]))
             if not available:
@@ -536,9 +547,12 @@ class RoomService:
             if len(available) != 1:
                 raise RuntimeError("multiple AI participants can act at the same time")
             seat, occupant, offer, revision = available[0]
-            result = self.games.dispatch(room.session_id, {
+            request = {
                 "action_id": offer["id"], "expected_revision": revision,
-            }, token=room.game_admin)
+            }
+            if offer.get("arguments") is not None:
+                request["arguments"] = offer["arguments"]
+            result = self.games.dispatch(room.session_id, request, token=room.game_admin)
             self._record_executor(room, seat, occupant, result["accepted_action"])
             room.last_activity = self._clock()
             room.changed.notify_all()
@@ -598,9 +612,13 @@ class RoomService:
             seat, occupant = self._occupant(room, token)
             if room.status != "playing":
                 raise ServiceError("ROOM_NOT_PLAYING", "房间当前不能提交行动", status=409)
-            if not isinstance(request, dict) or set(request) != {"action_id", "expected_revision"}:
+            if (not isinstance(request, dict)
+                    or set(request) not in ({"action_id", "expected_revision"},
+                                            {"action_id", "expected_revision", "arguments"})):
                 raise ServiceError("INVALID_REQUEST", "命令需要 action_id 和 expected_revision")
-            if not isinstance(request["action_id"], str) or type(request["expected_revision"]) is not int:
+            if (not isinstance(request["action_id"], str)
+                    or type(request["expected_revision"]) is not int
+                    or ("arguments" in request and not isinstance(request["arguments"], dict))):
                 raise ServiceError("INVALID_REQUEST", "命令字段类型无效")
             public, offers = self._participant_offers(room, seat)
             if request["expected_revision"] != public["revision"]:

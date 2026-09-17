@@ -27,6 +27,22 @@ PROTAGONIST_STRATEGIES = ("random", "baseline", "defensive", "risk_aware", "ismc
 
 
 @dataclass(frozen=True)
+class LoopLossRecord:
+    loop: int
+    reasons: tuple[str, ...]
+    deaths: tuple[str, ...]
+    happened_incidents: tuple[tuple[int, str], ...]
+
+
+@dataclass(frozen=True)
+class FinalGuessRecord:
+    character: str
+    guessed_role: str
+    actual_role: str
+    correct: bool
+
+
+@dataclass(frozen=True)
 class MatchResult:
     scenario_id: str
     module: str
@@ -38,6 +54,10 @@ class MatchResult:
     mastermind_decisions: int
     search_nodes: int
     elapsed_seconds: float
+    loop_losses: tuple[LoopLossRecord, ...] = ()
+    final_guesses: tuple[FinalGuessRecord, ...] = ()
+    known_roles_before_final: int = 0
+    cast_size: int = 0
 
 
 def _policy_offer(game: Game, action: Any) -> dict[str, Any]:
@@ -69,12 +89,14 @@ def _policy_offer(game: Game, action: Any) -> dict[str, Any]:
 
 
 def _choose_policy_action(policy: Any, participant: str, game: Game,
-                          actions: Sequence[Any]) -> Any:
+                          actions: Sequence[Any]) -> tuple[Any, dict[str, Any] | None]:
     offers = [_policy_offer(game, action) for action in actions]
     chosen = policy.choose_action(
         participant=participant, view=game.view(participant), offers=offers)
-    return actions[next(index for index, offer in enumerate(offers)
-                        if offer["id"] == chosen["id"])]
+    action = actions[next(index for index, offer in enumerate(offers)
+                          if offer["id"] == chosen["id"])]
+    arguments = chosen.get("arguments")
+    return action, arguments if isinstance(arguments, dict) else None
 
 
 def play(scenario_id: str, seed: int, nodes: int, depth: int,
@@ -103,27 +125,61 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         for seat in "abc"
     }
     decisions = mastermind_decisions = search_nodes = 0
+    reason_cursor = 0
+    loop_event_cursor = 0
+    loop_losses: list[LoopLossRecord] = []
+    final_guesses: list[FinalGuessRecord] = []
+    known_roles_before_final = 0
     started = perf_counter()
     while game.winner is None and decisions < 1500:
         actions = game.action_offers(game.controller)
         if not actions:
             raise RuntimeError(f"no legal action at {game.phase_cursor}")
+        arguments = None
         if game.controller == "m":
             mastermind_decisions += 1
             if strategy in {"naive", "optimized", "strategic"}:
                 action = mastermind.search(game)
                 search_nodes += mastermind.last_trace.nodes
             elif strategy == "fixed":
-                action = _choose_policy_action(mastermind, "m", game, actions)
+                action, arguments = _choose_policy_action(mastermind, "m", game, actions)
             else:
                 action = mastermind.choice(actions)
         else:
             actor = game.controller
             policy = protagonists[actor]
-            action = (_choose_policy_action(policy, actor, game, actions)
-                      if protagonist_strategy in {"baseline", "defensive", "risk_aware", "ismcts"}
-                      else policy.choice(actions))
-        game = game.transition(action).game
+            if protagonist_strategy in {"baseline", "defensive", "risk_aware", "ismcts"}:
+                action, arguments = _choose_policy_action(policy, actor, game, actions)
+            else:
+                action = policy.choice(actions)
+        command = {**action.command, **(arguments or {})}
+        game = game.search_transition(command)
+        new_loop_events = game.state.events[loop_event_cursor:]
+        loop_event_cursor = len(game.state.events)
+        if any(event.get("kind") == "final_guess_started" for event in new_loop_events):
+            known_roles_before_final = sum(
+                fact.get("role") == scenario["cast"].get(cid)
+                for cid, fact in game.known_roles.items()
+                if isinstance(fact, dict))
+        if command.get("action") == "guess_all":
+            for cid, guessed in command["guesses"].items():
+                final_guesses.append(FinalGuessRecord(
+                    cid, guessed, scenario["cast"][cid],
+                    guessed == scenario["cast"][cid]))
+        lost = next((event for event in new_loop_events
+                     if event.get("kind") == "loop_lost"), None)
+        if lost is not None:
+            reasons = tuple(game.loss_reasons[reason_cursor:])
+            reason_cursor = len(game.loss_reasons)
+            deaths = tuple(dict.fromkeys(
+                str(event["target"]) for event in new_loop_events
+                if event.get("kind") == "character_died" and "target" in event))
+            incidents = tuple(
+                (int(event["round"]), str(event["incident"]))
+                for event in new_loop_events
+                if event.get("kind") == "incident_status" and event.get("happened"))
+            loop_losses.append(LoopLossRecord(
+                int(lost["loop"]), reasons, deaths, incidents))
         decisions += 1
     if game.winner is None:
         raise RuntimeError("match exceeded 1500 decisions")
@@ -132,7 +188,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         mastermind_strategy=strategy, protagonist_strategy=protagonist_strategy,
         seed=seed, winner=game.winner, decisions=decisions,
         mastermind_decisions=mastermind_decisions, search_nodes=search_nodes,
-        elapsed_seconds=perf_counter() - started)
+        elapsed_seconds=perf_counter() - started,
+        loop_losses=tuple(loop_losses), final_guesses=tuple(final_guesses),
+        known_roles_before_final=known_roles_before_final,
+        cast_size=len(scenario["cast"]))
 
 
 def _scenario_ids(args: argparse.Namespace, library: ScenarioLibrary) -> list[str]:

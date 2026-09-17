@@ -557,8 +557,8 @@ class Game(ActionGame):
     def _start_final_guess(self):
         return self.ruleset.operations['_start_final_guess'](self)
 
-    def _guess(self, cid, role):
-        return self.ruleset.operations['_guess'](self, cid, role)
+    def _guess_all(self, guesses):
+        return self.ruleset.operations['_guess_all'](self, guesses)
 
     def _win(self, winner, message):
         timing = self._current_timing()

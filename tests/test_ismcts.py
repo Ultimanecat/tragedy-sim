@@ -32,6 +32,9 @@ class IsmctsTests(unittest.TestCase):
         self.assertEqual(particle.state.phase, "protagonists")
         self.assertEqual([(item.actor, item.target) for item in particle.state.pending],
                          [(item["actor"], item["target"]) for item in view["pending"]])
+        self.assertEqual(particle._queue, [])
+        self.assertIsNone(particle._pending)
+        self.assertIsNone(particle._return_phase)
 
     def test_agent_returns_a_supplied_offer_and_records_information_set_stats(self):
         game = advance_to_protagonists(Game(example_scenario("FS")))
@@ -56,6 +59,43 @@ class IsmctsTests(unittest.TestCase):
         self.assertEqual(agent.choose_action(
             participant="a", view=game.view("a"), offers=[offer]), offer)
         self.assertEqual(agent.last_trace.fallback, "unsupported_module")
+
+    def test_rollout_does_not_evaluate_before_current_day_end(self):
+        game = Game(example_scenario("FS"))
+        # Isolate the horizon invariant from immediate role-loss conditions.
+        game.roles = dict.fromkeys(game.roles, "ordinary")
+        game.scenario["cast"] = dict(game.roles)
+        game = advance_to_protagonists(game)
+        successor = game.search_transition(game.search_actions(game.controller)[0])
+        observed = []
+        agent = IsmctsProtagonistAgent(
+            SearchBudget(node_limit=1, rollout_depth=1, seed=4), particle_count=1)
+
+        def capture(world, evaluator):
+            observed.append(world)
+            return 0.0
+
+        agent._reward = capture
+        agent._rollout(successor, random.Random(5))
+        self.assertTrue(observed)
+        reached_boundary = any(event.get("kind") == "day_ended"
+                               and event.get("loop") == successor.state.loop
+                               and event.get("round") == successor.state.round
+                               for event in observed[0].state.events)
+        self.assertTrue(reached_boundary or observed[0].winner is not None)
+
+    def test_final_guess_returns_one_joint_assignment(self):
+        game = Game(example_scenario("BTX"))
+        game._start_final_guess()
+        offers = [offer.to_dict() for offer in game.action_offers(game.controller)]
+        agent = IsmctsProtagonistAgent(
+            SearchBudget(node_limit=1, rollout_depth=1, seed=6),
+            particle_count=4, rng_seed=6)
+        chosen = agent.choose_action(
+            participant=game.controller, view=game.view(game.controller), offers=offers)
+        self.assertEqual(chosen["kind"], "core.guess_all")
+        self.assertEqual(set(chosen["arguments"]["guesses"]), set(game.roles))
+        self.assertEqual(agent.last_trace.fallback, "simultaneous_map_guess")
 
 
 if __name__ == "__main__":

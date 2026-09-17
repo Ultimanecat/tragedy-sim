@@ -197,7 +197,7 @@ inspect <角色ID>              查看角色全部公开属性、能力及合法
 rules                         查看当前模组的所有可能规则/身份/事件（不是剧本答案）
 view <座位|spectator>         棋盘视角；view m 会显示剧本秘密，仅剧作家查看
 log                           回看完整公开结算日志
-guess <座位> <角色> <身份ID>   支持最终猜测的规则集：为每个角色回答初始身份
+guessall <座位> <角色=身份,...> 支持最终猜测的规则集：一次提交所有角色的初始身份
 final <领队>                  规则集允许时，在轮回之间放弃余下轮回并最终猜测
 save <新文件路径>             保存完整对局（含秘密，不要在对局中分享）
 replay <新文件路径>           对局结束后导出纯文本完整信息回放（推荐 .tlr）
@@ -314,7 +314,7 @@ def hint(game):
         total = counts["mastermind"] + counts["protagonists"]
         print(f"下一步：resolve，统一揭示 {total} 张牌。")
     elif phase == "final_guess":
-        print(f"待猜角色：{', '.join(game.view()['guess_remaining'])}；guess {actor} <角色> <身份ID>")
+        print(f"待猜角色：{', '.join(game.view()['guess_remaining'])}；请一次提交全部角色的身份猜测。")
     elif phase == "game_over":
         print("对局已结束，可查看 log、保存存档或 quit。")
     elif phase in ("refusal", "decision"):
@@ -402,9 +402,10 @@ def match_demo(module, language="zh"):
             game.dispatch(actor, "choose", index=index)
         elif phase == "final_guess":
             remaining = game.view()["guess_remaining"]
-            character = remaining[0]
-            role = game.view("m")["secret"]["initial_roles"][character]
-            game.dispatch(actor, "guess", character=character, role=role)
+            initial = game.view("m")["secret"]["initial_roles"]
+            game.dispatch(actor, "guess_all",
+                          guesses={character: initial[character]
+                                   for character in remaining})
         else:
             game.dispatch(actor, "next")
         events(game, start)
@@ -476,7 +477,7 @@ def main(argv=None):
             counts = {"board": (0,), "status": (0,), "help": (0,), "quit": (0,), "hand": (1,),
                       "play": (3,), "view": (1,), "resolve": (0,), "options": (1,), "choose": (2,),
                       "next": (0, 1), "log": (0,), "inspect": (1,), "rules": (0,), "save": (1,), "replay": (1,),
-                      "guess": (3,), "final": (1,)}
+                      "guessall": (2,), "final": (1,)}
             if cmd not in counts or len(values) not in counts[cmd]:
                 raise RuleError("命令或参数数量错误，请输入 help")
             if cmd == "quit":
@@ -510,8 +511,12 @@ def main(argv=None):
                     print("当前没有属于这个座位的能力/目标选择。")
             elif cmd == "choose":
                 game.dispatch(values[0], "choose", index=int(values[1]))
-            elif cmd == "guess":
-                game.dispatch(values[0], "guess", character=values[1], role=values[2])
+            elif cmd == "guessall":
+                try:
+                    guesses = dict(item.split("=", 1) for item in values[1].split(","))
+                except ValueError as exc:
+                    raise RuleError("最终猜测格式应为 角色=身份,角色=身份") from exc
+                game.dispatch(values[0], "guess_all", guesses=guesses)
             elif cmd == "final":
                 game.dispatch(values[0], "final")
             elif cmd == "log":
@@ -537,7 +542,7 @@ def main(argv=None):
             elif cmd == "replay":
                 game.save_replay(values[0])
                 print("已导出纯文本回放。文件包含全部秘密，只应在对局结束后查看或分享。")
-            if cmd in ("play", "resolve", "next", "choose", "guess", "final"):
+            if cmd in ("play", "resolve", "next", "choose", "guessall", "final"):
                 events(game, start)
                 hint(game)
         except (ValueError, OSError, TypeError) as exc:

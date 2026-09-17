@@ -470,7 +470,7 @@ def _start_final_guess(self):
                              if self.module == "AHR" else list(self.roles))
     detail = "；AHR 必须分别猜中每名角色的表、里身份" if self.module == "AHR" else ""
     self._event("final_guess_started", "进入最终猜测：棋盘还原，身份恢复剧本初始分配。"
-                f"领队逐个声明角色身份，全部正确才获胜，答错即失败{detail}。")
+                f"领队一次提交所有角色身份，统一公开正确数量；全部正确才获胜{detail}。")
     if self.module == "LL":
         self._return_phase = "final_guess"
         self.state.phase = "decision"
@@ -478,25 +478,35 @@ def _start_final_guess(self):
         self._drain()
 
 
-def _guess(self, cid, role):
-    if self.state.phase != "final_guess" or cid not in self._guess_remaining or role not in ROLE_NAMES:
-        raise RuleError("当前不能猜测这个角色或身份；使用 rules 查看身份 ID")
-    if self.module == "AHR":
-        character, side = cid.rsplit("@", 1)
-        source = self.scenario["cast"] if side == "surface" else self.scenario["hidden_cast"]
-        correct = role == source[character]
+def _guess_all(self, guesses):
+    if self.state.phase != "final_guess" or not isinstance(guesses, dict):
+        raise RuleError("当前不能提交最终猜测")
+    expected = set(self._guess_remaining)
+    if set(guesses) != expected or any(role not in ROLE_NAMES for role in guesses.values()):
+        raise RuleError("必须一次为所有待猜角色提交有效身份")
+    details = []
+    correct = 0
+    for target in self._guess_remaining:
+        if self.module == "AHR":
+            character, side = target.rsplit("@", 1)
+            source = self.scenario["cast"] if side == "surface" else self.scenario["hidden_cast"]
+            actual = source[character]
+        else:
+            actual = self.scenario["cast"][target]
+        guessed = guesses[target]
+        matched = guessed == actual
+        correct += matched
+        details.append({"character": target, "guessed_role": guessed,
+                        "actual_role": actual, "correct": matched})
+    total = len(details)
+    self._guess_remaining.clear()
+    self._event("final_guess_result",
+                f"最终猜测同时公开：猜对 {correct}/{total} 名角色。",
+                correct=correct, total=total, guesses=details)
+    if correct == total:
+        self._win("protagonists", f"最终猜测全部正确（{correct}/{total}），主人公获胜！")
     else:
-        character = cid
-        correct = role == self.scenario["cast"][cid]
-    self._event("guess_result", f"最终猜测：{self.name(cid)}是{ROLE_NAMES[role]}——{'正确' if correct else '错误'}。", correct=correct)
-    if not correct:
-        self._win("mastermind", "最终猜测失败，剧作家获胜。")
-    else:
-        if self.module != "AHR":
-            self._reveal_role(cid, truthful=True)
-        self._guess_remaining.remove(cid)
-        if not self._guess_remaining:
-            self._win("protagonists", "所有身份猜测正确，主人公获胜！")
+        self._win("mastermind", f"最终猜测为 {correct}/{total}，剧作家获胜。")
 
 
 OPERATIONS = {
@@ -511,5 +521,5 @@ OPERATIONS = {
     '_restore_board': _restore_board,
     '_new_loop': _new_loop,
     '_start_final_guess': _start_final_guess,
-    '_guess': _guess,
+    '_guess_all': _guess_all,
 }

@@ -340,6 +340,12 @@ class TragedyApp:
             self.seat_title.configure(text="对局结束")
             self.seat_subtitle.configure(text="结算记录与已知信息仍可查看。")
             ttk.Label(self.private, text=winner + "获胜", foreground=ACCENT, font=("Microsoft YaHei UI", 24, "bold")).pack(pady=(55, 20))
+            final_result = next((event for event in reversed(public["events"])
+                                 if event.get("kind") == "final_guess_result"), None)
+            if final_result:
+                ttk.Label(self.private,
+                          text=f"最终猜测：{final_result['correct']}/{final_result['total']} 正确",
+                          foreground=ACCENT, font=("Microsoft YaHei UI", 13, "bold")).pack(pady=6)
             ttk.Label(self.private, text="故事已经结束。\n可以保存完整记录，或开启新的轮回。", justify="center", style="Muted.TLabel").pack(pady=10)
             ttk.Button(self.private, text="另存完整对局", command=self.save, style="Accent.TButton").pack(pady=10)
             ttk.Button(self.private, text="导出纯文本回放", command=self.export_replay).pack(pady=6)
@@ -494,29 +500,44 @@ class TragedyApp:
 
     def _render_guess(self, parent, view, token):
         ttk.Label(parent, text="最后的机会", style="Section.TLabel").pack(anchor="w", pady=12)
-        ttk.Label(parent, text="按任意顺序猜测每个角色的初始身份。\n全部正确才获胜，答错一次即失败。", wraplength=345, foreground=DANGER).pack(fill="x", pady=10)
-        characters = list(view["guess_remaining"])
-        roles = list(module_roles(view["module"]))
-        ttk.Label(parent, text=f"待猜角色（剩余 {len(characters)} 名）").pack(anchor="w", pady=(14, 5))
-        char_box = ttk.Combobox(parent, state="readonly", values=[target_name(view, c) for c in characters])
-        char_box.pack(fill="x", pady=5)
-        ttk.Label(parent, text="初始身份").pack(anchor="w", pady=(14, 5))
-        role_box = ttk.Combobox(parent, state="readonly", values=[ROLE_NAMES[r] for r in roles])
-        role_box.pack(fill="x", pady=5)
-        self.controls["guess_character"], self.controls["guess_role"] = char_box, role_box
-        summary = ttk.Label(parent, text="选择角色与身份后，再确认提交。", wraplength=345, foreground=ACCENT)
+        ttk.Label(parent, text="填写每个角色的初始身份，再一次提交。\n结算后会公布猜对数量；只有全部正确才获胜。", wraplength=345, foreground=DANGER).pack(fill="x", pady=10)
+        offers = [offer for offer in self.session.client.actions(self.session.seat)
+                  if offer["type"] == "guess_all"]
+        if not offers:
+            ttk.Label(parent, text="当前没有可提交的最终猜测。", style="Muted.TLabel").pack(pady=18)
+            return
+        offer = offers[0]
+        characters = list(offer["parameters"]["characters"])
+        roles = list(offer["parameters"]["roles"])
+        selections = {}
+        ttk.Label(parent, text=f"待猜角色（共 {len(characters)} 名）").pack(anchor="w", pady=(14, 5))
+        for character in characters:
+            row = ttk.Frame(parent)
+            row.pack(fill="x", pady=3)
+            ttk.Label(row, text=target_name(view, character), width=12).pack(side="left")
+            box = ttk.Combobox(row, state="readonly",
+                               values=[ROLE_NAMES.get(role, role) for role in roles])
+            box.pack(side="left", fill="x", expand=True)
+            selections[character] = box
+        summary = ttk.Label(parent, text="请为所有角色选择身份。", wraplength=345, foreground=ACCENT)
         summary.pack(fill="x", pady=16)
 
         def selected(event=None):
-            valid = char_box.current() >= 0 and role_box.current() >= 0
-            self.controls["guess"].configure(state="normal" if valid else "disabled")
-            if valid:
-                summary.configure(text=f"将公开声明：{char_box.get()}是{role_box.get()}。此操作不可撤销。")
+            completed = sum(box.current() >= 0 for box in selections.values())
+            self.controls["guess"].configure(
+                state="normal" if completed == len(characters) else "disabled")
+            summary.configure(text=f"已填写 {completed}/{len(characters)}。提交后不可撤销。")
 
-        char_box.bind("<<ComboboxSelected>>", selected)
-        role_box.bind("<<ComboboxSelected>>", selected)
-        self.controls["guess"] = ttk.Button(parent, text="确认提交这次猜测", state="disabled", style="Accent.TButton",
-                                            command=lambda: self.perform(token, "guess", character=characters[char_box.current()], role=roles[role_box.current()]))
+        for box in selections.values():
+            box.bind("<<ComboboxSelected>>", selected)
+
+        def submit():
+            guesses = {character: roles[box.current()]
+                       for character, box in selections.items()}
+            self.perform(token, "guess_all", guesses=guesses)
+
+        self.controls["guess"] = ttk.Button(parent, text="统一提交全部猜测", state="disabled", style="Accent.TButton",
+                                            command=submit)
         self.controls["guess"].pack(fill="x", pady=10)
 
     def _render_replay_controls(self):

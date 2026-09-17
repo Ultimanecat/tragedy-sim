@@ -8,6 +8,7 @@ fall back to the deterministic public-information policy.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from collections import Counter
 from copy import deepcopy
 import hashlib
 import json
@@ -146,6 +147,20 @@ class PublicStateDeterminizer:
             cid: str(character.get("initial_location", state.characters[cid].location))
             for cid, character in view["characters"].items()}
         game.winner = view.get("winner")
+        # Game construction may open setup/loop-start choices for the sampled
+        # script (for example Scholar).  They belong to the sampled world's
+        # initial position, not to the observed mid-day root.  Keeping them
+        # can later jump a rollout back to day_start with unresolved cards.
+        game._queue = []
+        game._pending = None
+        game._request = None
+        game._pending_source = None
+        game._decision_actor = None
+        game._decision_public_phase = None
+        game._return_phase = None
+        game._choice_actor_override = None
+        game._timing_window = None
+        game._trace_observation_stack = []
         return game
 
 
@@ -180,19 +195,34 @@ class IsmctsProtagonistAgent:
 
     def _rollout(self, game: Game, rng: random.Random) -> float:
         world = game
-        for _ in range(self.budget.rollout_depth):
+        root_loop, root_day = world.state.loop, world.state.round
+        event_cursor = len(world.state.events)
+        reached_boundary = False
+        hard_limit = max(128, self.budget.rollout_depth * 8)
+        for depth in range(hard_limit):
             if world.winner is not None:
                 break
             actions = list(world.search_actions(world.controller))
             if not actions:
                 break
-            try:
-                world = world.search_transition(rng.choice(actions))
-            except RuleError:
-                # A root reconstructed from a public projection cannot yet
-                # restore every private transient flag.  Stop at that leaf;
-                # never repair it from the real game or hidden history.
+            world = world.search_transition(rng.choice(actions))
+            new_events = world.state.events[event_cursor:]
+            reached_boundary |= any(
+                event.get("loop") == root_loop
+                and event.get("round") == root_day
+                and event.get("kind") in ("day_ended", "loop_lost")
+                for event in new_events)
+            # An immediate loss may advance into the next loop in the same
+            # transition.  That is the failed day's stable boundary even
+            # though the ordinary day_ended event is intentionally skipped.
+            reached_boundary |= world.state.loop != root_loop
+            event_cursor = len(world.state.events)
+            if reached_boundary and depth + 1 >= self.budget.rollout_depth:
                 break
+        else:
+            raise RuntimeError("ISMCTS rollout did not reach a stable day-end boundary")
+        if world.winner is None and not reached_boundary:
+            raise RuntimeError("ISMCTS rollout stopped before the current day ended")
         return self._reward(world, self.evaluator)
 
     def _fallback(self, participant: str, view: dict[str, Any],
@@ -211,6 +241,56 @@ class IsmctsProtagonistAgent:
             raise ValueError("cannot choose from an empty action list")
         if participant == "m":
             raise ValueError("protagonist ISMCTS cannot control the mastermind")
+        if (view.get("phase") == "final_guess" and len(offers) == 1
+                and str(offers[0].get("type", offers[0].get("kind", "")))
+                .removeprefix("core.") == "guess_all"):
+            targets = list(view.get("guess_remaining", ()))
+            known = view.get("known_roles", {})
+            baseline = {
+                target: (known.get(target, {}).get("role", "ordinary")
+                         if isinstance(known.get(target, {}), dict) else "ordinary")
+                for target in targets
+            }
+            if view.get("module") not in ("FS", "BTX"):
+                chosen = {**offers[0], "arguments": {"guesses": baseline}}
+                self.last_trace = IsmctsTrace(
+                    self.plan_name, self.rng_seed, str(view.get("module", "")),
+                    0, 0, 0, self.budget.rollout_depth,
+                    "unsupported_module_joint_guess", offers[0]["id"], ())
+                return chosen
+            evidence = PublicEvidence.from_view(view)
+            witnesses = self.compiler.compile(view)
+            rng = random.Random(
+                f"{self.budget.seed}:{self.rng_seed}:{participant}:final_guess")
+            hypotheses = self.sampler.sample(
+                evidence, max(128, self.particle_count * 4),
+                rng=rng, witnesses=witnesses)
+            if not hypotheses:
+                chosen = {**offers[0], "arguments": {"guesses": baseline}}
+                self.last_trace = IsmctsTrace(
+                    self.plan_name, self.rng_seed, evidence.module, 0,
+                    len(witnesses), 0, self.budget.rollout_depth,
+                    "no_final_guess_particles", offers[0]["id"], ())
+                return chosen
+            marginals = {cid: Counter(dict(world.roles).get(cid)
+                                      for world in hypotheses)
+                         for cid in evidence.characters}
+
+            def joint_score(world: Any) -> int:
+                roles = dict(world.roles)
+                return sum(marginals[cid][roles[cid]]
+                           for cid in evidence.characters)
+
+            selected_world = max(hypotheses, key=joint_score)
+            roles = dict(selected_world.roles)
+            guesses = {target: roles[target]
+                       for target in view.get("guess_remaining", ())}
+            chosen = {**offers[0], "arguments": {"guesses": guesses}}
+            self.last_trace = IsmctsTrace(
+                self.plan_name, self.rng_seed, evidence.module, len(hypotheses),
+                len(witnesses), 0, self.budget.rollout_depth,
+                "simultaneous_map_guess", offers[0]["id"], ())
+            return chosen
         if view.get("module") not in ("FS", "BTX"):
             return self._fallback(participant, view, offers, "unsupported_module")
         if view.get("phase") != "protagonists" or not all(
@@ -238,7 +318,10 @@ class IsmctsProtagonistAgent:
 
         offers_by_key = {_key(_command(offer)): offer for offer in offers}
         stats = {key: _RootStat() for key in offers_by_key}
-        iterations = max(1, self.budget.node_limit)
+        # A node limit smaller than the root branching factor used to leave
+        # most cards completely unexamined.  Treat the configured limit as a
+        # minimum and visit every currently legal root action at least once.
+        iterations = max(1, self.budget.node_limit, len(offers_by_key))
         for iteration in range(iterations):
             particle = particles[iteration % len(particles)]
             legal = {_key(action): action

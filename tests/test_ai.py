@@ -99,6 +99,22 @@ class AiPolicyTests(unittest.TestCase):
             BaselineProtagonistAgent().choose_action(
                 participant="m", view={}, offers=[offer("next")])
 
+    def test_protagonist_policies_do_not_guess_early_without_information(self):
+        view = {"phase": "loop_end", "leader": "a", "characters": {},
+                "locations": {}, "events": []}
+        offers = [
+            {"id": "continue", "actor": "a", "type": "next",
+             "parameters": {}, "label": "下一轮回"},
+            {"id": "guess", "actor": "a", "type": "final",
+             "parameters": {}, "label": "提前最终猜测"},
+        ]
+        for policy in (BaselineProtagonistAgent(random.Random(1)),
+                       DefensiveProtagonistAgent(random.Random(1)),
+                       RiskAwareProtagonistAgent(random.Random(1))):
+            with self.subTest(policy=type(policy).__name__):
+                self.assertEqual(policy.choose_action(
+                    participant="a", view=view, offers=offers)["id"], "continue")
+
     def test_defensive_protagonist_calms_known_current_culprit(self):
         view = {
             "loop": 2, "round": 3, "leader": "a", "events": [],
@@ -235,9 +251,14 @@ class AiPolicyTests(unittest.TestCase):
                                     and item["parameters"]["card"] in {"p1", "g1", "h", "v"}]
                         skip = [item for item in actions["actions"] if item["type"] == "next"]
                         selected = (harmless or skip or actions["actions"])[0]
-                    service.dispatch(session, {
+                    request = {
                         "action_id": selected["id"], "expected_revision": actions["revision"],
-                    }, token=tokens[actor])
+                    }
+                    if selected["type"] == "guess_all":
+                        request["arguments"] = {"guesses": {
+                            cid: "ordinary"
+                            for cid in selected["parameters"]["characters"]}}
+                    service.dispatch(session, request, token=tokens[actor])
                 else:
                     self.fail(f"{path} did not finish")
                 self.assertEqual(public["winner"], "mastermind")

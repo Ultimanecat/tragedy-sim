@@ -258,8 +258,8 @@ class GameService:
             return options[index - 1]["label"]
         if action == "play":
             return f"{deck(command['actor'], game.module)[command['card']].name} → {game.name(command['target'])}"
-        if action == "guess":
-            return f"{game.name(command['character'])}是{ROLE_NAMES[command['role']]}"
+        if action == "guess_all":
+            return "一次提交全部最终猜测"
         if action == "final":
             return "提前进入最终猜测"
         return {"next": "进入下一阶段", "resolve": "揭示并结算行动牌"}.get(action, action)
@@ -269,6 +269,15 @@ class GameService:
         action = command["action"]
         parameters = {key: value for key, value in command.items()
                       if key not in ("actor", "action", "index")}
+        if action == "guess_all":
+            game = record.game
+            roles = game._script_roles() | {"ordinary"}
+            if "hideous" in game.scenario["subplots"]:
+                roles.add("curmudgeon")
+            parameters = {
+                "characters": list(game._guess_remaining),
+                "roles": [role for role in ROLE_NAMES if role in roles],
+            }
         ui: dict[str, Any] = {}
         if action == "choose":
             choice = record.game.options(command["actor"])[command["index"] - 1]
@@ -312,7 +321,9 @@ class GameService:
                                "actions": [offer for offer, _ in self._offers(session_id, record, actor)]})
 
     def dispatch(self, session_id: str, request: dict[str, Any], *, token: str | None) -> dict[str, Any]:
-        if not isinstance(request, dict) or set(request) != {"action_id", "expected_revision"}:
+        if (not isinstance(request, dict)
+                or set(request) not in ({"action_id", "expected_revision"},
+                                        {"action_id", "expected_revision", "arguments"})):
             raise ServiceError("INVALID_REQUEST", "命令需要 action_id 和 expected_revision")
         action_id, expected = request["action_id"], request["expected_revision"]
         if not isinstance(action_id, str) or type(expected) is not int:
@@ -329,6 +340,15 @@ class GameService:
             if not matches:
                 raise ServiceError("ACTION_NOT_AVAILABLE", "该行动在当前状态下不可用", status=409)
             offer, command = matches[0]
+            arguments = request.get("arguments")
+            if command["action"] == "guess_all":
+                if (not isinstance(arguments, dict) or set(arguments) != {"guesses"}
+                        or not isinstance(arguments["guesses"], dict)):
+                    raise ServiceError("INVALID_REQUEST", "最终猜测必须一次提交 guesses 对象")
+                command = {**command, "guesses": deepcopy(arguments["guesses"])}
+                offer = {**offer, "parameters": {"guesses": deepcopy(arguments["guesses"])}}
+            elif arguments is not None:
+                raise ServiceError("INVALID_REQUEST", "当前行动不接受额外参数")
             try:
                 record.game.dispatch(command["actor"], command["action"],
                                      **{key: value for key, value in command.items()
@@ -428,9 +448,13 @@ class LocalGameClient:
         self.revision = payload["revision"]
         return payload["actions"]
 
-    def dispatch_id(self, actor: str, action_id: str) -> dict[str, Any]:
+    def dispatch_id(self, actor: str, action_id: str,
+                    arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+        request = {"action_id": action_id, "expected_revision": self.revision}
+        if arguments is not None:
+            request["arguments"] = arguments
         payload = self.service.dispatch(
-            self.session_id, {"action_id": action_id, "expected_revision": self.revision},
+            self.session_id, request,
             token=self.seat_tokens[actor])
         self.revision = payload["revision"]
         return payload
@@ -441,11 +465,12 @@ class LocalGameClient:
         if action == "choose" and "index" in parameters:
             index = parameters["index"]
             candidates = candidates[index - 1:index] if type(index) is int and index > 0 else []
-        else:
+        elif action != "guess_all":
             candidates = [offer for offer in candidates if offer["parameters"] == parameters]
         if len(candidates) != 1:
             raise RuleError("该操作不在服务端返回的当前合法行动中")
-        return self.dispatch_id(actor, candidates[0]["id"])
+        arguments = {"guesses": parameters.get("guesses")} if action == "guess_all" else None
+        return self.dispatch_id(actor, candidates[0]["id"], arguments)
 
     def save(self, path: str | Path) -> None:
         snapshot = self.service.get_snapshot(self.session_id, token=self.admin_token)["snapshot"]

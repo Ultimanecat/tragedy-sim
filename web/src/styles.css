@@ -155,6 +155,10 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .actions-panel details { border-top: 1px solid #4f4146; padding: .7rem 0; }
 .actions-panel summary, .secret summary { cursor: pointer; color: #e0bea2; }
 .action-grid { max-height: 280px; overflow: auto; padding-top: .5rem; }
+.batch-guess { display: grid; gap: .45rem; max-height: min(54vh, 620px); overflow: auto; padding: .25rem; }
+.batch-guess label { display: grid; grid-template-columns: minmax(7rem, 1fr) minmax(9rem, 1.4fr); align-items: center; gap: .7rem; }
+.batch-guess select { width: 100%; }
+.batch-guess .confirm-bar { position: sticky; bottom: 0; background: #211a1eeF; }
 .step-label { color: #c18c70; font-size: .78rem; letter-spacing: .08em; margin: .9rem 0 .45rem; }
 .hand { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; }
 .hand button, .guess-characters button { min-height: 4.2rem; text-align: left; background: linear-gradient(145deg, #35292e, #251e22); }

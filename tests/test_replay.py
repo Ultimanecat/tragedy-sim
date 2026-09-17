@@ -29,9 +29,10 @@ def finish_neutral_match(module="FS"):
         elif phase in ("decision", "refusal"):
             game.dispatch(actor, "choose", index=1)
         elif phase == "final_guess":
-            cid = game.view()["guess_remaining"][0]
-            game.dispatch(actor, "guess", character=cid,
-                          role=game.view("m")["secret"]["initial_roles"][cid])
+            remaining = game.view()["guess_remaining"]
+            roles = game.view("m")["secret"]["initial_roles"]
+            game.dispatch(actor, "guess_all",
+                          guesses={cid: roles[cid] for cid in remaining})
         else:
             game.dispatch(actor, "next")
     raise AssertionError(f"match did not finish: {module} / {game.state.phase}")
