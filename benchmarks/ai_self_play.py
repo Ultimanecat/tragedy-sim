@@ -159,7 +159,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                     if protagonist_strategy == "ismcts_legacy"
                     else IsmctsProtagonistAgent)(
         protagonist_budget,
-        particle_count=max(4, min(24, protagonist_nodes or nodes)), rng_seed=seed)
+        particle_count=max(4, min(64, (protagonist_nodes or nodes) // 4)),
+        rng_seed=seed)
         if protagonist_strategy in {"ismcts", "ismcts_legacy"} else None)
     protagonists = {
         seat: (team_ismcts if team_ismcts is not None else

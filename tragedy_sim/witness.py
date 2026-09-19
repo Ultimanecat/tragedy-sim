@@ -86,11 +86,51 @@ class FsbtxWitnessCompiler:
     modules = frozenset({"FS", "BTX"})
 
     @staticmethod
-    def _soft_death_witnesses(view: Mapping[str, Any]) -> list[PublicWitness]:
-        """Reconstruct conservative correlations from the public journal.
+    def _hard_fs_key_deaths(view: Mapping[str, Any]) -> list[PublicWitness]:
+        """An immediate FS loss after one death certifies the Key Person.
 
-        These are deliberately SOFT: a death can have another explanation and
-        a loop can fail for a plot condition unrelated to that death.
+        Normal final-day failure follows ``day_ended``. BTX also has Factor,
+        which can temporarily gain the Key Person ability, so it is excluded.
+        """
+        if view.get("module") != "FS":
+            return []
+        events = view.get("events", ())
+        result = []
+        for index in range(1, len(events)):
+            loss = events[index]
+            if loss.get("kind") != "loop_lost":
+                continue
+            cursor = index - 1
+            while (cursor >= 0
+                   and events[cursor].get("kind") in {"incident_ended", "role_revealed"}
+                   and events[cursor].get("loop") == loss.get("loop")
+                   and events[cursor].get("round") == loss.get("round")):
+                cursor -= 1
+            if cursor < 0:
+                continue
+            death = events[cursor]
+            if death.get("kind") != "character_died":
+                continue
+            if (cursor >= 1 and events[cursor - 1].get("kind") == "character_died"):
+                continue
+            if (loss.get("loop") != death.get("loop")
+                    or loss.get("round") != death.get("round")):
+                continue
+            victim = death.get("target")
+            if not isinstance(victim, str):
+                continue
+            result.append(PublicWitness(
+                "role_is", victim, "key", int(death["loop"]),
+                int(death["round"]), str(death.get("timing", "unknown")),
+                "immediate_fs_death_loss"))
+        return result
+
+    @staticmethod
+    def _soft_death_witnesses(view: Mapping[str, Any]) -> list[PublicWitness]:
+        """Reconstruct death clues from the public journal.
+
+        Ambiguous causes remain soft. FS lone-companion deaths with low
+        intrigue have a unique day-end role explanation and can be hard.
         """
         characters = view.get("characters", {})
         initial = {
@@ -138,10 +178,18 @@ class FsbtxWitnessCompiler:
                     (victim, companions, event_day))
                 if event.get("timing") == "day_end":
                     if len(companions) == 1:
-                        result.append(PublicWitness(
-                            "day_end_death_companion", victim, companions[0],
-                            event_loop, event_day, "day_end",
-                            "public_death_and_location", WitnessStrength.SOFT))
+                        if (view.get("module") == "FS"
+                                and victim != "part_timer"
+                                and intrigue.get(victim, 0) < 2):
+                            result.append(PublicWitness(
+                                "role_is", companions[0], "serial",
+                                event_loop, event_day, "day_end",
+                                "fs_lone_companion_death"))
+                        else:
+                            result.append(PublicWitness(
+                                "day_end_death_companion", victim, companions[0],
+                                event_loop, event_day, "day_end",
+                                "public_death_and_location", WitnessStrength.SOFT))
                     if intrigue.get(victim, 0) >= 2:
                         for companion in companions:
                             result.append(PublicWitness(
@@ -151,10 +199,13 @@ class FsbtxWitnessCompiler:
                 alive.discard(victim)
                 continue
             if kind == "loop_lost":
-                for victim, companions, death_day in deaths_by_loop.get(event_loop, ()):
+                same_day = [(victim, companions) for victim, companions, death_day
+                            in deaths_by_loop.get(event_loop, ())
+                            if death_day == event_day]
+                for victim, companions in same_day:
                     result.append(PublicWitness(
                         "loss_after_death", victim,
-                        {"companions": companions}, event_loop, death_day,
+                        {"companions": companions}, event_loop, event_day,
                         str(event.get("timing", "loop_end")),
                         "public_death_before_loop_loss", WitnessStrength.SOFT))
         return result
@@ -166,7 +217,7 @@ class FsbtxWitnessCompiler:
         loop = int(view.get("loop", 1))
         day = int(view.get("round", 1))
         timing = str(view.get("timing", view.get("phase", "unknown")))
-        result: list[PublicWitness] = []
+        result: list[PublicWitness] = self._hard_fs_key_deaths(view)
         for cid, fact in sorted(view.get("known_roles", {}).items()):
             role = fact.get("role") if isinstance(fact, Mapping) else None
             if isinstance(role, str):
@@ -277,9 +328,9 @@ class FsbtxWitnessMatcher:
 
     def soft_score(self, hypothesis: Any,
                    witnesses: Sequence[PublicWitness]) -> float:
-        weights = {"day_end_death_companion": 1.5,
+        weights = {"day_end_death_companion": 4.0,
                    "day_end_killer_candidate": 1.5,
-                   "loss_after_death": 1.0}
+                   "loss_after_death": 2.0}
         by_kind: dict[str, float] = {}
         for witness in witnesses:
             if (witness.strength != WitnessStrength.SOFT
@@ -290,9 +341,9 @@ class FsbtxWitnessMatcher:
         # Repetition should increase confidence.  Causal day-end co-location
         # can become much stronger than the generic fact that a death preceded
         # a failed loop, while each channel remains bounded independently.
-        caps = {"day_end_death_companion": 6.0,
+        caps = {"day_end_death_companion": 8.0,
                 "day_end_killer_candidate": 6.0,
-                "loss_after_death": 3.0}
+                "loss_after_death": 4.0}
         return sum(min(caps.get(kind, 3.0), score)
                    for kind, score in by_kind.items())
 

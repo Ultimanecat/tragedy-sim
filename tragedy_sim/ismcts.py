@@ -18,6 +18,7 @@ from typing import Any, Mapping, Sequence
 
 from .ai import DefensiveProtagonistAgent, RiskAwareProtagonistAgent
 from .belief import (CommandObservation, ConstraintBeliefSampler,
+                     DarkCardBelief, FactorizedBeliefState,
                      PersistentBeliefState, PublicEvidence)
 from .cards import ACTORS
 from .engine import Character, Placement, RuleError
@@ -71,6 +72,8 @@ class IsmctsTrace:
     search_elapsed_ms: float = 0.0
     planned_commands: tuple[dict[str, Any], ...] = ()
     belief_failure: str | None = None
+    role_candidates: int = 0
+    culprit_options: tuple[tuple[int, int], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False,
@@ -122,20 +125,13 @@ class PublicStateDeterminizer:
         state.hands = {actor: [card for card in game._deck(actor)
                                if card not in state.discarded[actor]]
                        for actor in ACTORS}
-        pending: list[Placement] = []
-        for item in view.get("pending", ()):
-            actor = str(item["actor"])
-            card = item.get("card")
-            available = state.hands[actor]
-            if card is None:
-                if not available:
-                    return None
-                card = rng.choice(available)
-            if card not in available:
-                return None
-            available.remove(card)
-            pending.append(Placement(actor, str(card), str(item["target"])))
-        state.pending = pending
+        dark_bundle = DarkCardBelief.sample(
+            view.get("pending", ()), state.hands, rng=rng)
+        if dark_bundle is None:
+            return None
+        state.pending = [Placement(*item) for item in dark_bundle]
+        for actor, card, _ in dark_bundle:
+            state.hands[actor].remove(card)
         state.face_up = False
         state.events = deepcopy(list(view.get("events", ())))
         game.known_roles = deepcopy(dict(view.get("known_roles", {})))
@@ -196,6 +192,8 @@ class IsmctsProtagonistAgent:
         self.determinizer = PublicStateDeterminizer()
         self.belief = PersistentBeliefState(
             max_particles=particle_count, seed=rng_seed)
+        self.factorized_belief = FactorizedBeliefState(
+            capacity=max(192, particle_count * 8), seed=rng_seed)
         self._observation_viewer: str | None = None
         self._observation_records: tuple[tuple[int, str, CommandObservation | None], ...] = ()
         self._joint_plan: list[dict[str, Any]] = []
@@ -419,9 +417,9 @@ class IsmctsProtagonistAgent:
             witnesses = self.evidence_ledger.update(view, self.compiler)
             rng = random.Random(
                 f"{self.budget.seed}:{self.rng_seed}:{participant}:final_guess")
-            hypotheses = self.sampler.sample(
-                evidence, max(128, self.particle_count * 4),
-                rng=rng, witnesses=witnesses)
+            hypotheses = self.factorized_belief.sample(
+                evidence, witnesses, max(128, self.particle_count * 4),
+                rng=rng).worlds
             if not hypotheses:
                 chosen = {**offers[0], "arguments": {"guesses": baseline}}
                 self.last_trace = IsmctsTrace(
@@ -501,8 +499,18 @@ class IsmctsProtagonistAgent:
         belief_source = "resampled"
         observation_updates = 0
         belief_failure = None
+        factored = None
         particles: tuple[Game, ...] = ()
-        if (self._observation_viewer == participant
+        if not self.legacy_joint_search:
+            factored = self.factorized_belief.sample(
+                evidence, witnesses, self.particle_count, rng=rng)
+            particles = tuple(particle for hypothesis in factored.worlds
+                              if (particle := self.determinizer.determinize(
+                                  hypothesis, evidence, view, rng=rng)) is not None)
+            belief_source = "factorized"
+            belief_failure = factored.reason
+            observation_updates = self.evidence_ledger.updates
+        elif (self._observation_viewer == participant
                 and self._observation_records):
             revealed = {
                 (int(event["loop"]), int(event["round"])):
@@ -528,7 +536,7 @@ class IsmctsProtagonistAgent:
                 belief_source = "persistent"
             else:
                 belief_failure = synced.reason
-        if not particles:
+        if not particles and self.legacy_joint_search:
             hypotheses = self.sampler.sample(
                 evidence, self.particle_count, rng=rng, witnesses=witnesses)
             particles = tuple(particle for hypothesis in hypotheses
@@ -623,7 +631,9 @@ class IsmctsProtagonistAgent:
             observation_updates, self.evidence_ledger.hard_count,
             self.evidence_ledger.soft_count, evidence_elapsed_ms,
             (perf_counter() - search_started) * 1000,
-            tuple(self._joint_plan), belief_failure)
+            tuple(self._joint_plan), belief_failure,
+            factored.role_candidates if factored is not None else 0,
+            factored.culprit_options if factored is not None else ())
         return chosen
 
 

@@ -362,8 +362,8 @@ class RoomService:
                                RiskAwareProtagonistAgent()
                                if strategy == "risk_aware_protagonist" else
                                IsmctsProtagonistAgent(
-                                   SearchBudget(node_limit=96, rollout_depth=16),
-                                   particle_count=24)
+                                   SearchBudget(node_limit=384, rollout_depth=24),
+                                   particle_count=64)
                                if strategy == "ismcts_protagonist" else
                                LegacyIsmctsProtagonistAgent(
                                    SearchBudget(node_limit=96, rollout_depth=16),

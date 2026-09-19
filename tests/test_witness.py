@@ -54,6 +54,61 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertFalse(FsbtxWitnessMatcher().matches(
             self.hypothesis, FsbtxWitnessCompiler().compile(wrong)))
 
+    def test_immediate_fs_death_loss_certifies_key_but_normal_end_does_not(self):
+        view = Game(example_scenario("FS")).view("a")
+        events = [
+            {"kind": "character_died", "loop": 1, "round": 1,
+             "timing": "day_end", "target": "girl"},
+            {"kind": "loop_lost", "loop": 1, "round": 1,
+             "timing": "loop_end"},
+        ]
+        view["events"] = events
+        hard = [item for item in FsbtxWitnessCompiler().compile(view)
+                if item.source == "immediate_fs_death_loss"]
+        self.assertEqual([(item.kind, item.subject, item.value)
+                          for item in hard], [("role_is", "girl", "key")])
+        ordinary = replace(HiddenWorldHypothesis.from_scenario(
+            Game(example_scenario("FS")).scenario),
+            roles=(("girl", "ordinary"),))
+        self.assertFalse(FsbtxWitnessMatcher().matches(ordinary, hard))
+
+        view["events"] = [events[0],
+                          {"kind": "incident_ended", "loop": 1, "round": 1},
+                          events[1]]
+        self.assertEqual(
+            [item.subject for item in FsbtxWitnessCompiler().compile(view)
+             if item.source == "immediate_fs_death_loss"], ["girl"])
+
+        view["events"] = [events[0],
+                          {"kind": "day_ended", "loop": 1, "round": 1},
+                          events[1]]
+        self.assertFalse(any(item.source == "immediate_fs_death_loss"
+                             for item in FsbtxWitnessCompiler().compile(view)))
+        view["module"] = "BTX"
+        view["events"] = events
+        self.assertFalse(any(item.source == "immediate_fs_death_loss"
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
+    def test_fs_lone_day_end_death_certifies_serial_when_intrigue_is_low(self):
+        view = Game(example_scenario("FS")).view("a")
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "character_moved", "loop": 1, "round": 1,
+             "character": "student",
+             "location": view["characters"]["girl"]["initial_location"]},
+            {"kind": "character_died", "loop": 1, "round": 1,
+             "timing": "day_end", "target": "girl"},
+        ]
+        serial = [item for item in FsbtxWitnessCompiler().compile(view)
+                  if item.source == "fs_lone_companion_death"]
+        self.assertEqual([(item.subject, item.value) for item in serial],
+                         [("student", "serial")])
+        view["events"].insert(2, {
+            "kind": "counter_changed", "loop": 1, "round": 1,
+            "target": "girl", "counter": "intrigue", "after": 2})
+        self.assertFalse(any(item.source == "fs_lone_companion_death"
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
     def test_happened_incident_rejects_below_threshold_culprit(self):
         view = deepcopy(self.view)
         view["round"] = 2

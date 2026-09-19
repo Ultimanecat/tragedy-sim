@@ -17,7 +17,7 @@ def advance_to_protagonists(game: Game) -> Game:
 
 
 class IsmctsTests(unittest.TestCase):
-    def test_agent_reuses_particles_advanced_from_public_observations(self):
+    def test_agent_uses_factorized_belief_from_public_observations(self):
         game = Game(example_scenario("BTX"))
         while game.controller == "m":
             command = game.search_actions("m")[0]
@@ -35,8 +35,8 @@ class IsmctsTests(unittest.TestCase):
             participant="team", view=game.protagonist_team_view(), offers=offers)
         self.assertIn(chosen, offers)
         self.assertTrue(agent.controls_protagonist_team)
-        self.assertEqual(agent.last_trace.belief_source, "persistent")
-        self.assertEqual(agent.last_trace.observation_updates, len(records) - 1)
+        self.assertEqual(agent.last_trace.belief_source, "factorized")
+        self.assertGreater(agent.last_trace.observation_updates, 0)
 
     def test_determinized_world_matches_public_board_and_not_scenario_identity(self):
         actual = advance_to_protagonists(Game(example_scenario("BTX")))

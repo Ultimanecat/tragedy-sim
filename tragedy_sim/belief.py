@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from collections import Counter
 from copy import deepcopy
-from itertools import combinations
+from itertools import combinations, permutations
 import hashlib
 import json
 import random
@@ -488,10 +488,10 @@ class ConstraintBeliefSampler:
             if not matcher.matches(hypothesis, witnesses):
                 continue
             if has_soft:
-                score = min(9.0, matcher.soft_score(hypothesis, witnesses))
+                score = matcher.soft_score(hypothesis, witnesses)
                 # Keep every explanation possible while sampling worlds that
                 # explain repeated public phenomena more often.
-                if rng.random() >= min(1.0, 0.005 * (2.0 ** score)):
+                if rng.random() >= min(1.0, 0.005 * (2.0 ** (score / 2.0))):
                     continue
             signature = (hypothesis.main_plot, hypothesis.subplots,
                          hypothesis.roles, hypothesis.incidents)
@@ -502,6 +502,193 @@ class ConstraintBeliefSampler:
             if len(hypotheses) >= count:
                 break
         return tuple(hypotheses)
+
+
+@dataclass(frozen=True)
+class FactorizedBeliefResult:
+    worlds: tuple[HiddenWorldHypothesis, ...]
+    role_candidates: int
+    culprit_options: tuple[tuple[int, int], ...]
+    reason: str | None = None
+
+
+class FactorizedBeliefState:
+    """Keep script/role and per-day culprit beliefs independent.
+
+    Dark cards are deliberately absent here: they are sampled from the public
+    hand and pending targets only when a search world is materialized.
+    Every update scores the accumulated public witnesses afresh, so evidence
+    cannot be counted twice by repeatedly resampling a particle reservoir.
+    """
+
+    def __init__(self, *, capacity: int = 192, seed: int = 0):
+        self.capacity = capacity
+        self.rng = random.Random(seed)
+        self.sampler = ConstraintBeliefSampler()
+        self._signature: tuple[Any, ...] | None = None
+        self._roles: dict[tuple[Any, ...], HiddenWorldHypothesis] = {}
+        self._exact_roles = False
+        self._plot_sizes: Counter[tuple[str, tuple[str, ...]]] = Counter()
+
+    @staticmethod
+    def _key(world: HiddenWorldHypothesis) -> tuple[Any, ...]:
+        return world.main_plot, world.subplots, world.roles
+
+    def _enumerate_roles(self, evidence: PublicEvidence) -> None:
+        known = dict(evidence.known_roles)
+        for main, subplots in self.sampler._plot_sets(evidence):
+            slots = self.sampler._role_slots(evidence.module,
+                                            (main, *subplots))
+            bag = list(slots.elements())
+            if len(bag) > len(evidence.characters):
+                continue
+            bag.extend(["ordinary"] * (len(evidence.characters) - len(bag)))
+            incidents = self.sampler._incidents(evidence, self.rng)
+            if incidents is None:
+                continue
+            for assignment in sorted(set(permutations(bag))):
+                self._plot_sizes[(main, subplots)] += 1
+                cast = dict(zip(evidence.characters, assignment))
+                if any(cast.get(cid) != role for cid, role in known.items()):
+                    continue
+                try:
+                    scenario = validate_scenario({
+                        "id": "belief-exact-roles", "title": "ISMCTS exact roles",
+                        "module": evidence.module, "days": evidence.days,
+                        "loops": evidence.loops, "main_plot": main,
+                        "subplots": list(subplots), "cast": cast,
+                        "incidents": incidents,
+                        "table_talk": evidence.table_talk,
+                    })
+                except RuleError:
+                    continue
+                world = HiddenWorldHypothesis.from_scenario(scenario)
+                self._roles[self._key(world)] = world
+
+    def _refresh_roles(self, evidence: PublicEvidence, witnesses: Sequence[Any]) -> None:
+        from .witness import FsbtxWitnessMatcher
+
+        matcher = FsbtxWitnessMatcher()
+        role_witnesses = tuple(w for w in witnesses if w.kind in {
+            "role_is", "plot_present", "day_end_death_companion",
+            "day_end_killer_candidate", "loss_after_death"})
+        signature = PersistentBeliefState._static_signature(evidence)
+        if signature != self._signature:
+            self._signature = signature
+            self._roles.clear()
+            self._plot_sizes.clear()
+            self._exact_roles = len(evidence.characters) <= 6
+            if self._exact_roles:
+                self._enumerate_roles(evidence)
+        self._roles = {key: world for key, world in self._roles.items()
+                       if matcher.matches(world, role_witnesses)}
+        # Keep a diverse reservoir across decisions, and continue proposing
+        # scripts even when the reservoir is full. A witness can then promote
+        # a previously unseen role assignment without any history replay.
+        proposed = (() if self._exact_roles else self.sampler.sample(
+            evidence, min(64, self.capacity), rng=self.rng,
+            witnesses=tuple(w for w in role_witnesses if w.strength == "hard")))
+        for world in proposed:
+            key = self._key(world)
+            if key in self._roles or not matcher.matches(world, role_witnesses):
+                continue
+            if len(self._roles) >= self.capacity:
+                old = self.rng.choice(tuple(self._roles))
+                del self._roles[old]
+            self._roles[key] = world
+
+    def _culprits(self, evidence: PublicEvidence,
+                  witnesses: Sequence[Any]) -> dict[int, tuple[str, ...]]:
+        from .witness import FsbtxWitnessMatcher, WitnessVerdict
+
+        matcher = FsbtxWitnessMatcher()
+        known = dict(evidence.known_culprits)
+        result: dict[int, tuple[str, ...]] = {}
+        for day, public_kind in evidence.schedule:
+            day_witnesses = tuple(w for w in witnesses if w.kind in {
+                "culprit_is", "incident_happened", "incident_not_happened"}
+                and int(w.subject) == day)
+            candidates = []
+            for cid in evidence.characters:
+                if day in known and known[day] != cid:
+                    continue
+                # The incident matcher reads only the one event tuple here.
+                candidate = HiddenWorldHypothesis(
+                    "belief-culprit", "", (), (),
+                    ((day, public_kind, public_kind, cid),))
+                if all(w.strength != "hard" or matcher.verdict(
+                        candidate, w) != WitnessVerdict.CONTRADICTED
+                       for w in day_witnesses):
+                    candidates.append(cid)
+            result[day] = tuple(candidates)
+        return result
+
+    def sample(self, evidence: PublicEvidence, witnesses: Sequence[Any],
+               count: int, *, rng: random.Random) -> FactorizedBeliefResult:
+        from .witness import FsbtxWitnessMatcher
+
+        if count < 1:
+            raise ValueError("count must be positive")
+        self._refresh_roles(evidence, witnesses)
+        culprits = self._culprits(evidence, witnesses)
+        sizes = tuple((day, len(options)) for day, options in sorted(culprits.items()))
+        if not self._roles or any(not options for options in culprits.values()):
+            return FactorizedBeliefResult((), len(self._roles), sizes,
+                                          "no_compatible_factor")
+        matcher = FsbtxWitnessMatcher()
+        roles = tuple(self._roles.values())
+        weights = [
+            2.0 ** matcher.soft_score(world, witnesses)
+            / (self._plot_sizes[(world.main_plot, world.subplots)]
+               if self._exact_roles else 1)
+            for world in roles]
+        worlds = []
+        attempts = 0
+        while len(worlds) < count and attempts < count * 12:
+            attempts += 1
+            role = rng.choices(roles, weights=weights, k=1)[0]
+            incidents = tuple((day, kind, public_kind,
+                               rng.choice(culprits[day]))
+                              for day, kind, public_kind, _ in role.incidents)
+            world = replace(role, incidents=incidents)
+            try:
+                world.materialize(evidence)
+            except RuleError:
+                continue
+            worlds.append(world)
+        return FactorizedBeliefResult(tuple(worlds), len(roles), sizes,
+                                      None if worlds else "composition_invalid")
+
+
+class DarkCardBelief:
+    """Draw only currently hidden card faces, conditional on public hand data."""
+
+    @staticmethod
+    def sample(pending: Sequence[Mapping[str, Any]],
+               hands: Mapping[str, list[str]], *,
+               rng: random.Random
+               ) -> tuple[tuple[str, str, str], ...] | None:
+        remaining = {actor: list(cards) for actor, cards in hands.items()}
+        for item in pending:
+            card = item.get("card")
+            if card is None:
+                continue
+            available = remaining[str(item["actor"])]
+            if card not in available:
+                return None
+            available.remove(card)
+        selected = []
+        for item in pending:
+            actor = str(item["actor"])
+            card = item.get("card")
+            available = remaining[actor]
+            if card is None:
+                if not available:
+                    return None
+                card = rng.choice(available)
+                available.remove(card)
+            selected.append((actor, str(card), str(item["target"])))
+        return tuple(selected)
 
 
 @dataclass(frozen=True)

@@ -1,17 +1,48 @@
 """Information-boundary tests for C3 hidden-world sampling."""
 
 from copy import deepcopy
+from dataclasses import replace
 import random
 import unittest
 
 from tragedy_sim import Game
 from tragedy_sim.belief import (BeliefParticleFilter, CatalogBeliefSampler,
-                                ConstraintBeliefSampler,
+                                ConstraintBeliefSampler, DarkCardBelief,
+                                FactorizedBeliefState,
                                 HiddenWorldHypothesis, ParticleReplayer,
                                 ObservationParticleAdvancer,
                                 PersistentBeliefState, PublicEvidence,
                                 PublicSnapshot)
 from tragedy_sim.scenario import example_scenario
+
+
+class FactorizedBeliefTests(unittest.TestCase):
+    def test_revealed_culprit_changes_only_incident_dimension(self):
+        evidence = PublicEvidence.from_view(Game(example_scenario("FS")).view("a"))
+        tracker = FactorizedBeliefState(capacity=512, seed=19)
+        first = tracker.sample(evidence, (), 12, rng=random.Random(3))
+        self.assertTrue(first.worlds)
+        self.assertGreater(first.role_candidates, 512)
+        previous_roles = set(tracker._roles)
+        day = evidence.schedule[0][0]
+        culprit = evidence.characters[0]
+        revealed = replace(evidence, known_culprits=((day, culprit),))
+        second = tracker.sample(revealed, (), 12, rng=random.Random(4))
+        self.assertTrue(second.worlds)
+        self.assertTrue(previous_roles.issubset(set(tracker._roles)))
+        self.assertEqual(dict(second.culprit_options)[day], 1)
+        self.assertTrue(all(next(incident[3] for incident in world.incidents
+                                 if incident[0] == day) == culprit
+                            for world in second.worlds))
+
+    def test_dark_cards_are_drawn_from_remaining_hand_without_reuse(self):
+        pending = ({"actor": "m", "target": "girl", "card": None},
+                   {"actor": "m", "target": "student", "card": "m_intrigue_1"})
+        selected = DarkCardBelief.sample(
+            pending, {"m": ["m_intrigue_1", "m_paranoia_1"]},
+            rng=random.Random(1))
+        self.assertEqual(selected, (("m", "m_paranoia_1", "girl"),
+                                    ("m", "m_intrigue_1", "student")))
 
 
 class PublicEvidenceTests(unittest.TestCase):
