@@ -18,13 +18,15 @@ from tragedy_sim.mcts import FullInformationMctsMastermindAgent
 from tragedy_sim.optimized_mcts import OptimizedMctsMastermindAgent
 from tragedy_sim.strategic_mcts import StrategicMctsMastermindAgent
 from tragedy_sim.witness import FsbtxWitnessCompiler, WitnessStrength
-from tragedy_sim.ismcts import IsmctsProtagonistAgent
+from tragedy_sim.ismcts import (IsmctsProtagonistAgent,
+                                LegacyIsmctsProtagonistAgent)
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
 
 
 MASTERMIND_STRATEGIES = ("random", "fixed", "naive", "optimized", "strategic")
-PROTAGONIST_STRATEGIES = ("random", "baseline", "defensive", "risk_aware", "ismcts")
+PROTAGONIST_STRATEGIES = ("random", "baseline", "defensive", "risk_aware",
+                         "ismcts", "ismcts_legacy")
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,21 @@ class ProtagonistPlayRecord:
 
 
 @dataclass(frozen=True)
+class ProtagonistSearchRecord:
+    loop: int
+    day: int
+    candidate_bundles: int
+    visits: tuple[int, ...]
+    belief_source: str
+    belief_failure: str | None
+    particles: int
+    witnesses: int
+    belief_roles: tuple[dict[str, Any], ...]
+    selected_bundle: tuple[dict[str, Any], ...]
+    candidates: tuple[dict[str, Any], ...]
+
+
+@dataclass(frozen=True)
 class MatchResult:
     scenario_id: str
     module: str
@@ -74,6 +91,7 @@ class MatchResult:
     final_public_deaths: tuple[tuple[int, int, str, str], ...] = ()
     final_belief_roles: tuple[dict[str, Any], ...] = ()
     protagonist_plays: tuple[ProtagonistPlayRecord, ...] = ()
+    protagonist_searches: tuple[ProtagonistSearchRecord, ...] = ()
     protagonist_evidence_seconds: float = 0.0
     protagonist_search_seconds: float = 0.0
 
@@ -137,10 +155,12 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     protagonist_budget = SearchBudget(
         node_limit=protagonist_nodes or nodes,
         rollout_depth=protagonist_depth or depth, seed=seed)
-    team_ismcts = (IsmctsProtagonistAgent(
+    team_ismcts = ((LegacyIsmctsProtagonistAgent
+                    if protagonist_strategy == "ismcts_legacy"
+                    else IsmctsProtagonistAgent)(
         protagonist_budget,
         particle_count=max(4, min(24, protagonist_nodes or nodes)), rng_seed=seed)
-        if protagonist_strategy == "ismcts" else None)
+        if protagonist_strategy in {"ismcts", "ismcts_legacy"} else None)
     protagonists = {
         seat: (team_ismcts if team_ismcts is not None else
                RiskAwareProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
@@ -162,6 +182,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     final_public_deaths: tuple[tuple[int, int, str, str], ...] = ()
     final_belief_roles: tuple[dict[str, Any], ...] = ()
     protagonist_plays: list[ProtagonistPlayRecord] = []
+    protagonist_searches: list[ProtagonistSearchRecord] = []
     protagonist_evidence_ms = protagonist_search_ms = 0.0
     started = perf_counter()
     while game.winner is None and decisions < 1500:
@@ -181,7 +202,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         else:
             actor = game.controller
             policy = protagonists[actor]
-            if protagonist_strategy in {"baseline", "defensive", "risk_aware", "ismcts"}:
+            if protagonist_strategy in {"baseline", "defensive", "risk_aware",
+                                        "ismcts", "ismcts_legacy"}:
                 team_policy = bool(getattr(
                     policy, "controls_protagonist_team", False))
                 if hasattr(policy, "observe"):
@@ -206,6 +228,16 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                 command["card"], command["target"],
                 getattr(trace, "fallback", None),
                 getattr(trace, "belief_source", None)))
+            if (trace is not None and trace.root_actions
+                    and trace.fallback != "joint_plan_followup"):
+                protagonist_searches.append(ProtagonistSearchRecord(
+                    game.state.loop, game.state.round,
+                    len(trace.root_actions),
+                    tuple(item["visits"] for item in trace.root_actions),
+                    trace.belief_source, trace.belief_failure,
+                    trace.particles, trace.witnesses, trace.belief_roles,
+                    (dict(command), *trace.planned_commands),
+                    trace.root_actions))
         # This is the real match trajectory, not a tree rollout.  Real dispatch
         # preserves the complete public journal and per-seat observation
         # checkpoints used by persistent protagonist beliefs.
@@ -267,6 +299,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         final_public_deaths=final_public_deaths,
         final_belief_roles=final_belief_roles,
         protagonist_plays=tuple(protagonist_plays),
+        protagonist_searches=tuple(protagonist_searches),
         protagonist_evidence_seconds=protagonist_evidence_ms / 1000,
         protagonist_search_seconds=protagonist_search_ms / 1000)
 

@@ -166,6 +166,40 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertGreater(student_serial, student_ordinary,
                            (student_serial, student_ordinary))
 
+    def test_multiple_companions_and_intrigue_support_optional_killer(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "character_moved", "loop": 1, "round": 1,
+             "character": "girl", "location": "city"},
+            {"kind": "character_moved", "loop": 1, "round": 1,
+             "character": "student", "location": "city"},
+            {"kind": "counter_changed", "loop": 1, "round": 1,
+             "target": "girl", "counter": "intrigue", "after": 2},
+            {"kind": "character_died", "loop": 1, "round": 1,
+             "timing": "day_end", "target": "girl"},
+            {"kind": "loop_lost", "loop": 1, "round": 1},
+        ]
+        witnesses = FsbtxWitnessCompiler().compile(view)
+        companions = [item for item in witnesses
+                      if item.kind == "day_end_death_companion"]
+        # A serial killer's mandatory ability requires exactly one living
+        # companion; several co-located characters cannot justify that clue.
+        self.assertFalse(companions)
+        killer = [item for item in witnesses
+                  if item.kind == "day_end_killer_candidate"]
+        self.assertTrue(killer)
+        self.assertTrue(all(item.strength == WitnessStrength.SOFT
+                            for item in killer))
+        roles = dict(self.hypothesis.roles)
+        roles.update(girl="key", worker="killer")
+        explanation = replace(self.hypothesis,
+                              roles=tuple(sorted(roles.items())))
+        self.assertGreater(FsbtxWitnessMatcher().soft_score(
+            explanation, witnesses), 0)
+        self.assertTrue(FsbtxWitnessMatcher().matches(
+            self.hypothesis, witnesses))
+
 
 if __name__ == "__main__":
     unittest.main()

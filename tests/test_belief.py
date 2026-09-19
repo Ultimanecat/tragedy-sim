@@ -161,6 +161,48 @@ class ParticleReplayTests(unittest.TestCase):
 
 
 class ObservationParticleAdvancerTests(unittest.TestCase):
+    def test_public_reveal_can_bridge_unseen_dark_card_particle(self):
+        actual = Game(example_scenario("FS"))
+        while actual.state.phase != "reveal":
+            command = actual.search_actions(actual.controller)[0]
+            actual = actual.search_transition(command)
+        particle = deepcopy(actual)
+        dark = next(item for item in particle.state.pending
+                    if item.actor == "m")
+        alternate = next(card for card in particle.state.hands["m"]
+                         if card != dark.card)
+        particle.state.hands["m"].remove(alternate)
+        particle.state.hands["m"].append(dark.card)
+        particle.state.pending = [
+            type(item)(item.actor, alternate if item is dark else item.card,
+                       item.target)
+            for item in particle.state.pending]
+        disclosed = [{"actor": item.actor, "card": item.card,
+                      "target": item.target} for item in actual.state.pending]
+        bridged = PersistentBeliefState._condition_reveal(particle, disclosed)
+        self.assertIsNotNone(bridged)
+        self.assertEqual([(item.actor, item.card, item.target)
+                          for item in bridged.state.pending],
+                         [(item.actor, item.card, item.target)
+                          for item in actual.state.pending])
+        self.assertEqual(particle.state.pending[0].card, alternate)
+
+    def test_first_loop_incident_can_branch_hidden_culprit(self):
+        game = Game(example_scenario("FS"))
+        game.state.phase = "incident"
+        game.state.round = game.scenario["incidents"][0]["day"]
+        original = next(item["culprit"] for item in game.scenario["incidents"]
+                        if item["day"] == game.state.round)
+        evidence = PublicEvidence.from_view(game.view("a"))
+        variants = PersistentBeliefState._incident_variants(
+            game, evidence, True)
+        self.assertEqual(len(variants), len(evidence.characters))
+        self.assertEqual(next(item["culprit"] for item in game.scenario["incidents"]
+                              if item["day"] == game.state.round), original)
+        self.assertEqual({next(item["culprit"] for item in world.scenario["incidents"]
+                               if item["day"] == world.state.round)
+                          for world in variants}, set(evidence.characters))
+
     def test_hidden_action_is_inferred_from_public_consequence(self):
         game = Game(example_scenario("BTX"))
         command = game.search_actions("m")[0]

@@ -98,6 +98,7 @@ class FsbtxWitnessCompiler:
             for cid, character in characters.items()
         }
         locations = dict(initial)
+        intrigue = {str(cid): 0 for cid in characters}
         alive = {str(cid) for cid, character in characters.items()
                  if bool(character.get("present", True))}
         deaths_by_loop: dict[int, list[tuple[str, tuple[str, ...], int]]] = {}
@@ -108,8 +109,17 @@ class FsbtxWitnessCompiler:
             event_day = int(event.get("round", view.get("round", 1)))
             if kind == "loop_started":
                 locations = dict(initial)
+                intrigue = {str(cid): 0 for cid in characters}
                 alive = {str(cid) for cid, character in characters.items()
                          if bool(character.get("present", True))}
+                continue
+            if kind == "counter_changed":
+                target = event.get("target")
+                if (event.get("counter") == "intrigue"
+                        and isinstance(target, str)
+                        and target in intrigue
+                        and isinstance(event.get("after"), int)):
+                    intrigue[target] = event["after"]
                 continue
             if kind == "character_moved":
                 target = event.get("character", event.get("target"))
@@ -127,11 +137,17 @@ class FsbtxWitnessCompiler:
                 deaths_by_loop.setdefault(event_loop, []).append(
                     (victim, companions, event_day))
                 if event.get("timing") == "day_end":
-                    for companion in companions:
+                    if len(companions) == 1:
                         result.append(PublicWitness(
-                            "day_end_death_companion", victim, companion,
+                            "day_end_death_companion", victim, companions[0],
                             event_loop, event_day, "day_end",
                             "public_death_and_location", WitnessStrength.SOFT))
+                    if intrigue.get(victim, 0) >= 2:
+                        for companion in companions:
+                            result.append(PublicWitness(
+                                "day_end_killer_candidate", victim, companion,
+                                event_loop, event_day, "day_end",
+                                "public_death_and_intrigue", WitnessStrength.SOFT))
                 alive.discard(victim)
                 continue
             if kind == "loop_lost":
@@ -248,6 +264,11 @@ class FsbtxWitnessMatcher:
             return (WitnessVerdict.SATISFIED
                     if roles.get(str(witness.value)) == "serial"
                     else WitnessVerdict.UNKNOWN)
+        if witness.kind == "day_end_killer_candidate":
+            return (WitnessVerdict.SATISFIED
+                    if roles.get(witness.subject) == "key"
+                    and roles.get(str(witness.value)) == "killer"
+                    else WitnessVerdict.UNKNOWN)
         if witness.kind == "loss_after_death":
             return (WitnessVerdict.SATISFIED
                     if roles.get(witness.subject) in {"key", "friend"}
@@ -257,6 +278,7 @@ class FsbtxWitnessMatcher:
     def soft_score(self, hypothesis: Any,
                    witnesses: Sequence[PublicWitness]) -> float:
         weights = {"day_end_death_companion": 1.5,
+                   "day_end_killer_candidate": 1.5,
                    "loss_after_death": 1.0}
         by_kind: dict[str, float] = {}
         for witness in witnesses:
@@ -269,6 +291,7 @@ class FsbtxWitnessMatcher:
         # can become much stronger than the generic fact that a death preceded
         # a failed loop, while each channel remains bounded independently.
         caps = {"day_end_death_companion": 6.0,
+                "day_end_killer_candidate": 6.0,
                 "loss_after_death": 3.0}
         return sum(min(caps.get(kind, 3.0), score)
                    for kind, score in by_kind.items())

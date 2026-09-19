@@ -302,6 +302,19 @@ class RoomServiceTests(unittest.TestCase):
         policy = rooms._rooms[created["room"]["code"]].seats["a"].ai_policy
         self.assertTrue(policy.controls_protagonist_team)
 
+        comparison = RoomService()
+        older = comparison.create({
+            "module": "BTX", "nickname": "Host", "seat": "m",
+            "protagonist_count": 1})
+        legacy = comparison.set_ai(older["room"]["code"], {
+            "seat": "a", "enabled": True,
+            "strategy": "ismcts_legacy_protagonist",
+        }, token=older["credential"]["admin_token"])
+        self.assertEqual(legacy["room"]["seats"]["a"]["ai_type"],
+                         "ismcts_legacy_protagonist")
+        self.assertTrue(comparison._rooms[older["room"]["code"]]
+                        .seats["a"].ai_policy.legacy_joint_search)
+
         separate = RoomService()
         three_player = separate.create({
             "module": "BTX", "nickname": "Host", "seat": "m",

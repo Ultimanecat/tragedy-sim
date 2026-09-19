@@ -107,6 +107,27 @@ class IsmctsTests(unittest.TestCase):
         self.assertEqual(agent.last_trace.fallback, "joint_plan_followup")
         self.assertEqual(agent.last_trace.iterations, 0)
 
+    def test_complete_bundle_candidates_vary_all_three_slots(self):
+        game = advance_to_protagonists(Game(example_scenario("BTX")))
+        agent = IsmctsProtagonistAgent(
+            SearchBudget(node_limit=96, rollout_depth=3, seed=41),
+            particle_count=4, rng_seed=41)
+        view = game.protagonist_team_view()
+        bundles = [agent._candidate_bundle(game, view, index,
+                                            random.Random(index))
+                   for index in range(12)]
+        self.assertTrue(all(len(bundle) == 3 for bundle in bundles))
+        for slot in range(3):
+            self.assertGreater(len({(bundle[slot]["card"],
+                                    bundle[slot]["target"])
+                                    for bundle in bundles}), 1)
+        offers = [offer.to_dict()
+                  for offer in game.action_offers(game.controller)]
+        agent.choose_action(participant="team", view=view, offers=offers)
+        roots = agent.last_trace.root_actions
+        self.assertLessEqual(len(roots), 12)
+        self.assertTrue(all(item["visits"] >= 2 for item in roots))
+
     def test_rollout_does_not_evaluate_before_current_day_end(self):
         game = Game(example_scenario("FS"))
         # Isolate the horizon invariant from immediate role-loss conditions.

@@ -8,7 +8,7 @@ space behind the same boundary.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from collections import Counter
 from copy import deepcopy
 from itertools import combinations
@@ -545,9 +545,65 @@ class PersistentBeliefState:
         self._signature = None
         self._witness_signature = None
 
+    @staticmethod
+    def _condition_reveal(particle: Any,
+                          disclosed: Sequence[Mapping[str, Any]]) -> Any | None:
+        """Condition unrevealed dark cards on a later public reveal.
+
+        This is a particle bridge, not private information: the cards are read
+        from the protagonist's already visible journal.  Without it a bounded
+        reservoir is unlikely to contain the exact three-card dark bundle.
+        """
+        pending = [item for item in particle.state.pending if item.actor == "m"]
+        if not pending:
+            return particle
+        known = {(str(item.get("actor")), str(item.get("target"))):
+                 str(item.get("card")) for item in disclosed
+                 if item.get("actor") == "m" and item.get("card") is not None}
+        if any((item.actor, item.target) not in known for item in pending):
+            return None
+        world = deepcopy(particle)
+        hand = world.state.hands["m"]
+        hand.extend(item.card for item in pending)
+        changed = []
+        for item in world.state.pending:
+            if item.actor != "m":
+                changed.append(item)
+                continue
+            card = known[(item.actor, item.target)]
+            if card not in hand:
+                return None
+            hand.remove(card)
+            changed.append(replace(item, card=card))
+        world.state.pending = changed
+        return world
+
+    @staticmethod
+    def _incident_variants(particle: Any, evidence: PublicEvidence,
+                           happened: bool) -> tuple[Any, ...]:
+        """Rejuvenate a first-loop hidden culprit at its public resolution."""
+        incident = next((item for item in particle.scenario["incidents"]
+                         if item["day"] == particle.state.round), None)
+        if incident is None or particle.state.loop != 1 or not happened:
+            return (particle,)
+        known = dict(evidence.known_culprits).get(particle.state.round)
+        variants = []
+        for cid in evidence.characters:
+            if known is not None and cid != known:
+                continue
+            world = deepcopy(particle)
+            selected = next(item for item in world.scenario["incidents"]
+                            if item["day"] == world.state.round)
+            selected["culprit"] = cid
+            variants.append(world)
+        return tuple(variants)
+
     def sync(self, evidence: PublicEvidence, *, viewer: str,
              observations: Sequence[tuple[int, str, CommandObservation | None]],
-             witnesses=(), sampler: ConstraintBeliefSampler | None = None
+             witnesses=(), sampler: ConstraintBeliefSampler | None = None,
+             revealed_placements: Mapping[tuple[int, int],
+                                          Sequence[Mapping[str, Any]]] | None = None,
+             incident_outcomes: Mapping[tuple[int, int], bool] | None = None
              ) -> PersistentBeliefSync:
         records = tuple(observations)
         if not records:
@@ -586,6 +642,35 @@ class PersistentBeliefState:
                 return PersistentBeliefSync(
                     (), initialized, processed, tested, matching,
                     "observation_gap")
+            if revealed_placements and self.particles:
+                conditioned = []
+                for particle in self.particles:
+                    if particle.state.phase != "reveal":
+                        conditioned.append(particle)
+                        continue
+                    disclosed = revealed_placements.get(
+                        (particle.state.loop, particle.state.round))
+                    if disclosed is None:
+                        conditioned.append(particle)
+                        continue
+                    bridged = self._condition_reveal(particle, disclosed)
+                    if bridged is not None:
+                        conditioned.append(bridged)
+                self.particles = tuple(conditioned)
+            if incident_outcomes and self.particles:
+                expanded = []
+                for particle in self.particles:
+                    if particle.state.phase != "incident":
+                        expanded.append(particle)
+                        continue
+                    outcome = incident_outcomes.get(
+                        (particle.state.loop, particle.state.round))
+                    if outcome is None:
+                        expanded.append(particle)
+                    else:
+                        expanded.extend(self._incident_variants(
+                            particle, evidence, outcome))
+                self.particles = tuple(expanded)
             result = self.filter.advance(
                 self.particles, viewer=viewer, observed=digest,
                 public_command=(None if command_observation is None

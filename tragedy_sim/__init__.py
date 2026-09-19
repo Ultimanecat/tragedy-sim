@@ -14,7 +14,8 @@ from .service import GameService, LocalGameClient, PROTOCOL_VERSION, ServiceErro
 from .mcts import FullInformationMctsMastermindAgent
 from .optimized_mcts import OptimizedMctsMastermindAgent
 from .strategic_mcts import StrategicMctsMastermindAgent
-from .ismcts import IsmctsProtagonistAgent, IsmctsTrace, PublicStateDeterminizer
+from .ismcts import (IsmctsProtagonistAgent, LegacyIsmctsProtagonistAgent,
+                     IsmctsTrace, PublicStateDeterminizer)
 from .belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
                      BeliefParticleFilter, HiddenWorldHypothesis,
                      ParticleFilterResult, ParticleReplayResult,
@@ -35,7 +36,8 @@ __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "Activat
            "GameService", "LocalGameClient", "PROTOCOL_VERSION", "ServiceError",
            "FullInformationMctsMastermindAgent", "OptimizedMctsMastermindAgent",
            "StrategicMctsMastermindAgent",
-           "IsmctsProtagonistAgent", "IsmctsTrace", "PublicStateDeterminizer",
+           "IsmctsProtagonistAgent", "LegacyIsmctsProtagonistAgent",
+           "IsmctsTrace", "PublicStateDeterminizer",
            "CatalogBeliefSampler", "ConstraintBeliefSampler",
            "BeliefParticleFilter", "ParticleFilterResult",
            "HiddenWorldHypothesis", "ParticleReplayResult", "ParticleReplayer",

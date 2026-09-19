@@ -15,7 +15,7 @@ from .ai import (AgentPolicy, BaselineProtagonistAgent, DefensiveProtagonistAgen
 from .mcts import FullInformationMctsMastermindAgent
 from .optimized_mcts import OptimizedMctsMastermindAgent
 from .strategic_mcts import StrategicMctsMastermindAgent
-from .ismcts import IsmctsProtagonistAgent
+from .ismcts import (IsmctsProtagonistAgent, LegacyIsmctsProtagonistAgent)
 from .search import SearchBudget
 from .catalog import MODULES
 from .service import GameService, PROTOCOL_VERSION, SEATS, ServiceError
@@ -313,11 +313,11 @@ class RoomService:
             "strategic_mcts_mastermind"}
         protagonist_strategies = {
             "baseline_protagonist", "defensive_protagonist", "risk_aware_protagonist",
-            "ismcts_protagonist"}
+            "ismcts_protagonist", "ismcts_legacy_protagonist"}
         if strategy not in ("random", *mastermind_strategies, *protagonist_strategies):
             raise ServiceError(
                 "INVALID_AI_STRATEGY",
-                "AI 策略必须是 random、baseline_protagonist、defensive_protagonist、risk_aware_protagonist、ismcts_protagonist、fixed_mastermind、mcts_mastermind、optimized_mcts_mastermind 或 strategic_mcts_mastermind")
+                "未知 AI 策略")
         if strategy in mastermind_strategies and seat != "m":
             raise ServiceError("INVALID_AI_STRATEGY", "剧作家策略 AI 只能坐在剧作家席位", status=409)
         if strategy in protagonist_strategies and seat == "m":
@@ -330,7 +330,8 @@ class RoomService:
             required = ("m", *SEATS[1:1 + room.protagonist_count])
             if seat not in required:
                 raise ServiceError("SEAT_UNAVAILABLE", "该人数模式没有这个参与者席位", status=409)
-            if (request["enabled"] and strategy == "ismcts_protagonist"
+            if (request["enabled"] and strategy in {"ismcts_protagonist",
+                                                   "ismcts_legacy_protagonist"}
                     and room.protagonist_count != 1):
                 raise ServiceError(
                     "TEAM_AI_REQUIRES_TWO_PLAYER_MODE",
@@ -346,6 +347,7 @@ class RoomService:
                               "公开信息防守主人公 AI" if strategy == "defensive_protagonist" else
                               "历史风险主人公 AI" if strategy == "risk_aware_protagonist" else
                               "团队 ISMCTS 主人公 AI" if strategy == "ismcts_protagonist" else
+                              "旧版团队 ISMCTS 主人公 AI" if strategy == "ismcts_legacy_protagonist" else
                               "定式剧作家 AI" if strategy == "fixed_mastermind" else
                               "朴素 MCTS 剧作家 AI" if strategy == "mcts_mastermind"
                               else "优化 MCTS 剧作家 AI" if strategy == "optimized_mcts_mastermind"
@@ -363,6 +365,10 @@ class RoomService:
                                    SearchBudget(node_limit=96, rollout_depth=16),
                                    particle_count=24)
                                if strategy == "ismcts_protagonist" else
+                               LegacyIsmctsProtagonistAgent(
+                                   SearchBudget(node_limit=96, rollout_depth=16),
+                                   particle_count=24)
+                               if strategy == "ismcts_legacy_protagonist" else
                                FixedStrategyMastermindAgent()
                                if strategy == "fixed_mastermind" else
                                FullInformationMctsMastermindAgent(

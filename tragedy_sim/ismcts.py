@@ -16,7 +16,7 @@ import random
 from time import perf_counter
 from typing import Any, Mapping, Sequence
 
-from .ai import DefensiveProtagonistAgent
+from .ai import DefensiveProtagonistAgent, RiskAwareProtagonistAgent
 from .belief import (CommandObservation, ConstraintBeliefSampler,
                      PersistentBeliefState, PublicEvidence)
 from .cards import ACTORS
@@ -70,6 +70,7 @@ class IsmctsTrace:
     evidence_elapsed_ms: float = 0.0
     search_elapsed_ms: float = 0.0
     planned_commands: tuple[dict[str, Any], ...] = ()
+    belief_failure: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False,
@@ -178,12 +179,14 @@ class IsmctsProtagonistAgent:
     """Root information-set MCTS over independently sampled FS/BTX worlds."""
 
     def __init__(self, budget: SearchBudget | None = None, *,
-                 particle_count: int = 16, rng_seed: int = 0):
+                 particle_count: int = 16, rng_seed: int = 0,
+                 legacy_joint_search: bool = False):
         if type(particle_count) is not int or particle_count < 1:
             raise ValueError("particle_count must be a positive integer")
         self.budget = budget or SearchBudget(node_limit=24, rollout_depth=12)
         self.particle_count = particle_count
         self.rng_seed = rng_seed
+        self.legacy_joint_search = legacy_joint_search
         self.evaluator = ScenarioConditionedEvaluator()
         self.fallback = DefensiveProtagonistAgent(random.Random(rng_seed))
         self.sampler = ConstraintBeliefSampler()
@@ -201,7 +204,9 @@ class IsmctsProtagonistAgent:
 
     @property
     def plan_name(self) -> str:
-        return "public_fs_btx_team_so_ismcts"
+        return ("public_fs_btx_team_so_ismcts_legacy"
+                if self.legacy_joint_search
+                else "public_fs_btx_team_so_ismcts")
 
     @property
     def controls_protagonist_team(self) -> bool:
@@ -291,11 +296,55 @@ class IsmctsProtagonistAgent:
             return -0.90
         return self._reward(world, self.evaluator)
 
-    def _joint_successor(self, particle: Game, first: dict[str, Any],
-                         rng: random.Random
-                         ) -> tuple[tuple[dict[str, Any], ...], Game]:
-        """Apply one complete three-card protagonist placement node."""
+    @staticmethod
+    def _card_family(action: Mapping[str, Any]) -> str:
+        card = action.get("card")
+        return "movement" if card in {"h", "v", "d"} else str(card)
+
+    def _candidate_bundle(self, particle: Game, view: Mapping[str, Any],
+                          index: int, rng: random.Random
+                          ) -> tuple[dict[str, Any], ...]:
+        """Generate all three placements; no slot is delegated to a policy."""
+        world = particle
         commands: list[dict[str, Any]] = []
+        policy = RiskAwareProtagonistAgent(rng)
+        families = ("fm", "fi", "movement", "p-1", "g2", "g1",
+                    "p1", "other")
+        reversals = policy._reverse_moves(dict(view))
+        for slot in range(3):
+            actions = [action for action in world.search_actions(world.controller)
+                       if action.get("action") == "play"]
+            if not actions:
+                break
+            ranked = sorted(actions, key=lambda action: (
+                -policy._play_score({
+                    "actor": action["actor"], "type": "play",
+                    "parameters": {"card": action["card"],
+                                   "target": action["target"]},
+                }, dict(view), reversals), _key(action)))
+            # A small prior supplies one strong candidate. Other candidates
+            # rotate card families independently for every slot; in
+            # particular, later slots are not fixed to goodwill cards.
+            if index == 0:
+                selected = ranked[0]
+            else:
+                family = families[(index - 1 + slot * 3) % len(families)]
+                matching = [action for action in ranked
+                            if self._card_family(action) == family]
+                if not matching and family == "other":
+                    matching = ranked
+                options = matching or ranked
+                selected = options[(index // len(families)) % min(3, len(options))]
+            commands.append(dict(selected))
+            world = world.search_transition(selected)
+            if world.state.phase != "protagonists":
+                break
+        return tuple(commands)
+
+    def _legacy_bundle(self, particle: Game, first: dict[str, Any],
+                       rng: random.Random
+                       ) -> tuple[tuple[dict[str, Any], ...], Game]:
+        commands = []
         world = particle
         selected = first
         for _ in range(3):
@@ -303,9 +352,9 @@ class IsmctsProtagonistAgent:
             world = world.search_transition(selected)
             if world.state.phase != "protagonists":
                 break
-            actions = list(world.search_actions(world.controller))
-            if not actions or any(action.get("action") != "play"
-                                  for action in actions):
+            actions = [action for action in world.search_actions(world.controller)
+                       if action.get("action") == "play"]
+            if not actions:
                 break
             offers = [{
                 "id": _key(action), "actor": action["actor"],
@@ -316,10 +365,22 @@ class IsmctsProtagonistAgent:
             chosen = DefensiveProtagonistAgent(rng).choose_action(
                 participant="team", view=world.protagonist_team_view(),
                 offers=offers)
-            selected = actions[next(
-                index for index, offer in enumerate(offers)
-                if offer["id"] == chosen["id"])]
+            selected = actions[next(index for index, offer in enumerate(offers)
+                                    if offer["id"] == chosen["id"])]
         return tuple(commands), world
+
+    @staticmethod
+    def _apply_bundle(particle: Game, commands: Sequence[Mapping[str, Any]]
+                      ) -> Game | None:
+        world = particle
+        for command in commands:
+            legal = {_key(action): action
+                     for action in world.search_actions(world.controller)}
+            selected = legal.get(_key(command))
+            if selected is None:
+                return None
+            world = world.search_transition(selected)
+        return world
 
     def _fallback(self, participant: str, view: dict[str, Any],
                   offers: Sequence[dict[str, Any]], reason: str,
@@ -439,17 +500,34 @@ class IsmctsProtagonistAgent:
         rng = random.Random(f"{self.budget.seed}:{self.rng_seed}:{participant}:{snapshot_hash}")
         belief_source = "resampled"
         observation_updates = 0
+        belief_failure = None
         particles: tuple[Game, ...] = ()
         if (self._observation_viewer == participant
                 and self._observation_records):
+            revealed = {
+                (int(event["loop"]), int(event["round"])):
+                tuple(event.get("cards", ()))
+                for event in view.get("events", ())
+                if event.get("kind") == "cards_revealed"
+            }
+            incident_outcomes = {
+                (int(event["loop"]), int(event["round"])):
+                bool(event["happened"])
+                for event in view.get("events", ())
+                if event.get("kind") == "incident_status"
+            }
             synced = self.belief.sync(
                 evidence, viewer=participant,
                 observations=self._observation_records,
-                witnesses=witnesses, sampler=self.sampler)
+                witnesses=witnesses, sampler=self.sampler,
+                revealed_placements=revealed,
+                incident_outcomes=incident_outcomes)
             particles = tuple(synced.particles)
             observation_updates = synced.processed
             if particles:
                 belief_source = "persistent"
+            else:
+                belief_failure = synced.reason
         if not particles:
             hypotheses = self.sampler.sample(
                 evidence, self.particle_count, rng=rng, witnesses=witnesses)
@@ -459,32 +537,67 @@ class IsmctsProtagonistAgent:
         if not particles:
             return self._fallback(participant, view, offers, "no_particles",
                                   len(witnesses))
+        marginals = {cid: Counter(particle.roles.get(cid)
+                                  for particle in particles)
+                     for cid in evidence.characters}
+        belief_roles = tuple({
+            "character": cid,
+            "counts": dict(sorted(counts.items())),
+        } for cid, counts in marginals.items())
         evidence_elapsed_ms = (perf_counter() - evidence_started) * 1000
         search_started = perf_counter()
 
-        bundle_stats: dict[str, _RootStat] = {}
-        bundle_commands: dict[str, tuple[dict[str, Any], ...]] = {}
-        first_keys = list(offers_by_key)
-        rng.shuffle(first_keys)
         iterations = max(1, self.budget.node_limit)
-        for iteration in range(iterations):
-            particle = particles[iteration % len(particles)]
-            legal = {_key(action): action
-                     for action in particle.search_actions(particle.controller)}
-            available_first = [key for key in first_keys if key in legal]
-            if not available_first:
-                continue
-            first_key = available_first[iteration % len(available_first)]
-            commands, successor = self._joint_successor(
-                particle, legal[first_key], rng)
-            bundle_key = json.dumps(commands, ensure_ascii=False,
-                                    sort_keys=True, separators=(",", ":"))
-            stat = bundle_stats.setdefault(bundle_key, _RootStat())
-            bundle_commands[bundle_key] = commands
-            stat.availability += 1
-            reward = self._rollout(successor, rng)
-            stat.visits += 1
-            stat.value_sum += reward
+        bundle_commands: dict[str, tuple[dict[str, Any], ...]] = {}
+        bundle_stats: dict[str, _RootStat] = {}
+        if self.legacy_joint_search:
+            first_keys = list(offers_by_key)
+            rng.shuffle(first_keys)
+            for iteration in range(iterations):
+                particle = particles[iteration % len(particles)]
+                legal = {_key(action): action
+                         for action in particle.search_actions(particle.controller)}
+                available = [key for key in first_keys if key in legal]
+                if not available:
+                    continue
+                first = legal[available[iteration % len(available)]]
+                commands, successor = self._legacy_bundle(particle, first, rng)
+                key = _key(commands)
+                bundle_commands[key] = commands
+                stat = bundle_stats.setdefault(key, _RootStat())
+                stat.availability += 1
+                stat.visits += 1
+                stat.value_sum += self._rollout(successor, rng)
+        else:
+            # Larger budgets widen the bounded pool only after preserving
+            # several visits per complete bundle.
+            candidate_limit = min(iterations, max(1, min(24, iterations // 8)))
+            attempts = 0
+            while (len(bundle_commands) < candidate_limit
+                   and attempts < candidate_limit * 4):
+                commands = self._candidate_bundle(
+                    particles[attempts % len(particles)], view, attempts, rng)
+                attempts += 1
+                if not commands or _key(commands[0]) not in offers_by_key:
+                    continue
+                bundle_commands.setdefault(_key(commands), commands)
+            bundle_stats = {key: _RootStat() for key in bundle_commands}
+            keys = tuple(bundle_commands)
+            # Round-robin candidates over a shared particle batch.
+            for iteration in range(iterations):
+                if not keys:
+                    break
+                key = keys[iteration % len(keys)]
+                batch = iteration // len(keys)
+                batches = (iterations + len(keys) - 1) // len(keys)
+                particle = particles[(batch * len(particles)) // batches]
+                successor = self._apply_bundle(particle, bundle_commands[key])
+                if successor is None:
+                    continue
+                stat = bundle_stats[key]
+                stat.availability += 1
+                stat.visits += 1
+                stat.value_sum += self._rollout(successor, rng)
 
         viable = [key for key, stat in bundle_stats.items() if stat.visits]
         if not viable:
@@ -506,9 +619,18 @@ class IsmctsProtagonistAgent:
         self.last_trace = IsmctsTrace(
             self.plan_name, self.rng_seed, evidence.module, len(particles),
             len(witnesses), iterations, self.budget.rollout_depth, None,
-            chosen["id"], root_actions, (), belief_source,
+            chosen["id"], root_actions, belief_roles, belief_source,
             observation_updates, self.evidence_ledger.hard_count,
             self.evidence_ledger.soft_count, evidence_elapsed_ms,
             (perf_counter() - search_started) * 1000,
-            tuple(self._joint_plan))
+            tuple(self._joint_plan), belief_failure)
         return chosen
+
+
+class LegacyIsmctsProtagonistAgent(IsmctsProtagonistAgent):
+    """Selectable first-generation joint search baseline."""
+
+    def __init__(self, budget: SearchBudget | None = None, *,
+                 particle_count: int = 16, rng_seed: int = 0):
+        super().__init__(budget, particle_count=particle_count,
+                         rng_seed=rng_seed, legacy_joint_search=True)

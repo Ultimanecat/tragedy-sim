@@ -186,8 +186,9 @@ action ID 会因 revision 变化失效。服务端在提交时重新计算授权
 结构化好感能力，优先执行确定的防守行动。
 `risk_aware_protagonist` 进一步按时间衰减累计公开揭牌中的剧作家目标；该策略是实验性负基线，FS 预检弱于防守版，不代表
 正式的身份信念。`ismcts_protagonist` 是仅用于“1 名主人公玩家”两人局的 FS/BTX 团队信息集搜索：一个实例共享 A/B/C 的
-证据与粒子，把主人公放置的三张行动牌作为一个联合节点模拟，再按引擎顺序提交缓存组合；尚未可靠重建的能力/事件选择阶段回退
-`defensive_protagonist`。在 2–3 名主人公玩家的房间请求该策略会返回 `TEAM_AI_REQUIRES_TWO_PLAYER_MODE`。剧作家席位还可选择
+证据与粒子，生成完整三牌候选并跨粒子比较，再按引擎顺序提交缓存组合；`ismcts_legacy_protagonist` 保留第一张搜索、后两张
+启发式补全的旧版对照。尚未可靠重建的能力/事件选择阶段回退 `defensive_protagonist`。在 2–3 名主人公玩家的房间请求这两种
+团队策略都会返回 `TEAM_AI_REQUIRES_TWO_PLAYER_MODE`。剧作家席位还可选择
 `fixed_mastermind`，它会从私密剧本中识别规则失败、事件引爆、关键人物暗杀等可行路径，开局选定一条并按稳定行动参数
 持续执行；也可选择 `mcts_mastermind`（保留的朴素基线）、`optimized_mcts_mastermind`（轻量副本、渐进拓宽和
 行动先验）或 `strategic_mcts_mastermind`（另加剧本路线先验与剧作家策略 rollout），由完全信息 MCTS 在隔离的游戏副本上调用合法行动和状态转移。提交
