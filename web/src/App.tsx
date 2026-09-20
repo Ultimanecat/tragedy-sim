@@ -709,7 +709,7 @@ export default function App() {
   }
 
   async function setAiRoomSeat(seat: Seat, enabled: boolean,
-                               strategy: "random" | "baseline_protagonist" | "defensive_protagonist" | "risk_aware_protagonist" | "ismcts_protagonist" | "ismcts_legacy_protagonist" | "fixed_mastermind" | "mcts_mastermind" | "optimized_mcts_mastermind" | "strategic_mcts_mastermind" = "random") {
+                               strategy: "random" | "baseline_protagonist" | "defensive_protagonist" | "risk_aware_protagonist" | "ismcts_protagonist" | "survival_ismcts_protagonist" | "ismcts_legacy_protagonist" | "fixed_mastermind" | "mcts_mastermind" | "optimized_mcts_mastermind" | "strategic_mcts_mastermind" = "random") {
     setBusy(true); setError("");
     try { setRoomInfo(await client.setAiSeat(seat, enabled, strategy)); persist(); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "AI 座位更新失败"); }
@@ -807,7 +807,7 @@ export default function App() {
           return <article className={`${occupant ? "occupied" : ""} ${occupant?.ai ? "ai-seat" : ""}`} key={seat}>
             <small>{seat === "m" ? "剧作家" : `主人公 ${seat.toUpperCase()}`}</small>
             <strong>{occupant?.nickname ?? "空位"}{occupant?.ai && <small className="ai-badge">AI</small>}</strong>
-            <span>{occupant?.ai ? (occupant.ai_type === "baseline_protagonist" ? "逆向移动并由领队独占禁止密谋" : occupant.ai_type === "defensive_protagonist" ? "依据公开事件、身份与能力主动防守" : occupant.ai_type === "risk_aware_protagonist" ? "从公开揭牌历史估计剧作家目标" : occupant.ai_type === "ismcts_protagonist" ? "一名团队 AI 搜索完整三牌组合（FS/BTX）" : occupant.ai_type === "ismcts_legacy_protagonist" ? "旧版团队 ISMCTS：后两张由防守策略补全" : occupant.ai_type === "fixed_mastermind" ? "从可行获胜定式中择一执行" : occupant.ai_type === "mcts_mastermind" ? "完整行动空间的朴素蒙特卡洛树搜索" : occupant.ai_type === "optimized_mcts_mastermind" ? "渐进拓宽的优化蒙特卡洛树搜索" : occupant.ai_type === "strategic_mcts_mastermind" ? "剧本路线先验与策略 rollout" : "自动随机行动") : occupant ? (occupant.ready ? "已准备" : "尚未准备") : "等待加入"}</span>
+            <span>{occupant?.ai ? (occupant.ai_type === "baseline_protagonist" ? "逆向移动并由领队独占禁止密谋" : occupant.ai_type === "defensive_protagonist" ? "依据公开事件、身份与能力主动防守" : occupant.ai_type === "risk_aware_protagonist" ? "从公开揭牌历史估计剧作家目标" : occupant.ai_type === "ismcts_protagonist" ? "一名团队 AI 搜索完整三牌组合（FS/BTX）" : occupant.ai_type === "survival_ismcts_protagonist" ? "历史暗牌采样与当日生存优先搜索（FS/BTX）" : occupant.ai_type === "ismcts_legacy_protagonist" ? "旧版团队 ISMCTS：后两张由防守策略补全" : occupant.ai_type === "fixed_mastermind" ? "从可行获胜定式中择一执行" : occupant.ai_type === "mcts_mastermind" ? "完整行动空间的朴素蒙特卡洛树搜索" : occupant.ai_type === "optimized_mcts_mastermind" ? "渐进拓宽的优化蒙特卡洛树搜索" : occupant.ai_type === "strategic_mcts_mastermind" ? "剧本路线先验与策略 rollout" : "自动随机行动") : occupant ? (occupant.ready ? "已准备" : "尚未准备") : "等待加入"}</span>
             {!ownSeat && !occupant && <button disabled={busy || !nickname.trim()} onClick={() => void joinRoom(seat)}>坐到这里</button>}
             {client.room?.adminToken && !occupant && <button disabled={busy} onClick={() => void setAiRoomSeat(seat, true)}>随机 AI</button>}
             {client.room?.adminToken && !occupant && seat !== "m" && <button disabled={busy}
@@ -818,6 +818,8 @@ export default function App() {
               onClick={() => void setAiRoomSeat(seat, true, "risk_aware_protagonist")}>历史风险主人公 AI</button>}
             {client.room?.adminToken && !occupant && seat !== "m" && roomInfo.room.protagonist_count === 1 && <button disabled={busy}
               onClick={() => void setAiRoomSeat(seat, true, "ismcts_protagonist")}>团队 ISMCTS 主人公 AI（FS/BTX）</button>}
+            {client.room?.adminToken && !occupant && seat !== "m" && roomInfo.room.protagonist_count === 1 && <button disabled={busy}
+              onClick={() => void setAiRoomSeat(seat, true, "survival_ismcts_protagonist")}>当日生存优先 ISMCTS（FS/BTX）</button>}
             {client.room?.adminToken && !occupant && seat !== "m" && roomInfo.room.protagonist_count === 1 && <button className="secondary" disabled={busy}
               onClick={() => void setAiRoomSeat(seat, true, "ismcts_legacy_protagonist")}>旧版团队 ISMCTS（对照）</button>}
             {client.room?.adminToken && !occupant && seat === "m" && <button disabled={busy}

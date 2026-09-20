@@ -664,9 +664,36 @@ class DarkCardBelief:
     """Draw only currently hidden card faces, conditional on public hand data."""
 
     @staticmethod
+    def historical_weights(events: Sequence[Mapping[str, Any]], *,
+                           day: int, loop: int, days: int = 4
+                           ) -> dict[tuple[str, str], float]:
+        """Past public reveals inform a prior, never a hard constraint."""
+        weights: dict[tuple[str, str], float] = {}
+        for event in events:
+            if (event.get("kind") != "cards_revealed"
+                    or (int(event.get("loop", loop)),
+                        int(event.get("round", day))) >= (loop, day)):
+                continue
+            age = max(1, (loop - int(event["loop"])) * days
+                      + day - int(event["round"]))
+            same_day = int(event["round"]) == day
+            for placement in event.get("cards", ()):
+                if placement.get("actor") != "m":
+                    continue
+                target, card = placement.get("target"), placement.get("card")
+                if isinstance(target, str) and isinstance(card, str):
+                    key = (target, card)
+                    weights[key] = weights.get(key, 0.0) + (
+                        6.0 * (1.5 if same_day else 1.0) * 0.85 ** (age - 1))
+        return weights
+
+    @staticmethod
     def sample(pending: Sequence[Mapping[str, Any]],
                hands: Mapping[str, list[str]], *,
-               rng: random.Random
+               rng: random.Random,
+               historical_weights: Mapping[tuple[str, str], float] | None = None,
+               uniform_fraction: float = 0.25,
+               force_history: bool = False,
                ) -> tuple[tuple[str, str, str], ...] | None:
         remaining = {actor: list(cards) for actor, cards in hands.items()}
         for item in pending:
@@ -685,7 +712,21 @@ class DarkCardBelief:
             if card is None:
                 if not available:
                     return None
-                card = rng.choice(available)
+                if (historical_weights and force_history
+                        and any(historical_weights.get((str(item["target"]), candidate), 0.0)
+                                for candidate in available)):
+                    target = str(item["target"])
+                    card = max(available, key=lambda candidate: (
+                        historical_weights.get((target, candidate), 0.0),
+                        -available.index(candidate)))
+                elif (historical_weights and rng.random() >= uniform_fraction):
+                    target = str(item["target"])
+                    card = rng.choices(
+                        available,
+                        weights=[1.0 + historical_weights.get((target, candidate), 0.0)
+                                 for candidate in available], k=1)[0]
+                else:
+                    card = rng.choice(available)
                 available.remove(card)
             selected.append((actor, str(card), str(item["target"])))
         return tuple(selected)

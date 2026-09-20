@@ -44,6 +44,26 @@ class FactorizedBeliefTests(unittest.TestCase):
         self.assertEqual(selected, (("m", "m_paranoia_1", "girl"),
                                     ("m", "m_intrigue_1", "student")))
 
+    def test_dark_card_history_bias_retains_uniform_exploration(self):
+        events = ({"kind": "cards_revealed", "loop": 1, "round": 1,
+                   "cards": ({"actor": "m", "card": "v", "target": "girl"},)},)
+        weights = DarkCardBelief.historical_weights(events, day=1, loop=2)
+        self.assertGreater(weights[("girl", "v")], 0)
+        self.assertGreater(DarkCardBelief.historical_weights(
+            events, day=2, loop=2)[("girl", "v")], 0)
+        rng = random.Random(17)
+        cards = [DarkCardBelief.sample(
+            ({"actor": "m", "target": "girl", "card": None},),
+            {"m": ["v", "i1"]}, rng=rng,
+            historical_weights=weights)[0][1] for _ in range(200)]
+        self.assertGreater(cards.count("v"), cards.count("i1"))
+        self.assertIn("i1", cards)
+        forced = DarkCardBelief.sample(
+            ({"actor": "m", "target": "girl", "card": None},),
+            {"m": ["v", "i1"]}, rng=random.Random(2),
+            historical_weights=weights, force_history=True)
+        self.assertEqual(forced[0][1], "v")
+
 
 class PublicEvidenceTests(unittest.TestCase):
     def test_evidence_ignores_scenario_identity_and_unrevealed_secrets(self):

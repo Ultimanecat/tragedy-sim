@@ -20,7 +20,7 @@ from .ai import DefensiveProtagonistAgent, RiskAwareProtagonistAgent
 from .belief import (CommandObservation, ConstraintBeliefSampler,
                      DarkCardBelief, FactorizedBeliefState,
                      PersistentBeliefState, PublicEvidence)
-from .cards import ACTORS
+from .cards import ACTORS, COORDS, MOVES
 from .engine import Character, Placement, RuleError
 from .evaluation import ScenarioConditionedEvaluator
 from .game import Game
@@ -45,6 +45,7 @@ class _RootStat:
     visits: int = 0
     availability: int = 0
     value_sum: float = 0.0
+    survivals: int = 0
 
     @property
     def mean(self) -> float:
@@ -90,7 +91,9 @@ class PublicStateDeterminizer:
     )
 
     def determinize(self, hypothesis: Any, evidence: PublicEvidence,
-                    view: Mapping[str, Any], *, rng: random.Random) -> Game | None:
+                    view: Mapping[str, Any], *, rng: random.Random,
+                    history_prior: bool = False,
+                    force_history: bool = False) -> Game | None:
         if view.get("module") not in ("FS", "BTX") or view.get("phase") != "protagonists":
             return None
         try:
@@ -126,7 +129,12 @@ class PublicStateDeterminizer:
                                if card not in state.discarded[actor]]
                        for actor in ACTORS}
         dark_bundle = DarkCardBelief.sample(
-            view.get("pending", ()), state.hands, rng=rng)
+            view.get("pending", ()), state.hands, rng=rng,
+            historical_weights=(DarkCardBelief.historical_weights(
+                view.get("events", ()), day=state.round, loop=state.loop,
+                days=int(view.get("days", 4)))
+                if history_prior else None),
+            force_history=force_history)
         if dark_bundle is None:
             return None
         state.pending = [Placement(*item) for item in dark_bundle]
@@ -176,13 +184,15 @@ class IsmctsProtagonistAgent:
 
     def __init__(self, budget: SearchBudget | None = None, *,
                  particle_count: int = 16, rng_seed: int = 0,
-                 legacy_joint_search: bool = False):
+                 legacy_joint_search: bool = False,
+                 survival_first: bool = False):
         if type(particle_count) is not int or particle_count < 1:
             raise ValueError("particle_count must be a positive integer")
         self.budget = budget or SearchBudget(node_limit=24, rollout_depth=12)
         self.particle_count = particle_count
         self.rng_seed = rng_seed
         self.legacy_joint_search = legacy_joint_search
+        self.survival_first = survival_first
         self.evaluator = ScenarioConditionedEvaluator()
         self.fallback = DefensiveProtagonistAgent(random.Random(rng_seed))
         self.sampler = ConstraintBeliefSampler()
@@ -202,9 +212,11 @@ class IsmctsProtagonistAgent:
 
     @property
     def plan_name(self) -> str:
-        return ("public_fs_btx_team_so_ismcts_legacy"
-                if self.legacy_joint_search
-                else "public_fs_btx_team_so_ismcts")
+        if self.legacy_joint_search:
+            return "public_fs_btx_team_so_ismcts_legacy"
+        if self.survival_first:
+            return "public_fs_btx_team_survival_ismcts"
+        return "public_fs_btx_team_so_ismcts"
 
     @property
     def controls_protagonist_team(self) -> bool:
@@ -277,7 +289,8 @@ class IsmctsProtagonistAgent:
             reached_boundary |= (world.state.loop != root_loop
                                  or world.state.round != root_day)
             event_cursor = len(world.state.events)
-            if reached_boundary and depth + 1 >= self.budget.rollout_depth:
+            if reached_boundary and (self.survival_first
+                                     or depth + 1 >= self.budget.rollout_depth):
                 break
         else:
             raise RuntimeError(
@@ -291,13 +304,52 @@ class IsmctsProtagonistAgent:
             # information bonus.  A reset erases the dead board position, so
             # the ordinary state evaluator cannot recover this signal after
             # the transition into the next loop.
-            return -0.90
-        return self._reward(world, self.evaluator)
+            return -1.0 if self.survival_first else -0.90
+        reward = self._reward(world, self.evaluator)
+        if self.survival_first and world.winner is None:
+            # Day survival dominates the soft position estimate. Later days
+            # are deliberately not simulated in this selectable mode.
+            return 0.5 + 0.1 * reward
+        return reward
 
     @staticmethod
     def _card_family(action: Mapping[str, Any]) -> str:
         card = action.get("card")
         return "movement" if card in {"h", "v", "d"} else str(card)
+
+    @staticmethod
+    def _tactical_rank(action: Mapping[str, Any], particle: Game,
+                       view: Mapping[str, Any]) -> int:
+        """Prioritize several distinct ways to keep a sampled key safe."""
+        target, card = action.get("target"), action.get("card")
+        characters = particle.state.characters
+        threatened = {item.get("target") for item in view.get("pending", ())
+                      if item.get("actor") == "m"}
+        critical = {cid for cid, role in particle.roles.items()
+                    if role in {"key", "friend"} and cid in characters
+                    and characters[cid].alive}
+        serial_locations = {characters[cid].location
+                            for cid, role in particle.roles.items()
+                            if role == "serial" and cid in characters
+                            and characters[cid].alive}
+        if card == "fm" and target in critical:
+            return 120 if target in threatened else 75
+        if card not in MOVES or target not in characters:
+            return 0
+        character = characters[target]
+        dx, dy = MOVES[{"h": "horizontal", "v": "vertical",
+                        "d": "diagonal"}[card]]
+        x, y = COORDS[character.location]
+        destination = next(board for board, point in COORDS.items()
+                           if point == (x ^ dx, y ^ dy))
+        if destination in character.forbidden:
+            return 0
+        if target in critical and target in threatened:
+            return 110 if destination not in serial_locations else 40
+        if (target not in critical and destination in serial_locations
+                and any(cid in threatened for cid in critical)):
+            return 85
+        return 0
 
     def _candidate_bundle(self, particle: Game, view: Mapping[str, Any],
                           index: int, rng: random.Random
@@ -315,6 +367,14 @@ class IsmctsProtagonistAgent:
             if not actions:
                 break
             ranked = sorted(actions, key=lambda action: (
+                0 if not self.survival_first else
+                (int(action["card"] == "p1") * 100
+                 + int(action["card"] == "fi"
+                       and action["target"] in view.get("locations", {})
+                       and not any(item.get("actor") == "m"
+                                   and item.get("target") == action["target"]
+                                   for item in view.get("pending", ()))) * 80
+                 + int(action["card"] == "g2") * 25),
                 -policy._play_score({
                     "actor": action["actor"], "type": "play",
                     "parameters": {"card": action["card"],
@@ -323,7 +383,16 @@ class IsmctsProtagonistAgent:
             # A small prior supplies one strong candidate. Other candidates
             # rotate card families independently for every slot; in
             # particular, later slots are not fixed to goodwill cards.
-            if index == 0:
+            tactical = []
+            if self.survival_first and index > 0 and slot == ((index - 1) // 8) % 3:
+                tactical = sorted(
+                    (action for action in actions
+                     if self._tactical_rank(action, particle, view) > 0),
+                    key=lambda action: (-self._tactical_rank(action, particle, view),
+                                        _key(action)))
+            if tactical:
+                selected = tactical[((index - 1) % 8) % len(tactical)]
+            elif index == 0:
                 selected = ranked[0]
             else:
                 family = families[(index - 1 + slot * 3) % len(families)]
@@ -504,9 +573,12 @@ class IsmctsProtagonistAgent:
         if not self.legacy_joint_search:
             factored = self.factorized_belief.sample(
                 evidence, witnesses, self.particle_count, rng=rng)
-            particles = tuple(particle for hypothesis in factored.worlds
+            particles = tuple(particle for index, hypothesis in enumerate(factored.worlds)
                               if (particle := self.determinizer.determinize(
-                                  hypothesis, evidence, view, rng=rng)) is not None)
+                                  hypothesis, evidence, view, rng=rng,
+                                  history_prior=self.survival_first,
+                                  force_history=(self.survival_first
+                                                 and index % 5 == 0))) is not None)
             belief_source = "factorized"
             belief_failure = factored.reason
             observation_updates = self.evidence_ledger.updates
@@ -575,7 +647,9 @@ class IsmctsProtagonistAgent:
                 stat = bundle_stats.setdefault(key, _RootStat())
                 stat.availability += 1
                 stat.visits += 1
-                stat.value_sum += self._rollout(successor, rng)
+                value = self._rollout(successor, rng)
+                stat.value_sum += value
+                stat.survivals += value > 0
         else:
             # Larger budgets widen the bounded pool only after preserving
             # several visits per complete bundle.
@@ -605,15 +679,25 @@ class IsmctsProtagonistAgent:
                 stat = bundle_stats[key]
                 stat.availability += 1
                 stat.visits += 1
-                stat.value_sum += self._rollout(successor, rng)
+                value = self._rollout(successor, rng)
+                stat.value_sum += value
+                stat.survivals += value > 0
 
         viable = [key for key, stat in bundle_stats.items() if stat.visits]
         if not viable:
             return self._fallback(participant, view, offers,
                                   "no_common_legal_action", len(witnesses))
-        selected = max(viable, key=lambda key: (
-            bundle_stats[key].mean, bundle_stats[key].visits,
-            bundle_stats[key].availability))
+        if self.survival_first:
+            selected = max(viable, key=lambda key: (
+                bundle_stats[key].survivals / bundle_stats[key].visits,
+                bundle_stats[key].mean - 0.02 * sum(
+                    command.get("card") == "g2"
+                    for command in bundle_commands[key]),
+                bundle_stats[key].visits, bundle_stats[key].availability))
+        else:
+            selected = max(viable, key=lambda key: (
+                bundle_stats[key].mean, bundle_stats[key].visits,
+                bundle_stats[key].availability))
         selected_commands = bundle_commands[selected]
         chosen = offers_by_key[_key(selected_commands[0])]
         self._joint_plan = [dict(command)
@@ -622,7 +706,7 @@ class IsmctsProtagonistAgent:
         root_actions = tuple({
             "bundle": [dict(command) for command in bundle_commands[key]],
             "visits": stat.visits, "availability": stat.availability,
-            "mean_value": stat.mean,
+            "mean_value": stat.mean, "day_survivals": stat.survivals,
         } for key, stat in bundle_stats.items())
         self.last_trace = IsmctsTrace(
             self.plan_name, self.rng_seed, evidence.module, len(particles),
@@ -644,3 +728,12 @@ class LegacyIsmctsProtagonistAgent(IsmctsProtagonistAgent):
                  particle_count: int = 16, rng_seed: int = 0):
         super().__init__(budget, particle_count=particle_count,
                          rng_seed=rng_seed, legacy_joint_search=True)
+
+
+class SurvivalIsmctsProtagonistAgent(IsmctsProtagonistAgent):
+    """Selectable one-day, survival-first search with a public card prior."""
+
+    def __init__(self, budget: SearchBudget | None = None, *,
+                 particle_count: int = 16, rng_seed: int = 0):
+        super().__init__(budget, particle_count=particle_count,
+                         rng_seed=rng_seed, survival_first=True)

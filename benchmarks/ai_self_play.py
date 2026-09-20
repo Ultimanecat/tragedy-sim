@@ -19,14 +19,15 @@ from tragedy_sim.optimized_mcts import OptimizedMctsMastermindAgent
 from tragedy_sim.strategic_mcts import StrategicMctsMastermindAgent
 from tragedy_sim.witness import FsbtxWitnessCompiler, WitnessStrength
 from tragedy_sim.ismcts import (IsmctsProtagonistAgent,
-                                LegacyIsmctsProtagonistAgent)
+                                LegacyIsmctsProtagonistAgent,
+                                SurvivalIsmctsProtagonistAgent)
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
 
 
 MASTERMIND_STRATEGIES = ("random", "fixed", "naive", "optimized", "strategic")
 PROTAGONIST_STRATEGIES = ("random", "baseline", "defensive", "risk_aware",
-                         "ismcts", "ismcts_legacy")
+                         "ismcts", "ismcts_legacy", "ismcts_survival")
 
 
 @dataclass(frozen=True)
@@ -156,12 +157,15 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         node_limit=protagonist_nodes or nodes,
         rollout_depth=protagonist_depth or depth, seed=seed)
     team_ismcts = ((LegacyIsmctsProtagonistAgent
-                    if protagonist_strategy == "ismcts_legacy"
-                    else IsmctsProtagonistAgent)(
+                    if protagonist_strategy == "ismcts_legacy" else
+                    SurvivalIsmctsProtagonistAgent
+                    if protagonist_strategy == "ismcts_survival" else
+                    IsmctsProtagonistAgent)(
         protagonist_budget,
         particle_count=max(4, min(64, (protagonist_nodes or nodes) // 4)),
         rng_seed=seed)
-        if protagonist_strategy in {"ismcts", "ismcts_legacy"} else None)
+        if protagonist_strategy in {"ismcts", "ismcts_legacy", "ismcts_survival"}
+        else None)
     protagonists = {
         seat: (team_ismcts if team_ismcts is not None else
                RiskAwareProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
@@ -204,7 +208,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             actor = game.controller
             policy = protagonists[actor]
             if protagonist_strategy in {"baseline", "defensive", "risk_aware",
-                                        "ismcts", "ismcts_legacy"}:
+                                        "ismcts", "ismcts_legacy",
+                                        "ismcts_survival"}:
                 team_policy = bool(getattr(
                     policy, "controls_protagonist_team", False))
                 if hasattr(policy, "observe"):

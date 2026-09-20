@@ -4,9 +4,12 @@ import random
 import unittest
 
 from tragedy_sim import Game
-from tragedy_sim.ismcts import IsmctsProtagonistAgent, PublicStateDeterminizer
+from tragedy_sim.ismcts import (IsmctsProtagonistAgent,
+                                 PublicStateDeterminizer,
+                                 SurvivalIsmctsProtagonistAgent)
 from tragedy_sim.belief import ConstraintBeliefSampler, PublicEvidence
 from tragedy_sim.scenario import example_scenario
+from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
 
 
@@ -127,6 +130,41 @@ class IsmctsTests(unittest.TestCase):
         roots = agent.last_trace.root_actions
         self.assertLessEqual(len(roots), 12)
         self.assertTrue(all(item["visits"] >= 2 for item in roots))
+
+    def test_survival_mode_is_selectable_and_reports_day_outcomes(self):
+        game = advance_to_protagonists(Game(example_scenario("FS")))
+        agent = SurvivalIsmctsProtagonistAgent(
+            SearchBudget(node_limit=8, rollout_depth=3, seed=27),
+            particle_count=4, rng_seed=27)
+        offers = [offer.to_dict() for offer in game.action_offers(game.controller)]
+        chosen = agent.choose_action(
+            participant="team", view=game.protagonist_team_view(), offers=offers)
+        self.assertIn(chosen, offers)
+        self.assertEqual(agent.last_trace.strategy,
+                         "public_fs_btx_team_survival_ismcts")
+        self.assertTrue(all("day_survivals" in item
+                            for item in agent.last_trace.root_actions))
+
+    def test_survival_candidates_include_distinct_key_rescues(self):
+        game = advance_to_protagonists(Game(
+            ScenarioLibrary().get("official-fs-01-first-script")))
+        self.assertTrue(all("fm" in game.state.hands[actor]
+                            for actor in "abc"))
+        view = game.protagonist_team_view()
+        view["pending"] = [{"actor": "m", "target": "girl", "card": None}]
+        agent = SurvivalIsmctsProtagonistAgent()
+        bundles = [agent._candidate_bundle(game, view, index,
+                                            random.Random(index))
+                   for index in range(24)]
+        self.assertTrue(any(any(action["card"] == "fm"
+                                and action["target"] == "girl"
+                                for action in bundle) for bundle in bundles))
+        self.assertTrue(any(any(action["card"] == "h"
+                                and action["target"] == "girl"
+                                for action in bundle) for bundle in bundles))
+        self.assertTrue(any(any(action["card"] in {"h", "v"}
+                                and action["target"] not in {"girl"}
+                                for action in bundle) for bundle in bundles))
 
     def test_rollout_does_not_evaluate_before_current_day_end(self):
         game = Game(example_scenario("FS"))

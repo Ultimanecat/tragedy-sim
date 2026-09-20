@@ -302,6 +302,19 @@ class RoomServiceTests(unittest.TestCase):
         policy = rooms._rooms[created["room"]["code"]].seats["a"].ai_policy
         self.assertTrue(policy.controls_protagonist_team)
 
+        survival = RoomService()
+        survival_room = survival.create({
+            "module": "FS", "nickname": "Host", "seat": "m",
+            "protagonist_count": 1})
+        survival_seat = survival.set_ai(survival_room["room"]["code"], {
+            "seat": "a", "enabled": True,
+            "strategy": "survival_ismcts_protagonist",
+        }, token=survival_room["credential"]["admin_token"])
+        self.assertEqual(survival_seat["room"]["seats"]["a"]["ai_type"],
+                         "survival_ismcts_protagonist")
+        self.assertTrue(survival._rooms[survival_room["room"]["code"]]
+                        .seats["a"].ai_policy.survival_first)
+
         comparison = RoomService()
         older = comparison.create({
             "module": "BTX", "nickname": "Host", "seat": "m",
