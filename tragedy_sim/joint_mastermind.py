@@ -12,7 +12,8 @@ from time import perf_counter
 from typing import Any
 
 from .optimized_mcts import _command_key
-from .oracle_protagonist import FullCardOracleProtagonistAgent
+from .oracle_protagonist import (FullCardOracleProtagonistAgent,
+                                 HiddenCardOracleProtagonistAgent)
 from .search import RootActionStats, SearchBudget, SearchGame, SearchTrace
 from .strategic_mcts import StrategicMctsMastermindAgent
 
@@ -20,17 +21,20 @@ from .strategic_mcts import StrategicMctsMastermindAgent
 class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
     """Budgeted joint-day candidates, each tested against a three-card reply.
 
-    The reply oracle deliberately gets to see the cards.  This is a robust
-    opponent model, not an estimate of a real protagonist's information.
+    By default the reply planner knows the script but not today's dark-card
+    faces. A full-card response is available as a diagnostic ablation.
     Non-placement mastermind decisions retain the strategic MCTS baseline.
     """
 
     def __init__(self, budget: SearchBudget | None = None, *,
-                 reply_nodes: int = 12):
+                 reply_nodes: int = 12, reply_model: str = "hidden"):
         super().__init__(budget)
         if reply_nodes < 1:
             raise ValueError("reply_nodes must be positive")
+        if reply_model not in {"hidden", "full"}:
+            raise ValueError("reply_model must be hidden or full")
         self.reply_nodes = reply_nodes
+        self.reply_model = reply_model
         self._plan: list[dict[str, Any]] = []
         self._plan_day: tuple[int, int] | None = None
 
@@ -49,6 +53,8 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
                    rng: random.Random) -> tuple[dict[str, Any], ...]:
         world = game
         bundle: list[dict[str, Any]] = []
+        route = self._routes(game)
+        preferred = route[index] if index < len(route) else ()
         for slot in range(3 - sum(item.actor == "m" for item in game.state.pending)):
             actions = [action for action in world.search_actions("m")
                        if action.get("action") == "play"]
@@ -56,7 +62,13 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
                 break
             rng.shuffle(actions)
             actions.sort(key=lambda item: self._priority(world, item), reverse=True)
-            if index == 0:
+            scripted = preferred[slot] if slot < len(preferred) else None
+            matched = next((action for action in actions
+                            if scripted is not None
+                            and (action["card"], action["target"]) == scripted), None)
+            if matched is not None:
+                selected = matched
+            elif index == 0:
                 selected = actions[0]
             else:
                 # Both the top route and less obvious counterplay must enter
@@ -67,8 +79,45 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
             world = world.search_transition(selected)
         return tuple(bundle)
 
+    @classmethod
+    def _routes(cls, game: SearchGame) -> tuple[tuple[tuple[str, str], ...], ...]:
+        """Generic FS pressure routes, instantiated from private script facts."""
+        plot = cls._plot_target(game)
+        key = cls._role_holder(game, "key")
+        killer = cls._role_holder(game, "killer")
+        incidents = sorted(
+            (item for item in game.scenario.get("incidents", ())
+             if item["day"] >= game.state.round),
+            key=lambda item: item["day"])
+        culprit = incidents[0]["culprit"] if incidents else None
+        hospital = ("hospital" if any(item["kind"] == "hospital"
+                                     for item in incidents) else None)
+        routes: list[tuple[tuple[str, str], ...]] = []
+        if plot and hospital:
+            for first, second in (("i2", "i1"), ("i1", "i2")):
+                for third in (culprit, key):
+                    routes.append(((first, plot), (second, hospital),
+                                   ("p1a", third)))
+                    routes.append(((first, hospital), (second, plot),
+                                   ("p1a", third)))
+            routes.extend((
+                (("i2", plot), ("i1", hospital), ("fp", key)),
+                (("i2", plot), ("p1a", culprit), ("i1", hospital)),
+            ))
+        elif key and killer:
+            for first, second in (("i2", "i1"), ("i1", "i2")):
+                routes.extend((
+                    ((first, killer), (second, key), ("p1a", culprit)),
+                    ((first, key), (second, killer), ("p1a", culprit)),
+                    ((first, killer), (second, key), ("v", key)),
+                    ((first, key), (second, killer), ("h", killer)),
+                ))
+        return tuple(routes)
+
     def _evaluate(self, game: SearchGame,
-                  bundle: tuple[dict[str, Any], ...], seed: int) -> float:
+                  bundle: tuple[dict[str, Any], ...], seed: int, *,
+                  reply_nodes: int | None = None,
+                  scenario_count: int = 1) -> float:
         world = game.search_clone()
         for command in bundle:
             world = world.search_transition(command)
@@ -76,14 +125,24 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
             return self.evaluator(world)
         if world.state.phase != "protagonists":
             return self.evaluator(world)
-        oracle = FullCardOracleProtagonistAgent(
-            SearchBudget(node_limit=self.reply_nodes, rollout_depth=12,
-                         seed=seed), rng_seed=seed)
+        reply_budget = SearchBudget(node_limit=reply_nodes or self.reply_nodes,
+                                    rollout_depth=12, seed=seed)
+        oracle = (HiddenCardOracleProtagonistAgent(
+            reply_budget, scenario_count=scenario_count, rng_seed=seed)
+            if self.reply_model == "hidden" else
+            FullCardOracleProtagonistAgent(reply_budget, rng_seed=seed))
         actions = world.search_actions(world.controller)
         offers = [oracle._offer(action) for action in actions]
+        public_view = world.protagonist_team_view()
+        if self.reply_model == "hidden":
+            # search_clone retains only recent engine events.  Restore the
+            # real, publicly observable history for card-history sampling.
+            prior = game.protagonist_team_view().get("events", ())
+            recent = public_view.get("events", ())
+            public_view["events"] = [*prior, *recent]
         oracle.choose_game_action(participant="team", game=world,
                                   offers=offers,
-                                  public_view=world.protagonist_team_view())
+                                  public_view=public_view)
         reply = oracle.last_trace.selected_bundle if oracle.last_trace else ()
         for command in reply:
             legal = {_command_key(action): action
@@ -129,10 +188,12 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
         rng = random.Random(f"{self.budget.seed}:{root_hash}:joint")
         seen: set[tuple[str, ...]] = set()
         evaluations: list[tuple[float, tuple[dict[str, Any], ...]]] = []
+        validation_limit = min(4, self.budget.node_limit // 5)
+        candidate_limit = max(1, self.budget.node_limit - validation_limit)
         attempts = 0
         deadline = (None if self.budget.time_limit_ms is None else
                     started + self.budget.time_limit_ms / 1000)
-        while len(evaluations) < self.budget.node_limit and attempts < self.budget.node_limit * 8:
+        while len(evaluations) < candidate_limit and attempts < self.budget.node_limit * 8:
             if deadline is not None and perf_counter() >= deadline and evaluations:
                 break
             bundle = self._candidate(game, attempts, rng)
@@ -145,11 +206,22 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
             evaluations.append((score, bundle))
         if not evaluations:
             return super().search(game)
-        best_score, best = max(evaluations, key=lambda item: item[0])
+        validated = []
+        if deadline is None or perf_counter() < deadline:
+            for index, (_, bundle) in enumerate(
+                    sorted(evaluations, key=lambda item: item[0], reverse=True)
+                    [:validation_limit]):
+                if deadline is not None and perf_counter() >= deadline:
+                    break
+                score = self._evaluate(
+                    game, bundle, self.budget.seed + 1000 + index,
+                    reply_nodes=max(24, self.reply_nodes), scenario_count=3)
+                validated.append((score, bundle))
+        _, best = max(validated or evaluations, key=lambda item: item[0])
         self._plan = list(best[1:])
         selected = offered[_command_key(best[0])]
         first_stats = {}
-        for score, bundle in evaluations:
+        for score, bundle in (*evaluations, *validated):
             key = _command_key(bundle[0])
             values = first_stats.setdefault(key, [])
             values.append(score)
@@ -164,9 +236,11 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
             root_key_hash=root_hash, node_limit=self.budget.node_limit,
             rollout_depth=self.budget.rollout_depth,
             time_limit_ms=self.budget.time_limit_ms,
-            nodes=len(evaluations), iterations=len(evaluations), max_depth=3,
+            nodes=len(evaluations) + len(validated),
+            iterations=len(evaluations) + len(validated), max_depth=3,
             elapsed_ms=(perf_counter() - started) * 1000,
-            stop_reason=("time_limit" if len(evaluations) < self.budget.node_limit
+            stop_reason=("time_limit" if len(evaluations) + len(validated)
+                         < self.budget.node_limit
                          else "node_limit"), selected_action_id=selected.id,
             root_actions=stats, candidate_actions=attempts,
             expanded_actions=len(evaluations))

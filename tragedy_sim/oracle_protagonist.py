@@ -7,7 +7,7 @@ Neither variant predicts cards on future days.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import hashlib
 import json
 import random
@@ -33,6 +33,9 @@ class OracleTrace:
     selected_bundle: tuple[dict[str, Any], ...]
     fallback: str | None = None
 
+    def to_dict(self) -> dict[str, Any]:
+        return json.loads(json.dumps(asdict(self), ensure_ascii=False))
+
 
 class OracleProtagonistAgent:
     """Team planner.  ``reveal_cards`` is the sole information boundary."""
@@ -51,6 +54,8 @@ class OracleProtagonistAgent:
         self.fallback = DefensiveProtagonistAgent(random.Random(rng_seed))
         self._plan: list[dict[str, Any]] = []
         self._position: tuple[int, int] | None = None
+        self._loop_plans: dict[tuple[int, int, tuple[str, ...]],
+                               tuple[str, ...]] = {}
         self.last_trace: OracleTrace | None = None
 
     @property
@@ -120,9 +125,41 @@ class OracleProtagonistAgent:
             move_slot = 1 if fi_slot == 0 else 0
             scripted = {fi_slot: ("fi", plot_board),
                         move_slot: (movement, cultists[0])}
+        elif index >= 10:
+            # Cover individual tactical defenses systematically before
+            # spending the remaining budget on randomized combinations.
+            # This list uses the script and public card targets only; it is
+            # identical for two worlds with different hidden card faces.
+            targets = [item.get("target") for item in view.get("pending", ())
+                       if item.get("actor") == "m"]
+            roles = root.scenario["cast"]
+            key = next((cid for cid, role in roles.items() if role == "key"), None)
+            killer = next((cid for cid, role in roles.items() if role == "killer"), None)
+            defenses = []
+            for target in targets:
+                if target in {key, killer, plot_board}:
+                    defenses.append(("fi", target))
+            if killer:
+                defenses.append(("fi", killer))
+            if key:
+                defenses.extend((card, key) for card in ("fm", "h", "v", "d"))
+            for incident in root.scenario.get("incidents", ()):
+                if incident["day"] >= view["round"]:
+                    defenses.append(("p-1", incident["culprit"]))
+            if plot_board:
+                defenses.append(("fi", plot_board))
+            defenses = list(dict.fromkeys(defenses))
+            if defenses:
+                anchor = defenses[((index - 10) // 2) % len(defenses)]
+                scripted = {(index - 10) % 2: anchor}
         for slot in range(3):
             actions = [action for action in world.search_actions(world.controller)
-                       if action.get("action") == "play"]
+                       if action.get("action") == "play"
+                       and (action.get("target") not in view.get("locations", {})
+                            or action.get("card") == "fi")
+                       and not (action.get("card") == "fi"
+                                and any(previous["card"] == "fi"
+                                        for previous in result))]
             if not actions:
                 break
             ranked = sorted(actions, key=lambda action: (
@@ -134,9 +171,11 @@ class OracleProtagonistAgent:
                                 None)
                 if selected is None:
                     selected = ranked[0]
-            elif scripted:
+            elif scripted and 1 <= index <= 9:
                 selected = next((action for action in ranked
                                  if action["card"] == "g1"), ranked[0])
+            elif scripted:
+                selected = ranked[0]
             elif index == 0:
                 selected = ranked[0]
             else:
@@ -171,11 +210,16 @@ class OracleProtagonistAgent:
         if worlds:
             plot_board = ("school" if game.scenario["main_plot"] == "protect" else
                           "shrine" if game.scenario["main_plot"] == "sealed" else None)
-            if plot_board and any(item.get("actor") == "m"
-                                  and item.get("target") == plot_board
-                                  for item in view.get("pending", ())):
-                for face in ("i2", "i1"):
-                    forced = self._force_dark_card(worlds[0], plot_board, face)
+            dangerous = {plot_board} if plot_board else set()
+            dangerous.update(cid for cid, role in game.scenario["cast"].items()
+                             if role in {"key", "killer"})
+            targeted = [item.get("target") for item in view.get("pending", ())
+                        if item.get("actor") == "m" and item.get("target") in dangerous]
+            for target in dict.fromkeys(targeted):
+                faces = ("i2", "i1", "h", "v", "d") if (
+                    game.scenario["cast"].get(target) == "key") else ("i2", "i1")
+                for face in faces:
+                    forced = self._force_dark_card(worlds[0], target, face)
                     if forced is not None:
                         worlds.append(forced)
         return tuple(worlds)
@@ -252,7 +296,42 @@ class OracleProtagonistAgent:
             "shrine" if plot == "sealed" else None)
         plot_pressure = (world.state.locations[danger_board]
                          if danger_board is not None else 0)
-        return 0.55 + 0.12 * value - 0.16 * plot_pressure, True
+        # A one-day rollout otherwise treats positions with accumulating
+        # irreversible pressure as almost equal.  Penalize progress toward
+        # known future loss routes before spending scarce one-use defenses.
+        killer_pressure = sum(
+            c.intrigue for cid, c in world.state.characters.items()
+            if c.present and c.alive and world.roles.get(cid) == "killer")
+        key_pressure = sum(
+            c.intrigue for cid, c in world.state.characters.items()
+            if c.present and c.alive and world.roles.get(cid) == "key")
+        living = [c for c in world.state.characters.values()
+                  if c.present and c.alive]
+        key_exposure = 0.0
+        for cid, role in world.roles.items():
+            if role != "key":
+                continue
+            key = world.state.characters.get(cid)
+            if key is None or not key.alive or not key.present:
+                continue
+            company = [c for c in living if c.location == key.location]
+            # A lone key can be paired with a serial killer by a single
+            # movement next day.  This was the missed FS01 continuation.
+            key_exposure += 0.10 if len(company) == 1 else (
+                0.04 if len(company) == 2 else 0.0)
+            if any(world.roles.get(c.id) == "killer" for c in company):
+                key_exposure += 0.04 + 0.035 * key.intrigue
+        incident_pressure = 0.0
+        for incident in world.scenario.get("incidents", ()):
+            if incident["day"] <= start_day:
+                continue
+            culprit = world.state.characters.get(incident["culprit"])
+            if culprit is not None and culprit.alive:
+                incident_pressure += 0.035 * culprit.paranoia / (
+                    1 + incident["day"] - start_day)
+        return (0.55 + 0.22 * value - 0.15 * plot_pressure
+                - 0.06 * killer_pressure - 0.035 * key_pressure
+                - key_exposure - incident_pressure), True
 
     def choose_game_action(self, *, participant: str, game: Game,
                            offers: Sequence[dict[str, Any]],
@@ -304,6 +383,9 @@ class OracleProtagonistAgent:
             return self.fallback.choose_action(
                 participant="team", view=view, offers=offers)
         evaluations = []
+        public_targets = tuple(sorted(str(item.get("target"))
+                                      for item in view.get("pending", ())
+                                      if item.get("actor") == "m"))
         for bundle in candidates:
             scores = []
             for root_world in worlds:
@@ -326,12 +408,27 @@ class OracleProtagonistAgent:
                 scarce = sum(command["card"] in {"fm", "g2", "p-1"}
                              for command in bundle)
                 mean_score -= 0.025 * scarce
-                evaluations.append((survival_rate, mean_score, bundle))
+                signature = tuple(_key(command) for command in bundle)
+                repetitions = sum(
+                    previous == signature
+                    for (loop, day, targets), previous in self._loop_plans.items()
+                    if loop < position[0] and day == position[1]
+                    and targets == public_targets)
+                # A failed loop with the same public targets is evidence that
+                # repeating an identical entire plan is inadequate.  Keep
+                # immediate safety primary: this is smaller than one failed
+                # world in the usual sampled set.
+                evaluations.append((survival_rate - 0.06 * repetitions,
+                                    mean_score - 0.12 * repetitions,
+                                    bundle, survival_rate))
         if not evaluations:
             return self.fallback.choose_action(
                 participant="team", view=view, offers=offers)
-        survival, _, best = max(evaluations, key=lambda item: (item[0], item[1]))
+        _, _, best, survival = max(evaluations,
+                                   key=lambda item: (item[0], item[1]))
         self._plan = [dict(command) for command in best[1:]]
+        self._loop_plans[(position[0], position[1], public_targets)] = tuple(
+            _key(command) for command in best)
         self.last_trace = OracleTrace(self.plan_name, len(worlds), len(candidates),
                                       round(survival * len(worlds)),
                                       (perf_counter() - started) * 1000,

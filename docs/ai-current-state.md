@@ -18,6 +18,7 @@
 | 朴素 MCTS | 完整合法行动空间、UCT 树、随机 rollout、通用剧作家估值；主人公树节点取反向价值。 | 保留未剪枝的搜索对照，能检查优化是否只是“少看了牌”。 | 类型化行动和完整复制成本高；宽根节点下预算被摊薄；浅 rollout 与通用估值可能错判剧本目标。 |
 | 优化 MCTS | 轻量搜索转移、强制行动快进、行动先验排序、渐进拓宽、匹配时复用已选子树；FS/BTX 使用剧本条件化估值。 | 同预算下明显更快，先探索看起来相关的行动；合法行动没有被永久删除。 | 小预算会高度依赖先验；截断估值未充分校准；其它规则集仍可能走通用估值。 |
 | 策略 MCTS | 在优化版上加入剧本路线先验，并让剧作家 rollout 大多沿规则目标、关键位置、事件阈值推进，保留少量随机性；主人公 rollout 仍随机。 | 当前低预算对抗中的最强剧作家基线，能连续执行一条胜利路线。 | 对启发式和弱对手模型敏感；面对会协同防守的真人或强 AI 的表现尚未得到充分验证。 |
+| 三牌联合搜索（FS） | 联合生成当天三张剧作家牌，模拟已知剧本但看不见暗牌的主人公三牌回应；前列计划用更高回应预算复核，后两张提交前重验合法。 | 消除逐张搜索的日内行动割裂；能利用暗牌猜测风险。 | 非穷举、非跨日 MCTS；主人公回应仍是有限候选模型，对手模型偏差和长局耗时明显。 |
 
 剧作家的优化/策略搜索在树中使用完整状态，主人公节点也依据完整模拟状态选择反制。这是方便计算的**完全信息近似**，不是对主人公实际知识和行为的忠实模型；浅层 rollout 中又主要使用随机主人公行动。因此现有对弈胜率不能直接解释为对熟练真人的胜率。
 
@@ -54,7 +55,7 @@
 
 2026-09-20 暂停继续调 ISMCTS 信念，先以两个“作弊”基线排查行动规划。在 FS 三个剧本、定式剧作家、seed 0–19 下，明牌版 **60/60**、暗牌版 **57/60**；FS02 特别需要联动“移开邪教徒＋禁止学校密谋”。这支持当前诊断方向，但不是可防御局面零漏解的证明；候选穷举、跨日搜索和混合策略剧作家仍待做。
 
-同日追加的 FS MCTS 对抗（各剧本 seed 0–4、剧作家每决策 24 节点×12 深度、主人公 24 个三牌候选）：优化 MCTS 对明牌／暗牌的黑方胜局为 **0/15／2/15**，策略 MCTS 为 **1/15／2/15**。黑方下一优先级改为**三张剧作家牌联合成一个日内搜索行动**，并让 rollout 面对能联合防守的主人公；具体成本、局例及 96 节点附加试验见 [基准记录](ai-benchmark-results.md)。
+同日追加的 FS MCTS 对抗（各剧本 seed 0–4、剧作家每决策 24 节点×12 深度、主人公 24 个三牌候选）：优化 MCTS 对明牌／暗牌的黑方胜局为 **0/15／2/15**，策略 MCTS 为 **1/15／2/15**。随后实现 FS 三牌联合版，并修正主人公同日重复“禁止密谋”及无效地点牌候选。在两份官方 FS 剧本各 seed 0–7 的完整重赛中，明牌红方 **16/16**、暗牌红方 **13/16**，黑方对暗牌赢 **3/16**。这是低样本工程基线，不是保证胜率；具体成本与轨迹见 [基准记录](ai-benchmark-results.md)。
 
 ## 当前主要问题与改进顺序
 
@@ -69,6 +70,6 @@
 
 ## 代码入口
 
-- 策略入口：[公开信息策略](../tragedy_sim/ai.py)、[朴素 MCTS](../tragedy_sim/mcts.py)、[优化 MCTS](../tragedy_sim/optimized_mcts.py)、[策略 MCTS](../tragedy_sim/strategic_mcts.py)、[主人公 ISMCTS](../tragedy_sim/ismcts.py)、[已知剧本诊断基线](../tragedy_sim/oracle_protagonist.py)。
+- 策略入口：[公开信息策略](../tragedy_sim/ai.py)、[朴素 MCTS](../tragedy_sim/mcts.py)、[优化 MCTS](../tragedy_sim/optimized_mcts.py)、[策略 MCTS](../tragedy_sim/strategic_mcts.py)、[FS 三牌联合搜索](../tragedy_sim/joint_mastermind.py)、[主人公 ISMCTS](../tragedy_sim/ismcts.py)、[已知剧本诊断基线](../tragedy_sim/oracle_protagonist.py)。
 - 信念与估值：[隐藏世界采样](../tragedy_sim/belief.py)、[公开 witness](../tragedy_sim/witness.py)、[剧本条件化估值](../tragedy_sim/evaluation.py)。
 - 复现入口：[自对弈脚本](../benchmarks/ai_self_play.py)。例：`python -m benchmarks.ai_self_play --scenario official-fs-01-first-script --games 5 --seed 0 --nodes 24 --depth 12 --protagonist-nodes 96 --protagonist-depth 16 --strategy strategic --protagonists ismcts_survival --progress`。

@@ -37,6 +37,11 @@ class OracleProtagonistTests(unittest.TestCase):
         self.assertTrue(any(
             action["card"] == "fi" and action["target"] == killer
             for bundle in candidates for action in bundle))
+        self.assertTrue(all(sum(action["card"] == "fi" for action in bundle) <= 1
+                            for bundle in candidates))
+        self.assertTrue(all(action["card"] == "fi"
+                            for bundle in candidates for action in bundle
+                            if action["target"] in game.state.locations))
 
     def test_full_card_oracle_recovers_previously_lost_tutorial_seed(self):
         from benchmarks.ai_self_play import play
@@ -44,6 +49,18 @@ class OracleProtagonistTests(unittest.TestCase):
         result = play("silent-town-fs", 4, 24, 12, "strategic",
                       "oracle_cards", protagonist_nodes=24)
         self.assertEqual(result.winner, "protagonists")
+
+    def test_day_value_penalizes_isolated_known_key(self):
+        game = Game(ScenarioLibrary().get("official-fs-01-first-script"))
+        game.state.round = 2
+        isolated = deepcopy(game)
+        isolated.state.characters["girl"].location = "shrine"
+        grouped = deepcopy(game)
+        grouped.state.characters["girl"].location = "school"
+        oracle = FullCardOracleProtagonistAgent(SearchBudget(node_limit=4))
+        alone_score, _ = oracle._day_score(isolated, 1, 1)
+        grouped_score, _ = oracle._day_score(grouped, 1, 1)
+        self.assertGreater(grouped_score, alone_score)
 
     def test_both_modes_choose_legal_full_team_plan(self):
         game = protagonist_position()
@@ -60,6 +77,8 @@ class OracleProtagonistTests(unittest.TestCase):
                 self.assertIn(chosen, offers)
                 self.assertEqual(len(agent.last_trace.selected_bundle), 3)
                 self.assertGreater(agent.last_trace.candidates, 0)
+                self.assertEqual(agent.last_trace.to_dict()["strategy"],
+                                 agent.plan_name)
 
     def test_hidden_card_mode_is_invariant_to_actual_pending_faces(self):
         game = protagonist_position()
@@ -93,6 +112,22 @@ class OracleProtagonistTests(unittest.TestCase):
         self.assertEqual(
             [[item.card for item in world.state.pending] for world in worlds_a],
             [[item.card for item in world.state.pending] for world in worlds_b])
+
+    def test_hidden_mode_forces_intrigue_faces_on_publicly_targeted_key(self):
+        game = Game(ScenarioLibrary().get("official-fs-01-first-script"))
+        game = game.search_transition(game.search_actions("m")[0])
+        for card, target in (("v", "girl"), ("p1a", "worker"),
+                             ("fp", "doctor")):
+            command = next(action for action in game.search_actions("m")
+                           if action.get("card") == card and action.get("target") == target)
+            game = game.search_transition(command)
+        oracle = HiddenCardOracleProtagonistAgent(
+            SearchBudget(node_limit=12), scenario_count=1)
+        worlds = oracle._worlds(game, game.protagonist_team_view(), random.Random(2))
+        faces = {item.card for world in worlds for item in world.state.pending
+                 if item.actor == "m" and item.target == "girl"}
+        self.assertIn("i2", faces)
+        self.assertIn("i1", faces)
 
     def test_known_fs_school_intrigue_can_be_blocked(self):
         game = Game(ScenarioLibrary().get("official-fs-02-prevailing-secrecy"))

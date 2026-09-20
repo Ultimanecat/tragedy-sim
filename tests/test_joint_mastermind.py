@@ -9,6 +9,13 @@ from tragedy_sim.search import SearchBudget
 
 
 class JointMastermindTests(unittest.TestCase):
+    def test_fs02_routes_cover_plot_and_future_hospital_pressure(self):
+        game = Game(ScenarioLibrary().get("official-fs-02-prevailing-secrecy"))
+        game = game.search_transition(game.search_actions("m")[0])
+        agent = JointPlanMastermindAgent(SearchBudget(node_limit=8))
+        route = agent._routes(game)[0]
+        self.assertEqual(route[:2], (("i2", "school"), ("i1", "hospital")))
+
     def test_three_card_plan_is_legal_reproducible_and_nonmutating(self):
         game = Game(ScenarioLibrary().get("silent-town-fs"))
         game = game.search_transition(game.search_actions("m")[0])
