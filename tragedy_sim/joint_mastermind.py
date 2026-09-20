@@ -1,0 +1,173 @@
+"""Three-placement mastermind search against a coordinated protagonist reply.
+
+The engine still accepts one placement at a time.  This planner searches a
+complete legal day plan and caches its remaining two placements; no hero
+decision occurs between those three placements.
+"""
+
+from __future__ import annotations
+
+import random
+from time import perf_counter
+from typing import Any
+
+from .optimized_mcts import _command_key
+from .oracle_protagonist import FullCardOracleProtagonistAgent
+from .search import RootActionStats, SearchBudget, SearchGame, SearchTrace
+from .strategic_mcts import StrategicMctsMastermindAgent
+
+
+class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
+    """Budgeted joint-day candidates, each tested against a three-card reply.
+
+    The reply oracle deliberately gets to see the cards.  This is a robust
+    opponent model, not an estimate of a real protagonist's information.
+    Non-placement mastermind decisions retain the strategic MCTS baseline.
+    """
+
+    def __init__(self, budget: SearchBudget | None = None, *,
+                 reply_nodes: int = 12):
+        super().__init__(budget)
+        if reply_nodes < 1:
+            raise ValueError("reply_nodes must be positive")
+        self.reply_nodes = reply_nodes
+        self._plan: list[dict[str, Any]] = []
+        self._plan_day: tuple[int, int] | None = None
+
+    @property
+    def plan_name(self) -> str:
+        return "joint_day_mastermind"
+
+    @staticmethod
+    def _placement_phase(game: SearchGame) -> bool:
+        return (game.scenario.get("module") == "FS"
+                and game.state.phase == "mastermind"
+                and any(action.get("action") == "play"
+                        for action in game.search_actions("m")))
+
+    def _candidate(self, game: SearchGame, index: int,
+                   rng: random.Random) -> tuple[dict[str, Any], ...]:
+        world = game
+        bundle: list[dict[str, Any]] = []
+        for slot in range(3 - sum(item.actor == "m" for item in game.state.pending)):
+            actions = [action for action in world.search_actions("m")
+                       if action.get("action") == "play"]
+            if not actions:
+                break
+            rng.shuffle(actions)
+            actions.sort(key=lambda item: self._priority(world, item), reverse=True)
+            if index == 0:
+                selected = actions[0]
+            else:
+                # Both the top route and less obvious counterplay must enter
+                # the candidate set; a pure priority beam repeats one combo.
+                width = min(len(actions), 5 + 3 * (index % 5))
+                selected = actions[rng.randrange(width)]
+            bundle.append(selected)
+            world = world.search_transition(selected)
+        return tuple(bundle)
+
+    def _evaluate(self, game: SearchGame,
+                  bundle: tuple[dict[str, Any], ...], seed: int) -> float:
+        world = game.search_clone()
+        for command in bundle:
+            world = world.search_transition(command)
+        if world.winner is not None:
+            return self.evaluator(world)
+        if world.state.phase != "protagonists":
+            return self.evaluator(world)
+        oracle = FullCardOracleProtagonistAgent(
+            SearchBudget(node_limit=self.reply_nodes, rollout_depth=12,
+                         seed=seed), rng_seed=seed)
+        actions = world.search_actions(world.controller)
+        offers = [oracle._offer(action) for action in actions]
+        oracle.choose_game_action(participant="team", game=world,
+                                  offers=offers,
+                                  public_view=world.protagonist_team_view())
+        reply = oracle.last_trace.selected_bundle if oracle.last_trace else ()
+        for command in reply:
+            legal = {_command_key(action): action
+                     for action in world.search_actions(world.controller)}
+            selected = legal.get(_command_key(command))
+            if selected is None:
+                break
+            world = world.search_transition(selected)
+        hero_score, _ = oracle._day_score(
+            world, game.state.loop, game.state.round)
+        return -hero_score
+
+    def search(self, game: SearchGame) -> Any:
+        if game.controller != "m":
+            raise ValueError("joint mastermind requires a mastermind decision")
+        if not self._placement_phase(game):
+            self._plan.clear()
+            self._plan_day = None
+            return super().search(game)
+        started = perf_counter()
+        root_hash = SearchTrace.hash_state_key(game.state_key("m"))
+        typed = list(game.action_offers("m"))
+        raw = list(game.search_actions("m"))
+        offered = {_command_key(action): offer for action, offer in zip(raw, typed)}
+        position = (game.state.loop, game.state.round)
+        if self._plan_day == position and self._plan:
+            selected = offered.get(_command_key(self._plan[0]))
+            if selected is not None:
+                self._plan.pop(0)
+                self.last_trace = SearchTrace(
+                    strategy=self.plan_name, seed=self.budget.seed,
+                    root_key_hash=root_hash, node_limit=self.budget.node_limit,
+                    rollout_depth=self.budget.rollout_depth,
+                    time_limit_ms=self.budget.time_limit_ms, nodes=0,
+                    iterations=0, max_depth=0,
+                    elapsed_ms=(perf_counter() - started) * 1000,
+                    stop_reason="joint_plan_followup",
+                    selected_action_id=selected.id)
+                return selected
+        self._plan.clear()
+        self._plan_day = position
+        self._retained_root = None
+        rng = random.Random(f"{self.budget.seed}:{root_hash}:joint")
+        seen: set[tuple[str, ...]] = set()
+        evaluations: list[tuple[float, tuple[dict[str, Any], ...]]] = []
+        attempts = 0
+        deadline = (None if self.budget.time_limit_ms is None else
+                    started + self.budget.time_limit_ms / 1000)
+        while len(evaluations) < self.budget.node_limit and attempts < self.budget.node_limit * 8:
+            if deadline is not None and perf_counter() >= deadline and evaluations:
+                break
+            bundle = self._candidate(game, attempts, rng)
+            attempts += 1
+            signature = tuple(sorted(_command_key(item) for item in bundle))
+            if not bundle or signature in seen:
+                continue
+            seen.add(signature)
+            score = self._evaluate(game, bundle, self.budget.seed + attempts)
+            evaluations.append((score, bundle))
+        if not evaluations:
+            return super().search(game)
+        best_score, best = max(evaluations, key=lambda item: item[0])
+        self._plan = list(best[1:])
+        selected = offered[_command_key(best[0])]
+        first_stats = {}
+        for score, bundle in evaluations:
+            key = _command_key(bundle[0])
+            values = first_stats.setdefault(key, [])
+            values.append(score)
+        stats = tuple(RootActionStats(
+            action_id=offer.id, actor=offer.actor, kind=offer.kind,
+            parameters=dict(offer.parameters), visits=len(first_stats.get(key, ())),
+            mean_value=(sum(first_stats[key]) / len(first_stats[key])
+                        if key in first_stats else 0.0))
+            for key, offer in offered.items())
+        self.last_trace = SearchTrace(
+            strategy=self.plan_name, seed=self.budget.seed,
+            root_key_hash=root_hash, node_limit=self.budget.node_limit,
+            rollout_depth=self.budget.rollout_depth,
+            time_limit_ms=self.budget.time_limit_ms,
+            nodes=len(evaluations), iterations=len(evaluations), max_depth=3,
+            elapsed_ms=(perf_counter() - started) * 1000,
+            stop_reason=("time_limit" if len(evaluations) < self.budget.node_limit
+                         else "node_limit"), selected_action_id=selected.id,
+            root_actions=stats, candidate_actions=attempts,
+            expanded_actions=len(evaluations))
+        return selected

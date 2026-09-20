@@ -22,6 +22,29 @@ def protagonist_position():
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_visible_pressure_on_known_killer_enters_defense_candidates(self):
+        game = Game(ScenarioLibrary().get("silent-town-fs"))
+        game = game.search_transition(game.search_actions("m")[0])
+        killer = next(cid for cid, role in game.roles.items() if role == "killer")
+        for card, target in (("i1", killer), ("p1a", "doctor"),
+                             ("v", "girl")):
+            action = next(action for action in game.search_actions("m")
+                          if action.get("card") == card and action.get("target") == target)
+            game = game.search_transition(action)
+        oracle = FullCardOracleProtagonistAgent(SearchBudget(node_limit=24))
+        candidates = [oracle._bundle(game, game.protagonist_team_view(), index)
+                      for index in range(24)]
+        self.assertTrue(any(
+            action["card"] == "fi" and action["target"] == killer
+            for bundle in candidates for action in bundle))
+
+    def test_full_card_oracle_recovers_previously_lost_tutorial_seed(self):
+        from benchmarks.ai_self_play import play
+
+        result = play("silent-town-fs", 4, 24, 12, "strategic",
+                      "oracle_cards", protagonist_nodes=24)
+        self.assertEqual(result.winner, "protagonists")
+
     def test_both_modes_choose_legal_full_team_plan(self):
         game = protagonist_position()
         offers = [{**item.to_dict(), "type": item.kind.removeprefix("core.")}

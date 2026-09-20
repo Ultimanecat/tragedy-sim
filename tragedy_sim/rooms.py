@@ -15,6 +15,7 @@ from .ai import (AgentPolicy, BaselineProtagonistAgent, DefensiveProtagonistAgen
 from .mcts import FullInformationMctsMastermindAgent
 from .optimized_mcts import OptimizedMctsMastermindAgent
 from .strategic_mcts import StrategicMctsMastermindAgent
+from .joint_mastermind import JointPlanMastermindAgent
 from .ismcts import (IsmctsProtagonistAgent, LegacyIsmctsProtagonistAgent,
                      SurvivalIsmctsProtagonistAgent)
 from .oracle_protagonist import (FullCardOracleProtagonistAgent,
@@ -313,7 +314,7 @@ class RoomService:
         strategy = request.get("strategy", "random")
         mastermind_strategies = {
             "fixed_mastermind", "mcts_mastermind", "optimized_mcts_mastermind",
-            "strategic_mcts_mastermind"}
+            "strategic_mcts_mastermind", "joint_mastermind"}
         protagonist_strategies = {
             "baseline_protagonist", "defensive_protagonist", "risk_aware_protagonist",
             "ismcts_protagonist", "ismcts_legacy_protagonist",
@@ -336,6 +337,8 @@ class RoomService:
                                                      "oracle_script_protagonist"}
                     and room.module != "FS"):
                 raise ServiceError("INVALID_AI_STRATEGY", "已知剧本主人公 AI 目前只支持 FS", status=409)
+            if request["enabled"] and strategy == "joint_mastermind" and room.module != "FS":
+                raise ServiceError("INVALID_AI_STRATEGY", "三牌联合剧作家 AI 目前只支持 FS", status=409)
             required = ("m", *SEATS[1:1 + room.protagonist_count])
             if seat not in required:
                 raise ServiceError("SEAT_UNAVAILABLE", "该人数模式没有这个参与者席位", status=409)
@@ -366,6 +369,7 @@ class RoomService:
                               "定式剧作家 AI" if strategy == "fixed_mastermind" else
                               "朴素 MCTS 剧作家 AI" if strategy == "mcts_mastermind"
                               else "优化 MCTS 剧作家 AI" if strategy == "optimized_mcts_mastermind"
+                              else "三牌联合剧作家 AI" if strategy == "joint_mastermind"
                               else "策略 MCTS 剧作家 AI"),
                     token=secrets.token_urlsafe(24), ready=True,
                     last_seen=self._clock(), ai=True, ai_type=strategy,
@@ -402,6 +406,9 @@ class RoomService:
                                OptimizedMctsMastermindAgent(
                                    SearchBudget(node_limit=24, rollout_depth=12))
                                if strategy == "optimized_mcts_mastermind" else
+                               JointPlanMastermindAgent(
+                                   SearchBudget(node_limit=24, rollout_depth=12))
+                               if strategy == "joint_mastermind" else
                                StrategicMctsMastermindAgent(
                                    SearchBudget(node_limit=24, rollout_depth=12))),
                 )

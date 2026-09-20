@@ -434,6 +434,17 @@ class RoomServiceTests(unittest.TestCase):
         trace = rooms._rooms[code].ai_debug_traces[0]["trace"]
         self.assertEqual(trace["strategy"], "strategic_full_information_mcts")
 
+    def test_joint_mastermind_is_selectable_for_fs(self):
+        rooms = RoomService()
+        created = rooms.create({"module": "FS", "nickname": "Hero", "seat": "a",
+                                "protagonist_count": 1})
+        code = created["room"]["code"]
+        admin = created["credential"]["admin_token"]
+        updated = rooms.set_ai(code, {"seat": "m", "enabled": True,
+                                     "strategy": "joint_mastermind"}, token=admin)
+        self.assertEqual(updated["room"]["seats"]["m"]["nickname"],
+                         "三牌联合剧作家 AI")
+
     def test_four_room_tokens_can_complete_a_match_and_export_replay(self):
         self.join_all()
         for seat in "mabc":

@@ -17,6 +17,7 @@ from tragedy_sim.ai import (BaselineProtagonistAgent, DefensiveProtagonistAgent,
 from tragedy_sim.mcts import FullInformationMctsMastermindAgent
 from tragedy_sim.optimized_mcts import OptimizedMctsMastermindAgent
 from tragedy_sim.strategic_mcts import StrategicMctsMastermindAgent
+from tragedy_sim.joint_mastermind import JointPlanMastermindAgent
 from tragedy_sim.witness import FsbtxWitnessCompiler, WitnessStrength
 from tragedy_sim.ismcts import (IsmctsProtagonistAgent,
                                 LegacyIsmctsProtagonistAgent,
@@ -27,7 +28,7 @@ from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
 
 
-MASTERMIND_STRATEGIES = ("random", "fixed", "naive", "optimized", "strategic")
+MASTERMIND_STRATEGIES = ("random", "fixed", "naive", "optimized", "strategic", "joint")
 PROTAGONIST_STRATEGIES = ("random", "baseline", "defensive", "risk_aware",
                          "ismcts", "ismcts_legacy", "ismcts_survival",
                          "oracle_cards", "oracle_script")
@@ -162,6 +163,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         FullInformationMctsMastermindAgent(budget) if strategy == "naive" else
         OptimizedMctsMastermindAgent(budget) if strategy == "optimized" else
         StrategicMctsMastermindAgent(budget) if strategy == "strategic" else
+        JointPlanMastermindAgent(budget) if strategy == "joint" else
         FixedStrategyMastermindAgent(random.Random(f"mastermind:{seed}"))
         if strategy == "fixed" else random.Random(f"mastermind:{seed}"))
     protagonist_budget = SearchBudget(
@@ -214,7 +216,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         arguments = None
         if game.controller == "m":
             mastermind_decisions += 1
-            if strategy in {"naive", "optimized", "strategic"}:
+            if strategy in {"naive", "optimized", "strategic", "joint"}:
                 action = mastermind.search(game)
                 search_nodes += mastermind.last_trace.nodes
             elif strategy == "fixed":

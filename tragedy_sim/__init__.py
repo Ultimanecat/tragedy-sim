@@ -14,6 +14,7 @@ from .service import GameService, LocalGameClient, PROTOCOL_VERSION, ServiceErro
 from .mcts import FullInformationMctsMastermindAgent
 from .optimized_mcts import OptimizedMctsMastermindAgent
 from .strategic_mcts import StrategicMctsMastermindAgent
+from .joint_mastermind import JointPlanMastermindAgent
 from .ismcts import (IsmctsProtagonistAgent, LegacyIsmctsProtagonistAgent,
                      IsmctsTrace, PublicStateDeterminizer)
 from .belief import (CatalogBeliefSampler, ConstraintBeliefSampler,

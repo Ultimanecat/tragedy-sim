@@ -78,6 +78,15 @@ class OracleProtagonistAgent:
         if card == "fi":
             plot_board = ("school" if scenario["main_plot"] == "protect" else
                           "shrine" if scenario["main_plot"] == "sealed" else None)
+            if roles.get(target) == "killer":
+                # FS killers can end the loop at four intrigue.  Today's
+                # public target is enough to prioritize a block even when
+                # the mastermind card face remains hidden.
+                targeted = any(item.get("actor") == "m"
+                               and item.get("target") == target
+                               for item in view.get("pending", ()))
+                pressure = int(character.get("intrigue", 0))
+                return 108 + 12 * pressure if targeted else 48 + 18 * pressure
             return (90 if target == plot_board else 76 if critical else
                     45 if target in view.get("locations", {}) else 12)
         if card == "fm":
