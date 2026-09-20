@@ -17,6 +17,8 @@ from .optimized_mcts import OptimizedMctsMastermindAgent
 from .strategic_mcts import StrategicMctsMastermindAgent
 from .ismcts import (IsmctsProtagonistAgent, LegacyIsmctsProtagonistAgent,
                      SurvivalIsmctsProtagonistAgent)
+from .oracle_protagonist import (FullCardOracleProtagonistAgent,
+                                 HiddenCardOracleProtagonistAgent)
 from .search import SearchBudget
 from .catalog import MODULES
 from .service import GameService, PROTOCOL_VERSION, SEATS, ServiceError
@@ -315,7 +317,8 @@ class RoomService:
         protagonist_strategies = {
             "baseline_protagonist", "defensive_protagonist", "risk_aware_protagonist",
             "ismcts_protagonist", "ismcts_legacy_protagonist",
-            "survival_ismcts_protagonist"}
+            "survival_ismcts_protagonist", "oracle_cards_protagonist",
+            "oracle_script_protagonist"}
         if strategy not in ("random", *mastermind_strategies, *protagonist_strategies):
             raise ServiceError(
                 "INVALID_AI_STRATEGY",
@@ -329,12 +332,18 @@ class RoomService:
             self._require_admin(room, token)
             if room.status != "waiting":
                 raise ServiceError("ROOM_ALREADY_STARTED", "对局开始后不能更改 AI 座位", status=409)
+            if (request["enabled"] and strategy in {"oracle_cards_protagonist",
+                                                     "oracle_script_protagonist"}
+                    and room.module != "FS"):
+                raise ServiceError("INVALID_AI_STRATEGY", "已知剧本主人公 AI 目前只支持 FS", status=409)
             required = ("m", *SEATS[1:1 + room.protagonist_count])
             if seat not in required:
                 raise ServiceError("SEAT_UNAVAILABLE", "该人数模式没有这个参与者席位", status=409)
             if (request["enabled"] and strategy in {"ismcts_protagonist",
                                                    "survival_ismcts_protagonist",
-                                                   "ismcts_legacy_protagonist"}
+                                                   "ismcts_legacy_protagonist",
+                                                   "oracle_cards_protagonist",
+                                                   "oracle_script_protagonist"}
                     and room.protagonist_count != 1):
                 raise ServiceError(
                     "TEAM_AI_REQUIRES_TWO_PLAYER_MODE",
@@ -352,6 +361,8 @@ class RoomService:
                               "团队 ISMCTS 主人公 AI" if strategy == "ismcts_protagonist" else
                               "当日生存优先 ISMCTS 主人公 AI" if strategy == "survival_ismcts_protagonist" else
                               "旧版团队 ISMCTS 主人公 AI" if strategy == "ismcts_legacy_protagonist" else
+                              "明牌剧本主人公 AI" if strategy == "oracle_cards_protagonist" else
+                              "暗牌剧本主人公 AI" if strategy == "oracle_script_protagonist" else
                               "定式剧作家 AI" if strategy == "fixed_mastermind" else
                               "朴素 MCTS 剧作家 AI" if strategy == "mcts_mastermind"
                               else "优化 MCTS 剧作家 AI" if strategy == "optimized_mcts_mastermind"
@@ -377,6 +388,12 @@ class RoomService:
                                    SearchBudget(node_limit=96, rollout_depth=16),
                                    particle_count=24)
                                if strategy == "ismcts_legacy_protagonist" else
+                               FullCardOracleProtagonistAgent(
+                                   SearchBudget(node_limit=48, rollout_depth=24))
+                               if strategy == "oracle_cards_protagonist" else
+                               HiddenCardOracleProtagonistAgent(
+                                   SearchBudget(node_limit=48, rollout_depth=24))
+                               if strategy == "oracle_script_protagonist" else
                                FixedStrategyMastermindAgent()
                                if strategy == "fixed_mastermind" else
                                FullInformationMctsMastermindAgent(
@@ -562,8 +579,12 @@ class RoomService:
                     if hasattr(policy, "choose_game_action"):
                         search_game = self.games.mastermind_search_clone(
                             room.session_id, token=room.game_admin)
+                        extra = ({"public_view": observation}
+                                 if getattr(policy, "uses_public_view", False)
+                                 else {})
                         offer = policy.choose_game_action(
-                            participant=seat, game=search_game, offers=offers)
+                            participant=seat, game=search_game, offers=offers,
+                            **extra)
                     else:
                         offer = policy.choose_action(
                             participant="team" if team_policy else seat,

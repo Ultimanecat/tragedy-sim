@@ -21,13 +21,16 @@ from tragedy_sim.witness import FsbtxWitnessCompiler, WitnessStrength
 from tragedy_sim.ismcts import (IsmctsProtagonistAgent,
                                 LegacyIsmctsProtagonistAgent,
                                 SurvivalIsmctsProtagonistAgent)
+from tragedy_sim.oracle_protagonist import (FullCardOracleProtagonistAgent,
+                                           HiddenCardOracleProtagonistAgent)
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
 
 
 MASTERMIND_STRATEGIES = ("random", "fixed", "naive", "optimized", "strategic")
 PROTAGONIST_STRATEGIES = ("random", "baseline", "defensive", "risk_aware",
-                         "ismcts", "ismcts_legacy", "ismcts_survival")
+                         "ismcts", "ismcts_legacy", "ismcts_survival",
+                         "oracle_cards", "oracle_script")
 
 
 @dataclass(frozen=True)
@@ -129,10 +132,18 @@ def _choose_policy_action(policy: Any, participant: str, game: Game,
                           actions: Sequence[Any], *, policy_view=None
                           ) -> tuple[Any, dict[str, Any] | None]:
     offers = [_policy_offer(game, action) for action in actions]
-    chosen = policy.choose_action(
-        participant=participant,
-        view=game.view(participant) if policy_view is None else policy_view,
-        offers=offers)
+    if hasattr(policy, "choose_game_action"):
+        extra = ({"public_view": (game.protagonist_team_view()
+                                 if policy_view is None else policy_view)}
+                 if getattr(policy, "uses_public_view", False) else {})
+        chosen = policy.choose_game_action(
+            participant=participant, game=game.search_clone(), offers=offers,
+            **extra)
+    else:
+        chosen = policy.choose_action(
+            participant=participant,
+            view=game.view(participant) if policy_view is None else policy_view,
+            offers=offers)
     action = actions[next(index for index, offer in enumerate(offers)
                           if offer["id"] == chosen["id"])]
     arguments = chosen.get("arguments")
@@ -166,6 +177,12 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         rng_seed=seed)
         if protagonist_strategy in {"ismcts", "ismcts_legacy", "ismcts_survival"}
         else None)
+    if protagonist_strategy == "oracle_cards":
+        team_ismcts = FullCardOracleProtagonistAgent(protagonist_budget,
+                                                    rng_seed=seed)
+    elif protagonist_strategy == "oracle_script":
+        team_ismcts = HiddenCardOracleProtagonistAgent(protagonist_budget,
+                                                      rng_seed=seed)
     protagonists = {
         seat: (team_ismcts if team_ismcts is not None else
                RiskAwareProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
@@ -209,7 +226,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             policy = protagonists[actor]
             if protagonist_strategy in {"baseline", "defensive", "risk_aware",
                                         "ismcts", "ismcts_legacy",
-                                        "ismcts_survival"}:
+                                        "ismcts_survival", "oracle_cards",
+                                        "oracle_script"}:
                 team_policy = bool(getattr(
                     policy, "controls_protagonist_team", False))
                 if hasattr(policy, "observe"):
@@ -234,7 +252,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                 command["card"], command["target"],
                 getattr(trace, "fallback", None),
                 getattr(trace, "belief_source", None)))
-            if (trace is not None and trace.root_actions
+            if (trace is not None and getattr(trace, "root_actions", ())
                     and trace.fallback != "joint_plan_followup"):
                 protagonist_searches.append(ProtagonistSearchRecord(
                     game.state.loop, game.state.round,
