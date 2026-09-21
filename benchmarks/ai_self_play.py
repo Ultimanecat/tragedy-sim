@@ -23,7 +23,8 @@ from tragedy_sim.ismcts import (IsmctsProtagonistAgent,
                                 LegacyIsmctsProtagonistAgent,
                                 SurvivalIsmctsProtagonistAgent)
 from tragedy_sim.oracle_protagonist import (FullCardOracleProtagonistAgent,
-                                           HiddenCardOracleProtagonistAgent)
+                                             HiddenCardOracleProtagonistAgent)
+from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
 
@@ -31,7 +32,7 @@ from tragedy_sim.search import SearchBudget
 MASTERMIND_STRATEGIES = ("random", "fixed", "naive", "optimized", "strategic", "joint")
 PROTAGONIST_STRATEGIES = ("random", "baseline", "defensive", "risk_aware",
                          "ismcts", "ismcts_legacy", "ismcts_survival",
-                         "oracle_cards", "oracle_script")
+                         "oracle_cards", "oracle_script", "particle_ensemble")
 
 
 @dataclass(frozen=True)
@@ -74,6 +75,9 @@ class ProtagonistSearchRecord:
     belief_roles: tuple[dict[str, Any], ...]
     selected_bundle: tuple[dict[str, Any], ...]
     candidates: tuple[dict[str, Any], ...]
+    evidence_ms: float = 0.0
+    search_ms: float = 0.0
+    evaluated_pairs: int = 0
 
 
 @dataclass(frozen=True)
@@ -154,11 +158,14 @@ def _choose_policy_action(policy: Any, participant: str, game: Game,
 def play(scenario_id: str, seed: int, nodes: int, depth: int,
          strategy: str, protagonist_strategy: str = "baseline", *,
          protagonist_nodes: int | None = None,
-         protagonist_depth: int | None = None) -> MatchResult:
+         protagonist_depth: int | None = None,
+         time_limit_ms: int | None = None,
+         protagonist_time_limit_ms: int | None = None) -> MatchResult:
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
-    budget = SearchBudget(node_limit=nodes, rollout_depth=depth, seed=seed)
+    budget = SearchBudget(node_limit=nodes, rollout_depth=depth,
+                          time_limit_ms=time_limit_ms, seed=seed)
     mastermind: Any = (
         FullInformationMctsMastermindAgent(budget) if strategy == "naive" else
         OptimizedMctsMastermindAgent(budget) if strategy == "optimized" else
@@ -168,7 +175,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         if strategy == "fixed" else random.Random(f"mastermind:{seed}"))
     protagonist_budget = SearchBudget(
         node_limit=protagonist_nodes or nodes,
-        rollout_depth=protagonist_depth or depth, seed=seed)
+        rollout_depth=protagonist_depth or depth,
+        time_limit_ms=protagonist_time_limit_ms, seed=seed)
     team_ismcts = ((LegacyIsmctsProtagonistAgent
                     if protagonist_strategy == "ismcts_legacy" else
                     SurvivalIsmctsProtagonistAgent
@@ -185,6 +193,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     elif protagonist_strategy == "oracle_script":
         team_ismcts = HiddenCardOracleProtagonistAgent(protagonist_budget,
                                                       rng_seed=seed)
+    elif protagonist_strategy == "particle_ensemble":
+        team_ismcts = ParticleEnsembleProtagonistAgent(
+            protagonist_budget, particle_count=max(4, min(24,
+                                (protagonist_nodes or nodes) // 8)), rng_seed=seed)
     protagonists = {
         seat: (team_ismcts if team_ismcts is not None else
                RiskAwareProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
@@ -229,7 +241,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             if protagonist_strategy in {"baseline", "defensive", "risk_aware",
                                         "ismcts", "ismcts_legacy",
                                         "ismcts_survival", "oracle_cards",
-                                        "oracle_script"}:
+                                        "oracle_script", "particle_ensemble"}:
                 team_policy = bool(getattr(
                     policy, "controls_protagonist_team", False))
                 if hasattr(policy, "observe"):
@@ -263,7 +275,9 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                     trace.belief_source, trace.belief_failure,
                     trace.particles, trace.witnesses, trace.belief_roles,
                     (dict(command), *trace.planned_commands),
-                    trace.root_actions))
+                    trace.root_actions,
+                    trace.evidence_elapsed_ms, trace.search_elapsed_ms,
+                    getattr(trace, "evaluated_pairs", 0)))
         # This is the real match trajectory, not a tree rollout.  Real dispatch
         # preserves the complete public journal and per-seat observation
         # checkpoints used by persistent protagonist beliefs.
@@ -364,6 +378,10 @@ def main() -> None:
     parser.add_argument("--depth", type=int, default=12)
     parser.add_argument("--protagonist-nodes", type=int)
     parser.add_argument("--protagonist-depth", type=int)
+    parser.add_argument("--time-limit-ms", type=int,
+                        help="mastermind wall-clock cap per search decision")
+    parser.add_argument("--protagonist-time-limit-ms", type=int,
+                        help="protagonist wall-clock cap per day search")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--strategy", choices=("all", *MASTERMIND_STRATEGIES),
                         default="all")
@@ -375,7 +393,10 @@ def main() -> None:
     args = parser.parse_args()
     if (args.games < 1 or args.nodes < 1 or args.depth < 1
             or args.protagonist_nodes is not None and args.protagonist_nodes < 1
-            or args.protagonist_depth is not None and args.protagonist_depth < 1):
+            or args.protagonist_depth is not None and args.protagonist_depth < 1
+            or args.time_limit_ms is not None and args.time_limit_ms < 1
+            or args.protagonist_time_limit_ms is not None
+            and args.protagonist_time_limit_ms < 1):
         parser.error("games, nodes and depth must be positive")
     library = ScenarioLibrary()
     scenarios = _scenario_ids(args, library)
@@ -388,7 +409,9 @@ def main() -> None:
                 result = play(scenario, args.seed + game_index, args.nodes, args.depth,
                               strategy, args.protagonists,
                               protagonist_nodes=args.protagonist_nodes,
-                              protagonist_depth=args.protagonist_depth)
+                              protagonist_depth=args.protagonist_depth,
+                              time_limit_ms=args.time_limit_ms,
+                              protagonist_time_limit_ms=args.protagonist_time_limit_ms)
                 results.append(result)
                 if args.progress:
                     print(f"[{len(results)}/{total}] {scenario} {strategy} "

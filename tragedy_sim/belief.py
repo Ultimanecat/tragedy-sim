@@ -570,7 +570,7 @@ class FactorizedBeliefState:
 
         matcher = FsbtxWitnessMatcher()
         role_witnesses = tuple(w for w in witnesses if w.kind in {
-            "role_is", "plot_present", "day_end_death_companion",
+            "role_is", "plot_present", "plot_pressure", "day_end_death_companion",
             "day_end_killer_candidate", "loss_after_death"})
         signature = PersistentBeliefState._static_signature(evidence)
         if signature != self._signature:
@@ -637,18 +637,31 @@ class FactorizedBeliefState:
                                           "no_compatible_factor")
         matcher = FsbtxWitnessMatcher()
         roles = tuple(self._roles.values())
+        role_witnesses = tuple(w for w in witnesses if w.kind in {
+            "role_is", "plot_present", "plot_pressure", "day_end_death_companion",
+            "day_end_killer_candidate", "loss_after_death"})
         weights = [
-            2.0 ** matcher.soft_score(world, witnesses)
+            2.0 ** matcher.soft_score(world, role_witnesses)
             / (self._plot_sizes[(world.main_plot, world.subplots)]
                if self._exact_roles else 1)
             for world in roles]
+        culprit_witnesses = tuple(w for w in witnesses if w.kind in {
+            "culprit_is", "incident_happened", "incident_not_happened"})
+        culprit_weights = {
+            day: [2.0 ** matcher.soft_score(HiddenWorldHypothesis(
+                "belief-culprit", "", (), (),
+                ((day, kind, kind, cid),)), culprit_witnesses)
+                  for cid in culprits[day]]
+            for day, kind in evidence.schedule
+        }
         worlds = []
         attempts = 0
         while len(worlds) < count and attempts < count * 12:
             attempts += 1
             role = rng.choices(roles, weights=weights, k=1)[0]
             incidents = tuple((day, kind, public_kind,
-                               rng.choice(culprits[day]))
+                               rng.choices(culprits[day],
+                                           weights=culprit_weights[day], k=1)[0])
                               for day, kind, public_kind, _ in role.incidents)
             world = replace(role, incidents=incidents)
             try:
@@ -662,6 +675,40 @@ class FactorizedBeliefState:
 
 class DarkCardBelief:
     """Draw only currently hidden card faces, conditional on public hand data."""
+
+    @classmethod
+    def placement_tendencies(cls, events: Sequence[Mapping[str, Any]], *,
+                             day: int, loop: int, days: int,
+                             targets: Sequence[str], cards: Sequence[str]
+                             ) -> tuple[dict[str, Any], ...]:
+        """Smoothed behavioral posterior, diagnostic rather than a hard fact.
+
+        The same recency-weighted evidence drives ``sample``. Target and
+        face probabilities are separate because today's targets are public,
+        while faces remain hidden. Card depletion is handled during sampling.
+        """
+        history = cls.historical_weights(events, day=day, loop=loop, days=days)
+        unique_targets = tuple(dict.fromkeys(targets))
+        available = tuple(dict.fromkeys(cards))
+        if not unique_targets or not available:
+            return ()
+        target_weights = {target: 1.0 + sum(
+            weight for (seen_target, _), weight in history.items()
+            if seen_target == target) for target in unique_targets}
+        total_targets = sum(target_weights.values())
+        result = []
+        for target in unique_targets:
+            face_weights = {card: 1.0 + history.get((target, card), 0.0)
+                            for card in available}
+            total_faces = sum(face_weights.values())
+            result.append({
+                "target": target,
+                "target_probability": target_weights[target] / total_targets,
+                "card_probabilities": {
+                    card: 0.25 / len(available) + 0.75 * weight / total_faces
+                    for card, weight in face_weights.items()},
+            })
+        return tuple(result)
 
     @staticmethod
     def historical_weights(events: Sequence[Mapping[str, Any]], *,

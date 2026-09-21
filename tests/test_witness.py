@@ -9,6 +9,7 @@ from tragedy_sim import Game
 from tragedy_sim.belief import (ConstraintBeliefSampler, HiddenWorldHypothesis,
                                 PublicEvidence)
 from tragedy_sim.scenario import example_scenario
+from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.witness import (FsbtxWitnessCompiler, FsbtxWitnessMatcher,
                                  PublicEvidenceLedger,
                                  WitnessStrength, WitnessVerdict)
@@ -137,9 +138,49 @@ class FsbtxWitnessTests(unittest.TestCase):
                               "happened": False, "effective": False}]
         witness = next(item for item in FsbtxWitnessCompiler().compile(view)
                        if item.kind == "incident_not_happened")
+        self.assertEqual(witness.strength, WitnessStrength.SOFT)
         self.assertEqual(FsbtxWitnessMatcher().verdict(
-            self.hypothesis, witness), WitnessVerdict.UNKNOWN)
+            self.hypothesis, witness), WitnessVerdict.SATISFIED)
         self.assertTrue(FsbtxWitnessMatcher().matches(self.hypothesis, (witness,)))
+        culprit = next(item[3] for item in self.hypothesis.incidents
+                       if item[0] == 2)
+        view["characters"][culprit]["paranoia"] = \
+            view["characters"][culprit]["paranoia_limit"]
+        pressured = next(item for item in FsbtxWitnessCompiler().compile(view)
+                         if item.kind == "incident_not_happened")
+        self.assertEqual(FsbtxWitnessMatcher().verdict(
+            self.hypothesis, pressured), WitnessVerdict.UNKNOWN)
+        self.assertTrue(FsbtxWitnessMatcher().matches(self.hypothesis, (pressured,)))
+        matcher = FsbtxWitnessMatcher()
+        self.assertGreater(matcher.soft_score(self.hypothesis, (witness,)),
+                           matcher.soft_score(self.hypothesis, (pressured,)))
+
+    def test_fs_school_pressure_at_loop_end_is_soft_plot_evidence(self):
+        library = ScenarioLibrary()
+        protect = HiddenWorldHypothesis.from_scenario(
+            library.get("official-fs-02-prevailing-secrecy"))
+        other = HiddenWorldHypothesis.from_scenario(
+            library.get("official-fs-01-first-script"))
+        view = Game(library.get("official-fs-02-prevailing-secrecy"))\
+            .protagonist_team_view()
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 5,
+             "target": "school", "counter": "intrigue", "after": 2},
+            {"kind": "day_ended", "loop": 1, "round": 5},
+            {"kind": "loop_lost", "loop": 1, "round": 5},
+        ]
+        witnesses = [item for item in FsbtxWitnessCompiler().compile(view)
+                     if item.kind == "plot_pressure"]
+        self.assertEqual(len(witnesses), 1)
+        self.assertEqual(witnesses[0].strength, WitnessStrength.SOFT)
+        matcher = FsbtxWitnessMatcher()
+        self.assertTrue(matcher.matches(other, witnesses))
+        self.assertGreater(matcher.soft_score(protect, witnesses),
+                           matcher.soft_score(other, witnesses))
+        view["events"][-2]["kind"] = "character_died"
+        self.assertFalse(any(item.kind == "plot_pressure"
+                             for item in FsbtxWitnessCompiler().compile(view)))
 
     def test_part_timer_replacement_uses_visible_replacement_threshold(self):
         scenario = example_scenario("BTX")

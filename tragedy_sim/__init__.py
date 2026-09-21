@@ -15,6 +15,7 @@ from .mcts import FullInformationMctsMastermindAgent
 from .optimized_mcts import OptimizedMctsMastermindAgent
 from .strategic_mcts import StrategicMctsMastermindAgent
 from .joint_mastermind import JointPlanMastermindAgent
+from .particle_ensemble import ParticleEnsembleProtagonistAgent
 from .ismcts import (IsmctsProtagonistAgent, LegacyIsmctsProtagonistAgent,
                      IsmctsTrace, PublicStateDeterminizer)
 from .belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
@@ -37,6 +38,7 @@ __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "Activat
            "GameService", "LocalGameClient", "PROTOCOL_VERSION", "ServiceError",
            "FullInformationMctsMastermindAgent", "OptimizedMctsMastermindAgent",
            "StrategicMctsMastermindAgent",
+           "ParticleEnsembleProtagonistAgent",
            "IsmctsProtagonistAgent", "LegacyIsmctsProtagonistAgent",
            "IsmctsTrace", "PublicStateDeterminizer",
            "CatalogBeliefSampler", "ConstraintBeliefSampler",

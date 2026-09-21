@@ -61,7 +61,7 @@ python -m tragedy_sim --host-room --port 8765
 终端会同时显示本机地址和检测到的局域网地址，例如 `http://192.168.1.23:8765/`。房主打开页面，
 选择规则集、主人公玩家人数、昵称和座位后创建房间，再分享页面中的邀请链接或六位数字房间码。支持 1 名剧作家加 1–3 名
 主人公玩家；房主可用随机 AI 填充任意空位，主人公席位可选择“基础干扰”“公开信息防守”、实验性的“历史风险”；在只有
-1 名主人公玩家的两人局中还可选择“团队 ISMCTS”“当日生存优先 ISMCTS”及旧版对照（均限 FS/BTX 完整搜索），以及两个只适用于 FS 的实验性“已知剧本”AI（明牌/暗牌）。剧作家席位可选择定式 AI、朴素 MCTS、优化 MCTS、策略 MCTS，或 FS 专用的三牌联合搜索。基础干扰 AI 会在下一天尝试
+1 名主人公玩家的两人局中还可选择“团队 ISMCTS”“当日生存优先 ISMCTS”及旧版对照（均限 FS/BTX 完整搜索），以及只适用于 FS 的“粒子集成”实验 AI 和两个“已知剧本”诊断 AI（明牌/暗牌）。粒子集成版只读取主人公公开视图，把身份、事件当事人和暗牌假设分开采样，联合评估当天三张牌；当前房间配置为秒级预算，尚未证明强于旧版。剧作家席位可选择定式 AI、朴素 MCTS、优化 MCTS、策略 MCTS，或 FS 专用的三牌联合搜索。基础干扰 AI 会在下一天尝试
 逆转剧作家的成功移动，并约定仅逻辑领队使用禁止密谋；防守版还会根据公开事件、身份、计数物和结构化好感能力选择行动；
 历史风险版会按时间衰减统计公开揭牌中的剧作家关注目标。除“已知剧本”两个诊断基线外，主人公 AI 均不读取真实剧本秘密；其中暗牌版虽知道剧本，仍只按主人公公开视图采样当天剧作家暗牌。定式 AI 会从规则失败、
 事件引爆和关键人物暗杀等当前剧本可用路径中选定一条并持续执行。朴素 MCTS 保留为完整行动空间基线；优化 MCTS 使用
@@ -78,7 +78,10 @@ python -m benchmarks.mcts_search --strategy naive --module BTX --nodes 64 --dept
 python -m benchmarks.mcts_search --strategy optimized --module BTX --nodes 64 --depth 24 --seed 0
 python -m benchmarks.mcts_matrix --strategy both --nodes 12 --depth 8 --seed 0
 python -m benchmarks.ai_self_play --strategy all --all-recorded --games 3 --nodes 8 --depth 8 --protagonists baseline --progress
+python -m benchmarks.ai_budget_matrix --budgets small --games 2 --seed 0
 ```
+
+`ai_budget_matrix` 串行、成对比较 FS 的旧生存优先版与粒子集成版；`small` 是每次决策 3 秒，`large` 是 60 秒，`ultra` 是须显式选择的 5 分钟档。建议在机器空闲时运行，不能把不同节点数误当相同墙钟预算。
 
 `mcts_matrix` 会在八个规则集的首个分支局面比较根分支数、延迟和峰值内存。优化 MCTS 还会在实际落子后保留匹配子树，
 后续决策状态吻合时复用访问统计；状态不吻合即安全丢弃。完整 MCTS 决策追踪只保存在房间服务的进程内调试记录，

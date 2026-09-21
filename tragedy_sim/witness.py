@@ -210,6 +210,31 @@ class FsbtxWitnessCompiler:
                         "public_death_before_loop_loss", WitnessStrength.SOFT))
         return result
 
+    @staticmethod
+    def _soft_plot_pressure(view: Mapping[str, Any]) -> list[PublicWitness]:
+        """A loop-end loss with a pressured school supports, but cannot prove, Protect."""
+        if view.get("module") != "FS":
+            return []
+        school = 0
+        events = view.get("events", ())
+        result = []
+        for index, event in enumerate(events):
+            if event.get("kind") == "loop_started":
+                school = 0
+            elif (event.get("kind") == "counter_changed"
+                  and event.get("target") == "school"
+                  and event.get("counter") == "intrigue"
+                  and isinstance(event.get("after"), int)):
+                school = event["after"]
+            elif (event.get("kind") == "loop_lost" and school >= 2
+                  and index > 0 and events[index - 1].get("kind") == "day_ended"
+                  and events[index - 1].get("loop") == event.get("loop")):
+                result.append(PublicWitness(
+                    "plot_pressure", "protect", True,
+                    int(event["loop"]), int(event["round"]), "loop_end",
+                    "public_school_pressure_and_loss", WitnessStrength.SOFT))
+        return result
+
     def compile(self, view: Mapping[str, Any]) -> tuple[PublicWitness, ...]:
         module = str(view.get("module", ""))
         if module not in self.modules:
@@ -258,8 +283,10 @@ class FsbtxWitnessCompiler:
                 str(incident_day), {
                     "kind": str(record["kind"]),
                     "characters": observed_characters,
-                }, loop, incident_day, "incident", "public_incident_status"))
+                }, loop, incident_day, "incident", "public_incident_status",
+                (WitnessStrength.HARD if happened else WitnessStrength.SOFT)))
         result.extend(self._soft_death_witnesses(view))
+        result.extend(self._soft_plot_pressure(view))
         return tuple(result)
 
 
@@ -286,9 +313,27 @@ class FsbtxWitnessMatcher:
             plots = {hypothesis.main_plot, *hypothesis.subplots}
             return (WitnessVerdict.SATISFIED if witness.subject in plots
                     else WitnessVerdict.CONTRADICTED)
+        if witness.kind == "plot_pressure":
+            return (WitnessVerdict.SATISFIED
+                    if hypothesis.main_plot == witness.subject
+                    else WitnessVerdict.UNKNOWN)
         if witness.kind == "incident_not_happened":
             # Absence has several explanations (dead/absent culprit and optional
             # prevention among them), so it is evidence but not a hard exclusion.
+            incident = self._incident(hypothesis, int(witness.subject))
+            characters = witness.value.get("characters")
+            if incident is not None and characters:
+                culprit = incident[3]
+                observed = characters.get(culprit)
+                definition = CHARACTERS.get(culprit)
+                if (observed is not None and definition is not None
+                        and observed.get("alive") and observed.get("present")):
+                    score = observed["paranoia"]
+                    if culprit == "ai":
+                        score += (observed["goodwill"] + observed["intrigue"]
+                                  + observed["guard"])
+                    if score < definition.limit:
+                        return WitnessVerdict.SATISFIED
             return WitnessVerdict.UNKNOWN
         if witness.kind == "incident_happened":
             incident = self._incident(hypothesis, int(witness.subject))
@@ -328,7 +373,9 @@ class FsbtxWitnessMatcher:
 
     def soft_score(self, hypothesis: Any,
                    witnesses: Sequence[PublicWitness]) -> float:
-        weights = {"day_end_death_companion": 4.0,
+        weights = {"incident_not_happened": 0.75,
+                   "plot_pressure": 2.0,
+                   "day_end_death_companion": 4.0,
                    "day_end_killer_candidate": 1.5,
                    "loss_after_death": 2.0}
         by_kind: dict[str, float] = {}

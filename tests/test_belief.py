@@ -63,6 +63,14 @@ class FactorizedBeliefTests(unittest.TestCase):
             {"m": ["v", "i1"]}, rng=random.Random(2),
             historical_weights=weights, force_history=True)
         self.assertEqual(forced[0][1], "v")
+        posterior = DarkCardBelief.placement_tendencies(
+            events, day=1, loop=2, days=4,
+            targets=("girl", "student"), cards=("v", "i1"))
+        self.assertGreater(posterior[0]["card_probabilities"]["v"],
+                           posterior[0]["card_probabilities"]["i1"])
+        self.assertGreater(posterior[0]["target_probability"],
+                           posterior[1]["target_probability"])
+        self.assertAlmostEqual(sum(posterior[0]["card_probabilities"].values()), 1.0)
 
 
 class PublicEvidenceTests(unittest.TestCase):

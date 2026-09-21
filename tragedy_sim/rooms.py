@@ -20,6 +20,7 @@ from .ismcts import (IsmctsProtagonistAgent, LegacyIsmctsProtagonistAgent,
                      SurvivalIsmctsProtagonistAgent)
 from .oracle_protagonist import (FullCardOracleProtagonistAgent,
                                  HiddenCardOracleProtagonistAgent)
+from .particle_ensemble import ParticleEnsembleProtagonistAgent
 from .search import SearchBudget
 from .catalog import MODULES
 from .service import GameService, PROTOCOL_VERSION, SEATS, ServiceError
@@ -319,7 +320,7 @@ class RoomService:
             "baseline_protagonist", "defensive_protagonist", "risk_aware_protagonist",
             "ismcts_protagonist", "ismcts_legacy_protagonist",
             "survival_ismcts_protagonist", "oracle_cards_protagonist",
-            "oracle_script_protagonist"}
+            "oracle_script_protagonist", "particle_ensemble_protagonist"}
         if strategy not in ("random", *mastermind_strategies, *protagonist_strategies):
             raise ServiceError(
                 "INVALID_AI_STRATEGY",
@@ -334,9 +335,10 @@ class RoomService:
             if room.status != "waiting":
                 raise ServiceError("ROOM_ALREADY_STARTED", "对局开始后不能更改 AI 座位", status=409)
             if (request["enabled"] and strategy in {"oracle_cards_protagonist",
-                                                     "oracle_script_protagonist"}
+                                                     "oracle_script_protagonist",
+                                                     "particle_ensemble_protagonist"}
                     and room.module != "FS"):
-                raise ServiceError("INVALID_AI_STRATEGY", "已知剧本主人公 AI 目前只支持 FS", status=409)
+                raise ServiceError("INVALID_AI_STRATEGY", "该主人公 AI 目前只支持 FS", status=409)
             if request["enabled"] and strategy == "joint_mastermind" and room.module != "FS":
                 raise ServiceError("INVALID_AI_STRATEGY", "三牌联合剧作家 AI 目前只支持 FS", status=409)
             required = ("m", *SEATS[1:1 + room.protagonist_count])
@@ -346,7 +348,8 @@ class RoomService:
                                                    "survival_ismcts_protagonist",
                                                    "ismcts_legacy_protagonist",
                                                    "oracle_cards_protagonist",
-                                                   "oracle_script_protagonist"}
+                                                   "oracle_script_protagonist",
+                                                   "particle_ensemble_protagonist"}
                     and room.protagonist_count != 1):
                 raise ServiceError(
                     "TEAM_AI_REQUIRES_TWO_PLAYER_MODE",
@@ -366,6 +369,7 @@ class RoomService:
                               "旧版团队 ISMCTS 主人公 AI" if strategy == "ismcts_legacy_protagonist" else
                               "明牌剧本主人公 AI" if strategy == "oracle_cards_protagonist" else
                               "暗牌剧本主人公 AI" if strategy == "oracle_script_protagonist" else
+                              "粒子集成主人公 AI" if strategy == "particle_ensemble_protagonist" else
                               "定式剧作家 AI" if strategy == "fixed_mastermind" else
                               "朴素 MCTS 剧作家 AI" if strategy == "mcts_mastermind"
                               else "优化 MCTS 剧作家 AI" if strategy == "optimized_mcts_mastermind"
@@ -398,6 +402,11 @@ class RoomService:
                                HiddenCardOracleProtagonistAgent(
                                    SearchBudget(node_limit=48, rollout_depth=24))
                                if strategy == "oracle_script_protagonist" else
+                               ParticleEnsembleProtagonistAgent(
+                                   SearchBudget(node_limit=24, rollout_depth=12,
+                                                time_limit_ms=3000),
+                                   particle_count=12)
+                               if strategy == "particle_ensemble_protagonist" else
                                FixedStrategyMastermindAgent()
                                if strategy == "fixed_mastermind" else
                                FullInformationMctsMastermindAgent(

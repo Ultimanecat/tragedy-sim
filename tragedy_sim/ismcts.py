@@ -75,6 +75,11 @@ class IsmctsTrace:
     belief_failure: str | None = None
     role_candidates: int = 0
     culprit_options: tuple[tuple[int, int], ...] = ()
+    belief_culprits: tuple[dict[str, Any], ...] = ()
+    belief_dark_cards: tuple[dict[str, Any], ...] = ()
+    placement_tendencies: tuple[dict[str, Any], ...] = ()
+    evaluated_pairs: int = 0
+    stop_reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False,
@@ -626,14 +631,19 @@ class IsmctsProtagonistAgent:
         } for cid, counts in marginals.items())
         evidence_elapsed_ms = (perf_counter() - evidence_started) * 1000
         search_started = perf_counter()
+        deadline = (None if self.budget.time_limit_ms is None else
+                    evidence_started + self.budget.time_limit_ms / 1000)
 
         iterations = max(1, self.budget.node_limit)
+        completed_iterations = 0
         bundle_commands: dict[str, tuple[dict[str, Any], ...]] = {}
         bundle_stats: dict[str, _RootStat] = {}
         if self.legacy_joint_search:
             first_keys = list(offers_by_key)
             rng.shuffle(first_keys)
             for iteration in range(iterations):
+                if deadline is not None and perf_counter() >= deadline and bundle_stats:
+                    break
                 particle = particles[iteration % len(particles)]
                 legal = {_key(action): action
                          for action in particle.search_actions(particle.controller)}
@@ -650,6 +660,7 @@ class IsmctsProtagonistAgent:
                 value = self._rollout(successor, rng)
                 stat.value_sum += value
                 stat.survivals += value > 0
+                completed_iterations += 1
         else:
             # Larger budgets widen the bounded pool only after preserving
             # several visits per complete bundle.
@@ -657,6 +668,8 @@ class IsmctsProtagonistAgent:
             attempts = 0
             while (len(bundle_commands) < candidate_limit
                    and attempts < candidate_limit * 4):
+                if deadline is not None and perf_counter() >= deadline and bundle_commands:
+                    break
                 commands = self._candidate_bundle(
                     particles[attempts % len(particles)], view, attempts, rng)
                 attempts += 1
@@ -668,6 +681,8 @@ class IsmctsProtagonistAgent:
             # Round-robin candidates over a shared particle batch.
             for iteration in range(iterations):
                 if not keys:
+                    break
+                if deadline is not None and perf_counter() >= deadline and completed_iterations:
                     break
                 key = keys[iteration % len(keys)]
                 batch = iteration // len(keys)
@@ -682,6 +697,7 @@ class IsmctsProtagonistAgent:
                 value = self._rollout(successor, rng)
                 stat.value_sum += value
                 stat.survivals += value > 0
+                completed_iterations += 1
 
         viable = [key for key, stat in bundle_stats.items() if stat.visits]
         if not viable:
@@ -710,7 +726,7 @@ class IsmctsProtagonistAgent:
         } for key, stat in bundle_stats.items())
         self.last_trace = IsmctsTrace(
             self.plan_name, self.rng_seed, evidence.module, len(particles),
-            len(witnesses), iterations, self.budget.rollout_depth, None,
+            len(witnesses), completed_iterations, self.budget.rollout_depth, None,
             chosen["id"], root_actions, belief_roles, belief_source,
             observation_updates, self.evidence_ledger.hard_count,
             self.evidence_ledger.soft_count, evidence_elapsed_ms,
