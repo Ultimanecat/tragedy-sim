@@ -18,18 +18,21 @@ from .belief import DarkCardBelief, PublicEvidence
 from .ismcts import IsmctsProtagonistAgent, IsmctsTrace, _command, _key
 from .oracle_protagonist import OracleProtagonistAgent
 from .search import SearchBudget
+from .witness import FsbtxWitnessCompiler
 
 
 class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
     """Propose Oracle-style bundles per hypothesis, cross-score on all worlds."""
 
     def __init__(self, budget: SearchBudget | None = None, *,
-                 particle_count: int = 12, rng_seed: int = 0):
+                 particle_count: int = 12, rng_seed: int = 0,
+                 joint_witness: bool = True):
         super().__init__(budget or SearchBudget(node_limit=24,
                                                 rollout_depth=12,
                                                 time_limit_ms=3000),
                          particle_count=particle_count, rng_seed=rng_seed,
                          survival_first=True)
+        self.compiler = FsbtxWitnessCompiler(include_joint=joint_witness)
         self.oracle = OracleProtagonistAgent(
             reveal_cards=True, budget=self.budget, rng_seed=rng_seed)
 

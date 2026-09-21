@@ -348,6 +348,10 @@ class FsbtxWitnessTests(unittest.TestCase):
         # Correlation evidence remains soft and therefore never deletes the
         # alternative explanation.
         self.assertTrue(matcher.matches(sign_wrong, joint))
+        ablated = FsbtxWitnessCompiler(include_joint=False).compile(view)
+        self.assertFalse(any(item.kind in {
+            "joint_plot_role_pressure", "role_pressure"} for item in ablated))
+        self.assertEqual(len(ablated), len(witnesses) - 3)
 
     def test_part_timer_replacement_uses_visible_replacement_threshold(self):
         scenario = example_scenario("BTX")

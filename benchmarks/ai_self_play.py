@@ -160,7 +160,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          protagonist_nodes: int | None = None,
          protagonist_depth: int | None = None,
          time_limit_ms: int | None = None,
-         protagonist_time_limit_ms: int | None = None) -> MatchResult:
+         protagonist_time_limit_ms: int | None = None,
+         joint_witness: bool = True) -> MatchResult:
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -196,7 +197,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     elif protagonist_strategy == "particle_ensemble":
         team_ismcts = ParticleEnsembleProtagonistAgent(
             protagonist_budget, particle_count=max(4, min(24,
-                                (protagonist_nodes or nodes) // 8)), rng_seed=seed)
+                                (protagonist_nodes or nodes) // 8)), rng_seed=seed,
+            joint_witness=joint_witness)
     protagonists = {
         seat: (team_ismcts if team_ismcts is not None else
                RiskAwareProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
@@ -390,6 +392,8 @@ def main() -> None:
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--progress", action="store_true",
                         help="print one progress line after each completed match")
+    parser.add_argument("--disable-joint-witness", action="store_true",
+                        help="ablate BTX plot-role soft correlation witnesses")
     args = parser.parse_args()
     if (args.games < 1 or args.nodes < 1 or args.depth < 1
             or args.protagonist_nodes is not None and args.protagonist_nodes < 1
@@ -411,7 +415,8 @@ def main() -> None:
                               protagonist_nodes=args.protagonist_nodes,
                               protagonist_depth=args.protagonist_depth,
                               time_limit_ms=args.time_limit_ms,
-                              protagonist_time_limit_ms=args.protagonist_time_limit_ms)
+                              protagonist_time_limit_ms=args.protagonist_time_limit_ms,
+                              joint_witness=not args.disable_joint_witness)
                 results.append(result)
                 if args.progress:
                     guess = (f" guess={sum(item.correct for item in result.final_guesses)}"

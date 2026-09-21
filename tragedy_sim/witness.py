@@ -85,6 +85,9 @@ class FsbtxWitnessCompiler:
 
     modules = frozenset({"FS", "BTX"})
 
+    def __init__(self, *, include_joint: bool = True):
+        self.include_joint = bool(include_joint)
+
     @staticmethod
     def _hard_fs_key_deaths(view: Mapping[str, Any]) -> list[PublicWitness]:
         """An immediate FS loss after one death certifies the Key Person.
@@ -384,6 +387,9 @@ class FsbtxWitnessCompiler:
                 (WitnessStrength.HARD if happened else WitnessStrength.SOFT)))
         result.extend(self._soft_death_witnesses(view))
         result.extend(self._soft_plot_pressure(view))
+        if not self.include_joint:
+            result = [item for item in result if item.kind not in {
+                "joint_plot_role_pressure", "role_pressure"}]
         return tuple(result)
 
 
