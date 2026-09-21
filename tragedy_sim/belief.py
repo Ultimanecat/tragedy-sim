@@ -425,12 +425,31 @@ class ConstraintBeliefSampler:
         return +expected
 
     @staticmethod
+    def _irregular_roles(module: str, plots: Sequence[str]) -> tuple[str, ...]:
+        """Printed Irregular roles are extra and do not consume plot slots."""
+        selected = {role for plot in plots for role in PLOTS[plot][2]}
+        available = {
+            role for plot in MODULES[module].plots for role in PLOTS[plot][2]
+        }
+        return tuple(sorted(available - selected))
+
+    @staticmethod
     def _cast(evidence: PublicEvidence, slots: Counter[str],
               plots: Sequence[str],
               rng: random.Random) -> dict[str, str] | None:
         known = dict(evidence.known_roles)
         remaining = slots.copy()
         assigned: dict[str, str] = {}
+        if "irregular" in evidence.characters:
+            options = list(ConstraintBeliefSampler._irregular_roles(
+                evidence.module, plots))
+            observed = known.pop("irregular", None)
+            if observed is not None:
+                options = [role for role in options
+                           if _observed_role_matches(role, observed, plots)]
+            if not options:
+                return None
+            assigned["irregular"] = rng.choice(options)
         for cid, observed in known.items():
             if cid not in evidence.characters:
                 return None
@@ -447,7 +466,7 @@ class ConstraintBeliefSampler:
                 if remaining[initial] < 1:
                     return None
                 remaining[initial] -= 1
-        unassigned = [cid for cid in evidence.characters if cid not in known]
+        unassigned = [cid for cid in evidence.characters if cid not in assigned]
         role_bag = list(remaining.elements())
         if len(role_bag) > len(unassigned):
             return None
@@ -563,32 +582,42 @@ class FactorizedBeliefState:
             slots = self.sampler._role_slots(evidence.module,
                                             (main, *subplots))
             bag = list(slots.elements())
-            if len(bag) > len(evidence.characters):
+            characters = tuple(cid for cid in evidence.characters
+                               if cid != "irregular")
+            irregular_roles = (self.sampler._irregular_roles(
+                evidence.module, (main, *subplots))
+                if "irregular" in evidence.characters else (None,))
+            if not irregular_roles or len(bag) > len(characters):
                 continue
-            bag.extend(["ordinary"] * (len(evidence.characters) - len(bag)))
+            bag.extend(["ordinary"] * (len(characters) - len(bag)))
             incidents = self.sampler._incidents(evidence, self.rng)
             if incidents is None:
                 continue
             for assignment in sorted(set(permutations(bag))):
-                self._plot_sizes[(main, subplots)] += 1
-                cast = dict(zip(evidence.characters, assignment))
-                plots = (main, *subplots)
-                if any(not _observed_role_matches(cast.get(cid), role, plots)
-                       for cid, role in evidence.known_roles):
-                    continue
-                try:
-                    scenario = validate_scenario({
-                        "id": "belief-exact-roles", "title": "ISMCTS exact roles",
-                        "module": evidence.module, "days": evidence.days,
-                        "loops": evidence.loops, "main_plot": main,
-                        "subplots": list(subplots), "cast": cast,
-                        "incidents": incidents,
-                        "table_talk": evidence.table_talk,
-                    })
-                except RuleError:
-                    continue
-                world = HiddenWorldHypothesis.from_scenario(scenario)
-                self._roles[self._key(world)] = world
+                for irregular_role in irregular_roles:
+                    self._plot_sizes[(main, subplots)] += 1
+                    cast = dict(zip(characters, assignment))
+                    if irregular_role is not None:
+                        cast["irregular"] = irregular_role
+                    plots = (main, *subplots)
+                    if any(not _observed_role_matches(
+                            cast.get(cid), role, plots)
+                           for cid, role in evidence.known_roles):
+                        continue
+                    try:
+                        scenario = validate_scenario({
+                            "id": "belief-exact-roles",
+                            "title": "ISMCTS exact roles",
+                            "module": evidence.module, "days": evidence.days,
+                            "loops": evidence.loops, "main_plot": main,
+                            "subplots": list(subplots), "cast": cast,
+                            "incidents": incidents,
+                            "table_talk": evidence.table_talk,
+                        })
+                    except RuleError:
+                        continue
+                    world = HiddenWorldHypothesis.from_scenario(scenario)
+                    self._roles[self._key(world)] = world
 
     def _refresh_roles(self, evidence: PublicEvidence, witnesses: Sequence[Any]) -> None:
         from .witness import FsbtxWitnessMatcher

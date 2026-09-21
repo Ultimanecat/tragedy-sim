@@ -13,7 +13,9 @@ from tragedy_sim.belief import (BeliefParticleFilter, CatalogBeliefSampler,
                                 ObservationParticleAdvancer,
                                 PersistentBeliefState, PublicEvidence,
                                 PublicSnapshot)
+from tragedy_sim.catalog import PLOTS
 from tragedy_sim.scenario import example_scenario
+from tragedy_sim.scenario_library import ScenarioLibrary
 
 
 class FactorizedBeliefTests(unittest.TestCase):
@@ -123,6 +125,21 @@ class PublicEvidenceTests(unittest.TestCase):
 
 
 class ConstraintBeliefSamplerTests(unittest.TestCase):
+    def test_irregular_uses_an_extra_unselected_role_slot(self):
+        scenario = ScenarioLibrary().get("official-btx-08-mirror-passcode")
+        evidence = PublicEvidence.from_view(
+            Game(scenario).protagonist_team_view())
+        worlds = ConstraintBeliefSampler().sample(
+            evidence, 12, rng=random.Random(18), max_attempts=20_000)
+        self.assertEqual(len(worlds), 12)
+        for world in worlds:
+            selected = {role for plot in (world.main_plot, *world.subplots)
+                        for role in PLOTS[plot][2]}
+            self.assertNotIn(dict(world.roles)["irregular"], selected)
+
+        posterior = FactorizedBeliefState(seed=18).role_posterior(evidence, ())
+        self.assertTrue(posterior)
+
     def test_generates_multiple_valid_worlds_without_catalog_identity(self):
         game = Game(example_scenario("BTX"))
         evidence = PublicEvidence.from_view(game.view("a"))
