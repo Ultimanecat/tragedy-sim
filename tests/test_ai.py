@@ -159,6 +159,27 @@ class AiPolicyTests(unittest.TestCase):
             participant="a", view=view, offers=offers)
         self.assertEqual(chosen["id"], "ability")
 
+    def test_defensive_protagonist_values_only_new_information(self):
+        view = {
+            "module": "BTX", "loop": 1, "round": 1, "leader": "a",
+            "events": [], "known_culprits": {}, "known_roles": {},
+            "known_plots": [], "characters": {}, "locations": {},
+        }
+        reveal = {"id": "reveal", "actor": "a", "type": "choose",
+                  "parameters": {"index": 1},
+                  "ui": {"effect": "reveal", "target": "worker",
+                         "source": "worker"}}
+        finish = {"id": "finish", "actor": "a", "type": "choose",
+                  "parameters": {"index": 2}}
+        agent = DefensiveProtagonistAgent(random.Random(1))
+        self.assertEqual(agent.choose_action(
+            participant="a", view=view, offers=[reveal, finish])["id"],
+            "reveal")
+        view["known_roles"] = {"worker": {"role": "ordinary"}}
+        self.assertEqual(agent.choose_action(
+            participant="a", view=view, offers=[reveal, finish])["id"],
+            "finish")
+
     def test_risk_aware_protagonist_blocks_repeated_public_intrigue_target(self):
         view = {
             "loop": 2, "round": 1, "days": 4, "leader": "a",

@@ -33,6 +33,10 @@ MASTERMIND_STRATEGIES = ("random", "fixed", "naive", "optimized", "strategic", "
 PROTAGONIST_STRATEGIES = ("random", "baseline", "defensive", "risk_aware",
                          "ismcts", "ismcts_legacy", "ismcts_survival",
                          "oracle_cards", "oracle_script", "particle_ensemble")
+INFORMATION_ABILITY_KINDS = frozenset({
+    "reveal", "culprit", "culprit_any", "plot", "copycat_identify",
+    "part_timer_reveal",
+})
 
 
 @dataclass(frozen=True)
@@ -81,6 +85,18 @@ class ProtagonistSearchRecord:
 
 
 @dataclass(frozen=True)
+class AbilityUsageRecord:
+    source: str
+    ability: str
+    ability_kind: str
+    information: bool
+    requested: int
+    accepted: int
+    refused: int
+    no_effect: int
+
+
+@dataclass(frozen=True)
 class MatchResult:
     scenario_id: str
     module: str
@@ -104,6 +120,38 @@ class MatchResult:
     protagonist_searches: tuple[ProtagonistSearchRecord, ...] = ()
     protagonist_evidence_seconds: float = 0.0
     protagonist_search_seconds: float = 0.0
+    ability_usage: tuple[AbilityUsageRecord, ...] = ()
+
+
+def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
+    counters: dict[tuple[str, str, str], dict[str, int]] = {}
+    event_fields = {
+        "goodwill_requested": "requested",
+        "goodwill_accepted": "accepted",
+        "goodwill_refused": "refused",
+        "ability_no_effect": "no_effect",
+    }
+    for event in events:
+        field = event_fields.get(str(event.get("kind")))
+        source = event.get("source")
+        ability = event.get("ability")
+        ability_kind = event.get("ability_kind")
+        if (field is None or not isinstance(source, str)
+                or not isinstance(ability, str)
+                or not isinstance(ability_kind, str)):
+            continue
+        values = counters.setdefault(
+            (source, ability, ability_kind),
+            {name: 0 for name in event_fields.values()})
+        values[field] += 1
+    return tuple(
+        AbilityUsageRecord(
+            source, ability, ability_kind,
+            ability_kind in INFORMATION_ABILITY_KINDS,
+            values["requested"], values["accepted"], values["refused"],
+            values["no_effect"])
+        for (source, ability, ability_kind), values in sorted(counters.items())
+    )
 
 
 def _policy_offer(game: Game, action: Any) -> dict[str, Any]:
@@ -119,13 +167,16 @@ def _policy_offer(game: Game, action: Any) -> dict[str, Any]:
         except (IndexError, KeyError, TypeError):
             return offer
         ui: dict[str, Any] = {}
-        if isinstance(choice.get("key"), str):
-            ui["choice_key"] = choice["key"]
+        for source_field, ui_field in (
+                ("key", "choice_key"), ("source", "source"),
+                ("ability", "ability"), ("ability_kind", "ability_kind")):
+            if isinstance(choice.get(source_field), str):
+                ui[ui_field] = choice[source_field]
         for effect in choice.get("effects", ()):
             if not isinstance(effect, dict) or not isinstance(effect.get("kind"), str):
                 continue
             ui["effect"] = effect["kind"]
-            for field in ("target", "counter", "amount"):
+            for field in ("target", "counter", "amount", "day", "excluded"):
                 if isinstance(effect.get(field), (str, int)):
                     ui[field] = effect[field]
             break
@@ -347,7 +398,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         protagonist_plays=tuple(protagonist_plays),
         protagonist_searches=tuple(protagonist_searches),
         protagonist_evidence_seconds=protagonist_evidence_ms / 1000,
-        protagonist_search_seconds=protagonist_search_ms / 1000)
+        protagonist_search_seconds=protagonist_search_ms / 1000,
+        ability_usage=_ability_usage(game.state.events))
 
 
 def _scenario_ids(args: argparse.Namespace, library: ScenarioLibrary) -> list[str]:
@@ -372,6 +424,18 @@ def _print_summary(results: list[MatchResult]) -> None:
               f"{wins / len(selected):8.1%} | {mean(x.decisions for x in selected):14.1f} | "
               f"{mean(x.search_nodes for x in selected):17.1f} | "
               f"{mean(x.elapsed_seconds for x in selected):.3f}s")
+    usage = [record for result in results for record in result.ability_usage]
+    if usage:
+        print("\nability usage | requested | accepted | refused | no effect")
+        print(f"all abilities | {sum(x.requested for x in usage):9} | "
+              f"{sum(x.accepted for x in usage):8} | "
+              f"{sum(x.refused for x in usage):7} | "
+              f"{sum(x.no_effect for x in usage):9}")
+        information = [item for item in usage if item.information]
+        print(f"information   | {sum(x.requested for x in information):9} | "
+              f"{sum(x.accepted for x in information):8} | "
+              f"{sum(x.refused for x in information):7} | "
+              f"{sum(x.no_effect for x in information):9}")
 
 
 def main() -> None:

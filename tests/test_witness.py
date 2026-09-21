@@ -56,6 +56,31 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertFalse(FsbtxWitnessMatcher().matches(
             self.hypothesis, FsbtxWitnessCompiler().compile(wrong)))
 
+    def test_refused_goodwill_ability_is_a_hard_role_set_witness(self):
+        view = deepcopy(self.view)
+        view["events"] = [{
+            "kind": "goodwill_refused", "loop": 1, "round": 1,
+            "timing": "protagonist_ability", "source": "worker",
+            "ability": "reveal", "ability_kind": "reveal",
+        }]
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.source == "public_goodwill_refusal")
+        self.assertEqual(witness.kind, "role_in")
+        self.assertEqual(witness.subject, "worker")
+        self.assertEqual(witness.strength, WitnessStrength.HARD)
+
+        roles = dict(self.hypothesis.roles)
+        roles["worker"] = "brain"
+        refusing = replace(
+            self.hypothesis, roles=tuple(sorted(roles.items())))
+        roles["worker"] = "ordinary"
+        unable = replace(self.hypothesis, roles=tuple(sorted(roles.items())))
+        matcher = FsbtxWitnessMatcher()
+        self.assertEqual(matcher.verdict(refusing, witness),
+                         WitnessVerdict.SATISFIED)
+        self.assertEqual(matcher.verdict(unable, witness),
+                         WitnessVerdict.CONTRADICTED)
+
     def test_virus_role_reveal_does_not_rewrite_initial_identity(self):
         ordinary = next(cid for cid, role in self.hypothesis.roles
                         if role == "ordinary")

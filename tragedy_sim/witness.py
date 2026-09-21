@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Mapping, Sequence
 
-from .catalog import CHARACTERS
+from .catalog import CHARACTERS, REFUSAL
 
 
 class WitnessStrength(StrEnum):
@@ -364,6 +364,17 @@ class FsbtxWitnessCompiler:
             result.append(PublicWitness(
                 "plot_present", plot, True, loop, day, timing,
                 "public_plot_reveal"))
+        for event in view.get("events", ()):
+            if event.get("kind") != "goodwill_refused":
+                continue
+            source = event.get("source")
+            if not isinstance(source, str):
+                continue
+            result.append(PublicWitness(
+                "role_in", source, tuple(sorted(REFUSAL)),
+                int(event.get("loop", loop)), int(event.get("round", day)),
+                str(event.get("timing", "protagonist_ability")),
+                "public_goodwill_refusal"))
         incident_events = [
             event for event in view.get("events", ())
             if event.get("kind") == "incident_status"
@@ -430,6 +441,12 @@ class FsbtxWitnessMatcher:
                 witness.value == "serial" and initial == "ordinary"
                 and "virus" in plots)
             return (WitnessVerdict.SATISFIED if compatible
+                    else WitnessVerdict.CONTRADICTED)
+        if witness.kind == "role_in":
+            subject = ("part_timer" if witness.subject == "part_timer_question"
+                       else witness.subject)
+            return (WitnessVerdict.SATISFIED
+                    if roles.get(subject) in set(witness.value)
                     else WitnessVerdict.CONTRADICTED)
         if witness.kind == "culprit_is":
             incident = self._incident(hypothesis, int(witness.subject))

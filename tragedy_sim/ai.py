@@ -123,7 +123,8 @@ class DefensiveProtagonistAgent(BaselineProtagonistAgent):
 
     _DEFENSIVE_EFFECTS = {
         "protect": 170, "protection": 170, "reveal": 125,
-        "culprit": 135, "revive": 150, "counter": 90,
+        "learn_role": 125, "copycat_identify": 125,
+        "culprit": 135, "informer": 135, "revive": 150, "counter": 90,
     }
 
     @staticmethod
@@ -200,11 +201,26 @@ class DefensiveProtagonistAgent(BaselineProtagonistAgent):
         return score
 
     @classmethod
-    def _choice_score(cls, offer: dict[str, Any]) -> int:
+    def _choice_score(cls, offer: dict[str, Any],
+                      view: dict[str, Any]) -> int:
         if offer.get("type") != "choose":
             return 0
         ui = offer.get("ui", {})
-        score = cls._DEFENSIVE_EFFECTS.get(str(ui.get("effect")), 20)
+        effect = str(ui.get("effect"))
+        score = cls._DEFENSIVE_EFFECTS.get(effect, 20)
+        target = ui.get("target")
+        if effect in {"reveal", "learn_role"}:
+            subject = target if isinstance(target, str) else ui.get("source")
+            if isinstance(subject, str) and cls._known_role(view, subject):
+                score = 0
+        elif effect == "culprit":
+            day = ui.get("day")
+            if day is not None and str(day) in view.get("known_culprits", {}):
+                score = 0
+        elif effect == "informer":
+            expected = 1 if view.get("module") == "FS" else 2
+            if len(view.get("known_plots", ())) >= expected:
+                score = 0
         if (ui.get("counter") == "paranoia"
                 and isinstance(ui.get("amount"), int) and ui["amount"] < 0):
             score = max(score, 150)
@@ -228,7 +244,8 @@ class DefensiveProtagonistAgent(BaselineProtagonistAgent):
             playable = list(offers)
         reversals = set(self._reverse_moves(view))
         scored = [(self._play_score(offer, view, reversals)
-                   if offer.get("type") == "play" else self._choice_score(offer), offer)
+                   if offer.get("type") == "play"
+                   else self._choice_score(offer, view), offer)
                   for offer in playable]
         best = max(score for score, _ in scored)
         return self._rng.choice([offer for score, offer in scored if score == best])

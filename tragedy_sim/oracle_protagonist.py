@@ -63,11 +63,35 @@ class OracleProtagonistAgent:
         return "oracle_cards" if self.reveal_cards else "oracle_script"
 
     @staticmethod
-    def _offer(action: Mapping[str, Any]) -> dict[str, Any]:
-        return {"id": _key(action), "actor": action["actor"],
-                "type": action["action"],
-                "parameters": {key: value for key, value in action.items()
-                               if key not in {"actor", "action"}}}
+    def _offer(action: Mapping[str, Any], game: Game | None = None
+               ) -> dict[str, Any]:
+        offer = {"id": _key(action), "actor": action["actor"],
+                 "type": action["action"],
+                 "parameters": {key: value for key, value in action.items()
+                                if key not in {"actor", "action"}}}
+        if game is None or action.get("action") != "choose":
+            return offer
+        try:
+            choice = game.options(str(action["actor"]))[int(action["index"]) - 1]
+        except (IndexError, KeyError, TypeError, ValueError):
+            return offer
+        ui: dict[str, Any] = {}
+        for source_field, ui_field in (
+                ("key", "choice_key"), ("source", "source"),
+                ("ability", "ability"), ("ability_kind", "ability_kind")):
+            if isinstance(choice.get(source_field), str):
+                ui[ui_field] = choice[source_field]
+        for effect in choice.get("effects", ()):
+            if not isinstance(effect, Mapping) or not isinstance(effect.get("kind"), str):
+                continue
+            ui["effect"] = effect["kind"]
+            for field in ("target", "counter", "amount", "day", "excluded"):
+                if isinstance(effect.get(field), (str, int)):
+                    ui[field] = effect[field]
+            break
+        if ui:
+            offer["ui"] = ui
+        return offer
 
     @staticmethod
     def _rank(action: Mapping[str, Any], view: Mapping[str, Any],
@@ -274,6 +298,13 @@ class OracleProtagonistAgent:
     def _day_score(self, world: Game, start_loop: int,
                    start_day: int) -> tuple[float, bool]:
         root_events = len(world.state.events)
+        known_before = (
+            set(world.known_roles), set(world.known_culprits),
+            set(world.known_plots),
+            {event.get("source") for event in world.state.events
+             if event.get("kind") == "goodwill_refused"
+             and isinstance(event.get("source"), str)},
+        )
         for _ in range(96):
             if world.winner is not None or (world.state.loop, world.state.round) != (start_loop, start_day):
                 break
@@ -289,7 +320,7 @@ class OracleProtagonistAgent:
                 else:
                     selected = actions[0]
             else:
-                offers = [self._offer(action) for action in actions]
+                offers = [self._offer(action, world) for action in actions]
                 chosen = self.fallback.choose_action(
                     participant="team", view=world.protagonist_team_view(),
                     offers=offers)
@@ -310,6 +341,16 @@ class OracleProtagonistAgent:
             return -1.0, False
         if world.winner == "protagonists":
             return 1.0, True
+        information_gain = (
+            0.06 * len(set(world.known_roles) - known_before[0])
+            + 0.06 * len(set(world.known_culprits) - known_before[1])
+            + 0.08 * len(set(world.known_plots) - known_before[2])
+            + 0.04 * len({
+                event.get("source") for event in world.state.events
+                if event.get("kind") == "goodwill_refused"
+                and isinstance(event.get("source"), str)
+            } - known_before[3]))
+        information_gain = min(0.18, information_gain)
         if world.module == "BTX":
             # BTX shares the legal day planner but has different plots and a
             # final guess. Keep the first vertical slice's day-boundary value
@@ -322,7 +363,8 @@ class OracleProtagonistAgent:
                 max(0, 3 - world.state.characters[cid].goodwill)
                 for cid, role in world.scenario["cast"].items()
                 if role == "time_traveler")
-            return 0.55 + 0.22 * value - 0.10 * traveler_gap / days_left, True
+            return (0.55 + 0.22 * value - 0.10 * traveler_gap / days_left
+                    + information_gain), True
         # Survival dominates all position gains.  Stable position helps avoid
         # spending once-per-loop defenses when several safe bundles exist.
         value = max(-1.0, min(1.0, -self.evaluator(world)))
@@ -366,7 +408,7 @@ class OracleProtagonistAgent:
                     1 + incident["day"] - start_day)
         return (0.55 + 0.22 * value - 0.15 * plot_pressure
                 - 0.06 * killer_pressure - 0.035 * key_pressure
-                - key_exposure - incident_pressure), True
+                - key_exposure - incident_pressure + information_gain), True
 
     def choose_game_action(self, *, participant: str, game: Game,
                            offers: Sequence[dict[str, Any]],

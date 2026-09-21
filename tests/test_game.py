@@ -380,9 +380,21 @@ class AbilityTests(unittest.TestCase):
                 if role != "ordinary":
                     select(game, lambda c: c.get("refuse"))
                     self.assertNotIn("worker", game.known_roles)
+                    refused = next(e for e in game.state.events
+                                   if e["kind"] == "goodwill_refused")
+                    self.assertEqual(
+                        (refused["source"], refused["ability"],
+                         refused["ability_kind"]),
+                        ("worker", "reveal", "reveal"))
                 else:
                     accept(game)
                     self.assertIn("worker", game.known_roles)
+                    accepted = next(e for e in game.state.events
+                                    if e["kind"] == "goodwill_accepted")
+                    self.assertEqual(
+                        (accepted["source"], accepted["ability"],
+                         accepted["ability_kind"]),
+                        ("worker", "reveal", "reveal"))
                 self.assertFalse(any(c.get("source") == "worker" for c in game.options("a")))
 
     def test_nurse_cannot_be_refused_even_as_cultist(self):

@@ -62,6 +62,20 @@ class OracleProtagonistTests(unittest.TestCase):
         grouped_score, _ = oracle._day_score(grouped, 1, 1)
         self.assertGreater(grouped_score, alone_score)
 
+    def test_rollout_offer_preserves_goodwill_ability_semantics(self):
+        game = Game(ScenarioLibrary().get("official-fs-01-first-script"))
+        game.state.phase = "goodwill"
+        game.state.characters["worker"].goodwill = 3
+        action = next(action for action in game.search_actions(game.controller)
+                      if action.get("action") == "choose"
+                      and game.options(game.controller)[action["index"] - 1]
+                      .get("ability") == "reveal")
+        offer = FullCardOracleProtagonistAgent._offer(action, game)
+        self.assertEqual(offer["ui"]["source"], "worker")
+        self.assertEqual(offer["ui"]["ability_kind"], "reveal")
+        self.assertEqual(offer["ui"]["effect"], "reveal")
+        self.assertEqual(offer["ui"]["target"], "worker")
+
     def test_both_modes_choose_legal_full_team_plan(self):
         game = protagonist_position()
         offers = [{**item.to_dict(), "type": item.kind.removeprefix("core.")}

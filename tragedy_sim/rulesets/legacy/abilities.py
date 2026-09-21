@@ -12,6 +12,16 @@ from ...i18n import format_timepoint, label, normalize_language
 from ...model import TimingId
 from ...domain import SourcedEffect, legacy_effect
 
+
+def _goodwill_event_data(request):
+    """Return the public, machine-readable identity of a goodwill ability."""
+    return {
+        key: request[key]
+        for key in ("source", "ability", "ability_kind", "key",
+                    "borrowed_source", "borrowed_ability")
+        if key in request
+    }
+
 def _available_key(self, key, once=False):
     return key not in self.day_used and (not once or key not in self.loop_used)
 
@@ -181,6 +191,7 @@ def _ability_options(self, source, ability, *, private=False, ignore_threshold=F
                         borrowed_source=adult, borrowed_ability=borrowed.id))
     for result in results:
         result.update(key=key, once=ability.once, source=source, ability=ability.id,
+                      ability_kind=ability.kind,
                       unrefusable=ability.unrefusable, goodwill=True)
     return results
 
@@ -487,7 +498,8 @@ def _choose(self, actor, index):
                 return
         self._request = selected
         self.state.phase = "refusal"
-        self._event("goodwill_requested", f"领队声明：{selected['label']}。")
+        self._event("goodwill_requested", f"领队声明：{selected['label']}。",
+                    **_goodwill_event_data(selected))
         return
     if self.state.phase == "refusal":
         request = self._request
@@ -500,7 +512,14 @@ def _choose(self, actor, index):
                     used.discard(request["key"])
             detail = ("本轮一次能力被拒绝，不计为已使用；友好不消耗。" if rei_once
                       else "这项友好能力没有效果；次数已使用，友好不消耗。")
-            self._event("ability_no_effect", detail)
+            event_data = _goodwill_event_data(request)
+            if not request.get("already_used"):
+                self._event("goodwill_refused",
+                            f"剧作家拒绝了{self.name(request['source'])}的友好能力。",
+                            **event_data)
+            self._event("ability_no_effect", detail,
+                        reason=("already_used" if request.get("already_used")
+                                else "refused"), **event_data)
             if self.module == "WM":
                 self._change_ex_gauge(1)
             self.state.phase = "goodwill"
@@ -512,6 +531,9 @@ def _choose(self, actor, index):
                                   if self._has(request["source"], "secret_key") else []))
                 self._drain()
             return
+        self._event("goodwill_accepted",
+                    f"剧作家接受了{self.name(request['source'])}的友好能力。",
+                    **_goodwill_event_data(request))
         self._return_phase = "goodwill"
         if self.module == "AHR" and request.get("once"):
             selected["effects"] = list(selected["effects"]) + [
