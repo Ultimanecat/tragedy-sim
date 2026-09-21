@@ -80,6 +80,7 @@ class IsmctsTrace:
     placement_tendencies: tuple[dict[str, Any], ...] = ()
     evaluated_pairs: int = 0
     stop_reason: str | None = None
+    belief_setups: tuple[dict[str, Any], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False,
@@ -513,6 +514,15 @@ class IsmctsProtagonistAgent:
             selected_world, _ = max(
                 ranked_roles,
                 key=lambda pair: (pair[1], tuple(sorted(pair[0].roles))))
+            belief_setups = tuple({
+                "main_plot": getattr(world, "main_plot", ""),
+                "subplots": list(getattr(world, "subplots", ())),
+                "roles": dict(world.roles),
+                "weight": weight,
+            } for world, weight in sorted(
+                ranked_roles,
+                key=lambda pair: (pair[1], tuple(sorted(pair[0].roles))),
+                reverse=True)[:8])
             roles = dict(selected_world.roles)
             guesses = {target: roles[target]
                        for target in view.get("guess_remaining", ())}
@@ -522,7 +532,8 @@ class IsmctsProtagonistAgent:
                 len(witnesses), 0, self.budget.rollout_depth,
                 "simultaneous_map_guess", offers[0]["id"], (), belief_roles,
                 "candidate_weights", 0, self.evidence_ledger.hard_count,
-                self.evidence_ledger.soft_count)
+                self.evidence_ledger.soft_count,
+                belief_setups=belief_setups)
             return chosen
         if view.get("module") not in ("FS", "BTX"):
             return self._fallback(participant, view, offers, "unsupported_module")

@@ -142,9 +142,13 @@ class FsbtxWitnessCompiler:
         }
         locations = dict(initial)
         intrigue = {str(cid): 0 for cid in characters}
+        paranoia = {str(cid): 0 for cid in characters}
+        virus_eligible: set[str] = set()
+        city_intrigue = 0
         alive = {str(cid) for cid, character in characters.items()
                  if bool(character.get("present", True))}
-        deaths_by_loop: dict[int, list[tuple[str, tuple[str, ...], int]]] = {}
+        deaths_by_loop: dict[int, list[
+            tuple[str, tuple[str, ...], int, bool]]] = {}
         result: list[PublicWitness] = []
         for event in view.get("events", ()):
             kind = event.get("kind")
@@ -153,16 +157,25 @@ class FsbtxWitnessCompiler:
             if kind == "loop_started":
                 locations = dict(initial)
                 intrigue = {str(cid): 0 for cid in characters}
+                paranoia = {str(cid): 0 for cid in characters}
+                virus_eligible = set()
+                city_intrigue = 0
                 alive = {str(cid) for cid, character in characters.items()
                          if bool(character.get("present", True))}
                 continue
             if kind == "counter_changed":
                 target = event.get("target")
-                if (event.get("counter") == "intrigue"
-                        and isinstance(target, str)
-                        and target in intrigue
-                        and isinstance(event.get("after"), int)):
-                    intrigue[target] = event["after"]
+                counter = event.get("counter")
+                after = event.get("after")
+                if isinstance(target, str) and isinstance(after, int):
+                    if counter == "intrigue" and target in intrigue:
+                        intrigue[target] = after
+                    elif counter == "intrigue" and target == "city":
+                        city_intrigue = after
+                    elif counter == "paranoia" and target in paranoia:
+                        paranoia[target] = after
+                        if after >= 3:
+                            virus_eligible.add(target)
                 continue
             if kind == "character_moved":
                 target = event.get("character", event.get("target"))
@@ -178,7 +191,7 @@ class FsbtxWitnessCompiler:
                     cid for cid in alive if cid != victim
                     and locations.get(cid) == locations.get(victim)))
                 deaths_by_loop.setdefault(event_loop, []).append(
-                    (victim, companions, event_day))
+                    (victim, companions, event_day, city_intrigue >= 2))
                 if event.get("timing") == "day_end":
                     if len(companions) == 1:
                         if (view.get("module") == "FS"
@@ -190,7 +203,10 @@ class FsbtxWitnessCompiler:
                                 "fs_lone_companion_death"))
                         else:
                             result.append(PublicWitness(
-                                "day_end_death_companion", victim, companions[0],
+                                "day_end_death_companion", victim, {
+                                    "character": companions[0],
+                                    "virus_eligible": companions[0] in virus_eligible,
+                                },
                                 event_loop, event_day, "day_end",
                                 "public_death_and_location", WitnessStrength.SOFT))
                     if intrigue.get(victim, 0) >= 2:
@@ -202,13 +218,16 @@ class FsbtxWitnessCompiler:
                 alive.discard(victim)
                 continue
             if kind == "loop_lost":
-                same_day = [(victim, companions) for victim, companions, death_day
+                same_day = [(victim, companions, factor_key_possible)
+                            for victim, companions, death_day, factor_key_possible
                             in deaths_by_loop.get(event_loop, ())
                             if death_day == event_day]
-                for victim, companions in same_day:
+                for victim, companions, factor_key_possible in same_day:
                     result.append(PublicWitness(
                         "loss_after_death", victim,
-                        {"companions": companions}, event_loop, event_day,
+                        {"companions": companions,
+                         "factor_key_possible": factor_key_possible},
+                        event_loop, event_day,
                         str(event.get("timing", "loop_end")),
                         "public_death_before_loop_loss", WitnessStrength.SOFT))
         return result
@@ -480,8 +499,16 @@ class FsbtxWitnessMatcher:
             return (WitnessVerdict.SATISFIED if score >= definition.limit
                     else WitnessVerdict.CONTRADICTED)
         if witness.kind == "day_end_death_companion":
+            value = witness.value
+            candidate = (str(value.get("character"))
+                         if isinstance(value, Mapping) else str(value))
+            virus_eligible = (bool(value.get("virus_eligible"))
+                              if isinstance(value, Mapping) else False)
+            plots = {hypothesis.main_plot, *hypothesis.subplots}
             return (WitnessVerdict.SATISFIED
-                    if roles.get(str(witness.value)) == "serial"
+                    if (roles.get(candidate) == "serial"
+                        or (virus_eligible and roles.get(candidate) == "ordinary"
+                            and "virus" in plots))
                     else WitnessVerdict.UNKNOWN)
         if witness.kind == "day_end_killer_candidate":
             return (WitnessVerdict.SATISFIED
@@ -490,7 +517,9 @@ class FsbtxWitnessMatcher:
                     else WitnessVerdict.UNKNOWN)
         if witness.kind == "loss_after_death":
             return (WitnessVerdict.SATISFIED
-                    if roles.get(witness.subject) in {"key", "friend"}
+                    if (roles.get(witness.subject) in {"key", "friend"}
+                        or (roles.get(witness.subject) == "factor"
+                            and witness.value.get("factor_key_possible", False)))
                     else WitnessVerdict.UNKNOWN)
         return WitnessVerdict.UNKNOWN
 

@@ -155,6 +155,53 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertFalse(any(item.source == "fs_lone_companion_death"
                              for item in FsbtxWitnessCompiler().compile(view)))
 
+    def test_btx_virus_transformed_ordinary_explains_serial_death(self):
+        view = deepcopy(self.view)
+        companion = "student"
+        victim = "girl"
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "character_moved", "loop": 1, "round": 1,
+             "character": companion,
+             "location": view["characters"][victim]["initial_location"]},
+            {"kind": "counter_changed", "loop": 1, "round": 1,
+             "target": companion, "counter": "paranoia", "after": 3},
+            {"kind": "character_died", "loop": 1, "round": 1,
+             "timing": "day_end", "target": victim},
+        ]
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.kind == "day_end_death_companion")
+        roles = dict(self.hypothesis.roles)
+        roles[companion] = "ordinary"
+        virus = replace(self.hypothesis, subplots=("virus", "rumor"),
+                        roles=tuple(sorted(roles.items())))
+        matcher = FsbtxWitnessMatcher()
+        self.assertEqual(matcher.verdict(virus, witness),
+                         WitnessVerdict.SATISFIED)
+        no_virus = replace(virus, subplots=("lurking", "rumor"))
+        self.assertEqual(matcher.verdict(no_virus, witness),
+                         WitnessVerdict.UNKNOWN)
+
+    def test_btx_city_pressure_allows_factor_key_death_explanation(self):
+        view = deepcopy(self.view)
+        victim = "girl"
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 1,
+             "target": "city", "counter": "intrigue", "after": 2},
+            {"kind": "character_died", "loop": 1, "round": 1,
+             "timing": "day_end", "target": victim},
+            {"kind": "loop_lost", "loop": 1, "round": 1},
+        ]
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.kind == "loss_after_death")
+        roles = dict(self.hypothesis.roles)
+        roles[victim] = "factor"
+        factor = replace(self.hypothesis,
+                         roles=tuple(sorted(roles.items())))
+        self.assertEqual(FsbtxWitnessMatcher().verdict(factor, witness),
+                         WitnessVerdict.SATISFIED)
+
     def test_happened_incident_rejects_below_threshold_culprit(self):
         view = deepcopy(self.view)
         view["round"] = 2

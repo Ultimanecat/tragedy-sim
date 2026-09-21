@@ -89,6 +89,9 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertEqual(chosen["type"], "guess_all")
         self.assertEqual(set(chosen["arguments"]["guesses"]), set(game.roles))
         self.assertEqual(agent.last_trace.fallback, "simultaneous_map_guess")
+        self.assertTrue(agent.last_trace.belief_setups)
+        self.assertEqual(chosen["arguments"]["guesses"],
+                         agent.last_trace.belief_setups[0]["roles"])
 
     def test_btx_irregular_script_does_not_fall_back_to_all_ordinary(self):
         scenario_id = "official-btx-08-mirror-passcode"
@@ -111,6 +114,7 @@ class ParticleEnsembleTests(unittest.TestCase):
             participant="team", view=final.protagonist_team_view(), offers=offers)
         self.assertEqual(agent.last_trace.fallback, "simultaneous_map_guess")
         self.assertTrue(agent.last_trace.belief_roles)
+        self.assertTrue(agent.last_trace.belief_setups)
         self.assertNotEqual(set(chosen["arguments"]["guesses"].values()),
                             {"ordinary"})
 

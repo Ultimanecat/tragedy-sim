@@ -99,6 +99,7 @@ class MatchResult:
     final_soft_witnesses: tuple[str, ...] = ()
     final_public_deaths: tuple[tuple[int, int, str, str], ...] = ()
     final_belief_roles: tuple[dict[str, Any], ...] = ()
+    final_belief_setups: tuple[dict[str, Any], ...] = ()
     protagonist_plays: tuple[ProtagonistPlayRecord, ...] = ()
     protagonist_searches: tuple[ProtagonistSearchRecord, ...] = ()
     protagonist_evidence_seconds: float = 0.0
@@ -219,6 +220,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     final_soft_witnesses: tuple[str, ...] = ()
     final_public_deaths: tuple[tuple[int, int, str, str], ...] = ()
     final_belief_roles: tuple[dict[str, Any], ...] = ()
+    final_belief_setups: tuple[dict[str, Any], ...] = ()
     protagonist_plays: list[ProtagonistPlayRecord] = []
     protagonist_searches: list[ProtagonistSearchRecord] = []
     protagonist_evidence_ms = protagonist_search_ms = 0.0
@@ -307,6 +309,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             trace = getattr(protagonists[command["actor"]], "last_trace", None)
             if trace is not None:
                 final_belief_roles = getattr(trace, "belief_roles", ())
+                final_belief_setups = getattr(trace, "belief_setups", ())
             for cid, guessed in command["guesses"].items():
                 final_guesses.append(FinalGuessRecord(
                     cid, guessed, scenario["cast"][cid],
@@ -340,6 +343,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         final_soft_witnesses=final_soft_witnesses,
         final_public_deaths=final_public_deaths,
         final_belief_roles=final_belief_roles,
+        final_belief_setups=final_belief_setups,
         protagonist_plays=tuple(protagonist_plays),
         protagonist_searches=tuple(protagonist_searches),
         protagonist_evidence_seconds=protagonist_evidence_ms / 1000,
