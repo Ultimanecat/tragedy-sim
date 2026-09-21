@@ -14,8 +14,8 @@ from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
 
 
-def protagonist_position():
-    game = Game(ScenarioLibrary().get("official-fs-01-first-script"))
+def protagonist_position(scenario_id="official-fs-01-first-script"):
+    game = Game(ScenarioLibrary().get(scenario_id))
     while game.state.phase != "protagonists":
         game = game.search_transition(game.search_actions(game.controller)[0])
     return game
@@ -112,6 +112,67 @@ class OracleProtagonistTests(unittest.TestCase):
         self.assertEqual(
             [[item.card for item in world.state.pending] for world in worlds_a],
             [[item.card for item in world.state.pending] for world in worlds_b])
+
+    def test_btx_both_oracles_search_and_hidden_mode_ignores_actual_faces(self):
+        game = protagonist_position("official-btx-09-those-with-antibodies")
+        other = deepcopy(game)
+        original = other.state.pending[0]
+        replacement = next(card for card in other.state.hands["m"]
+                           if card != original.card)
+        other.state.hands["m"].remove(replacement)
+        other.state.hands["m"].append(original.card)
+        other.state.pending[0] = Placement("m", replacement, original.target)
+        self.assertEqual(game.protagonist_team_view(),
+                         other.protagonist_team_view())
+        offers = [{**item.to_dict(), "type": item.kind.removeprefix("core.")}
+                  for item in game.action_offers(game.controller)]
+        budget = SearchBudget(node_limit=8, seed=17)
+        full = FullCardOracleProtagonistAgent(budget, rng_seed=17)
+        hidden_a = HiddenCardOracleProtagonistAgent(
+            budget, scenario_count=2, rng_seed=17)
+        hidden_b = HiddenCardOracleProtagonistAgent(
+            budget, scenario_count=2, rng_seed=17)
+        full_choice = full.choose_game_action(
+            participant="team", game=game, offers=offers)
+        blind_a = hidden_a.choose_game_action(
+            participant="team", game=game, offers=offers)
+        blind_b = hidden_b.choose_game_action(
+            participant="team", game=other, offers=offers)
+        self.assertIn(full_choice, offers)
+        self.assertIn(blind_a, offers)
+        self.assertEqual(blind_a, blind_b)
+        self.assertEqual(hidden_a.last_trace.selected_bundle,
+                         hidden_b.last_trace.selected_bundle)
+        self.assertEqual(len(full.last_trace.selected_bundle), 3)
+        self.assertEqual(len(hidden_a.last_trace.selected_bundle), 3)
+
+    def test_btx_oracles_guess_known_script_exactly(self):
+        game = Game(ScenarioLibrary().get("official-btx-09-those-with-antibodies"))
+        game._start_final_guess()
+        offers = [{**item.to_dict(), "type": item.kind.removeprefix("core.")}
+                  for item in game.action_offers(game.controller)]
+        for agent in (FullCardOracleProtagonistAgent(),
+                      HiddenCardOracleProtagonistAgent()):
+            with self.subTest(agent=agent.plan_name):
+                chosen = agent.choose_game_action(
+                    participant="team", game=game, offers=offers)
+                self.assertEqual(chosen["arguments"]["guesses"],
+                                 game.scenario["cast"])
+
+    def test_btx_time_traveler_candidate_makes_legal_cross_day_progress(self):
+        game = protagonist_position("official-btx-09-those-with-antibodies")
+        oracle = FullCardOracleProtagonistAgent(SearchBudget(node_limit=8))
+        bundle = oracle._bundle(game, game.protagonist_team_view(), 0)
+        self.assertEqual((bundle[0]["card"], bundle[0]["target"]),
+                         ("g2", "journalist"))
+        self.assertEqual(len({item["target"] for item in bundle}), 3)
+        world = reduce(lambda state, action: state.search_transition(action),
+                       bundle, game)
+        self.assertEqual(len(world.state.pending), 6)
+        for index in range(12):
+            candidate = oracle._bundle(game, game.protagonist_team_view(), index)
+            self.assertEqual(len({item["target"] for item in candidate}),
+                             len(candidate), candidate)
 
     def test_hidden_mode_forces_intrigue_faces_on_publicly_targeted_key(self):
         game = Game(ScenarioLibrary().get("official-fs-01-first-script"))

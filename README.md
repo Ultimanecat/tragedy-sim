@@ -93,7 +93,7 @@ python -m benchmarks.ai_budget_matrix --budgets small --games 2 --seed 0
 
 C3 的 FS/BTX 主人公信息集搜索以 `PublicEvidence` 限制信息边界，并把身份/剧本、逐日事件当事人和当前剧作家暗牌分开采样；硬 witness 排除与公开事实矛盾的身份世界，软 witness 只调整权重。两人局团队 AI 由一个实例控制 A/B/C，生成完整三牌候选并跨相容世界比较，再按引擎顺序提交。`survival_ismcts_protagonist` 另以当天结算和样本存活率为首要评价，按公开历史揭牌调整暗牌抽样；这是实验性风险搜索，不提供“所有暗牌必活”的证明。`ismcts_legacy_protagonist` 保留首张搜索、后两张策略补全及旧持续粒子路径供对照。未重建的能力、事件选择回退公开信息防守策略。更多细节见 [AI 阶段性总结](docs/ai-current-state.md)及 [ISMCTS 与 witness 证据设计](docs/ismcts-witness-design.md)。
 
-FS 另提供 `oracle_cards` / `oracle_script` 主人公诊断基线：两者故意知道完整剧本，并共用三牌联合搜索；前者还知道当天已经放下的剧作家牌面，后者只能从公开目标、手牌约束和公开历史采样牌面。它们不是公平对战 AI，不能与 ISMCTS 的信息集胜率直接比较。
+FS/BTX 另提供 `oracle_cards` / `oracle_script` 主人公诊断基线：两者故意知道完整剧本，并共用三牌联合搜索；前者还知道当天已经放下的剧作家牌面，后者只能从公开目标、手牌约束和公开历史采样牌面。BTX 版会为时间旅行者等已知阈值生成合法的跨日推进候选，并在最终猜测直接提交已知身份。它们不是公平对战 AI，不能与 ISMCTS 的信息集胜率直接比较；BTX 应比较轮回失败次数与失败原因，不能只看最终胜率。
 
 只有一名主人公玩家时，该玩家控制 A/B/C；有两名时，A、B 各自出牌，当天真人领队代管 C，并随日期轮流担任
 真人领队。界面会分别显示引擎逻辑领队和真人领队。Last Liar（LL）由于个人秘密与背叛者规则，强制三名主人公

@@ -304,7 +304,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         if command.get("action") == "guess_all":
             trace = getattr(protagonists[command["actor"]], "last_trace", None)
             if trace is not None:
-                final_belief_roles = trace.belief_roles
+                final_belief_roles = getattr(trace, "belief_roles", ())
             for cid, guessed in command["guesses"].items():
                 final_guesses.append(FinalGuessRecord(
                     cid, guessed, scenario["cast"][cid],
@@ -419,7 +419,8 @@ def main() -> None:
                              if result.final_guesses else "")
                     print(f"[{len(results)}/{total}] {scenario} {strategy} "
                           f"seed={result.seed} winner={result.winner} "
-                          f"decisions={result.decisions}{guess} "
+                          f"decisions={result.decisions} "
+                          f"loops_lost={len(result.loop_losses)}{guess} "
                           f"elapsed={result.elapsed_seconds:.3f}s",
                           flush=True)
     if args.json:

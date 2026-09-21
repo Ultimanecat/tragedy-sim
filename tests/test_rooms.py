@@ -288,25 +288,26 @@ class RoomServiceTests(unittest.TestCase):
         self.assertEqual(updated["room"]["seats"]["a"]["nickname"],
                          "历史风险主人公 AI")
 
-    def test_script_oracle_modes_are_fs_team_only(self):
-        for strategy, visible in (
-            ("oracle_cards_protagonist", True),
-            ("oracle_script_protagonist", False),
-        ):
-            with self.subTest(strategy=strategy):
-                rooms = RoomService()
-                created = rooms.create({"module": "FS", "nickname": "Host",
-                                        "seat": "m", "protagonist_count": 1})
-                updated = rooms.set_ai(created["room"]["code"], {
-                    "seat": "a", "enabled": True, "strategy": strategy,
-                }, token=created["credential"]["admin_token"])
-                self.assertEqual(updated["room"]["seats"]["a"]["ai_type"],
-                                 strategy)
-                policy = rooms._rooms[created["room"]["code"]].seats["a"].ai_policy
-                self.assertTrue(policy.controls_protagonist_team)
-                self.assertEqual(policy.reveal_cards, visible)
+    def test_script_oracle_modes_are_fs_btx_team_only(self):
+        for module in ("FS", "BTX"):
+            for strategy, visible in (
+                ("oracle_cards_protagonist", True),
+                ("oracle_script_protagonist", False),
+            ):
+                with self.subTest(module=module, strategy=strategy):
+                    rooms = RoomService()
+                    created = rooms.create({"module": module, "nickname": "Host",
+                                            "seat": "m", "protagonist_count": 1})
+                    updated = rooms.set_ai(created["room"]["code"], {
+                        "seat": "a", "enabled": True, "strategy": strategy,
+                    }, token=created["credential"]["admin_token"])
+                    self.assertEqual(updated["room"]["seats"]["a"]["ai_type"],
+                                     strategy)
+                    policy = rooms._rooms[created["room"]["code"]].seats["a"].ai_policy
+                    self.assertTrue(policy.controls_protagonist_team)
+                    self.assertEqual(policy.reveal_cards, visible)
         wrong_module = RoomService()
-        room = wrong_module.create({"module": "BTX", "nickname": "Host",
+        room = wrong_module.create({"module": "MZ", "nickname": "Host",
                                     "seat": "m", "protagonist_count": 1})
         with self.assertRaises(ServiceError):
             wrong_module.set_ai(room["room"]["code"], {

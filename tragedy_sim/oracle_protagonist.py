@@ -101,8 +101,12 @@ class OracleProtagonistAgent:
         if card in {"h", "v", "d"}:
             return 72 if critical else 44 if roles.get(target) in {"serial", "killer"} else 18
         if card == "g1":
+            if roles.get(target) == "time_traveler" and character.get("goodwill", 0) <= 2:
+                return 92 if character.get("goodwill", 0) == 2 else 55
             return 35 if critical else 12
         if card == "g2":
+            if roles.get(target) == "time_traveler" and character.get("goodwill", 0) <= 1:
+                return 96
             return 21 if critical else 4
         if card == "p1":
             return -35 if incident or critical else 0
@@ -119,7 +123,25 @@ class OracleProtagonistAgent:
         cultists = [cid for cid, role in root.scenario["cast"].items()
                     if role == "cultist" and cid in view.get("characters", {})
                     and view["characters"][cid]["location"] == plot_board]
-        if 1 <= index <= 9 and plot_board and cultists:
+        travelers = [cid for cid, role in root.scenario["cast"].items()
+                     if role == "time_traveler"
+                     and root.state.characters[cid].goodwill <= 2]
+        if root.module == "BTX" and travelers and index <= 4:
+            # The optional last-day loss needs goodwill <= 2. Heroes cannot
+            # target one character twice on the same day, so plan progress
+            # over successive days: +2 from zero, then +1 on a later day.
+            traveler = travelers[0]
+            gain = "g2" if root.state.characters[traveler].goodwill <= 1 else "g1"
+            scripted = {0: (gain, traveler)}
+            today = next((incident for incident in root.scenario["incidents"]
+                          if incident["day"] == view["round"]), None)
+            if index == 0 and today is not None:
+                scripted[1] = ("p-1", today["culprit"])
+            elif index == 3:
+                scripted = {0: ("g1", traveler)}
+            elif index == 4:
+                scripted = {0: ("g2", traveler)}
+        elif 1 <= index <= 9 and plot_board and cultists:
             movement = ("h", "v", "d")[(index - 1) % 3]
             fi_slot = 0 if index <= 3 else 1 if index <= 6 else 2
             move_slot = 1 if fi_slot == 0 else 0
@@ -295,7 +317,12 @@ class OracleProtagonistAgent:
             # mis-score BTX positions. Long-horizon information value follows
             # once BTX terminal behavior has a measured baseline.
             value = max(-1.0, min(1.0, -self.evaluator(world)))
-            return 0.55 + 0.22 * value, True
+            days_left = max(1, world.scenario["days"] - start_day)
+            traveler_gap = sum(
+                max(0, 3 - world.state.characters[cid].goodwill)
+                for cid, role in world.scenario["cast"].items()
+                if role == "time_traveler")
+            return 0.55 + 0.22 * value - 0.10 * traveler_gap / days_left, True
         # Survival dominates all position gains.  Stable position helps avoid
         # spending once-per-loop defenses when several safe bundles exist.
         value = max(-1.0, min(1.0, -self.evaluator(world)))
@@ -360,7 +387,8 @@ class OracleProtagonistAgent:
                 self._plan.pop(0)
                 return chosen
             self._plan = []
-        if (view.get("module") != "FS" or view.get("phase") != "protagonists"
+        if (view.get("module") not in {"FS", "BTX"}
+                or view.get("phase") != "protagonists"
                 or not all(offer.get("type") == "play" for offer in offers)):
             if view.get("phase") == "final_guess":
                 guesses = {cid: game.scenario["cast"][cid]
