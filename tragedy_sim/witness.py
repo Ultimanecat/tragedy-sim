@@ -212,27 +212,49 @@ class FsbtxWitnessCompiler:
 
     @staticmethod
     def _soft_plot_pressure(view: Mapping[str, Any]) -> list[PublicWitness]:
-        """A loop-end loss with a pressured school supports, but cannot prove, Protect."""
-        if view.get("module") != "FS":
+        """Public loop-end conditions support, but cannot prove, a main plot."""
+        module = view.get("module")
+        if module not in {"FS", "BTX"}:
             return []
         school = 0
+        shrine = 0
+        butterfly_happened = False
         events = view.get("events", ())
         result = []
         for index, event in enumerate(events):
             if event.get("kind") == "loop_started":
                 school = 0
+                shrine = 0
+                butterfly_happened = False
             elif (event.get("kind") == "counter_changed"
-                  and event.get("target") == "school"
                   and event.get("counter") == "intrigue"
                   and isinstance(event.get("after"), int)):
-                school = event["after"]
-            elif (event.get("kind") == "loop_lost" and school >= 2
-                  and index > 0 and events[index - 1].get("kind") == "day_ended"
+                if event.get("target") == "school":
+                    school = event["after"]
+                elif event.get("target") == "shrine":
+                    shrine = event["after"]
+            elif (event.get("kind") == "incident_status"
+                  and event.get("incident") == "butterfly"
+                  and event.get("happened")):
+                butterfly_happened = True
+            elif (event.get("kind") == "loop_lost" and index > 0
+                  and events[index - 1].get("kind") == "day_ended"
                   and events[index - 1].get("loop") == event.get("loop")):
-                result.append(PublicWitness(
-                    "plot_pressure", "protect", True,
-                    int(event["loop"]), int(event["round"]), "loop_end",
-                    "public_school_pressure_and_loss", WitnessStrength.SOFT))
+                if module == "FS" and school >= 2:
+                    result.append(PublicWitness(
+                        "plot_pressure", "protect", True,
+                        int(event["loop"]), int(event["round"]), "loop_end",
+                        "public_school_pressure_and_loss", WitnessStrength.SOFT))
+                if module == "BTX" and shrine >= 2:
+                    result.append(PublicWitness(
+                        "plot_pressure", "sealed", True,
+                        int(event["loop"]), int(event["round"]), "loop_end",
+                        "public_shrine_pressure_and_loss", WitnessStrength.SOFT))
+                if module == "BTX" and butterfly_happened:
+                    result.append(PublicWitness(
+                        "plot_pressure", "change", True,
+                        int(event["loop"]), int(event["round"]), "loop_end",
+                        "public_butterfly_and_loss", WitnessStrength.SOFT))
         return result
 
     def compile(self, view: Mapping[str, Any]) -> tuple[PublicWitness, ...]:

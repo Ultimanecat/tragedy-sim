@@ -234,6 +234,39 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertFalse(any(item.kind == "plot_pressure"
                              for item in FsbtxWitnessCompiler().compile(view)))
 
+    def test_btx_public_loop_end_routes_are_soft_plot_evidence(self):
+        sealed = replace(self.hypothesis, main_plot="sealed")
+        change = replace(self.hypothesis, main_plot="change")
+        other = replace(self.hypothesis, main_plot="murder_plan")
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 2,
+             "target": "shrine", "counter": "intrigue", "after": 2},
+            {"kind": "incident_status", "loop": 1, "round": 3,
+             "incident": "butterfly", "happened": True},
+            {"kind": "day_ended", "loop": 1, "round": 4},
+            {"kind": "loop_lost", "loop": 1, "round": 4},
+        ]
+        witnesses = [item for item in FsbtxWitnessCompiler().compile(view)
+                     if item.kind == "plot_pressure"]
+        self.assertEqual({item.subject for item in witnesses},
+                         {"sealed", "change"})
+        self.assertTrue(all(item.strength == WitnessStrength.SOFT
+                            for item in witnesses))
+        matcher = FsbtxWitnessMatcher()
+        self.assertGreater(matcher.soft_score(sealed, witnesses),
+                           matcher.soft_score(other, witnesses))
+        self.assertGreater(matcher.soft_score(change, witnesses),
+                           matcher.soft_score(other, witnesses))
+        self.assertTrue(matcher.matches(other, witnesses))
+
+        # Neither an unfinished day nor a non-occurring butterfly may create
+        # this loop-end evidence.
+        view["events"][-2]["kind"] = "character_died"
+        self.assertFalse(any(item.kind == "plot_pressure"
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
     def test_part_timer_replacement_uses_visible_replacement_threshold(self):
         scenario = example_scenario("BTX")
         scenario["cast"].pop(next(iter(scenario["cast"])))
