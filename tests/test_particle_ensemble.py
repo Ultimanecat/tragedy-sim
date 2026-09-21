@@ -1,16 +1,17 @@
-"""Public-boundary and cross-particle regression tests for the FS planner."""
+"""Public-boundary and cross-particle regression tests for FS/BTX."""
 
 import unittest
 
 from benchmarks.ai_self_play import _policy_offer
 from tragedy_sim import Game
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
+from tragedy_sim.scenario import example_scenario
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
 
 
-def protagonist_position():
-    game = Game(ScenarioLibrary().get("official-fs-01-first-script"))
+def protagonist_position(scenario_id="official-fs-01-first-script"):
+    game = Game(ScenarioLibrary().get(scenario_id))
     while game.state.phase != "protagonists":
         game = game.search_transition(game.search_actions(game.controller)[0])
     return game
@@ -28,7 +29,7 @@ class ParticleEnsembleTests(unittest.TestCase):
         chosen = agent.choose_action(participant="team", view=view, offers=offers)
         self.assertIn(chosen, offers)
         trace = agent.last_trace
-        self.assertEqual(trace.strategy, "public_fs_particle_ensemble")
+        self.assertEqual(trace.strategy, "public_fs_btx_particle_ensemble")
         self.assertEqual(trace.evaluated_pairs,
                          trace.iterations * trace.particles)
         self.assertGreater(trace.particles, 0)
@@ -56,6 +57,38 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertEqual(first["id"], second["id"])
         self.assertEqual(agent.last_trace.belief_roles,
                          other.last_trace.belief_roles)
+
+    def test_btx_public_view_uses_joint_plan_and_not_fs_fallback(self):
+        scenario = next(item["id"] for item in ScenarioLibrary().list("BTX")
+                        if item["source"] == "library")
+        game = protagonist_position(scenario)
+        agent = ParticleEnsembleProtagonistAgent(
+            SearchBudget(node_limit=6, rollout_depth=12, seed=11),
+            particle_count=4, rng_seed=11)
+        offers = [_policy_offer(game, action)
+                  for action in game.action_offers(game.controller)]
+        chosen = agent.choose_action(
+            participant="team", view=game.protagonist_team_view(), offers=offers)
+        self.assertIn(chosen, offers)
+        self.assertEqual(agent.last_trace.module, "BTX")
+        self.assertEqual(agent.last_trace.strategy,
+                         "public_fs_btx_particle_ensemble")
+        self.assertGreater(agent.last_trace.evaluated_pairs, 0)
+        self.assertEqual(len(agent.last_trace.planned_commands), 2)
+
+    def test_btx_final_guess_uses_joint_role_posterior(self):
+        game = Game(example_scenario("BTX"))
+        game._start_final_guess()
+        agent = ParticleEnsembleProtagonistAgent(
+            SearchBudget(node_limit=4, seed=12), particle_count=4,
+            rng_seed=12)
+        offers = [_policy_offer(game, action)
+                  for action in game.action_offers(game.controller)]
+        chosen = agent.choose_action(
+            participant="team", view=game.protagonist_team_view(), offers=offers)
+        self.assertEqual(chosen["type"], "guess_all")
+        self.assertEqual(set(chosen["arguments"]["guesses"]), set(game.roles))
+        self.assertEqual(agent.last_trace.fallback, "simultaneous_map_guess")
 
 
 if __name__ == "__main__":

@@ -623,28 +623,43 @@ class FactorizedBeliefState:
             result[day] = tuple(candidates)
         return result
 
+    def role_posterior(self, evidence: PublicEvidence,
+                       witnesses: Sequence[Any]
+                       ) -> tuple[tuple[HiddenWorldHypothesis, float], ...]:
+        """Return the candidate *joint* role assignments and their weights.
+
+        Final guessing must rank complete assignments directly. Sampling a
+        small number of full worlds would turn a large, mostly unique BTX
+        identity space into an arbitrary tie-break between singletons.
+        """
+        from .witness import FsbtxWitnessMatcher
+
+        self._refresh_roles(evidence, witnesses)
+        matcher = FsbtxWitnessMatcher()
+        role_witnesses = tuple(w for w in witnesses if w.kind in {
+            "role_is", "plot_present", "plot_pressure", "day_end_death_companion",
+            "day_end_killer_candidate", "loss_after_death"})
+        return tuple((world,
+                      2.0 ** matcher.soft_score(world, role_witnesses)
+                      / (self._plot_sizes[(world.main_plot, world.subplots)]
+                         if self._exact_roles else 1))
+                     for world in self._roles.values())
+
     def sample(self, evidence: PublicEvidence, witnesses: Sequence[Any],
                count: int, *, rng: random.Random) -> FactorizedBeliefResult:
         from .witness import FsbtxWitnessMatcher
 
         if count < 1:
             raise ValueError("count must be positive")
-        self._refresh_roles(evidence, witnesses)
+        ranked_roles = self.role_posterior(evidence, witnesses)
         culprits = self._culprits(evidence, witnesses)
         sizes = tuple((day, len(options)) for day, options in sorted(culprits.items()))
-        if not self._roles or any(not options for options in culprits.values()):
-            return FactorizedBeliefResult((), len(self._roles), sizes,
+        if not ranked_roles or any(not options for options in culprits.values()):
+            return FactorizedBeliefResult((), len(ranked_roles), sizes,
                                           "no_compatible_factor")
         matcher = FsbtxWitnessMatcher()
-        roles = tuple(self._roles.values())
-        role_witnesses = tuple(w for w in witnesses if w.kind in {
-            "role_is", "plot_present", "plot_pressure", "day_end_death_companion",
-            "day_end_killer_candidate", "loss_after_death"})
-        weights = [
-            2.0 ** matcher.soft_score(world, role_witnesses)
-            / (self._plot_sizes[(world.main_plot, world.subplots)]
-               if self._exact_roles else 1)
-            for world in roles]
+        roles = tuple(world for world, _ in ranked_roles)
+        weights = [weight for _, weight in ranked_roles]
         culprit_witnesses = tuple(w for w in witnesses if w.kind in {
             "culprit_is", "incident_happened", "incident_not_happened"})
         culprit_weights = {

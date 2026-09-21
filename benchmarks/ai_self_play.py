@@ -414,9 +414,13 @@ def main() -> None:
                               protagonist_time_limit_ms=args.protagonist_time_limit_ms)
                 results.append(result)
                 if args.progress:
+                    guess = (f" guess={sum(item.correct for item in result.final_guesses)}"
+                             f"/{len(result.final_guesses)}"
+                             if result.final_guesses else "")
                     print(f"[{len(results)}/{total}] {scenario} {strategy} "
                           f"seed={result.seed} winner={result.winner} "
-                          f"decisions={result.decisions} elapsed={result.elapsed_seconds:.3f}s",
+                          f"decisions={result.decisions}{guess} "
+                          f"elapsed={result.elapsed_seconds:.3f}s",
                           flush=True)
     if args.json:
         print(json.dumps([asdict(item) for item in results], ensure_ascii=False,

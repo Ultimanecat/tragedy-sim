@@ -1,4 +1,4 @@
-"""Public-information, particle-ensemble day planner for FS protagonists.
+"""Public-information, particle-ensemble day planner for FS/BTX protagonists.
 
 This is a one-day belief-state planner, not a full information-set MCTS tree.
 The real game's script is never an input: proposals come from sampled worlds
@@ -35,7 +35,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
 
     @property
     def plan_name(self) -> str:
-        return "public_fs_particle_ensemble"
+        return "public_fs_btx_particle_ensemble"
 
     @staticmethod
     def _counts(worlds: Sequence[Any], evidence: PublicEvidence
@@ -67,7 +67,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                       offers: Sequence[dict[str, Any]]) -> dict[str, Any]:
         if participant == "m" or not offers:
             raise ValueError("particle ensemble requires protagonist offers")
-        if (view.get("module") != "FS" or view.get("phase") != "protagonists"
+        if (view.get("module") not in {"FS", "BTX"}
+                or view.get("phase") != "protagonists"
                 or not all(str(offer.get("type", offer.get("kind", "")))
                            .removeprefix("core.") == "play" for offer in offers)):
             return super().choose_action(participant=participant,
@@ -82,7 +83,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             if chosen is not None:
                 self._joint_plan.pop(0)
                 self.last_trace = IsmctsTrace(
-                    self.plan_name, self.rng_seed, "FS", 0, 0, 0,
+                    self.plan_name, self.rng_seed, str(view["module"]), 0, 0, 0,
                     self.budget.rollout_depth, "joint_plan_followup",
                     chosen["id"], (), planned_commands=tuple(self._joint_plan))
                 return chosen

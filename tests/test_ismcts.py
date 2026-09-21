@@ -1,7 +1,9 @@
 """Public-information protagonist ISMCTS tests."""
 
 import random
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 from tragedy_sim import Game
 from tragedy_sim.ismcts import (IsmctsProtagonistAgent,
@@ -202,6 +204,33 @@ class IsmctsTests(unittest.TestCase):
         self.assertEqual(chosen["kind"], "core.guess_all")
         self.assertEqual(set(chosen["arguments"]["guesses"]), set(game.roles))
         self.assertEqual(agent.last_trace.fallback, "simultaneous_map_guess")
+
+    def test_final_guess_uses_joint_mode_not_sum_of_role_marginals(self):
+        game = Game(example_scenario("BTX"))
+        game._start_final_guess()
+        characters = tuple(game.roles)
+        self.assertGreaterEqual(len(characters), 3)
+        first, second, third = characters[:3]
+
+        def assignment(brain, friend):
+            roles = dict.fromkeys(characters, "ordinary")
+            roles[brain], roles[friend] = "brain", "friend"
+            return SimpleNamespace(roles=tuple(sorted(roles.items())))
+
+        # A is the most likely complete assignment (4/10), while summing
+        # independent role marginals would select B (3/10).
+        a = assignment(first, second)
+        b = assignment(third, second)
+        c = assignment(third, first)
+        posterior = ((a, 4.0), (b, 3.0), (c, 3.0))
+        agent = IsmctsProtagonistAgent(particle_count=4)
+        offers = [offer.to_dict() for offer in game.action_offers(game.controller)]
+        with patch.object(agent.factorized_belief, "role_posterior",
+                          return_value=posterior):
+            chosen = agent.choose_action(
+                participant="team", view=game.protagonist_team_view(),
+                offers=offers)
+        self.assertEqual(chosen["arguments"]["guesses"], dict(a.roles))
 
     def test_joint_guess_uses_repeated_public_death_evidence(self):
         game = Game(example_scenario("BTX"))

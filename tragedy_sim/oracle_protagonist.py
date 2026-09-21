@@ -288,6 +288,14 @@ class OracleProtagonistAgent:
             return -1.0, False
         if world.winner == "protagonists":
             return 1.0, True
+        if world.module == "BTX":
+            # BTX shares the legal day planner but has different plots and a
+            # final guess. Keep the first vertical slice's day-boundary value
+            # ruleset-neutral; FS-only board and role pressure below would
+            # mis-score BTX positions. Long-horizon information value follows
+            # once BTX terminal behavior has a measured baseline.
+            value = max(-1.0, min(1.0, -self.evaluator(world)))
+            return 0.55 + 0.22 * value, True
         # Survival dominates all position gains.  Stable position helps avoid
         # spending once-per-loop defenses when several safe bundles exist.
         value = max(-1.0, min(1.0, -self.evaluator(world)))

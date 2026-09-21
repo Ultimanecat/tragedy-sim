@@ -367,7 +367,7 @@ class RoomServiceTests(unittest.TestCase):
         self.assertEqual(invalid.exception.code,
                          "TEAM_AI_REQUIRES_TWO_PLAYER_MODE")
 
-    def test_particle_ensemble_is_fs_team_only(self):
+    def test_particle_ensemble_is_fs_btx_team_only(self):
         rooms = RoomService()
         created = rooms.create({"module": "FS", "nickname": "Host", "seat": "m",
                                 "protagonist_count": 1})
@@ -379,15 +379,24 @@ class RoomServiceTests(unittest.TestCase):
         self.assertEqual(updated["room"]["seats"]["a"]["ai_type"],
                          "particle_ensemble_protagonist")
         policy = rooms._rooms[code].seats["a"].ai_policy
-        self.assertEqual(policy.plan_name, "public_fs_particle_ensemble")
+        self.assertEqual(policy.plan_name, "public_fs_btx_particle_ensemble")
         other = RoomService()
         btx = other.create({"module": "BTX", "nickname": "Host", "seat": "m",
                             "protagonist_count": 1})
-        with self.assertRaises(ServiceError):
-            other.set_ai(btx["room"]["code"], {
+        updated_btx = other.set_ai(btx["room"]["code"], {
+            "seat": "a", "enabled": True,
+            "strategy": "particle_ensemble_protagonist",
+        }, token=btx["credential"]["admin_token"])
+        self.assertEqual(updated_btx["room"]["seats"]["a"]["ai_type"],
+                         "particle_ensemble_protagonist")
+        unsupported = other.create({"module": "MZ", "nickname": "Host", "seat": "m",
+                                    "protagonist_count": 1})
+        with self.assertRaises(ServiceError) as error:
+            other.set_ai(unsupported["room"]["code"], {
                 "seat": "a", "enabled": True,
                 "strategy": "particle_ensemble_protagonist",
-            }, token=btx["credential"]["admin_token"])
+            }, token=unsupported["credential"]["admin_token"])
+        self.assertEqual(error.exception.code, "INVALID_AI_STRATEGY")
 
     def test_mcts_mastermind_uses_private_search_trace(self):
         rooms = RoomService()

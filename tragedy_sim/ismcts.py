@@ -489,47 +489,39 @@ class IsmctsProtagonistAgent:
                 return chosen
             evidence = PublicEvidence.from_view(view)
             witnesses = self.evidence_ledger.update(view, self.compiler)
-            rng = random.Random(
-                f"{self.budget.seed}:{self.rng_seed}:{participant}:final_guess")
-            hypotheses = self.factorized_belief.sample(
-                evidence, witnesses, max(128, self.particle_count * 4),
-                rng=rng).worlds
-            if not hypotheses:
+            ranked_roles = self.factorized_belief.role_posterior(
+                evidence, witnesses)
+            if not ranked_roles:
                 chosen = {**offers[0], "arguments": {"guesses": baseline}}
                 self.last_trace = IsmctsTrace(
                     self.plan_name, self.rng_seed, evidence.module, 0,
                     len(witnesses), 0, self.budget.rollout_depth,
                     "no_final_guess_particles", offers[0]["id"], ())
                 return chosen
-            marginals = {cid: Counter(dict(world.roles).get(cid)
-                                      for world in hypotheses)
-                         for cid in evidence.characters}
+            marginals = {cid: Counter() for cid in evidence.characters}
+            for world, weight in ranked_roles:
+                roles = dict(world.roles)
+                for cid in evidence.characters:
+                    marginals[cid][roles[cid]] += weight
             belief_roles = tuple({
                 "character": cid,
                 "counts": dict(sorted(counts.items())),
             } for cid, counts in marginals.items())
-
-            def joint_score(world: Any) -> int:
-                roles = dict(world.roles)
-                marginal_score = sum(marginals[cid][roles[cid]]
-                                     for cid in evidence.characters)
-                # A coherent script must also explain the observations as a
-                # joint whole.  This prevents several weak marginal modes from
-                # collectively displacing a repeatedly witnessed causal pair.
-                evidence_score = round(
-                    len(hypotheses) * self.matcher.soft_score(world, witnesses))
-                return marginal_score + evidence_score
-
-            selected_world = max(hypotheses, key=joint_score)
+            # Rank complete assignments using the same witness weights as
+            # sampling. A finite draw can leave every BTX assignment unique;
+            # then its empirical mode is just an arbitrary tie-break.
+            selected_world, _ = max(
+                ranked_roles,
+                key=lambda pair: (pair[1], tuple(sorted(pair[0].roles))))
             roles = dict(selected_world.roles)
             guesses = {target: roles[target]
                        for target in view.get("guess_remaining", ())}
             chosen = {**offers[0], "arguments": {"guesses": guesses}}
             self.last_trace = IsmctsTrace(
-                self.plan_name, self.rng_seed, evidence.module, len(hypotheses),
+                self.plan_name, self.rng_seed, evidence.module, len(ranked_roles),
                 len(witnesses), 0, self.budget.rollout_depth,
                 "simultaneous_map_guess", offers[0]["id"], (), belief_roles,
-                "resampled", 0, self.evidence_ledger.hard_count,
+                "candidate_weights", 0, self.evidence_ledger.hard_count,
                 self.evidence_ledger.soft_count)
             return chosen
         if view.get("module") not in ("FS", "BTX"):

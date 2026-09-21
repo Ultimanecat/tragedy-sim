@@ -335,10 +335,12 @@ class RoomService:
             if room.status != "waiting":
                 raise ServiceError("ROOM_ALREADY_STARTED", "对局开始后不能更改 AI 座位", status=409)
             if (request["enabled"] and strategy in {"oracle_cards_protagonist",
-                                                     "oracle_script_protagonist",
-                                                     "particle_ensemble_protagonist"}
+                                                     "oracle_script_protagonist"}
                     and room.module != "FS"):
                 raise ServiceError("INVALID_AI_STRATEGY", "该主人公 AI 目前只支持 FS", status=409)
+            if (request["enabled"] and strategy == "particle_ensemble_protagonist"
+                    and room.module not in {"FS", "BTX"}):
+                raise ServiceError("INVALID_AI_STRATEGY", "该主人公 AI 目前只支持 FS/BTX", status=409)
             if request["enabled"] and strategy == "joint_mastermind" and room.module != "FS":
                 raise ServiceError("INVALID_AI_STRATEGY", "三牌联合剧作家 AI 目前只支持 FS", status=409)
             required = ("m", *SEATS[1:1 + room.protagonist_count])
