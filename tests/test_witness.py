@@ -6,8 +6,8 @@ import random
 import unittest
 
 from tragedy_sim import Game
-from tragedy_sim.belief import (ConstraintBeliefSampler, HiddenWorldHypothesis,
-                                PublicEvidence)
+from tragedy_sim.belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
+                                HiddenWorldHypothesis, PublicEvidence)
 from tragedy_sim.catalog import CHARACTERS
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.scenario_library import ScenarioLibrary
@@ -55,6 +55,50 @@ class FsbtxWitnessTests(unittest.TestCase):
         wrong["known_roles"] = {"girl": {"role": "ordinary"}}
         self.assertFalse(FsbtxWitnessMatcher().matches(
             self.hypothesis, FsbtxWitnessCompiler().compile(wrong)))
+
+    def test_virus_role_reveal_does_not_rewrite_initial_identity(self):
+        ordinary = next(cid for cid, role in self.hypothesis.roles
+                        if role == "ordinary")
+        view = deepcopy(self.view)
+        view["known_roles"] = {ordinary: {"role": "serial"}}
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.kind == "role_is")
+        virus_world = replace(
+            self.hypothesis,
+            subplots=tuple({*self.hypothesis.subplots, "virus"}),
+        )
+        matcher = FsbtxWitnessMatcher()
+        self.assertEqual(matcher.verdict(virus_world, witness),
+                         WitnessVerdict.SATISFIED)
+        self.assertEqual(matcher.verdict(self.hypothesis, witness),
+                         WitnessVerdict.CONTRADICTED)
+
+        serial_roles = dict(self.hypothesis.roles)
+        serial_roles[ordinary] = "serial"
+        initial_serial = replace(
+            self.hypothesis, roles=tuple(sorted(serial_roles.items())))
+        self.assertEqual(matcher.verdict(initial_serial, witness),
+                         WitnessVerdict.SATISFIED)
+
+    def test_catalog_match_keeps_virus_transformed_ordinary_world(self):
+        library = ScenarioLibrary()
+        scenario = library.get("official-btx-08-mirror-passcode")
+        ordinary = next(cid for cid, role in scenario["cast"].items()
+                        if role == "ordinary")
+        game = Game(scenario)
+        view = game.protagonist_team_view()
+        view["known_roles"] = {ordinary: {"role": "serial"}}
+        evidence = PublicEvidence.from_view(view)
+        candidates = CatalogBeliefSampler(library).candidates(
+            evidence, witnesses=FsbtxWitnessCompiler().compile(view))
+        self.assertTrue(candidates)
+        self.assertTrue(all(FsbtxWitnessMatcher().matches(
+            candidate, FsbtxWitnessCompiler().compile(view))
+            for candidate in candidates))
+        self.assertTrue(any(candidate.scenario_id == scenario["id"]
+                            and dict(candidate.roles).get(ordinary) == "ordinary"
+                            and "virus" in candidate.subplots
+                            for candidate in candidates))
 
     def test_immediate_fs_death_loss_certifies_key_but_normal_end_does_not(self):
         view = Game(example_scenario("FS")).view("a")

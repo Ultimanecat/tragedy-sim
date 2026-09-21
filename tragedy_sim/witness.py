@@ -336,8 +336,14 @@ class FsbtxWitnessMatcher:
     def verdict(self, hypothesis: Any, witness: PublicWitness) -> WitnessVerdict:
         roles = dict(hypothesis.roles)
         if witness.kind == "role_is":
-            return (WitnessVerdict.SATISFIED
-                    if roles.get(witness.subject) == witness.value
+            subject = ("part_timer" if witness.subject == "part_timer_question"
+                       else witness.subject)
+            initial = roles.get(subject)
+            plots = {hypothesis.main_plot, *hypothesis.subplots}
+            compatible = initial == witness.value or (
+                witness.value == "serial" and initial == "ordinary"
+                and "virus" in plots)
+            return (WitnessVerdict.SATISFIED if compatible
                     else WitnessVerdict.CONTRADICTED)
         if witness.kind == "culprit_is":
             incident = self._incident(hypothesis, int(witness.subject))

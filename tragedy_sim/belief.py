@@ -30,6 +30,17 @@ _PRESENTATION_FIELDS = {
 }
 
 
+def _observed_role_matches(initial_role: str | None, observed_role: str,
+                           plots: Sequence[str]) -> bool:
+    """Whether a public current-role observation fits an initial script role."""
+    if initial_role == observed_role:
+        return True
+    # Delusion Expansion Virus changes an Ordinary into a Serial Killer for
+    # the current loop.  BTX's final guess still asks for the initial role.
+    return (observed_role == "serial" and initial_role == "ordinary"
+            and "virus" in plots)
+
+
 def _player_view(game: Any, viewer: str) -> Mapping[str, Any]:
     return (game.protagonist_team_view() if viewer == "team"
             else game.view(viewer))
@@ -345,7 +356,9 @@ class CatalogBeliefSampler:
         if public_schedule != evidence.schedule:
             return False
         roles = scenario["cast"]
-        if any(roles.get(cid) != role for cid, role in evidence.known_roles):
+        plots = (scenario["main_plot"], *scenario["subplots"])
+        if any(not _observed_role_matches(roles.get(cid), role, plots)
+               for cid, role in evidence.known_roles):
             return False
         incidents_by_day: dict[int, set[str]] = {}
         for item in scenario["incidents"]:
@@ -353,8 +366,7 @@ class CatalogBeliefSampler:
         if any(cid not in incidents_by_day.get(day, set())
                for day, cid in evidence.known_culprits):
             return False
-        plots = {scenario["main_plot"], *scenario["subplots"]}
-        return all(plot in plots for plot in evidence.known_plots)
+        return all(plot in set(plots) for plot in evidence.known_plots)
 
     def candidates(self, evidence: PublicEvidence, *, witnesses=()
                    ) -> tuple[HiddenWorldHypothesis, ...]:
@@ -414,23 +426,34 @@ class ConstraintBeliefSampler:
 
     @staticmethod
     def _cast(evidence: PublicEvidence, slots: Counter[str],
+              plots: Sequence[str],
               rng: random.Random) -> dict[str, str] | None:
         known = dict(evidence.known_roles)
         remaining = slots.copy()
-        for cid, role in known.items():
+        assigned: dict[str, str] = {}
+        for cid, observed in known.items():
             if cid not in evidence.characters:
                 return None
-            if role != "ordinary":
-                if remaining[role] < 1:
+            options = [observed]
+            if observed == "serial" and "virus" in plots:
+                options.append("ordinary")
+            rng.shuffle(options)
+            initial = next((role for role in options
+                            if role == "ordinary" or remaining[role] > 0), None)
+            if initial is None:
+                return None
+            assigned[cid] = initial
+            if initial != "ordinary":
+                if remaining[initial] < 1:
                     return None
-                remaining[role] -= 1
+                remaining[initial] -= 1
         unassigned = [cid for cid in evidence.characters if cid not in known]
         role_bag = list(remaining.elements())
         if len(role_bag) > len(unassigned):
             return None
         role_bag.extend(["ordinary"] * (len(unassigned) - len(role_bag)))
         rng.shuffle(role_bag)
-        return {**known, **dict(zip(unassigned, role_bag))}
+        return {**assigned, **dict(zip(unassigned, role_bag))}
 
     @staticmethod
     def _incidents(evidence: PublicEvidence,
@@ -468,8 +491,9 @@ class ConstraintBeliefSampler:
         matcher = FsbtxWitnessMatcher()
         for attempt in range(limit):
             main, subplots = rng.choice(plot_sets)
+            plots = (main, *subplots)
             cast = self._cast(
-                evidence, self._role_slots(evidence.module, (main, *subplots)), rng)
+                evidence, self._role_slots(evidence.module, plots), plots, rng)
             incidents = self._incidents(evidence, rng)
             if cast is None or incidents is None:
                 continue
@@ -535,7 +559,6 @@ class FactorizedBeliefState:
         return world.main_plot, world.subplots, world.roles
 
     def _enumerate_roles(self, evidence: PublicEvidence) -> None:
-        known = dict(evidence.known_roles)
         for main, subplots in self.sampler._plot_sets(evidence):
             slots = self.sampler._role_slots(evidence.module,
                                             (main, *subplots))
@@ -549,7 +572,9 @@ class FactorizedBeliefState:
             for assignment in sorted(set(permutations(bag))):
                 self._plot_sizes[(main, subplots)] += 1
                 cast = dict(zip(evidence.characters, assignment))
-                if any(cast.get(cid) != role for cid, role in known.items()):
+                plots = (main, *subplots)
+                if any(not _observed_role_matches(cast.get(cid), role, plots)
+                       for cid, role in evidence.known_roles):
                     continue
                 try:
                     scenario = validate_scenario({
