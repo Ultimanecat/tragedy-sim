@@ -311,6 +311,44 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertFalse(any(item.kind == "plot_pressure"
                              for item in FsbtxWitnessCompiler().compile(view)))
 
+    def test_btx_joint_loop_end_evidence_preserves_role_plot_correlation(self):
+        view = deepcopy(self.view)
+        candidate = "girl"
+        initial_board = view["characters"][candidate]["initial_location"]
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 4,
+             "target": candidate, "counter": "intrigue", "after": 2},
+            {"kind": "counter_changed", "loop": 1, "round": 4,
+             "target": initial_board, "counter": "intrigue", "after": 2},
+            {"kind": "day_ended", "loop": 1, "round": view["days"]},
+            {"kind": "loop_lost", "loop": 1, "round": view["days"]},
+        ]
+        witnesses = FsbtxWitnessCompiler().compile(view)
+        joint = [item for item in witnesses
+                 if item.kind == "joint_plot_role_pressure"]
+        self.assertEqual({item.subject for item in joint}, {"sign", "bomb"})
+        traveler = next(item for item in witnesses
+                        if item.kind == "role_pressure")
+        self.assertEqual(traveler.subject, "time_traveler")
+        self.assertEqual(joint[0].strength, WitnessStrength.SOFT)
+
+        roles = dict(self.hypothesis.roles)
+        roles[candidate] = "key"
+        sign = replace(self.hypothesis, main_plot="sign",
+                       roles=tuple(sorted(roles.items())))
+        wrong_place = next(cid for cid in roles if cid != candidate)
+        roles[candidate] = "ordinary"
+        roles[wrong_place] = "key"
+        sign_wrong = replace(self.hypothesis, main_plot="sign",
+                             roles=tuple(sorted(roles.items())))
+        matcher = FsbtxWitnessMatcher()
+        self.assertGreater(matcher.soft_score(sign, joint),
+                           matcher.soft_score(sign_wrong, joint))
+        # Correlation evidence remains soft and therefore never deletes the
+        # alternative explanation.
+        self.assertTrue(matcher.matches(sign_wrong, joint))
+
     def test_part_timer_replacement_uses_visible_replacement_threshold(self):
         scenario = example_scenario("BTX")
         scenario["cast"].pop(next(iter(scenario["cast"])))
@@ -348,6 +386,57 @@ class FsbtxWitnessTests(unittest.TestCase):
     def test_other_rulesets_compile_no_fs_btx_assumptions(self):
         self.view["module"] = "MZ"
         self.assertEqual(FsbtxWitnessCompiler().compile(self.view), ())
+
+    def test_true_world_survives_every_public_checkpoint_in_recorded_btx(self):
+        library = ScenarioLibrary()
+        compiler = FsbtxWitnessCompiler()
+        matcher = FsbtxWitnessMatcher()
+        scenario_ids = [
+            item["id"] for item in library.list("BTX")
+            if item["source"] == "library"
+        ]
+        self.assertEqual(len(scenario_ids), 11)
+        for scenario_id in scenario_ids:
+            with self.subTest(scenario=scenario_id):
+                scenario = library.get(scenario_id)
+                truth = HiddenWorldHypothesis.from_scenario(scenario)
+                game = Game(scenario)
+                decisions = 0
+                while game.winner is None and decisions < 1200:
+                    view = game.protagonist_team_view()
+                    evaluation = matcher.evaluate(truth, compiler.compile(view))
+                    self.assertTrue(
+                        evaluation.compatible,
+                        (scenario_id, game.state.loop, game.state.round,
+                         game.state.phase, evaluation.contradicted),
+                    )
+                    if game.state.phase == "final_guess":
+                        game.dispatch(game.controller, "guess_all",
+                                      guesses=dict(scenario["cast"]))
+                    elif game.state.phase == "mastermind":
+                        index = len(game.state.pending)
+                        card, target = (("p1a", "school"), ("p1b", "city"),
+                                        ("h", "shrine"))[index]
+                        game.dispatch(game.controller, "play", card=card,
+                                      target=target)
+                    elif game.state.phase == "protagonists":
+                        index = sum(item.actor != "m"
+                                    for item in game.state.pending)
+                        game.dispatch(game.controller, "play", card="g1",
+                                      target=("school", "city", "shrine")[index])
+                    elif game.state.phase == "reveal":
+                        game.dispatch(game.controller, "resolve")
+                    elif game.state.phase in {"decision", "refusal"}:
+                        game.dispatch(game.controller, "choose", index=1)
+                    else:
+                        game.dispatch(game.controller, "next")
+                    decisions += 1
+                self.assertIsNotNone(game.winner,
+                                     (scenario_id, decisions, game.phase_cursor))
+                final = matcher.evaluate(
+                    truth, compiler.compile(game.protagonist_team_view()))
+                self.assertTrue(final.compatible,
+                                (scenario_id, final.contradicted))
 
     def test_repeated_day_end_death_is_soft_role_evidence(self):
         view = deepcopy(self.view)

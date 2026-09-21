@@ -219,6 +219,17 @@ class FsbtxWitnessCompiler:
         school = 0
         shrine = 0
         butterfly_happened = False
+        characters = view.get("characters", {})
+        character_intrigue = {str(cid): 0 for cid in characters}
+        character_goodwill = {str(cid): 0 for cid in characters}
+        alive = {str(cid): bool(item.get("present", True))
+                 for cid, item in characters.items()}
+        initial_locations = {
+            str(cid): str(item.get("initial_location", item.get("location", "")))
+            for cid, item in characters.items()
+        }
+        location_intrigue = {location: 0 for location in
+                             {"hospital", "shrine", "city", "school"}}
         events = view.get("events", ())
         result = []
         for index, event in enumerate(events):
@@ -226,13 +237,31 @@ class FsbtxWitnessCompiler:
                 school = 0
                 shrine = 0
                 butterfly_happened = False
+                character_intrigue = {str(cid): 0 for cid in characters}
+                character_goodwill = {str(cid): 0 for cid in characters}
+                alive = {str(cid): bool(item.get("present", True))
+                         for cid, item in characters.items()}
+                location_intrigue = {location: 0 for location in
+                                     location_intrigue}
             elif (event.get("kind") == "counter_changed"
-                  and event.get("counter") == "intrigue"
                   and isinstance(event.get("after"), int)):
-                if event.get("target") == "school":
-                    school = event["after"]
-                elif event.get("target") == "shrine":
-                    shrine = event["after"]
+                target = str(event.get("target", ""))
+                counter = event.get("counter")
+                if counter == "intrigue":
+                    if target in character_intrigue:
+                        character_intrigue[target] = event["after"]
+                    elif target in location_intrigue:
+                        location_intrigue[target] = event["after"]
+                    if target == "school":
+                        school = event["after"]
+                    elif target == "shrine":
+                        shrine = event["after"]
+                elif counter == "goodwill" and target in character_goodwill:
+                    character_goodwill[target] = event["after"]
+            elif event.get("kind") == "character_died":
+                target = event.get("target")
+                if isinstance(target, str):
+                    alive[target] = False
             elif (event.get("kind") == "incident_status"
                   and event.get("incident") == "butterfly"
                   and event.get("happened")):
@@ -255,6 +284,38 @@ class FsbtxWitnessCompiler:
                         "plot_pressure", "change", True,
                         int(event["loop"]), int(event["round"]), "loop_end",
                         "public_butterfly_and_loss", WitnessStrength.SOFT))
+                if module == "BTX":
+                    sign_candidates = tuple(sorted(
+                        cid for cid, value in character_intrigue.items()
+                        if value >= 2))
+                    if sign_candidates:
+                        result.append(PublicWitness(
+                            "joint_plot_role_pressure", "sign",
+                            {"role": "key", "candidates": sign_candidates},
+                            int(event["loop"]), int(event["round"]), "loop_end",
+                            "public_character_intrigue_and_loss",
+                            WitnessStrength.SOFT))
+                    bomb_candidates = tuple(sorted(
+                        cid for cid, location in initial_locations.items()
+                        if location_intrigue.get(location, 0) >= 2))
+                    if bomb_candidates:
+                        result.append(PublicWitness(
+                            "joint_plot_role_pressure", "bomb",
+                            {"role": "witch", "candidates": bomb_candidates},
+                            int(event["loop"]), int(event["round"]), "loop_end",
+                            "public_initial_board_intrigue_and_loss",
+                            WitnessStrength.SOFT))
+                    if int(event.get("round", 0)) == int(view.get("days", 0)):
+                        traveler_candidates = tuple(sorted(
+                            cid for cid, goodwill in character_goodwill.items()
+                            if alive.get(cid, False) and goodwill <= 2))
+                        if traveler_candidates:
+                            result.append(PublicWitness(
+                                "role_pressure", "time_traveler",
+                                {"candidates": traveler_candidates},
+                                int(event["loop"]), int(event["round"]),
+                                "loop_end", "public_final_day_low_goodwill_loss",
+                                WitnessStrength.SOFT))
         return result
 
     def compile(self, view: Mapping[str, Any]) -> tuple[PublicWitness, ...]:
@@ -359,6 +420,19 @@ class FsbtxWitnessMatcher:
             return (WitnessVerdict.SATISFIED
                     if hypothesis.main_plot == witness.subject
                     else WitnessVerdict.UNKNOWN)
+        if witness.kind == "joint_plot_role_pressure":
+            candidates = witness.value.get("candidates", ())
+            role = witness.value.get("role")
+            return (WitnessVerdict.SATISFIED
+                    if hypothesis.main_plot == witness.subject
+                    and any(roles.get(cid) == role for cid in candidates)
+                    else WitnessVerdict.UNKNOWN)
+        if witness.kind == "role_pressure":
+            candidates = witness.value.get("candidates", ())
+            return (WitnessVerdict.SATISFIED
+                    if any(roles.get(cid) == witness.subject
+                           for cid in candidates)
+                    else WitnessVerdict.UNKNOWN)
         if witness.kind == "incident_not_happened":
             # Absence has several explanations (dead/absent culprit and optional
             # prevention among them), so it is evidence but not a hard exclusion.
@@ -418,6 +492,8 @@ class FsbtxWitnessMatcher:
                    witnesses: Sequence[PublicWitness]) -> float:
         weights = {"incident_not_happened": 0.75,
                    "plot_pressure": 2.0,
+                   "joint_plot_role_pressure": 2.5,
+                   "role_pressure": 1.5,
                    "day_end_death_companion": 4.0,
                    "day_end_killer_candidate": 1.5,
                    "loss_after_death": 2.0}
@@ -433,7 +509,9 @@ class FsbtxWitnessMatcher:
         # a failed loop, while each channel remains bounded independently.
         caps = {"day_end_death_companion": 8.0,
                 "day_end_killer_candidate": 6.0,
-                "loss_after_death": 4.0}
+                "loss_after_death": 4.0,
+                "joint_plot_role_pressure": 6.0,
+                "role_pressure": 4.0}
         return sum(min(caps.get(kind, 3.0), score)
                    for kind, score in by_kind.items())
 

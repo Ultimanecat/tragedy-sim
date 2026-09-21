@@ -596,6 +596,7 @@ class FactorizedBeliefState:
         matcher = FsbtxWitnessMatcher()
         role_witnesses = tuple(w for w in witnesses if w.kind in {
             "role_is", "plot_present", "plot_pressure", "day_end_death_companion",
+            "joint_plot_role_pressure", "role_pressure",
             "day_end_killer_candidate", "loss_after_death"})
         signature = PersistentBeliefState._static_signature(evidence)
         if signature != self._signature:
@@ -663,6 +664,7 @@ class FactorizedBeliefState:
         matcher = FsbtxWitnessMatcher()
         role_witnesses = tuple(w for w in witnesses if w.kind in {
             "role_is", "plot_present", "plot_pressure", "day_end_death_companion",
+            "joint_plot_role_pressure", "role_pressure",
             "day_end_killer_candidate", "loss_after_death"})
         return tuple((world,
                       2.0 ** matcher.soft_score(world, role_witnesses)
