@@ -3,6 +3,21 @@ from ...cards import COUNTER_NAMES, LOCATIONS, STANDARD_COUNTERS
 from ...catalog import CHARACTERS, INCIDENT_NAMES
 from ...effects.vocabulary import op, option
 
+
+def _public_incident_characters(game):
+    """Freeze the public threshold state at the instant an incident is checked."""
+    return {
+        cid: {
+            'paranoia': character.paranoia,
+            'goodwill': character.goodwill,
+            'intrigue': character.intrigue,
+            'guard': game.guards.get(cid, 0),
+            'present': character.present,
+            'alive': character.alive,
+        }
+        for cid, character in game.state.characters.items()
+    }
+
 def _incident(self):
     scheduled_day = self._scheduled_day()
     simulated = self._simulated_incident is not None
@@ -31,7 +46,14 @@ def _incident(self):
     record = {'day': self.state.round, 'kind': public_kind, 'happened': happened, 'effective': False}
     if not simulated:
         self.incident_records.append(record)
-        self._event('incident_status', f'第 {self.state.round} 天「{INCIDENT_NAMES[public_kind]}」：' + ('发生。' if happened else '未发生。'), incident=public_kind, happened=happened)
+        self._event(
+            'incident_status',
+            f'第 {self.state.round} 天「{INCIDENT_NAMES[public_kind]}」：'
+            + ('发生。' if happened else '未发生。'),
+            incident=public_kind,
+            happened=happened,
+            characters=_public_incident_characters(self),
+        )
     if not happened:
         self._begin_night()
         return

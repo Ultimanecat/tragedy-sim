@@ -259,14 +259,27 @@ class FsbtxWitnessCompiler:
             result.append(PublicWitness(
                 "plot_present", plot, True, loop, day, timing,
                 "public_plot_reveal"))
-        for record in view.get("incidents", ()):
-            incident_day = int(record["day"])
+        incident_events = [
+            event for event in view.get("events", ())
+            if event.get("kind") == "incident_status"
+        ]
+        # New journals carry an immutable public threshold snapshot.  Retain a
+        # current-loop fallback for old replays/saves created before snapshots
+        # were added; only the incident's own day can safely use today's board.
+        if incident_events:
+            records = incident_events
+        else:
+            records = [
+                {**record, "round": record.get("day", day), "loop": loop,
+                 "incident": record.get("kind")}
+                for record in view.get("incidents", ())
+            ]
+        for record in records:
+            incident_day = int(record.get("round", record.get("day", day)))
+            incident_loop = int(record.get("loop", loop))
             happened = bool(record.get("happened", False))
-            # The board embedded in this witness is only a hard timing snapshot
-            # while the incident is being observed on its own day.  Old records
-            # remain useful facts but cannot safely use today's counters.
-            observed_characters = None
-            if incident_day == day:
+            observed_characters = record.get("characters")
+            if observed_characters is None and incident_day == day:
                 observed_characters = {
                     cid: {
                         "paranoia": int(character.get("paranoia", 0)),
@@ -281,9 +294,10 @@ class FsbtxWitnessCompiler:
             result.append(PublicWitness(
                 "incident_happened" if happened else "incident_not_happened",
                 str(incident_day), {
-                    "kind": str(record["kind"]),
+                    "kind": str(record.get("incident", record.get("kind"))),
                     "characters": observed_characters,
-                }, loop, incident_day, "incident", "public_incident_status",
+                }, incident_loop, incident_day, "incident",
+                "public_incident_status",
                 (WitnessStrength.HARD if happened else WitnessStrength.SOFT)))
         result.extend(self._soft_death_witnesses(view))
         result.extend(self._soft_plot_pressure(view))
@@ -344,6 +358,7 @@ class FsbtxWitnessMatcher:
                 return WitnessVerdict.UNKNOWN
             culprit = incident[3]
             if (culprit == "part_timer"
+                    and not characters.get("part_timer", {}).get("alive", True)
                     and characters.get("part_timer_question", {}).get("present")):
                 culprit = "part_timer_question"
             observed = characters.get(culprit)

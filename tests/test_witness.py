@@ -8,6 +8,7 @@ import unittest
 from tragedy_sim import Game
 from tragedy_sim.belief import (ConstraintBeliefSampler, HiddenWorldHypothesis,
                                 PublicEvidence)
+from tragedy_sim.catalog import CHARACTERS
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.witness import (FsbtxWitnessCompiler, FsbtxWitnessMatcher,
@@ -131,6 +132,57 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertEqual(FsbtxWitnessMatcher().verdict(
             self.hypothesis, incident), WitnessVerdict.SATISFIED)
 
+    def test_incident_event_freezes_snapshot_across_later_days_and_loops(self):
+        culprit = next(item[3] for item in self.hypothesis.incidents
+                       if item[0] == 2)
+        characters = {
+            cid: {
+                "paranoia": 0, "goodwill": 0, "intrigue": 0, "guard": 0,
+                "present": True, "alive": True,
+            }
+            for cid in self.view["characters"]
+        }
+        characters[culprit]["paranoia"] = CHARACTERS[culprit].limit
+        view = deepcopy(self.view)
+        view["loop"] = 3
+        view["round"] = 1
+        view["incidents"] = []
+        view["events"] = [{
+            "kind": "incident_status", "loop": 1, "round": 2,
+            "timing": "incident", "incident": "murder", "happened": True,
+            "characters": characters,
+        }]
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.kind == "incident_happened")
+        self.assertEqual((witness.loop, witness.day), (1, 2))
+        self.assertEqual(witness.value["characters"][culprit]["paranoia"],
+                         CHARACTERS[culprit].limit)
+        self.assertEqual(FsbtxWitnessMatcher().verdict(
+            self.hypothesis, witness), WitnessVerdict.SATISFIED)
+
+        wrong_incidents = tuple(
+            (entry[0], entry[1], entry[2], "girl")
+            if entry[0] == 2 else entry
+            for entry in self.hypothesis.incidents
+        )
+        wrong = replace(self.hypothesis, incidents=wrong_incidents)
+        self.assertEqual(FsbtxWitnessMatcher().verdict(wrong, witness),
+                         WitnessVerdict.CONTRADICTED)
+
+    def test_game_incident_event_contains_only_public_threshold_state(self):
+        game = Game(example_scenario("BTX"))
+        culprit = game.scenario["incidents"][0]["culprit"]
+        game.state.round = game.scenario["incidents"][0]["day"]
+        game.state.characters[culprit].paranoia = CHARACTERS[culprit].limit
+        game._incident()
+        event = next(item for item in game.protagonist_team_view()["events"]
+                     if item["kind"] == "incident_status")
+        observed = event["characters"][culprit]
+        self.assertEqual(set(observed), {
+            "paranoia", "goodwill", "intrigue", "guard", "present", "alive",
+        })
+        self.assertEqual(observed["paranoia"], CHARACTERS[culprit].limit)
+
     def test_nonoccurrence_is_not_an_unsafe_negative_identity_inference(self):
         view = deepcopy(self.view)
         view["round"] = 2
@@ -195,6 +247,10 @@ class FsbtxWitnessTests(unittest.TestCase):
         view["characters"]["part_timer_question"] = {
             "paranoia": 3, "goodwill": 0, "intrigue": 0, "guard": 0,
             "present": True, "alive": True,
+        }
+        view["characters"]["part_timer"] = {
+            "paranoia": 0, "goodwill": 0, "intrigue": 0, "guard": 0,
+            "present": True, "alive": False,
         }
         witness = next(item for item in FsbtxWitnessCompiler().compile(view)
                        if item.kind == "incident_happened")
