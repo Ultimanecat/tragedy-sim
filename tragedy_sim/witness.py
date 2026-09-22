@@ -363,6 +363,22 @@ class FsbtxWitnessCompiler:
                            and previous.get("round") == event.get("round")
                            and previous.get("timing") == "day_end"
                            for previous in events[:index]))):
+                normal_loop_end = (
+                    events[index - 1].get("kind") == "day_ended"
+                    and events[index - 1].get("loop") == event.get("loop"))
+                if normal_loop_end:
+                    # No role_revealed event sits between day_ended and this
+                    # loss, so a dead Friend did not cause this resolution.
+                    # At least one main-plot loss predicate must therefore be
+                    # true in every compatible hidden world.
+                    result.append(PublicWitness(
+                        "loop_end_plot_explanation", module, {
+                            "location_intrigue": dict(location_intrigue),
+                            "character_intrigue": dict(character_intrigue),
+                            "initial_locations": dict(initial_locations),
+                            "butterfly_happened": butterfly_happened,
+                        }, int(event["loop"]), int(event["round"]),
+                        "loop_end", "public_normal_loop_end_loss"))
                 if module == "FS" and school >= 2:
                     result.append(PublicWitness(
                         "plot_pressure", "protect", True,
@@ -578,6 +594,40 @@ class FsbtxWitnessMatcher:
                     else (WitnessVerdict.CONTRADICTED
                           if witness.strength == WitnessStrength.HARD
                           else WitnessVerdict.UNKNOWN))
+        if witness.kind == "loop_end_plot_explanation":
+            value = witness.value
+            boards = value.get("location_intrigue", {})
+            characters = value.get("character_intrigue", {})
+            initial = value.get("initial_locations", {})
+
+            def role_of(cid: str) -> str | None:
+                return roles.get("part_timer" if cid == "part_timer_question"
+                                 else cid)
+
+            main = hypothesis.main_plot
+            if witness.subject == "FS":
+                explained = (
+                    main == "protect" and boards.get("school", 0) >= 2
+                    or main == "avenger" and any(
+                        role_of(str(cid)) == "brain"
+                        and boards.get(location, 0) >= 2
+                        for cid, location in initial.items()))
+            elif witness.subject == "BTX":
+                explained = (
+                    main == "sealed" and boards.get("shrine", 0) >= 2
+                    or main == "sign" and any(
+                        role_of(str(cid)) == "key" and intrigue >= 2
+                        for cid, intrigue in characters.items())
+                    or main == "change" and bool(
+                        value.get("butterfly_happened"))
+                    or main == "bomb" and any(
+                        role_of(str(cid)) == "witch"
+                        and boards.get(location, 0) >= 2
+                        for cid, location in initial.items()))
+            else:
+                return WitnessVerdict.UNKNOWN
+            return (WitnessVerdict.SATISFIED if explained
+                    else WitnessVerdict.CONTRADICTED)
         if witness.kind == "incident_not_happened":
             # Absence has several explanations (dead/absent culprit and optional
             # prevention among them), so it is evidence but not a hard exclusion.

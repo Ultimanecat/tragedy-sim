@@ -454,6 +454,68 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertFalse(any(item.kind == "plot_pressure"
                              for item in FsbtxWitnessCompiler().compile(view)))
 
+    def test_normal_loop_end_loss_requires_a_legal_main_plot_explanation(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1,
+             "round": view["days"], "target": "shrine",
+             "counter": "intrigue", "after": 2},
+            {"kind": "day_ended", "loop": 1, "round": view["days"]},
+            {"kind": "loop_lost", "loop": 1, "round": view["days"]},
+        ]
+        witness = next(
+            item for item in FsbtxWitnessCompiler().compile(view)
+            if item.source == "public_normal_loop_end_loss")
+        self.assertEqual(witness.kind, "loop_end_plot_explanation")
+        self.assertEqual(witness.strength, WitnessStrength.HARD)
+        matcher = FsbtxWitnessMatcher()
+        sealed = replace(self.hypothesis, main_plot="sealed")
+        change = replace(self.hypothesis, main_plot="change")
+        self.assertEqual(matcher.verdict(sealed, witness),
+                         WitnessVerdict.SATISFIED)
+        self.assertEqual(matcher.verdict(change, witness),
+                         WitnessVerdict.CONTRADICTED)
+
+        # A Friend reveal between day end and loss is another complete cause;
+        # do not incorrectly require a main-plot explanation in that case.
+        view["events"].insert(-1, {
+            "kind": "role_revealed", "loop": 1, "round": view["days"],
+            "character": "girl", "role": "friend",
+        })
+        self.assertFalse(any(
+            item.source == "public_normal_loop_end_loss"
+            for item in FsbtxWitnessCompiler().compile(view)))
+
+    def test_normal_loop_end_explanation_source_can_be_ablated(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1,
+             "round": view["days"], "target": "shrine",
+             "counter": "intrigue", "after": 2},
+            {"kind": "day_ended", "loop": 1, "round": view["days"]},
+            {"kind": "loop_lost", "loop": 1, "round": view["days"]},
+        ]
+        source = "public_normal_loop_end_loss"
+        self.assertTrue(any(item.source == source
+                            for item in FsbtxWitnessCompiler().compile(view)))
+        self.assertFalse(any(item.source == source for item in
+                             FsbtxWitnessCompiler(disabled_sources={source})
+                             .compile(view)))
+
+        evidence = PublicEvidence.from_view(view)
+        enabled = FactorizedBeliefState(capacity=100_000, seed=1) \
+            .role_posterior(evidence,
+                            FsbtxWitnessCompiler().compile(view))
+        ablated = FactorizedBeliefState(capacity=100_000, seed=1) \
+            .role_posterior(evidence,
+                            FsbtxWitnessCompiler(disabled_sources={source})
+                            .compile(view))
+        self.assertLess(len(enabled), len(ablated))
+        self.assertEqual({world.main_plot for world, _ in enabled},
+                         {"sealed", "bomb"})
+
     def test_btx_joint_loop_end_evidence_preserves_role_plot_correlation(self):
         view = deepcopy(self.view)
         candidate = "girl"
