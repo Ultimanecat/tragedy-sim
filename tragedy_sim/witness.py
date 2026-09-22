@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from .catalog import CHARACTERS, REFUSAL
 
@@ -85,8 +85,37 @@ class FsbtxWitnessCompiler:
 
     modules = frozenset({"FS", "BTX"})
 
-    def __init__(self, *, include_joint: bool = True):
+    def __init__(self, *, include_joint: bool = True,
+                 disabled_sources: Iterable[str] = ()):
         self.include_joint = bool(include_joint)
+        self.disabled_sources = frozenset(str(item) for item in disabled_sources)
+
+    @staticmethod
+    def _hard_accepted_goodwill(view: Mapping[str, Any]) -> list[PublicWitness]:
+        """Accepting a refusable ability excludes mandatory refusers.
+
+        Older journals did not record whether the printed ability was
+        unrefusable.  Missing metadata therefore stays UNKNOWN rather than
+        retroactively turning an old replay into a hard identity claim.
+        """
+        result = []
+        mandatory = tuple(sorted(
+            role for role in ("cultist", "witch")
+            if REFUSAL.get(role) == "mandatory"))
+        for event in view.get("events", ()):
+            if (event.get("kind") != "goodwill_accepted"
+                    or event.get("unrefusable") is not False):
+                continue
+            source = event.get("source")
+            if not isinstance(source, str):
+                continue
+            result.append(PublicWitness(
+                "role_not_in", source, mandatory,
+                int(event.get("loop", view.get("loop", 1))),
+                int(event.get("round", view.get("round", 1))),
+                str(event.get("timing", "protagonist_ability")),
+                "public_refusable_goodwill_accepted"))
+        return result
 
     @staticmethod
     def _hard_fs_key_deaths(view: Mapping[str, Any]) -> list[PublicWitness]:
@@ -408,6 +437,7 @@ class FsbtxWitnessCompiler:
         timing = str(view.get("timing", view.get("phase", "unknown")))
         result: list[PublicWitness] = self._hard_fs_key_deaths(view)
         result.extend(self._hard_ignored_goodwill_forbids(view))
+        result.extend(self._hard_accepted_goodwill(view))
         for cid, fact in sorted(view.get("known_roles", {}).items()):
             role = fact.get("role") if isinstance(fact, Mapping) else None
             if isinstance(role, str):
@@ -482,6 +512,9 @@ class FsbtxWitnessCompiler:
                       if item.kind != "joint_plot_role_pressure"
                       and not (item.kind == "role_pressure"
                                and item.strength == WitnessStrength.SOFT)]
+        if self.disabled_sources:
+            result = [item for item in result
+                      if item.source not in self.disabled_sources]
         return tuple(result)
 
 
@@ -510,6 +543,12 @@ class FsbtxWitnessMatcher:
             return (WitnessVerdict.SATISFIED
                     if roles.get(subject) in set(witness.value)
                     else WitnessVerdict.CONTRADICTED)
+        if witness.kind == "role_not_in":
+            subject = ("part_timer" if witness.subject == "part_timer_question"
+                       else witness.subject)
+            return (WitnessVerdict.CONTRADICTED
+                    if roles.get(subject) in set(witness.value)
+                    else WitnessVerdict.SATISFIED)
         if witness.kind == "culprit_is":
             incident = self._incident(hypothesis, int(witness.subject))
             if incident is None:

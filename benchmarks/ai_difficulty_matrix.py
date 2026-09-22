@@ -131,6 +131,8 @@ def main() -> None:
                         default="day")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3)
     parser.add_argument("--information-reward-weight", type=float, default=0.01)
+    parser.add_argument("--disable-witness-source", action="append", default=[],
+                        help="ablate one witness source (repeatable)")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     positive = (args.games, args.nodes, args.depth, args.protagonist_nodes,
@@ -165,7 +167,9 @@ def main() -> None:
                     protagonist_time_limit_ms=args.protagonist_time_limit_ms,
                     oracle_horizon=args.protagonist_horizon,
                     mastermind_policy_samples=args.mastermind_policy_samples,
-                    information_reward_weight=args.information_reward_weight)
+                    information_reward_weight=args.information_reward_weight,
+                    disabled_witness_sources=tuple(
+                        args.disable_witness_source))
                 matches.append(result)
                 if not args.json:
                     correct = sum(guess.correct for guess in result.final_guesses)

@@ -713,7 +713,7 @@ class FactorizedBeliefState:
     @staticmethod
     def _role_witnesses(witnesses: Sequence[Any]) -> tuple[Any, ...]:
         return tuple(w for w in witnesses if w.kind in {
-            "role_is", "role_in", "plot_present", "plot_pressure",
+            "role_is", "role_in", "role_not_in", "plot_present", "plot_pressure",
             "day_end_death_companion", "joint_plot_role_pressure",
             "role_pressure", "day_end_killer_candidate", "loss_after_death"})
 

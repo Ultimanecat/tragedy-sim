@@ -7,7 +7,8 @@ import unittest
 
 from tragedy_sim import Game
 from tragedy_sim.belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
-                                HiddenWorldHypothesis, PublicEvidence)
+                                FactorizedBeliefState, HiddenWorldHypothesis,
+                                PublicEvidence)
 from tragedy_sim.catalog import CHARACTERS
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.scenario_library import ScenarioLibrary
@@ -80,6 +81,76 @@ class FsbtxWitnessTests(unittest.TestCase):
                          WitnessVerdict.SATISFIED)
         self.assertEqual(matcher.verdict(unable, witness),
                          WitnessVerdict.CONTRADICTED)
+
+    def test_accepted_refusable_goodwill_excludes_mandatory_refusers(self):
+        view = deepcopy(self.view)
+        view["events"] = [{
+            "kind": "goodwill_accepted", "loop": 1, "round": 1,
+            "timing": "protagonist_ability", "source": "worker",
+            "ability": "reveal", "ability_kind": "reveal",
+            "unrefusable": False,
+        }]
+        compiler = FsbtxWitnessCompiler()
+        witness = next(item for item in compiler.compile(view)
+                       if item.source == "public_refusable_goodwill_accepted")
+        self.assertEqual(witness.kind, "role_not_in")
+        self.assertEqual(set(witness.value), {"cultist", "witch"})
+        self.assertEqual(witness.strength, WitnessStrength.HARD)
+
+        roles = dict(self.hypothesis.roles)
+        roles["worker"] = "cultist"
+        mandatory = replace(
+            self.hypothesis, roles=tuple(sorted(roles.items())))
+        roles["worker"] = "ordinary"
+        allowed = replace(self.hypothesis, roles=tuple(sorted(roles.items())))
+        matcher = FsbtxWitnessMatcher()
+        self.assertEqual(matcher.verdict(mandatory, witness),
+                         WitnessVerdict.CONTRADICTED)
+        self.assertEqual(matcher.verdict(allowed, witness),
+                         WitnessVerdict.SATISFIED)
+
+        view["events"][0]["unrefusable"] = True
+        self.assertFalse(any(item.kind == "role_not_in"
+                             for item in compiler.compile(view)))
+        del view["events"][0]["unrefusable"]
+        self.assertFalse(any(item.kind == "role_not_in"
+                             for item in compiler.compile(view)))
+
+    def test_witness_source_can_be_ablated(self):
+        view = deepcopy(self.view)
+        view["events"] = [{
+            "kind": "goodwill_accepted", "loop": 1, "round": 1,
+            "source": "worker", "unrefusable": False,
+        }]
+        enabled = FsbtxWitnessCompiler().compile(view)
+        disabled = FsbtxWitnessCompiler(disabled_sources={
+            "public_refusable_goodwill_accepted"}).compile(view)
+        self.assertEqual(len(enabled), len(disabled) + 1)
+        self.assertFalse(any(
+            item.source == "public_refusable_goodwill_accepted"
+            for item in disabled))
+
+    def test_accepted_goodwill_witness_reduces_exact_role_space(self):
+        view = deepcopy(self.view)
+        view["events"] = [{
+            "kind": "goodwill_accepted", "loop": 1, "round": 1,
+            "source": "worker", "unrefusable": False,
+        }]
+        evidence = PublicEvidence.from_view(view)
+        source = "public_refusable_goodwill_accepted"
+        enabled_witnesses = FsbtxWitnessCompiler().compile(view)
+        ablated_witnesses = FsbtxWitnessCompiler(
+            disabled_sources={source}).compile(view)
+        enabled = FactorizedBeliefState(capacity=100_000, seed=1) \
+            .role_posterior(evidence, enabled_witnesses)
+        ablated = FactorizedBeliefState(capacity=100_000, seed=1) \
+            .role_posterior(evidence, ablated_witnesses)
+        forbidden = {"cultist", "witch"}
+        self.assertLess(len(enabled), len(ablated))
+        self.assertFalse(any(dict(world.roles).get("worker") in forbidden
+                             for world, _ in enabled))
+        self.assertTrue(any(dict(world.roles).get("worker") in forbidden
+                            for world, _ in ablated))
 
     def test_virus_role_reveal_does_not_rewrite_initial_identity(self):
         ordinary = next(cid for cid, role in self.hypothesis.roles

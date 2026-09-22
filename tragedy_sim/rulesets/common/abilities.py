@@ -13,7 +13,7 @@ def _goodwill_event_data(request):
     return {
         key: request[key]
         for key in ('source', 'ability', 'ability_kind', 'key',
-                    'borrowed_source', 'borrowed_ability')
+                    'borrowed_source', 'borrowed_ability', 'unrefusable')
         if key in request
     }
 

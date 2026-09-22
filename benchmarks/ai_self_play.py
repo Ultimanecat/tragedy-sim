@@ -226,6 +226,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          time_limit_ms: int | None = None,
          protagonist_time_limit_ms: int | None = None,
          joint_witness: bool = True,
+         disabled_witness_sources: tuple[str, ...] = (),
          oracle_horizon: str = "day",
          mastermind_policy_samples: int = 3,
          information_reward_weight: float = 0.01) -> MatchResult:
@@ -268,6 +269,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             protagonist_budget, particle_count=max(4, min(24,
                                 (protagonist_nodes or nodes) // 8)), rng_seed=seed,
             joint_witness=joint_witness, rollout_horizon=oracle_horizon,
+            disabled_witness_sources=disabled_witness_sources,
             mastermind_policy_samples=mastermind_policy_samples,
             information_reward_weight=information_reward_weight)
     protagonists = {
@@ -507,6 +509,8 @@ def main() -> None:
                         help="print one progress line after each completed match")
     parser.add_argument("--disable-joint-witness", action="store_true",
                         help="ablate BTX plot-role soft correlation witnesses")
+    parser.add_argument("--disable-witness-source", action="append", default=[],
+                        help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
                         help="mastermind routes tested per particle world")
     parser.add_argument("--information-reward-weight", type=float, default=0.01,
@@ -543,6 +547,8 @@ def main() -> None:
                               time_limit_ms=args.time_limit_ms,
                               protagonist_time_limit_ms=args.protagonist_time_limit_ms,
                               joint_witness=not args.disable_joint_witness,
+                              disabled_witness_sources=tuple(
+                                  args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,
                               mastermind_policy_samples=
                               args.mastermind_policy_samples,

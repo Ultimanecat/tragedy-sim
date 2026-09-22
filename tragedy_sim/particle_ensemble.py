@@ -28,6 +28,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
     def __init__(self, budget: SearchBudget | None = None, *,
                  particle_count: int = 12, rng_seed: int = 0,
                  joint_witness: bool = True,
+                 disabled_witness_sources: Sequence[str] = (),
                  rollout_horizon: str = "day",
                  mastermind_policy_samples: int = 3,
                  information_reward_weight: float = 0.01):
@@ -44,7 +45,9 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                                                 time_limit_ms=3000),
                          particle_count=particle_count, rng_seed=rng_seed,
                          survival_first=True)
-        self.compiler = FsbtxWitnessCompiler(include_joint=joint_witness)
+        self.compiler = FsbtxWitnessCompiler(
+            include_joint=joint_witness,
+            disabled_sources=disabled_witness_sources)
         self.rollout_horizon = rollout_horizon
         self.mastermind_policy_samples = mastermind_policy_samples
         self.information_reward_weight = float(information_reward_weight)
