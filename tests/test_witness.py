@@ -657,6 +657,57 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertFalse(any(item.source == source
                              for item in FsbtxWitnessCompiler().compile(view)))
 
+    def test_day_end_hero_death_requires_killer_or_lover_route(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 1,
+             "target": "girl", "counter": "intrigue", "after": 4},
+            {"kind": "counter_changed", "loop": 1, "round": 1,
+             "target": "worker", "counter": "intrigue", "after": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 1,
+             "target": "worker", "counter": "paranoia", "after": 3},
+            {"kind": "heroes_died", "loop": 1, "round": 1,
+             "timing": "day_end"},
+            {"kind": "loop_lost", "loop": 1, "round": 1},
+        ]
+        source = "public_day_end_hero_death"
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.source == source)
+        self.assertEqual(witness.value,
+                         {"killer": ("girl",), "lover": ("worker",)})
+        self.assertEqual(witness.strength, WitnessStrength.HARD)
+        matcher = FsbtxWitnessMatcher()
+
+        roles = dict(self.hypothesis.roles)
+        roles["girl"] = "killer"
+        roles["worker"] = "ordinary"
+        killer = replace(self.hypothesis,
+                         roles=tuple(sorted(roles.items())))
+        self.assertEqual(matcher.verdict(killer, witness),
+                         WitnessVerdict.SATISFIED)
+        roles["girl"] = "ordinary"
+        roles["worker"] = "lover"
+        lover = replace(self.hypothesis,
+                        roles=tuple(sorted(roles.items())))
+        self.assertEqual(matcher.verdict(lover, witness),
+                         WitnessVerdict.SATISFIED)
+        roles["worker"] = "ordinary"
+        wrong = replace(self.hypothesis,
+                        roles=tuple(sorted(roles.items())))
+        self.assertEqual(matcher.verdict(wrong, witness),
+                         WitnessVerdict.CONTRADICTED)
+
+        disabled = FsbtxWitnessCompiler(
+            disabled_sources={source}).compile(view)
+        self.assertFalse(any(item.source == source for item in disabled))
+
+        # Hospital accidents happen at the incident timing and must not be
+        # mistaken for a day-end identity ability.
+        view["events"][4]["timing"] = "incident"
+        self.assertFalse(any(item.source == source
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
     def test_part_timer_replacement_uses_visible_replacement_threshold(self):
         scenario = example_scenario("BTX")
         scenario["cast"].pop(next(iter(scenario["cast"])))

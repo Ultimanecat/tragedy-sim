@@ -281,6 +281,68 @@ class FsbtxWitnessCompiler:
         return result
 
     @staticmethod
+    def _hard_day_end_hero_deaths(
+            view: Mapping[str, Any]) -> list[PublicWitness]:
+        """FS/BTX day-end hero death is Killer or Lover, with public gates."""
+        characters = view.get("characters", {})
+        intrigue = {str(cid): 0 for cid in characters}
+        paranoia = {str(cid): 0 for cid in characters}
+        alive = {str(cid): bool(item.get("present", True))
+                 for cid, item in characters.items()}
+        result: list[PublicWitness] = []
+        for event in view.get("events", ()):
+            kind = event.get("kind")
+            if kind == "loop_started":
+                intrigue = {str(cid): 0 for cid in characters}
+                paranoia = {str(cid): 0 for cid in characters}
+                alive = {str(cid): bool(item.get("present", True))
+                         for cid, item in characters.items()}
+                continue
+            if kind == "counter_changed":
+                target = event.get("target")
+                after = event.get("after")
+                if isinstance(target, str) and isinstance(after, int):
+                    if event.get("counter") == "intrigue" and target in intrigue:
+                        intrigue[target] = after
+                    elif event.get("counter") == "paranoia" and target in paranoia:
+                        paranoia[target] = after
+                continue
+            if kind == "character_died":
+                target = event.get("target")
+                if isinstance(target, str):
+                    alive[target] = False
+                continue
+            if kind in {"revived", "character_replaced"}:
+                target = event.get("target", event.get("character"))
+                if isinstance(target, str):
+                    alive[target] = True
+                continue
+            if kind == "character_left":
+                target = event.get("character")
+                if isinstance(target, str):
+                    alive[target] = False
+                continue
+            if kind != "heroes_died" or event.get("timing") != "day_end":
+                continue
+            routes = {
+                "killer": tuple(sorted(
+                    cid for cid in characters
+                    if alive.get(str(cid), False) and intrigue[str(cid)] >= 4)),
+                "lover": tuple(sorted(
+                    cid for cid in characters if alive.get(str(cid), False)
+                    and paranoia[str(cid)] >= 3 and intrigue[str(cid)] >= 1)),
+            }
+            routes = {role: candidates for role, candidates in routes.items()
+                      if candidates}
+            if routes:
+                result.append(PublicWitness(
+                    "role_route_pressure", "day_end_hero_death", routes,
+                    int(event.get("loop", view.get("loop", 1))),
+                    int(event.get("round", view.get("round", 1))),
+                    "day_end", "public_day_end_hero_death"))
+        return result
+
+    @staticmethod
     def _soft_death_witnesses(view: Mapping[str, Any]) -> list[PublicWitness]:
         """Reconstruct death clues from the public journal.
 
@@ -540,6 +602,7 @@ class FsbtxWitnessCompiler:
         result: list[PublicWitness] = self._hard_fs_key_deaths(view)
         result.extend(self._hard_ignored_goodwill_forbids(view))
         result.extend(self._hard_ignored_intrigue_forbids(view))
+        result.extend(self._hard_day_end_hero_deaths(view))
         result.extend(self._hard_accepted_goodwill(view))
         for cid, fact in sorted(view.get("known_roles", {}).items()):
             role = fact.get("role") if isinstance(fact, Mapping) else None
@@ -682,6 +745,14 @@ class FsbtxWitnessMatcher:
                     else (WitnessVerdict.CONTRADICTED
                           if witness.strength == WitnessStrength.HARD
                           else WitnessVerdict.UNKNOWN))
+        if witness.kind == "role_route_pressure":
+            for role, candidates in witness.value.items():
+                if any(roles.get("part_timer" if cid == "part_timer_question"
+                                 else cid) == role for cid in candidates):
+                    return WitnessVerdict.SATISFIED
+            return (WitnessVerdict.CONTRADICTED
+                    if witness.strength == WitnessStrength.HARD
+                    else WitnessVerdict.UNKNOWN)
         if witness.kind == "loop_end_plot_explanation":
             value = witness.value
             boards = value.get("location_intrigue", {})

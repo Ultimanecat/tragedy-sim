@@ -716,7 +716,7 @@ class FactorizedBeliefState:
             "role_is", "role_in", "role_not_in", "plot_present", "plot_pressure",
             "day_end_death_companion", "joint_plot_role_pressure",
             "role_pressure", "day_end_killer_candidate", "loss_after_death",
-            "loop_end_plot_explanation"})
+            "loop_end_plot_explanation", "role_route_pressure"})
 
     @staticmethod
     def _assignment_count(characters: tuple[str, ...],
