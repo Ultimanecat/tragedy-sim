@@ -13,13 +13,29 @@ class ScenarioLibraryTests(unittest.TestCase):
     def test_bundled_official_scripts_all_validate_and_start(self):
         library = ScenarioLibrary()
         official = [item for item in library.list() if item["source"] == "library"]
-        self.assertEqual(len(official), 22)
+        self.assertEqual(len(official), 40)
         self.assertEqual({item["module"] for item in official}, {"FS", "BTX", "MZ", "MC"})
         self.assertTrue(all(item["loops"] in item["loop_options"] for item in official))
         for item in official:
             with self.subTest(item["id"]):
                 game = Game(library.get(item["id"]))
                 self.assertEqual(game.scenario["id"], item["id"])
+
+    def test_loop_choices_are_distinct_difficulty_entries(self):
+        library = ScenarioLibrary()
+        standard = library.get("official-btx-08-mirror-passcode")
+        easy = library.get("official-btx-08-mirror-passcode-easy")
+
+        self.assertEqual((standard["loops"], standard["loop_options"]), (3, [3]))
+        self.assertEqual((easy["loops"], easy["loop_options"]), (4, [4]))
+        self.assertEqual(easy["title"], "Mirror Passcode (Easy)")
+        self.assertEqual(standard["cast"], easy["cast"])
+        self.assertEqual(standard["incidents"], easy["incidents"])
+
+        very_easy = library.get(
+            "official-btx-02-traditional-ensemble-murder-very-easy")
+        self.assertEqual(very_easy["loops"], 5)
+        self.assertEqual(very_easy["loop_options"], [5])
 
     def test_official_script_special_rules_are_applied(self):
         library = ScenarioLibrary()

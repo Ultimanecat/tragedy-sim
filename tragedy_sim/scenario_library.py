@@ -20,6 +20,32 @@ from .scenario import example_scenario, validate_scenario
 DEFAULT_SCENARIO_ROOT = Path(__file__).resolve().parent.parent / "scenarios"
 
 
+def _loop_variants(scenario: dict[str, Any]) -> list[dict[str, Any]]:
+    """Turn a card's loop-count choices into distinct catalog entries.
+
+    More loops are an easier setting for the protagonists.  Keeping each
+    setting behind a stable scenario ID prevents rooms, replays and benchmark
+    reports from silently mixing different difficulties.
+    """
+    options = scenario.get("loop_options", [scenario["loops"]])
+    if len(options) == 1:
+        concrete = deepcopy(scenario)
+        concrete["loop_options"] = [concrete["loops"]]
+        return [concrete]
+
+    variants: list[dict[str, Any]] = []
+    suffixes = ("", "-easy", "-very-easy")
+    labels = ("", " (Easy)", " (Very Easy)")
+    for index, loops in enumerate(options):
+        concrete = deepcopy(scenario)
+        concrete["id"] += suffixes[index]
+        concrete["title"] += labels[index]
+        concrete["loops"] = loops
+        concrete["loop_options"] = [loops]
+        variants.append(concrete)
+    return variants
+
+
 class ScenarioLibrary:
     """Discover validated scripts and resolve stable IDs to private data."""
 
@@ -41,10 +67,11 @@ class ScenarioLibrary:
                 scenario = validate_scenario(raw)
             except (OSError, json.JSONDecodeError, RuleError) as exc:
                 raise RuleError(f"剧本文件 {path.name} 无效：{exc}") from exc
-            scenario_id = scenario["id"]
-            if scenario_id in entries:
-                raise RuleError(f"剧本 ID 重复：{scenario_id}（{path.name}）")
-            entries[scenario_id] = (scenario, "library")
+            for concrete in _loop_variants(scenario):
+                scenario_id = concrete["id"]
+                if scenario_id in entries:
+                    raise RuleError(f"剧本 ID 重复：{scenario_id}（{path.name}）")
+                entries[scenario_id] = (concrete, "library")
         return entries
 
     def list(self, module: str | None = None) -> list[dict[str, Any]]:

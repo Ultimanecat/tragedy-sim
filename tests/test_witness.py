@@ -471,7 +471,7 @@ class FsbtxWitnessTests(unittest.TestCase):
             item["id"] for item in library.list("BTX")
             if item["source"] == "library"
         ]
-        self.assertEqual(len(scenario_ids), 11)
+        self.assertEqual(len(scenario_ids), 21)
         for scenario_id in scenario_ids:
             with self.subTest(scenario=scenario_id):
                 scenario = library.get(scenario_id)
