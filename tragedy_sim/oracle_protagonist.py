@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import hashlib
 import json
+import math
 import random
 from time import perf_counter
 from typing import Any, Mapping, Sequence
@@ -392,7 +393,17 @@ class OracleProtagonistAgent:
             return 1.0
         if world.winner == "mastermind":
             return -1.0
-        value = max(-1.0, min(1.0, -self.evaluator(world)))
+        report = self.evaluator.evaluate(world)
+        mastermind_value = report.value
+        if self.rollout_horizon == "day":
+            # loops_spent is constant across every bundle at this decision.
+            # Keeping it inside tanh nevertheless changes relative distances,
+            # and makes Standard/Easy choose different day plans in otherwise
+            # identical states. Longer horizons still retain match progress.
+            raw = sum(item.value for item in report.contributions
+                      if item.key != "match:loops_spent")
+            mastermind_value = max(-0.92, min(0.92, math.tanh(raw)))
+        value = max(-1.0, min(1.0, -mastermind_value))
         if self.rollout_horizon != "day":
             return value
         danger_board = self._plot_board(

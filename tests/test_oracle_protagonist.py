@@ -26,6 +26,16 @@ class OracleProtagonistTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             FullCardOracleProtagonistAgent(rollout_horizon="week")
 
+    def test_day_cutoff_ignores_constant_total_loop_progress(self):
+        library = ScenarioLibrary()
+        standard = Game(library.get("official-btx-09-those-with-antibodies"))
+        easy = Game(library.get(
+            "official-btx-09-those-with-antibodies-easy"))
+        standard.state.loop = easy.state.loop = 3
+        agent = FullCardOracleProtagonistAgent(rollout_horizon="day")
+        self.assertAlmostEqual(agent._cutoff_value(standard, 1),
+                               agent._cutoff_value(easy, 1))
+
     def test_visible_pressure_on_known_killer_enters_defense_candidates(self):
         game = Game(ScenarioLibrary().get("silent-town-fs"))
         game = game.search_transition(game.search_actions("m")[0])
