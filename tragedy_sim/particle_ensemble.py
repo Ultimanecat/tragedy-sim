@@ -79,6 +79,71 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                             and item.get("target") in threatened
                             for item in bundle) else 0.0)
 
+    @staticmethod
+    def _time_traveler_candidates(witnesses: Sequence[Any]) -> tuple[str, ...]:
+        sets = []
+        for witness in witnesses:
+            if (getattr(witness, "kind", None) != "role_pressure"
+                    or getattr(witness, "subject", None) != "time_traveler"
+                    or getattr(witness, "strength", None) != "hard"
+                    or not isinstance(getattr(witness, "value", None), Mapping)):
+                continue
+            candidates = witness.value.get("candidates")
+            if isinstance(candidates, (list, tuple)):
+                sets.append(set(str(cid) for cid in candidates))
+        return tuple(sorted(set.intersection(*sets))) if sets else ()
+
+    @staticmethod
+    def _time_traveler_screening_bundle(
+            base: Sequence[Mapping[str, Any]], view: Mapping[str, Any],
+            candidates: Sequence[str]) -> tuple[dict[str, Any], ...] | None:
+        """Build one public-information bundle that tests distinct candidates."""
+        characters = view.get("characters", {})
+        hands = view.get("team_hands", {})
+        ranked = sorted(
+            (cid for cid in candidates
+             if cid in characters
+             and characters[cid].get("alive", True)
+             and int(characters[cid].get("goodwill", 0)) < 3),
+            key=lambda cid: (-int(characters[cid].get("goodwill", 0)), cid))
+        if not ranked:
+            return None
+        result = [dict(command) for command in base]
+        used: set[str] = set()
+        changed = False
+        for slot, command in enumerate(result):
+            actor = str(command.get("actor", ""))
+            hand = set(hands.get(actor, ()))
+            target = next((cid for cid in ranked if cid not in used), None)
+            if target is None:
+                break
+            goodwill = int(characters[target].get("goodwill", 0))
+            card = ("g1" if goodwill == 2 and "g1" in hand else
+                    "g2" if "g2" in hand else
+                    "g1" if "g1" in hand else None)
+            if card is None:
+                continue
+            result[slot] = {**command, "card": card, "target": target}
+            used.add(target)
+            changed = True
+        return tuple(result) if changed else None
+
+    @staticmethod
+    def _time_traveler_screening_bonus(
+            bundle: Sequence[Mapping[str, Any]], view: Mapping[str, Any],
+            candidates: Sequence[str]) -> float:
+        characters = view.get("characters", {})
+        screened = set()
+        for command in bundle:
+            target = str(command.get("target", ""))
+            if target not in candidates or target not in characters:
+                continue
+            amount = {"g1": 1, "g2": 2}.get(command.get("card"), 0)
+            before = int(characters[target].get("goodwill", 0))
+            if before < 3 <= before + amount:
+                screened.add(target)
+        return min(0.012, 0.004 * len(screened))
+
     def _mastermind_strategies(self, world: Any) -> tuple[str | None, ...]:
         # One sample is the retained historical baseline: let the seeded
         # playbook choose one route.  Larger budgets cover the semantic route
@@ -135,7 +200,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             sampling_view.pop(field, None)
         sampling_view["events"] = [
             {key: value for key, value in event.items()
-             if key not in {"message", "timepoint"}}
+             if key not in {"message", "timepoint", "remaining"}}
             for event in view.get("events", ())
         ]
         return hashlib.sha256(json.dumps(
@@ -174,6 +239,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                     started + self.budget.time_limit_ms / 1000)
         evidence = PublicEvidence.from_view(view)
         witnesses = self.evidence_ledger.update(view, self.compiler)
+        traveler_candidates = self._time_traveler_candidates(witnesses)
         public_hash = self._sampling_hash(view)
         rng = random.Random(f"{self.budget.seed}:{self.rng_seed}:{public_hash}")
         sampled = self.factorized_belief.sample(
@@ -257,6 +323,16 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                 max(0, limit - len(guard_proposals))]
             proposals = dict(retained)
             proposals.update(guard_proposals)
+        screening_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
+        if proposals and traveler_candidates:
+            screening = self._time_traveler_screening_bundle(
+                next(iter(proposals.values())), view, traveler_candidates)
+            if (screening is not None
+                    and _key(screening[0]) in offers_by_key
+                    and self._apply_bundle(worlds[0], screening) is not None):
+                signature = _key(screening)
+                if signature not in proposals:
+                    screening_proposals[signature] = screening
         # Reserve up to two slots for belief-valued information investments.
         # Generate them for both reward-on and reward-off runs so the weight
         # switch is a clean scoring ablation rather than a coverage change.
@@ -283,8 +359,9 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                     break
             if len(information_proposals) >= min(2, limit - 1):
                 break
-        if information_proposals:
+        if information_proposals or screening_proposals:
             priorities = dict(guard_proposals)
+            priorities.update(screening_proposals)
             priorities.update(information_proposals)
             priorities = dict(list(priorities.items())[:limit])
             retained = [item for item in proposals.items()
@@ -352,6 +429,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             survival = sum(ok for _, ok in scores) / len(scores)
             values = sorted(value for value, _ in scores)
             location_guard_bonus = self._location_guard_bonus(bundle, view)
+            traveler_screening_bonus = self._time_traveler_screening_bonus(
+                bundle, view, traveler_candidates)
             tail = (values[max(0, len(values) // 5 - 1)]
                     + location_guard_bonus)
             scarce = sum(item["card"] in {"fm", "g2", "p-1"}
@@ -364,7 +443,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             information_bonus = min(
                 0.012, self.information_reward_weight * information_value)
             mean = (sum(values) / len(values) - 0.025 * scarce
-                    + information_bonus + location_guard_bonus)
+                    + information_bonus + traveler_screening_bonus
+                    + location_guard_bonus)
             day_survival = (sum(ok for _, ok in day_scores) / len(day_scores)
                             if day_scores else survival)
             day_mean = ((sum(value for value, _ in day_scores) /
@@ -374,7 +454,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                               mean, bundle, policy_rollouts,
                               information_value, information_bonus,
                               information_future, information_fact,
-                              information_refusal, location_guard_bonus))
+                              information_refusal, location_guard_bonus,
+                              traveler_screening_bonus))
         if not evaluated:
             return self._fallback(participant, view, offers,
                                   "no_common_legal_bundle", len(witnesses))
@@ -397,7 +478,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                      "information_future": row[9],
                      "information_realized": row[10],
                      "information_refusal": row[11],
-                     "location_guard_bonus": row[12]}
+                     "location_guard_bonus": row[12],
+                     "time_traveler_screening_bonus": row[13]}
                   for row in evaluated),
             roles, "factorized", self.evidence_ledger.updates,
             self.evidence_ledger.hard_count, self.evidence_ledger.soft_count,

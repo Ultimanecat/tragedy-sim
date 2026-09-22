@@ -8,6 +8,7 @@ from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
+from tragedy_sim.witness import PublicWitness, WitnessStrength
 
 
 def protagonist_position(scenario_id="official-fs-01-first-script"):
@@ -62,6 +63,37 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertEqual(agent._location_guard_bonus(wrong_board, view), 0.0)
         self.assertEqual(agent._location_guard_bonus(unguarded, view), 0.0)
 
+    def test_time_traveler_screening_uses_witness_intersection(self):
+        witnesses = (
+            PublicWitness("role_pressure", "time_traveler",
+                          {"candidates": ("girl", "doctor", "patient")},
+                          1, 5, "loop_end", "one", WitnessStrength.HARD),
+            PublicWitness("role_pressure", "time_traveler",
+                          {"candidates": ("doctor", "patient")},
+                          2, 5, "loop_end", "two", WitnessStrength.HARD),
+        )
+        candidates = ParticleEnsembleProtagonistAgent._time_traveler_candidates(
+            witnesses)
+        self.assertEqual(candidates, ("doctor", "patient"))
+        view = {
+            "characters": {
+                "doctor": {"goodwill": 2, "alive": True},
+                "patient": {"goodwill": 1, "alive": True},
+            },
+            "team_hands": {"a": ["g1"], "b": ["g2"], "c": ["h"]},
+        }
+        base = ({"actor": "a", "card": "h", "target": "doctor"},
+                {"actor": "b", "card": "h", "target": "patient"},
+                {"actor": "c", "card": "h", "target": "doctor"})
+        bundle = ParticleEnsembleProtagonistAgent._time_traveler_screening_bundle(
+            base, view, candidates)
+        self.assertIsNotNone(bundle)
+        self.assertEqual(bundle[0]["card"], "g1")
+        self.assertEqual(bundle[1]["card"], "g2")
+        self.assertEqual(
+            ParticleEnsembleProtagonistAgent._time_traveler_screening_bonus(
+                bundle, view, candidates), 0.008)
+
     def test_sampling_seed_is_coupled_across_loop_difficulties(self):
         library = ScenarioLibrary()
         standard = Game(library.get(
@@ -77,6 +109,17 @@ class ParticleEnsembleTests(unittest.TestCase):
         easy["language"] = "ja"
         easy["labels"] = {"student": "学生"}
         easy["events"][0]["message"] = "表示専用"
+        self.assertEqual(
+            ParticleEnsembleProtagonistAgent._sampling_hash(standard),
+            ParticleEnsembleProtagonistAgent._sampling_hash(easy))
+        standard["events"].append({
+            "kind": "loop_lost", "loop": 1, "round": 7,
+            "timing": "loop_end", "remaining": 2,
+        })
+        easy["events"].append({
+            "kind": "loop_lost", "loop": 1, "round": 7,
+            "timing": "loop_end", "remaining": 3,
+        })
         self.assertEqual(
             ParticleEnsembleProtagonistAgent._sampling_hash(standard),
             ParticleEnsembleProtagonistAgent._sampling_hash(easy))

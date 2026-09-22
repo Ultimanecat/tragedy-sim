@@ -434,7 +434,10 @@ class FsbtxWitnessTests(unittest.TestCase):
             {"kind": "loop_started", "loop": 1, "round": 1},
             {"kind": "counter_changed", "loop": 1,
              "round": view["days"], "target": "girl",
-             "counter": "goodwill", "after": 2},
+             "counter": "goodwill", "after": 1},
+            {"kind": "counter_changed", "loop": 1,
+             "round": view["days"], "target": "student",
+             "counter": "goodwill", "after": 3},
             {"kind": "protagonists_lost", "loop": 1,
              "round": view["days"], "timing": "day_end"},
             {"kind": "loop_lost", "loop": 1,
@@ -445,7 +448,36 @@ class FsbtxWitnessTests(unittest.TestCase):
                         if item.kind == "role_pressure"
                         and item.subject == "time_traveler")
         self.assertIn("girl", traveler.value["candidates"])
+        self.assertNotIn("student", traveler.value["candidates"])
         self.assertEqual(traveler.timing, "loop_end")
+        self.assertEqual(traveler.strength, WitnessStrength.HARD)
+
+        roles = dict(self.hypothesis.roles)
+        for cid, role in tuple(roles.items()):
+            if role == "time_traveler":
+                roles[cid] = "ordinary"
+        roles["student"] = "time_traveler"
+        wrong = replace(self.hypothesis, roles=tuple(sorted(roles.items())))
+        self.assertFalse(FsbtxWitnessMatcher().matches(wrong, (traveler,)))
+
+    def test_btx_ignored_goodwill_forbid_reveals_time_traveler(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "cards_revealed", "loop": 1, "round": 1,
+             "cards": [
+                 {"actor": "m", "card": "fg", "target": "girl"},
+                 {"actor": "a", "card": "g2", "target": "girl"},
+             ]},
+            {"kind": "counter_changed", "loop": 1, "round": 1,
+             "timing": "action_resolution", "target": "girl",
+             "counter": "goodwill", "before": 0, "after": 2},
+            {"kind": "actions_resolved", "loop": 1, "round": 1},
+        ]
+        witnesses = FsbtxWitnessCompiler().compile(view)
+        reveal = next(item for item in witnesses
+                      if item.kind == "role_is" and item.subject == "girl")
+        self.assertEqual(reveal.value, "time_traveler")
+        self.assertEqual(reveal.strength, WitnessStrength.HARD)
 
     def test_part_timer_replacement_uses_visible_replacement_threshold(self):
         scenario = example_scenario("BTX")

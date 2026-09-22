@@ -129,6 +129,43 @@ class FsbtxWitnessCompiler:
         return result
 
     @staticmethod
+    def _hard_ignored_goodwill_forbids(
+            view: Mapping[str, Any]) -> list[PublicWitness]:
+        """A successful goodwill card through FG identifies Time Traveler."""
+        if view.get("module") != "BTX":
+            return []
+        result: list[PublicWitness] = []
+        ignored_targets: set[str] = set()
+        for event in view.get("events", ()):
+            kind = event.get("kind")
+            if kind == "cards_revealed":
+                cards = event.get("cards", ())
+                forbidden = {str(item.get("target")) for item in cards
+                             if item.get("actor") == "m"
+                             and item.get("card") == "fg"}
+                goodwill = {str(item.get("target")) for item in cards
+                            if item.get("actor") != "m"
+                            and item.get("card") in {"g1", "g2"}}
+                ignored_targets = forbidden & goodwill
+                continue
+            if kind == "actions_resolved":
+                ignored_targets = set()
+                continue
+            target = event.get("target")
+            if (kind == "counter_changed" and target in ignored_targets
+                    and event.get("counter") == "goodwill"
+                    and isinstance(event.get("before"), int)
+                    and isinstance(event.get("after"), int)
+                    and event["after"] > event["before"]):
+                result.append(PublicWitness(
+                    "role_is", str(target), "time_traveler",
+                    int(event.get("loop", view.get("loop", 1))),
+                    int(event.get("round", view.get("round", 1))),
+                    str(event.get("timing", "action_resolution")),
+                    "public_goodwill_forbid_ignored"))
+        return result
+
+    @staticmethod
     def _soft_death_witnesses(view: Mapping[str, Any]) -> list[PublicWitness]:
         """Reconstruct death clues from the public journal.
 
@@ -343,16 +380,23 @@ class FsbtxWitnessCompiler:
                             "public_initial_board_intrigue_and_loss",
                             WitnessStrength.SOFT))
                     if int(event.get("round", 0)) == int(view.get("days", 0)):
+                        declared_loss = any(
+                            previous.get("kind") == "protagonists_lost"
+                            and previous.get("loop") == event.get("loop")
+                            and previous.get("round") == event.get("round")
+                            and previous.get("timing") == "day_end"
+                            for previous in events[:index])
                         traveler_candidates = tuple(sorted(
                             cid for cid, goodwill in character_goodwill.items()
-                            if alive.get(cid, False) and goodwill <= 2))
+                            if alive.get(cid, False) and goodwill < 3))
                         if traveler_candidates:
                             result.append(PublicWitness(
                                 "role_pressure", "time_traveler",
                                 {"candidates": traveler_candidates},
                                 int(event["loop"]), int(event["round"]),
                                 "loop_end", "public_final_day_low_goodwill_loss",
-                                WitnessStrength.SOFT))
+                                (WitnessStrength.HARD if declared_loss
+                                 else WitnessStrength.SOFT)))
         return result
 
     def compile(self, view: Mapping[str, Any]) -> tuple[PublicWitness, ...]:
@@ -363,6 +407,7 @@ class FsbtxWitnessCompiler:
         day = int(view.get("round", 1))
         timing = str(view.get("timing", view.get("phase", "unknown")))
         result: list[PublicWitness] = self._hard_fs_key_deaths(view)
+        result.extend(self._hard_ignored_goodwill_forbids(view))
         for cid, fact in sorted(view.get("known_roles", {}).items()):
             role = fact.get("role") if isinstance(fact, Mapping) else None
             if isinstance(role, str):
@@ -433,8 +478,10 @@ class FsbtxWitnessCompiler:
         result.extend(self._soft_death_witnesses(view))
         result.extend(self._soft_plot_pressure(view))
         if not self.include_joint:
-            result = [item for item in result if item.kind not in {
-                "joint_plot_role_pressure", "role_pressure"}]
+            result = [item for item in result
+                      if item.kind != "joint_plot_role_pressure"
+                      and not (item.kind == "role_pressure"
+                               and item.strength == WitnessStrength.SOFT)]
         return tuple(result)
 
 
@@ -489,7 +536,9 @@ class FsbtxWitnessMatcher:
             return (WitnessVerdict.SATISFIED
                     if any(roles.get(cid) == witness.subject
                            for cid in candidates)
-                    else WitnessVerdict.UNKNOWN)
+                    else (WitnessVerdict.CONTRADICTED
+                          if witness.strength == WitnessStrength.HARD
+                          else WitnessVerdict.UNKNOWN))
         if witness.kind == "incident_not_happened":
             # Absence has several explanations (dead/absent culprit and optional
             # prevention among them), so it is evidence but not a hard exclusion.
