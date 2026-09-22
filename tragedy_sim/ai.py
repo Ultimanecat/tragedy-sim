@@ -319,6 +319,18 @@ class _Plan:
     killer: str | None = None
     incident_day: int | None = None
 
+    @property
+    def strategy_id(self) -> str:
+        """Stable semantic identity for one instantiated winning route."""
+        details = (
+            ("target", self.target), ("culprit", self.culprit),
+            ("key", self.key), ("killer", self.killer),
+            ("day", self.incident_day),
+        )
+        suffix = ",".join(f"{key}={value}" for key, value in details
+                          if value is not None)
+        return self.kind if not suffix else f"{self.kind}:{suffix}"
+
 
 class FixedStrategyMastermindAgent:
     """A small playbook agent that commits to one applicable winning route.
@@ -340,9 +352,11 @@ class FixedStrategyMastermindAgent:
     }
 
     def __init__(self, rng: random.Random | random.SystemRandom | None = None,
-                 forced_path: str | None = None):
+                 forced_path: str | None = None, *,
+                 forced_strategy: str | None = None):
         self._rng = rng or random.SystemRandom()
         self._forced_path = forced_path
+        self._forced_strategy = forced_strategy
         self._plan: _Plan | None = None
 
     @property
@@ -385,11 +399,20 @@ class FixedStrategyMastermindAgent:
 
     def _select_plan(self, view: dict[str, Any]) -> _Plan:
         plans = self._plans(view)
+        if self._forced_strategy:
+            matching = [plan for plan in plans
+                        if plan.strategy_id == self._forced_strategy]
+            if matching:
+                return matching[0]
         if self._forced_path:
             matching = [plan for plan in plans if plan.kind == self._forced_path]
             if matching:
                 return matching[0]
         return self._rng.choice(plans)
+
+    def strategy_options(self, view: dict[str, Any]) -> tuple[str, ...]:
+        """Return the applicable route dimension without scenario-ID coupling."""
+        return tuple(plan.strategy_id for plan in self._plans(view))
 
     @staticmethod
     def _move_card(view: dict[str, Any], source: str, destination: str) -> str | None:

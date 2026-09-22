@@ -411,15 +411,19 @@ class OracleProtagonistAgent:
                 - key_exposure - incident_pressure)
 
     def _rollout_score(self, world: Game, start_loop: int,
-                       start_day: int) -> tuple[float, bool, int, bool]:
+                       start_day: int, *,
+                       mastermind_strategy: str | None = None
+                       ) -> tuple[float, bool, int, bool]:
         root_events = len(world.state.events)
         multiplier = {"day": 8, "loop": 32, "match": 128}[
             self.rollout_horizon]
         hard_limit = max(128, self.budget.rollout_depth * multiplier)
-        policy_seed = hashlib.sha256(
-            f"rollout:{self.rng_seed}:{world.state_key()}".encode()
-        ).hexdigest()
-        mastermind = FixedStrategyMastermindAgent(random.Random(policy_seed))
+        seed_material = f"rollout:{self.rng_seed}:{world.state_key()}"
+        if mastermind_strategy is not None:
+            seed_material += f":{mastermind_strategy}"
+        policy_seed = hashlib.sha256(seed_material.encode()).hexdigest()
+        mastermind = FixedStrategyMastermindAgent(
+            random.Random(policy_seed), forced_strategy=mastermind_strategy)
         steps = 0
         for steps in range(1, hard_limit + 1):
             if self._horizon_reached(
@@ -454,15 +458,23 @@ class OracleProtagonistAgent:
         return score, survived, steps, world.winner is not None
 
     def _day_score(self, world: Game, start_loop: int,
-                   start_day: int) -> tuple[float, bool]:
+                   start_day: int, *,
+                   mastermind_strategy: str | None = None
+                   ) -> tuple[float, bool]:
         original = self.rollout_horizon
         self.rollout_horizon = "day"
         try:
             score, survived, _, _ = self._rollout_score(
-                world, start_loop, start_day)
+                world, start_loop, start_day,
+                mastermind_strategy=mastermind_strategy)
             return score, survived
         finally:
             self.rollout_horizon = original
+
+    @staticmethod
+    def _mastermind_strategy_options(world: Game) -> tuple[str, ...]:
+        """Applicable private-information policies for one determinized world."""
+        return FixedStrategyMastermindAgent().strategy_options(world.view("m"))
 
     def choose_game_action(self, *, participant: str, game: Game,
                            offers: Sequence[dict[str, Any]],

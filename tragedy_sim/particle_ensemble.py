@@ -27,9 +27,13 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
     def __init__(self, budget: SearchBudget | None = None, *,
                  particle_count: int = 12, rng_seed: int = 0,
                  joint_witness: bool = True,
-                 rollout_horizon: str = "day"):
+                 rollout_horizon: str = "day",
+                 mastermind_policy_samples: int = 3):
         if rollout_horizon not in {"day", "loop"}:
             raise ValueError("particle rollout_horizon must be day or loop")
+        if (type(mastermind_policy_samples) is not int
+                or mastermind_policy_samples < 1):
+            raise ValueError("mastermind_policy_samples must be positive")
         super().__init__(budget or SearchBudget(node_limit=24,
                                                 rollout_depth=12,
                                                 time_limit_ms=3000),
@@ -37,6 +41,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                          survival_first=True)
         self.compiler = FsbtxWitnessCompiler(include_joint=joint_witness)
         self.rollout_horizon = rollout_horizon
+        self.mastermind_policy_samples = mastermind_policy_samples
         self.oracle = OracleProtagonistAgent(
             reveal_cards=True, budget=self.budget, rng_seed=rng_seed,
             rollout_horizon=rollout_horizon, script_aware_rollout=False)
@@ -44,6 +49,20 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
     @property
     def plan_name(self) -> str:
         return "public_fs_btx_particle_ensemble"
+
+    def _mastermind_strategies(self, world: Any) -> tuple[str | None, ...]:
+        # One sample is the retained historical baseline: let the seeded
+        # playbook choose one route.  Larger budgets cover the semantic route
+        # list evenly instead of permanently favoring its first entries.
+        if self.mastermind_policy_samples == 1:
+            return (None,)
+        options = self.oracle._mastermind_strategy_options(world)
+        if len(options) <= self.mastermind_policy_samples:
+            return options
+        count = self.mastermind_policy_samples
+        indexes = tuple(round(index * (len(options) - 1) / (count - 1))
+                        for index in range(count))
+        return tuple(options[index] for index in indexes)
 
     @staticmethod
     def _counts(worlds: Sequence[Any], evidence: PublicEvidence
@@ -167,18 +186,34 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                 break
             scores: list[tuple[float, bool]] = []
             day_scores: list[tuple[float, bool]] = []
+            policy_rollouts = 0
             for world in worlds:
                 successor = self._apply_bundle(world, bundle)
                 if successor is None:
                     scores = []
                     break
-                outcome = self.oracle._rollout_score(
-                    successor, position[0], position[1])
-                scores.append(outcome[:2])
-                if self.rollout_horizon != "day":
-                    day_scores.append(self.oracle._day_score(
-                        successor, position[0], position[1]))
-                pairs += 1
+                strategies = self._mastermind_strategies(world)
+                policy_outcomes = []
+                policy_day_scores = []
+                for strategy in strategies:
+                    outcome = self.oracle._rollout_score(
+                        successor, position[0], position[1],
+                        mastermind_strategy=strategy)
+                    policy_outcomes.append(outcome[:2])
+                    if self.rollout_horizon != "day":
+                        policy_day_scores.append(self.oracle._day_score(
+                            successor, position[0], position[1],
+                            mastermind_strategy=strategy))
+                    pairs += 1
+                    policy_rollouts += 1
+                # The script is uncertain to the protagonists, but the
+                # mastermind knows it and may choose any applicable route.
+                # Defend against the most dangerous sampled route per world.
+                scores.append(min(policy_outcomes,
+                                  key=lambda item: (item[1], item[0])))
+                if policy_day_scores:
+                    day_scores.append(min(
+                        policy_day_scores, key=lambda item: (item[1], item[0])))
             if len(scores) != len(worlds):
                 continue
             survival = sum(ok for _, ok in scores) / len(scores)
@@ -192,7 +227,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             day_mean = (sum(value for value, _ in day_scores) / len(day_scores)
                         if day_scores else mean)
             evaluated.append((survival, tail, day_survival, day_mean,
-                              mean, bundle))
+                              mean, bundle, policy_rollouts))
         if not evaluated:
             return self._fallback(participant, view, offers,
                                   "no_common_legal_bundle", len(witnesses))
@@ -209,7 +244,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                    "visits": len(worlds), "availability": len(worlds),
                    "mean_value": row[4], "day_survivals": round(row[2] * len(worlds)),
                    "horizon_survivals": round(row[0] * len(worlds)),
-                   "tail_value": row[1]} for row in evaluated),
+                   "tail_value": row[1], "policy_rollouts": row[6]}
+                  for row in evaluated),
             roles, "factorized", self.evidence_ledger.updates,
             self.evidence_ledger.hard_count, self.evidence_ledger.soft_count,
             evidence_ms, (perf_counter() - started) * 1000 - evidence_ms,
@@ -219,5 +255,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             placement_tendencies=tendencies, evaluated_pairs=pairs,
             stop_reason=("time_limit" if deadline is not None
                          and perf_counter() >= deadline else "candidate_limit"),
-            rollout_horizon=self.rollout_horizon)
+            rollout_horizon=self.rollout_horizon,
+            mastermind_policy_samples=self.mastermind_policy_samples,
+            mastermind_policy_aggregation="per_world_worst")
         return chosen

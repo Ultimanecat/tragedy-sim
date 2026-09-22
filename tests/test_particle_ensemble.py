@@ -21,6 +21,20 @@ class ParticleEnsembleTests(unittest.TestCase):
     def test_rollout_horizon_is_validated(self):
         with self.assertRaises(ValueError):
             ParticleEnsembleProtagonistAgent(rollout_horizon="match")
+        with self.assertRaises(ValueError):
+            ParticleEnsembleProtagonistAgent(mastermind_policy_samples=0)
+
+    def test_single_policy_sample_retains_seeded_baseline(self):
+        game = protagonist_position()
+        agent = ParticleEnsembleProtagonistAgent(mastermind_policy_samples=1)
+        self.assertEqual(agent._mastermind_strategies(game), (None,))
+
+    def test_multiple_policy_samples_cover_route_list_evenly(self):
+        game = protagonist_position()
+        agent = ParticleEnsembleProtagonistAgent(mastermind_policy_samples=2)
+        options = agent.oracle._mastermind_strategy_options(game)
+        selected = agent._mastermind_strategies(game)
+        self.assertEqual(selected, (options[0], options[-1]))
 
     def test_public_view_yields_legal_three_card_plan_and_posteriors(self):
         game = protagonist_position()
@@ -34,8 +48,13 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertIn(chosen, offers)
         trace = agent.last_trace
         self.assertEqual(trace.strategy, "public_fs_btx_particle_ensemble")
-        self.assertEqual(trace.evaluated_pairs,
-                         trace.iterations * trace.particles)
+        self.assertGreaterEqual(trace.evaluated_pairs,
+                                trace.iterations * trace.particles)
+        self.assertEqual(trace.mastermind_policy_samples, 3)
+        self.assertEqual(trace.mastermind_policy_aggregation,
+                         "per_world_worst")
+        self.assertTrue(all(row["policy_rollouts"] >= trace.particles
+                            for row in trace.root_actions))
         self.assertGreater(trace.particles, 0)
         self.assertTrue(trace.belief_roles)
         self.assertTrue(trace.belief_culprits)

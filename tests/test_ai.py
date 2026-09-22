@@ -237,6 +237,22 @@ class AiPolicyTests(unittest.TestCase):
         self.assertEqual(plot.choose_action(
             participant="m", view=plot_view, offers=choices)["parameters"]["target"], "shrine")
 
+    def test_semantic_strategy_options_can_force_an_exact_route(self):
+        probe = FixedStrategyMastermindAgent(random.Random(1))
+        options = probe.strategy_options(self.view)
+        self.assertTrue(any(item.startswith("key_assassination:")
+                            for item in options))
+        incident = next(item for item in options
+                        if item.startswith("incident_pressure:"))
+        agent = FixedStrategyMastermindAgent(
+            random.Random(2), forced_strategy=incident)
+        offers = [offer("play", card="i1", target="doctor"),
+                  offer("play", card="p1a", target="doctor")]
+        chosen = agent.choose_action(participant="m", view=self.view,
+                                     offers=offers)
+        self.assertEqual(chosen["parameters"]["card"], "p1a")
+        self.assertEqual(agent._plan.strategy_id, incident)
+
     def test_playbook_prefers_a_winning_optional_effect(self):
         agent = FixedStrategyMastermindAgent(random.Random(1), "key_assassination")
         offers = [offer("next"), {
