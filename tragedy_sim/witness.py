@@ -195,6 +195,92 @@ class FsbtxWitnessCompiler:
         return result
 
     @staticmethod
+    def _hard_ignored_intrigue_forbids(
+            view: Mapping[str, Any]) -> list[PublicWitness]:
+        """One uncancelled FI that lets intrigue through proves a Cultist.
+
+        The Cultist chooses a location after movements resolve, so candidates
+        are reconstructed from the public positions at the counter change.
+        Boss is retained conservatively because its public territory can
+        extend its ability location beyond its current square.
+        """
+        characters = view.get("characters", {})
+        initial = {
+            str(cid): str(item.get("initial_location", item.get("location", "")))
+            for cid, item in characters.items()
+        }
+        locations = dict(initial)
+        alive = {str(cid): bool(item.get("present", True))
+                 for cid, item in characters.items()}
+        ignored_targets: set[str] = set()
+        result: list[PublicWitness] = []
+        for event in view.get("events", ()):
+            kind = event.get("kind")
+            if kind == "loop_started":
+                locations = dict(initial)
+                alive = {str(cid): bool(item.get("present", True))
+                         for cid, item in characters.items()}
+                ignored_targets = set()
+                continue
+            if kind in {"character_moved", "character_replaced"}:
+                target = event.get("character", event.get("target"))
+                location = event.get("location")
+                if isinstance(target, str) and isinstance(location, str):
+                    locations[target] = location
+                    alive[target] = True
+                continue
+            if kind == "character_died":
+                target = event.get("target")
+                if isinstance(target, str):
+                    alive[target] = False
+                continue
+            if kind == "revived":
+                target = event.get("target")
+                if isinstance(target, str):
+                    alive[target] = True
+                continue
+            if kind == "character_left":
+                target = event.get("character")
+                if isinstance(target, str):
+                    alive[target] = False
+                continue
+            if kind == "cards_revealed":
+                cards = event.get("cards", ())
+                forbids = [item for item in cards
+                           if item.get("card") == "fi"]
+                intrigue_targets = {
+                    str(item.get("target")) for item in cards
+                    if item.get("card") in {"i1", "i2"}}
+                ignored_targets = ({str(forbids[0].get("target"))}
+                                   & intrigue_targets
+                                   if len(forbids) == 1 else set())
+                continue
+            if kind == "actions_resolved":
+                ignored_targets = set()
+                continue
+            target = event.get("target")
+            if (kind != "counter_changed" or target not in ignored_targets
+                    or event.get("counter") != "intrigue"
+                    or not isinstance(event.get("before"), int)
+                    or not isinstance(event.get("after"), int)
+                    or event["after"] <= event["before"]):
+                continue
+            protected_location = (locations.get(str(target))
+                                  if target in characters else str(target))
+            candidates = tuple(sorted(
+                cid for cid in characters if alive.get(str(cid), False)
+                and (locations.get(str(cid)) == protected_location
+                     or cid == "boss")))
+            if candidates:
+                result.append(PublicWitness(
+                    "role_pressure", "cultist", {"candidates": candidates},
+                    int(event.get("loop", view.get("loop", 1))),
+                    int(event.get("round", view.get("round", 1))),
+                    str(event.get("timing", "action_resolution")),
+                    "public_intrigue_forbid_ignored"))
+        return result
+
+    @staticmethod
     def _soft_death_witnesses(view: Mapping[str, Any]) -> list[PublicWitness]:
         """Reconstruct death clues from the public journal.
 
@@ -453,6 +539,7 @@ class FsbtxWitnessCompiler:
         timing = str(view.get("timing", view.get("phase", "unknown")))
         result: list[PublicWitness] = self._hard_fs_key_deaths(view)
         result.extend(self._hard_ignored_goodwill_forbids(view))
+        result.extend(self._hard_ignored_intrigue_forbids(view))
         result.extend(self._hard_accepted_goodwill(view))
         for cid, fact in sorted(view.get("known_roles", {}).items()):
             role = fact.get("role") if isinstance(fact, Mapping) else None
@@ -589,7 +676,8 @@ class FsbtxWitnessMatcher:
         if witness.kind == "role_pressure":
             candidates = witness.value.get("candidates", ())
             return (WitnessVerdict.SATISFIED
-                    if any(roles.get(cid) == witness.subject
+                    if any(roles.get("part_timer" if cid == "part_timer_question"
+                                     else cid) == witness.subject
                            for cid in candidates)
                     else (WitnessVerdict.CONTRADICTED
                           if witness.strength == WitnessStrength.HARD

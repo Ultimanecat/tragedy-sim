@@ -612,6 +612,51 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertEqual(reveal.value, "time_traveler")
         self.assertEqual(reveal.strength, WitnessStrength.HARD)
 
+    def test_ignored_intrigue_forbid_proves_a_local_cultist(self):
+        view = deepcopy(self.view)
+        location = view["characters"]["girl"]["initial_location"]
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "character_moved", "loop": 1, "round": 1,
+             "character": "worker", "location": location},
+            {"kind": "cards_revealed", "loop": 1, "round": 1,
+             "cards": [
+                 {"actor": "m", "card": "i1", "target": "girl"},
+                 {"actor": "a", "card": "fi", "target": "girl"},
+             ]},
+            {"kind": "counter_changed", "loop": 1, "round": 1,
+             "target": "girl", "counter": "intrigue",
+             "before": 0, "after": 1},
+            {"kind": "actions_resolved", "loop": 1, "round": 1},
+        ]
+        source = "public_intrigue_forbid_ignored"
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.source == source)
+        self.assertEqual(witness.kind, "role_pressure")
+        self.assertEqual(witness.subject, "cultist")
+        self.assertIn("girl", witness.value["candidates"])
+        self.assertIn("worker", witness.value["candidates"])
+        self.assertEqual(witness.strength, WitnessStrength.HARD)
+
+        matcher = FsbtxWitnessMatcher()
+        roles = dict(self.hypothesis.roles)
+        for cid in witness.value["candidates"]:
+            if cid in roles and roles[cid] == "cultist":
+                roles[cid] = "ordinary"
+        wrong = replace(self.hypothesis, roles=tuple(sorted(roles.items())))
+        self.assertEqual(matcher.verdict(wrong, witness),
+                         WitnessVerdict.CONTRADICTED)
+
+        disabled = FsbtxWitnessCompiler(
+            disabled_sources={source}).compile(view)
+        self.assertFalse(any(item.source == source for item in disabled))
+
+        # Two FI cards cancel globally; their failure reveals no Cultist.
+        view["events"][2]["cards"].append(
+            {"actor": "b", "card": "fi", "target": "student"})
+        self.assertFalse(any(item.source == source
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
     def test_part_timer_replacement_uses_visible_replacement_threshold(self):
         scenario = example_scenario("BTX")
         scenario["cast"].pop(next(iter(scenario["cast"])))
