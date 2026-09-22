@@ -11,7 +11,7 @@ WeirdMythology（WM）的全部 12 个规则 X/Y、11 种事件与跨轮回 Ex �
 AnotherHorizonRevised（AHR）的表里世界、双身份最终猜测、希望/绝望牌和全部规则/事件，
 以及 LastLiar（LL）的主人公秘密、背叛者胜利、最终决战与全部规则/事件。
 内置各模组速查表对应的角色池及能力（MC 使用“手下”替换“军人”）。以用户提供的中文模组速查表为优先依据。
-这是支持真人、多种剧作家 AI，以及可选团队 AI 主人公的热座/局域网裁判工具，不含公网大厅。双方策略的现状与限制见 [AI 阶段性总结](docs/ai-current-state.md)。
+这是支持真人、多种剧作家 AI，以及可选团队 AI 主人公的热座/局域网裁判工具，不含公网大厅。双方策略的现状与限制见 [AI 阶段性总结](docs/ai-current-state.md)；为新规则集接入 self-play、witness 和启发式的流程见 [AI 调优指南](docs/ai-tuning-guide.md)。
 
 ## Web 前端与 JSON 服务
 
@@ -333,6 +333,7 @@ npm run test:e2e
 - [Web 前端与局域网联机实施计划](docs/web-and-lan-roadmap.md)。
 - [规则集能力矩阵与扩展契约](docs/ruleset-capability-matrix.md)。
 - [双方 AI 阶段性总结](docs/ai-current-state.md)：现有策略、信息边界、基准结论与后续优先级。
+- [AI 调优与规则集扩展指南](docs/ai-tuning-guide.md)：self-play、witness、启发式奖励、失败局诊断与验收流程。
 
 引擎与界面分离，可直接调用：
 
