@@ -298,13 +298,6 @@ class OracleProtagonistAgent:
     def _day_score(self, world: Game, start_loop: int,
                    start_day: int) -> tuple[float, bool]:
         root_events = len(world.state.events)
-        known_before = (
-            set(world.known_roles), set(world.known_culprits),
-            set(world.known_plots),
-            {event.get("source") for event in world.state.events
-             if event.get("kind") == "goodwill_refused"
-             and isinstance(event.get("source"), str)},
-        )
         for _ in range(96):
             if world.winner is not None or (world.state.loop, world.state.round) != (start_loop, start_day):
                 break
@@ -341,16 +334,6 @@ class OracleProtagonistAgent:
             return -1.0, False
         if world.winner == "protagonists":
             return 1.0, True
-        information_gain = (
-            0.06 * len(set(world.known_roles) - known_before[0])
-            + 0.06 * len(set(world.known_culprits) - known_before[1])
-            + 0.08 * len(set(world.known_plots) - known_before[2])
-            + 0.04 * len({
-                event.get("source") for event in world.state.events
-                if event.get("kind") == "goodwill_refused"
-                and isinstance(event.get("source"), str)
-            } - known_before[3]))
-        information_gain = min(0.18, information_gain)
         if world.module == "BTX":
             # BTX shares the legal day planner but has different plots and a
             # final guess. Keep the first vertical slice's day-boundary value
@@ -363,8 +346,7 @@ class OracleProtagonistAgent:
                 max(0, 3 - world.state.characters[cid].goodwill)
                 for cid, role in world.scenario["cast"].items()
                 if role == "time_traveler")
-            return (0.55 + 0.22 * value - 0.10 * traveler_gap / days_left
-                    + information_gain), True
+            return 0.55 + 0.22 * value - 0.10 * traveler_gap / days_left, True
         # Survival dominates all position gains.  Stable position helps avoid
         # spending once-per-loop defenses when several safe bundles exist.
         value = max(-1.0, min(1.0, -self.evaluator(world)))
@@ -408,7 +390,7 @@ class OracleProtagonistAgent:
                     1 + incident["day"] - start_day)
         return (0.55 + 0.22 * value - 0.15 * plot_pressure
                 - 0.06 * killer_pressure - 0.035 * key_pressure
-                - key_exposure - incident_pressure + information_gain), True
+                - key_exposure - incident_pressure), True
 
     def choose_game_action(self, *, participant: str, game: Game,
                            offers: Sequence[dict[str, Any]],

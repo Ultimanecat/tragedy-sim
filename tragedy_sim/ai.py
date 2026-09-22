@@ -123,8 +123,7 @@ class DefensiveProtagonistAgent(BaselineProtagonistAgent):
 
     _DEFENSIVE_EFFECTS = {
         "protect": 170, "protection": 170, "reveal": 125,
-        "learn_role": 125, "copycat_identify": 125,
-        "culprit": 135, "informer": 135, "revive": 150, "counter": 90,
+        "culprit": 135, "revive": 150, "counter": 90,
     }
 
     @staticmethod
