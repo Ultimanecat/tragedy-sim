@@ -62,6 +62,29 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertEqual(agent._location_guard_bonus(wrong_board, view), 0.0)
         self.assertEqual(agent._location_guard_bonus(unguarded, view), 0.0)
 
+    def test_sampling_seed_is_coupled_across_loop_difficulties(self):
+        library = ScenarioLibrary()
+        standard = Game(library.get(
+            "official-btx-02-traditional-ensemble-murder"
+        )).protagonist_team_view()
+        easy = Game(library.get(
+            "official-btx-02-traditional-ensemble-murder-easy"
+        )).protagonist_team_view()
+        self.assertNotEqual(standard["loops"], easy["loops"])
+        self.assertEqual(
+            ParticleEnsembleProtagonistAgent._sampling_hash(standard),
+            ParticleEnsembleProtagonistAgent._sampling_hash(easy))
+        easy["language"] = "ja"
+        easy["labels"] = {"student": "学生"}
+        easy["events"][0]["message"] = "表示専用"
+        self.assertEqual(
+            ParticleEnsembleProtagonistAgent._sampling_hash(standard),
+            ParticleEnsembleProtagonistAgent._sampling_hash(easy))
+        easy["round"] += 1
+        self.assertNotEqual(
+            ParticleEnsembleProtagonistAgent._sampling_hash(standard),
+            ParticleEnsembleProtagonistAgent._sampling_hash(easy))
+
     def test_public_view_yields_legal_three_card_plan_and_posteriors(self):
         game = protagonist_position()
         agent = ParticleEnsembleProtagonistAgent(

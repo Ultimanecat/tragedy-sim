@@ -119,6 +119,29 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             item for item in worlds[0].state.pending if item.actor == "m"))
         return roles, culprits, dark
 
+    @staticmethod
+    def _sampling_hash(view: Mapping[str, Any]) -> str:
+        """Seed common random samples from decision state, not card difficulty.
+
+        Standard/Easy variants share the same hidden setup.  Their total loop
+        count and display metadata may affect planning, but must not reshuffle
+        the sampled worlds before the extra loop is actually reached.  Keeping
+        common random numbers makes paired self-play diagnose policy changes
+        instead of seed noise.
+        """
+        sampling_view = dict(view)
+        for field in ("scenario_id", "title", "loops", "language",
+                      "phase_name", "timepoint", "module_name", "labels"):
+            sampling_view.pop(field, None)
+        sampling_view["events"] = [
+            {key: value for key, value in event.items()
+             if key not in {"message", "timepoint"}}
+            for event in view.get("events", ())
+        ]
+        return hashlib.sha256(json.dumps(
+            sampling_view, sort_keys=True, ensure_ascii=False, default=str
+        ).encode("utf-8")).hexdigest()[:16]
+
     def choose_action(self, *, participant: str, view: dict[str, Any],
                       offers: Sequence[dict[str, Any]]) -> dict[str, Any]:
         if participant == "m" or not offers:
@@ -151,9 +174,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                     started + self.budget.time_limit_ms / 1000)
         evidence = PublicEvidence.from_view(view)
         witnesses = self.evidence_ledger.update(view, self.compiler)
-        public_hash = hashlib.sha256(json.dumps(
-            view, sort_keys=True, ensure_ascii=False, default=str
-        ).encode("utf-8")).hexdigest()[:16]
+        public_hash = self._sampling_hash(view)
         rng = random.Random(f"{self.budget.seed}:{self.rng_seed}:{public_hash}")
         sampled = self.factorized_belief.sample(
             evidence, witnesses, self.particle_count, rng=rng)
