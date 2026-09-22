@@ -164,6 +164,21 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertEqual(chosen["arguments"]["guesses"],
                          agent.last_trace.belief_setups[0]["roles"])
 
+    def test_large_final_guess_uses_exact_space_not_action_particles(self):
+        game = Game(ScenarioLibrary().get(
+            "official-btx-06-secret-that-was-kept"))
+        game._start_final_guess()
+        agent = ParticleEnsembleProtagonistAgent(
+            SearchBudget(node_limit=1, seed=2), particle_count=4, rng_seed=2)
+        offers = [_policy_offer(game, action)
+                  for action in game.action_offers(game.controller)]
+        chosen = agent.choose_action(
+            participant="team", view=game.protagonist_team_view(), offers=offers)
+        self.assertEqual(chosen["type"], "guess_all")
+        self.assertEqual(agent.last_trace.belief_source, "exact_joint_map")
+        self.assertEqual(agent.last_trace.particles, 0)
+        self.assertGreater(agent.last_trace.role_candidates, 192)
+
     def test_btx_irregular_script_does_not_fall_back_to_all_ordinary(self):
         scenario_id = "official-btx-08-mirror-passcode"
         game = protagonist_position(scenario_id)

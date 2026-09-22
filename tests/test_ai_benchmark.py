@@ -58,7 +58,7 @@ class AbilityUsageTests(unittest.TestCase):
         self.assertEqual(report["mean_elapsed_seconds"], 2.0)
         self.assertEqual(report["lost_loop_fraction"], 0.0)
         self.assertIsNone(report["final_guess_accuracy"])
-        self.assertEqual(report["true_setup_in_posterior"], 0)
+        self.assertEqual(report["true_setup_in_exact_space"], 0)
 
     def test_win_interval_and_paired_outcomes(self):
         low, high = wilson_interval(3, 9)

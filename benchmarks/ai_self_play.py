@@ -117,8 +117,7 @@ class MatchResult:
     final_belief_roles: tuple[dict[str, Any], ...] = ()
     final_belief_setups: tuple[dict[str, Any], ...] = ()
     final_role_candidates: int = 0
-    final_true_setup_rank: int | None = None
-    final_true_setup_weight: float | None = None
+    final_true_setup_in_exact_space: bool | None = None
     final_true_setup_hard_compatible: bool | None = None
     protagonist_plays: tuple[ProtagonistPlayRecord, ...] = ()
     protagonist_searches: tuple[ProtagonistSearchRecord, ...] = ()
@@ -293,8 +292,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     final_belief_roles: tuple[dict[str, Any], ...] = ()
     final_belief_setups: tuple[dict[str, Any], ...] = ()
     final_role_candidates = 0
-    final_true_setup_rank = None
-    final_true_setup_weight = None
+    final_true_setup_in_exact_space = None
     final_true_setup_hard_compatible = None
     protagonist_plays: list[ProtagonistPlayRecord] = []
     protagonist_searches: list[ProtagonistSearchRecord] = []
@@ -393,23 +391,14 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                 evidence = PublicEvidence.from_view(public_view)
                 witnesses = policy.evidence_ledger.update(
                     public_view, policy.compiler)
-                ranked = policy.factorized_belief.role_posterior(
+                solved = policy.factorized_belief.exact_role_map(
                     evidence, witnesses)
-                final_role_candidates = len(ranked)
+                final_role_candidates = solved.compatible_count
                 truth = HiddenWorldHypothesis.from_scenario(scenario)
                 final_true_setup_hard_compatible = FsbtxWitnessMatcher().matches(
                     truth, witnesses)
-                ordered = sorted(
-                    ranked,
-                    key=lambda pair: (pair[1], tuple(sorted(pair[0].roles))),
-                    reverse=True)
-                for rank, (world, weight) in enumerate(ordered, 1):
-                    if (world.main_plot == truth.main_plot
-                            and set(world.subplots) == set(truth.subplots)
-                            and world.roles == truth.roles):
-                        final_true_setup_rank = rank
-                        final_true_setup_weight = weight
-                        break
+                final_true_setup_in_exact_space = (
+                    final_true_setup_hard_compatible)
             for cid, guessed in command["guesses"].items():
                 final_guesses.append(FinalGuessRecord(
                     cid, guessed, scenario["cast"][cid],
@@ -447,8 +436,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         final_belief_roles=final_belief_roles,
         final_belief_setups=final_belief_setups,
         final_role_candidates=final_role_candidates,
-        final_true_setup_rank=final_true_setup_rank,
-        final_true_setup_weight=final_true_setup_weight,
+        final_true_setup_in_exact_space=final_true_setup_in_exact_space,
         final_true_setup_hard_compatible=final_true_setup_hard_compatible,
         protagonist_plays=tuple(protagonist_plays),
         protagonist_searches=tuple(protagonist_searches),

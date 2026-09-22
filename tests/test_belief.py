@@ -16,9 +16,59 @@ from tragedy_sim.belief import (BeliefParticleFilter, CatalogBeliefSampler,
 from tragedy_sim.catalog import PLOTS
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.scenario_library import ScenarioLibrary
+from tragedy_sim.witness import PublicWitness, WitnessStrength
 
 
 class FactorizedBeliefTests(unittest.TestCase):
+    def test_exact_final_map_matches_small_exhaustive_map(self):
+        evidence = PublicEvidence.from_view(
+            Game(example_scenario("BTX")).protagonist_team_view())
+        witnesses = (
+            PublicWitness("plot_pressure", "bomb", True, 1, 4,
+                          "loop_end", "test", WitnessStrength.SOFT),
+            PublicWitness("joint_plot_role_pressure", "bomb",
+                          {"role": "witch", "candidates": ("girl",)},
+                          1, 4, "loop_end", "test", WitnessStrength.SOFT),
+        )
+        tracker = FactorizedBeliefState(capacity=100_000, seed=3)
+        exhaustive = tracker.role_posterior(evidence, witnesses)
+        solved = tracker.exact_role_map(evidence, witnesses)
+        expected, expected_weight = max(
+            exhaustive,
+            key=lambda pair: (pair[1], tuple(sorted(pair[0].roles)),
+                              pair[0].main_plot, pair[0].subplots))
+        # The old role reservoir can omit otherwise legal identity assignments
+        # when its one arbitrary incident composition is invalid.  The final
+        # solver deliberately keeps the culprit dimension separate.
+        self.assertGreaterEqual(solved.compatible_count, len(exhaustive))
+        self.assertEqual(solved.selected.main_plot, expected.main_plot)
+        self.assertEqual(solved.selected.subplots, expected.subplots)
+        self.assertEqual(solved.selected.roles, expected.roles)
+        self.assertEqual(solved.ranked[0][1], expected_weight)
+        self.assertEqual(solved.selected.materialize(evidence)["cast"],
+                         dict(solved.selected.roles))
+
+    def test_exact_final_map_is_independent_of_action_particle_capacity(self):
+        scenario = ScenarioLibrary().get(
+            "official-btx-06-secret-that-was-kept")
+        evidence = PublicEvidence.from_view(
+            Game(scenario).protagonist_team_view())
+        witnesses = (
+            PublicWitness("plot_pressure", "bomb", True, 1, 7,
+                          "loop_end", "test", WitnessStrength.SOFT),
+            PublicWitness("joint_plot_role_pressure", "bomb",
+                          {"role": "witch", "candidates": ("rich",)},
+                          1, 7, "loop_end", "test", WitnessStrength.SOFT),
+        )
+        tiny = FactorizedBeliefState(capacity=1, seed=1).exact_role_map(
+            evidence, witnesses)
+        large = FactorizedBeliefState(capacity=512, seed=99).exact_role_map(
+            evidence, witnesses)
+        self.assertGreater(tiny.compatible_count, 192)
+        self.assertEqual(tiny, large)
+        self.assertEqual(tiny.selected.main_plot, "bomb")
+        self.assertEqual(dict(tiny.selected.roles)["rich"], "witch")
+
     def test_revealed_culprit_changes_only_incident_dimension(self):
         evidence = PublicEvidence.from_view(Game(example_scenario("FS")).view("a"))
         tracker = FactorizedBeliefState(capacity=512, seed=19)

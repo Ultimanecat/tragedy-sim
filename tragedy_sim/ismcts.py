@@ -494,8 +494,9 @@ class IsmctsProtagonistAgent:
                 return chosen
             evidence = PublicEvidence.from_view(view)
             witnesses = self.evidence_ledger.update(view, self.compiler)
-            ranked_roles = self.factorized_belief.role_posterior(
+            solved = self.factorized_belief.exact_role_map(
                 evidence, witnesses)
+            ranked_roles = solved.ranked
             if not ranked_roles:
                 chosen = {**offers[0], "arguments": {"guesses": baseline}}
                 self.last_trace = IsmctsTrace(
@@ -532,11 +533,12 @@ class IsmctsProtagonistAgent:
                        for target in view.get("guess_remaining", ())}
             chosen = {**offers[0], "arguments": {"guesses": guesses}}
             self.last_trace = IsmctsTrace(
-                self.plan_name, self.rng_seed, evidence.module, len(ranked_roles),
+                self.plan_name, self.rng_seed, evidence.module, 0,
                 len(witnesses), 0, self.budget.rollout_depth,
                 "simultaneous_map_guess", offers[0]["id"], (), belief_roles,
-                "candidate_weights", 0, self.evidence_ledger.hard_count,
+                "exact_joint_map", 0, self.evidence_ledger.hard_count,
                 self.evidence_ledger.soft_count,
+                role_candidates=solved.compatible_count,
                 belief_setups=belief_setups)
             return chosen
         if view.get("module") not in ("FS", "BTX"):

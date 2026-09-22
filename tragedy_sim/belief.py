@@ -11,13 +11,15 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from collections import Counter
 from copy import deepcopy
+from functools import lru_cache
 from itertools import combinations, permutations
 import hashlib
 import json
+from math import factorial
 import random
 from typing import Any, Mapping, Sequence
 
-from .catalog import MODULES, PLOTS
+from .catalog import CHARACTERS, MODULES, PLOTS, REFUSAL
 from .engine import RuleError
 from .scenario import validate_scenario
 from .scenario_library import ScenarioLibrary
@@ -555,6 +557,19 @@ class FactorizedBeliefResult:
     reason: str | None = None
 
 
+@dataclass(frozen=True)
+class ExactRoleMapResult:
+    """Exact final-guess MAP over the legal joint role-assignment space."""
+
+    ranked: tuple[tuple[HiddenWorldHypothesis, float], ...]
+    compatible_count: int
+    plot_sets: int
+
+    @property
+    def selected(self) -> HiddenWorldHypothesis | None:
+        return self.ranked[0][0] if self.ranked else None
+
+
 class FactorizedBeliefState:
     """Keep script/role and per-day culprit beliefs independent.
 
@@ -623,10 +638,7 @@ class FactorizedBeliefState:
         from .witness import FsbtxWitnessMatcher
 
         matcher = FsbtxWitnessMatcher()
-        role_witnesses = tuple(w for w in witnesses if w.kind in {
-            "role_is", "plot_present", "plot_pressure", "day_end_death_companion",
-            "joint_plot_role_pressure", "role_pressure",
-            "day_end_killer_candidate", "loss_after_death"})
+        role_witnesses = self._role_witnesses(witnesses)
         signature = PersistentBeliefState._static_signature(evidence)
         if signature != self._signature:
             self._signature = signature
@@ -691,15 +703,315 @@ class FactorizedBeliefState:
 
         self._refresh_roles(evidence, witnesses)
         matcher = FsbtxWitnessMatcher()
-        role_witnesses = tuple(w for w in witnesses if w.kind in {
-            "role_is", "plot_present", "plot_pressure", "day_end_death_companion",
-            "joint_plot_role_pressure", "role_pressure",
-            "day_end_killer_candidate", "loss_after_death"})
+        role_witnesses = self._role_witnesses(witnesses)
         return tuple((world,
                       2.0 ** matcher.soft_score(world, role_witnesses)
                       / (self._plot_sizes[(world.main_plot, world.subplots)]
                          if self._exact_roles else 1))
                      for world in self._roles.values())
+
+    @staticmethod
+    def _role_witnesses(witnesses: Sequence[Any]) -> tuple[Any, ...]:
+        return tuple(w for w in witnesses if w.kind in {
+            "role_is", "role_in", "plot_present", "plot_pressure",
+            "day_end_death_companion", "joint_plot_role_pressure",
+            "role_pressure", "day_end_killer_candidate", "loss_after_death"})
+
+    @staticmethod
+    def _assignment_count(characters: tuple[str, ...],
+                          domains: Mapping[str, tuple[str, ...]],
+                          counts: Counter[str], *,
+                          friend_gender_split: bool = False,
+                          used_friend_genders: tuple[bool, bool] = (False, False)
+                          ) -> int:
+        roles = tuple(sorted(counts))
+
+        @lru_cache(maxsize=None)
+        def visit(index: int, remaining: tuple[int, ...],
+                  used_male: bool, used_female: bool) -> int:
+            if index == len(characters):
+                return int(not any(remaining))
+            values = dict(zip(roles, remaining))
+            total = 0
+            for role in domains[characters[index]]:
+                if values.get(role, 0) < 1:
+                    continue
+                next_male, next_female = used_male, used_female
+                if friend_gender_split and role == "friend":
+                    traits = CHARACTERS[characters[index]].traits
+                    male = "boy" in traits or "man" in traits
+                    female = "girl" in traits or "woman" in traits
+                    if (male and used_male) or (female and used_female):
+                        continue
+                    next_male = used_male or male
+                    next_female = used_female or female
+                next_remaining = list(remaining)
+                next_remaining[roles.index(role)] -= 1
+                total += visit(index + 1, tuple(next_remaining),
+                               next_male, next_female)
+            return total
+
+        return visit(0, tuple(counts[role] for role in roles),
+                     *used_friend_genders)
+
+    @classmethod
+    def _complete_assignment(cls, characters: tuple[str, ...],
+                             domains: Mapping[str, tuple[str, ...]],
+                             counts: Counter[str], fixed: Mapping[str, str], *,
+                             friend_gender_split: bool = False
+                             ) -> dict[str, str] | None:
+        remaining = counts.copy()
+        result = dict(fixed)
+        used_male = used_female = False
+        for cid, role in fixed.items():
+            if cid not in characters:
+                continue
+            if role not in domains[cid] or remaining[role] < 1:
+                return None
+            if friend_gender_split and role == "friend":
+                traits = CHARACTERS[cid].traits
+                male = "boy" in traits or "man" in traits
+                female = "girl" in traits or "woman" in traits
+                if (male and used_male) or (female and used_female):
+                    return None
+                used_male = used_male or male
+                used_female = used_female or female
+            remaining[role] -= 1
+        unassigned = tuple(cid for cid in sorted(characters)
+                           if cid not in result)
+        for index, cid in enumerate(unassigned):
+            tail = unassigned[index + 1:]
+            selected = None
+            for role in sorted(domains[cid], reverse=True):
+                if remaining[role] < 1:
+                    continue
+                next_male, next_female = used_male, used_female
+                if friend_gender_split and role == "friend":
+                    traits = CHARACTERS[cid].traits
+                    male = "boy" in traits or "man" in traits
+                    female = "girl" in traits or "woman" in traits
+                    if (male and used_male) or (female and used_female):
+                        continue
+                    next_male = used_male or male
+                    next_female = used_female or female
+                remaining[role] -= 1
+                if cls._assignment_count(
+                        tail, domains, remaining,
+                        friend_gender_split=friend_gender_split,
+                        used_friend_genders=(next_male, next_female)) > 0:
+                    selected = role
+                    used_male, used_female = next_male, next_female
+                    break
+                remaining[role] += 1
+            if selected is None:
+                return None
+            result[cid] = selected
+        return result if not any(remaining.values()) else None
+
+    @staticmethod
+    def _soft_realizations(witness: Any, main: str,
+                           plots: Sequence[str]) -> tuple[dict[str, str], ...]:
+        """Small constructive alternatives that can satisfy one soft factor."""
+        value = witness.value
+        if witness.kind == "joint_plot_role_pressure":
+            if main != witness.subject:
+                return ({},)
+            return ({}, *({str(cid): str(value["role"])}
+                           for cid in value.get("candidates", ())))
+        if witness.kind == "role_pressure":
+            return ({}, *({str(cid): str(witness.subject)}
+                           for cid in value.get("candidates", ())))
+        if witness.kind == "day_end_death_companion":
+            cid = str(value.get("character") if isinstance(value, Mapping)
+                      else value)
+            options = [{cid: "serial"}]
+            if (isinstance(value, Mapping) and value.get("virus_eligible")
+                    and "virus" in plots):
+                options.append({cid: "ordinary"})
+            return ({}, *options)
+        if witness.kind == "day_end_killer_candidate":
+            return ({}, {str(witness.subject): "key",
+                         str(value): "killer"})
+        if witness.kind == "loss_after_death":
+            cid = str(witness.subject)
+            roles = ["key", "friend"]
+            if isinstance(value, Mapping) and value.get("factor_key_possible"):
+                roles.append("factor")
+            return ({}, *({cid: role} for role in roles))
+        return ({},)
+
+    def exact_role_map(self, evidence: PublicEvidence,
+                       witnesses: Sequence[Any], *, top: int = 8
+                       ) -> ExactRoleMapResult:
+        """Solve final identity guessing independently of the action reservoir.
+
+        Soft role evidence consists of a small set of unary, pair, or
+        existential predicates.  We enumerate ways to realize those predicates,
+        then fill all evidence-irrelevant roles deterministically.  This finds
+        the exact maximum score without enumerating millions of symmetric
+        Ordinary placements.
+        """
+        from .witness import FsbtxWitnessMatcher, WitnessStrength
+
+        matcher = FsbtxWitnessMatcher()
+        role_witnesses = self._role_witnesses(witnesses)
+        soft = tuple(w for w in role_witnesses
+                     if w.strength == WitnessStrength.SOFT)
+        # Repeated observations share one realization choice; the matcher still
+        # counts each occurrence and applies the normal per-channel cap.
+        unique_soft: dict[str, Any] = {}
+        for witness in soft:
+            signature = json.dumps(
+                [witness.kind, witness.subject, witness.value],
+                sort_keys=True, ensure_ascii=False, default=str)
+            unique_soft.setdefault(signature, witness)
+
+        ranked: list[tuple[HiddenWorldHypothesis, float]] = []
+        compatible_count = 0
+        plot_sets = 0
+        known_roles = dict(evidence.known_roles)
+        known_role_sets: dict[str, set[str]] = {}
+        for witness in role_witnesses:
+            if witness.strength != WitnessStrength.HARD:
+                continue
+            if witness.kind == "role_is":
+                subject = ("part_timer" if witness.subject ==
+                           "part_timer_question" else str(witness.subject))
+                known_roles[subject] = str(witness.value)
+            elif witness.kind == "role_in":
+                subject = ("part_timer" if witness.subject ==
+                           "part_timer_question" else str(witness.subject))
+                known_role_sets.setdefault(subject, set(
+                    str(role) for role in witness.value))
+
+        known_culprits = dict(evidence.known_culprits)
+        used_culprits: set[str] = set()
+        incident_rows = []
+        for day, kind in evidence.schedule:
+            culprit = known_culprits.get(day)
+            if culprit is None:
+                culprit = next((cid for cid in evidence.characters
+                                if cid not in used_culprits),
+                               evidence.characters[0])
+            if kind != "serial_murder":
+                used_culprits.add(culprit)
+            incident_rows.append((day, kind, kind, culprit))
+        incidents = tuple(incident_rows)
+        for main, subplots in self.sampler._plot_sets(evidence):
+            plots = (main, *subplots)
+            if any(witness.strength == WitnessStrength.HARD
+                   and witness.kind == "plot_present"
+                   and witness.subject not in plots
+                   for witness in role_witnesses):
+                continue
+            slots = self.sampler._role_slots(evidence.module, plots)
+            regular = tuple(cid for cid in evidence.characters
+                            if cid != "irregular")
+            if sum(slots.values()) > len(regular):
+                continue
+            counts = slots.copy()
+            counts["ordinary"] += len(regular) - sum(counts.values())
+            available = tuple(sorted(counts))
+            domains: dict[str, tuple[str, ...]] = {}
+            for cid in regular:
+                observed = known_roles.get(cid)
+                allowed = tuple(role for role in available
+                                if (observed is None or _observed_role_matches(
+                                    role, observed, plots))
+                                and not ("sign" in plots and role == "key"
+                                        and "girl" not in CHARACTERS[cid].traits)
+                                and not (cid == "little_sister"
+                                        and role in REFUSAL)
+                                and not (cid == "ai" and role == "ordinary")
+                                and (cid not in known_role_sets
+                                     or role in known_role_sets[cid]))
+                domains[cid] = allowed
+            if any(not domain for domain in domains.values()):
+                continue
+            irregular_options: tuple[str | None, ...] = (None,)
+            if "irregular" in evidence.characters:
+                irregular_options = self.sampler._irregular_roles(
+                    evidence.module, plots)
+                observed = known_roles.get("irregular")
+                irregular_options = tuple(
+                    role for role in irregular_options
+                    if (observed is None or _observed_role_matches(
+                        role, observed, plots))
+                    and ("irregular" not in known_role_sets
+                         or role in known_role_sets["irregular"]))
+                if not irregular_options:
+                    continue
+            gender_split = MODULES[evidence.module].friend_gender_split
+            assignment_count = self._assignment_count(
+                regular, domains, counts,
+                friend_gender_split=gender_split)
+            if assignment_count == 0:
+                continue
+            plot_sets += 1
+            compatible_count += assignment_count * len(irregular_options)
+            unconstrained_size = (factorial(len(regular)) //
+                                  max(1, factorial(len(regular) -
+                                                   sum(slots.values()))))
+            for amount in slots.values():
+                unconstrained_size //= factorial(amount)
+            unconstrained_size *= len(irregular_options)
+
+            realization_groups = tuple(
+                self._soft_realizations(witness, main, plots)
+                for witness in unique_soft.values())
+            seen_roles: set[tuple[tuple[str, str], ...]] = set()
+
+            def propose(index: int, fixed: dict[str, str]) -> None:
+                if index < len(realization_groups):
+                    for addition in realization_groups[index]:
+                        merged = dict(fixed)
+                        compatible = True
+                        for cid, role in addition.items():
+                            if cid not in evidence.characters:
+                                compatible = False
+                                break
+                            if cid in merged and merged[cid] != role:
+                                compatible = False
+                                break
+                            if cid != "irregular" and role not in domains[cid]:
+                                compatible = False
+                                break
+                            merged[cid] = role
+                        if compatible:
+                            propose(index + 1, merged)
+                    return
+                for irregular_role in irregular_options:
+                    if ("irregular" in fixed
+                            and fixed["irregular"] != irregular_role):
+                        continue
+                    roles = self._complete_assignment(
+                        regular, domains, counts, fixed,
+                        friend_gender_split=gender_split)
+                    if roles is None:
+                        continue
+                    if irregular_role is not None:
+                        roles["irregular"] = irregular_role
+                    signature = tuple(sorted(roles.items()))
+                    if signature in seen_roles:
+                        continue
+                    seen_roles.add(signature)
+                    world = HiddenWorldHypothesis(
+                        "belief-exact-map", main, subplots, signature, incidents)
+                    if not matcher.matches(world, role_witnesses):
+                        continue
+                    weight = (2.0 ** matcher.soft_score(
+                        world, role_witnesses) / max(1, unconstrained_size))
+                    ranked.append((world, weight))
+
+            propose(0, {})
+
+        ordered = sorted(
+            ranked,
+            key=lambda pair: (pair[1], tuple(sorted(pair[0].roles)),
+                              pair[0].main_plot, pair[0].subplots),
+            reverse=True)
+        return ExactRoleMapResult(tuple(ordered[:max(1, top)]),
+                                  compatible_count, plot_sets)
 
     def sample(self, evidence: PublicEvidence, witnesses: Sequence[Any],
                count: int, *, rng: random.Random) -> FactorizedBeliefResult:

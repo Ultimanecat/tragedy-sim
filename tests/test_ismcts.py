@@ -225,8 +225,9 @@ class IsmctsTests(unittest.TestCase):
         posterior = ((a, 4.0), (b, 3.0), (c, 3.0))
         agent = IsmctsProtagonistAgent(particle_count=4)
         offers = [offer.to_dict() for offer in game.action_offers(game.controller)]
-        with patch.object(agent.factorized_belief, "role_posterior",
-                          return_value=posterior):
+        solved = SimpleNamespace(ranked=posterior, compatible_count=3)
+        with patch.object(agent.factorized_belief, "exact_role_map",
+                          return_value=solved):
             chosen = agent.choose_action(
                 participant="team", view=game.protagonist_team_view(),
                 offers=offers)

@@ -63,8 +63,9 @@ def summarize(matches: Sequence[MatchResult]) -> dict[str, Any]:
         "final_guess_accuracy": (
             sum(guess.correct for guess in guesses) / len(guesses)
             if guesses else None),
-        "true_setup_in_posterior": sum(
-            item.final_true_setup_rank is not None for item in final_matches),
+        "true_setup_in_exact_space": sum(
+            item.final_true_setup_in_exact_space is True
+            for item in final_matches),
         "true_setup_hard_contradictions": sum(
             item.final_true_setup_hard_compatible is False
             for item in final_matches),
@@ -211,8 +212,8 @@ def main() -> None:
               f"{item['lost_loop_fraction']:14.1%} | {accuracy:20} | "
               f"{item['mean_elapsed_seconds']:.3f}s")
         if item["final_guess_games"]:
-            print(f"  final posterior: true setup present "
-                  f"{item['true_setup_in_posterior']}/"
+            print(f"  final exact MAP: true setup compatible "
+                  f"{item['true_setup_in_exact_space']}/"
                   f"{item['final_guess_games']}, hard contradictions="
                   f"{item['true_setup_hard_contradictions']}, mean candidates="
                   f"{item['mean_final_role_candidates']:.1f}")
