@@ -321,6 +321,15 @@ class FsbtxWitnessCompiler:
                         cid for cid, location in initial_locations.items()
                         if location_intrigue.get(location, 0) >= 2))
                     if bomb_candidates:
+                        # The board pressure itself supports Giant Time Bomb;
+                        # the companion witness below preserves which initial
+                        # characters could be its Witch.  Keep both soft: a
+                        # different simultaneous route may have caused loss.
+                        result.append(PublicWitness(
+                            "plot_pressure", "bomb", True,
+                            int(event["loop"]), int(event["round"]), "loop_end",
+                            "public_initial_board_pressure_and_loss",
+                            WitnessStrength.SOFT))
                         result.append(PublicWitness(
                             "joint_plot_role_pressure", "bomb",
                             {"role": "witch", "candidates": bomb_candidates},
@@ -543,7 +552,7 @@ class FsbtxWitnessMatcher:
     def soft_score(self, hypothesis: Any,
                    witnesses: Sequence[PublicWitness]) -> float:
         weights = {"incident_not_happened": 0.75,
-                   "plot_pressure": 2.0,
+                   "plot_pressure": 3.0,
                    "joint_plot_role_pressure": 2.5,
                    "role_pressure": 1.5,
                    "day_end_death_companion": 4.0,
@@ -559,7 +568,8 @@ class FsbtxWitnessMatcher:
         # Repetition should increase confidence.  Causal day-end co-location
         # can become much stronger than the generic fact that a death preceded
         # a failed loop, while each channel remains bounded independently.
-        caps = {"day_end_death_companion": 8.0,
+        caps = {"plot_pressure": 6.0,
+                "day_end_death_companion": 8.0,
                 "day_end_killer_candidate": 6.0,
                 "loss_after_death": 4.0,
                 "joint_plot_role_pressure": 6.0,

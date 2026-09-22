@@ -44,6 +44,23 @@ class ParticleEnsembleTests(unittest.TestCase):
         best = max((safe, attractive_but_dead),
                    key=ParticleEnsembleProtagonistAgent._evaluation_key)
         self.assertEqual(best[5], "safe")
+        day_safe = (1.0, -1.0, 1.0, -1.0, -1.0, "day_safe")
+        attractive_but_day_risky = (1.0, 1.0, 0.75, 1.0, 1.0,
+                                   "day_risky")
+        best = max((day_safe, attractive_but_day_risky),
+                   key=ParticleEnsembleProtagonistAgent._evaluation_key)
+        self.assertEqual(best[5], "day_safe")
+
+    def test_public_board_target_guard_bonus_reads_no_card_face(self):
+        agent = ParticleEnsembleProtagonistAgent()
+        view = {"locations": {"school": 0, "shrine": 0},
+                "pending": [{"actor": "m", "target": "school"}]}
+        guarded = ({"card": "fi", "target": "school"},)
+        wrong_board = ({"card": "fi", "target": "shrine"},)
+        unguarded = ({"card": "g1", "target": "student"},)
+        self.assertEqual(agent._location_guard_bonus(guarded, view), 0.08)
+        self.assertEqual(agent._location_guard_bonus(wrong_board, view), 0.0)
+        self.assertEqual(agent._location_guard_bonus(unguarded, view), 0.0)
 
     def test_public_view_yields_legal_three_card_plan_and_posteriors(self):
         game = protagonist_position()
@@ -68,7 +85,8 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertTrue(all(0 <= row["information_bonus"] <= 0.012
                             for row in trace.root_actions))
         self.assertTrue(all({"information_future", "information_realized",
-                             "information_refusal"} <= set(row)
+                             "information_refusal", "location_guard_bonus"}
+                            <= set(row)
                             for row in trace.root_actions))
         self.assertGreater(trace.particles, 0)
         self.assertTrue(trace.belief_roles)

@@ -106,6 +106,25 @@ class OracleProtagonistAgent:
         return offer
 
     @staticmethod
+    def _plot_board(scenario: Mapping[str, Any], view: Mapping[str, Any]
+                    ) -> str | None:
+        """Return the board whose intrigue directly advances the main plot."""
+        main = scenario["main_plot"]
+        if main == "protect":
+            return "school"
+        if main == "sealed":
+            return "shrine"
+        if main == "bomb":
+            witch = next((cid for cid, role in scenario["cast"].items()
+                          if role == "witch"), None)
+            character = view.get("characters", {}).get(witch, {})
+            location = character.get("initial_location",
+                                     character.get("location"))
+            return (str(location)
+                    if location in view.get("locations", {}) else None)
+        return None
+
+    @staticmethod
     def _rank(action: Mapping[str, Any], view: Mapping[str, Any],
               scenario: Mapping[str, Any]) -> float:
         card, target = action.get("card"), action.get("target")
@@ -121,8 +140,7 @@ class OracleProtagonistAgent:
         incident = incident_distance == 0
         at_risk = int(character.get("intrigue", 0)) >= 1 or critical
         if card == "fi":
-            plot_board = ("school" if scenario["main_plot"] == "protect" else
-                          "shrine" if scenario["main_plot"] == "sealed" else None)
+            plot_board = OracleProtagonistAgent._plot_board(scenario, view)
             if roles.get(target) == "killer":
                 # FS killers can end the loop at four intrigue.  Today's
                 # public target is enough to prioritize a block even when
@@ -161,8 +179,7 @@ class OracleProtagonistAgent:
         result: list[dict[str, Any]] = []
         families = ("fi", "fm", "p-1", "h", "v", "d", "g1", "g2", "p1")
         scripted: dict[int, tuple[str, str]] = {}
-        plot_board = ("school" if root.scenario["main_plot"] == "protect" else
-                      "shrine" if root.scenario["main_plot"] == "sealed" else None)
+        plot_board = self._plot_board(root.scenario, view)
         cultists = [cid for cid, role in root.scenario["cast"].items()
                     if role == "cultist" and cid in view.get("characters", {})
                     and view["characters"][cid]["location"] == plot_board]
@@ -184,6 +201,10 @@ class OracleProtagonistAgent:
                 scripted = {0: ("g1", traveler)}
             elif index == 4:
                 scripted = {0: ("g2", traveler)}
+        elif (root.module == "BTX" and root.scenario["main_plot"] == "bomb"
+              and 1 <= index <= 9 and plot_board):
+            fi_slot = (index - 1) // 3
+            scripted = {fi_slot: ("fi", plot_board)}
         elif 1 <= index <= 9 and plot_board and cultists:
             movement = ("h", "v", "d")[(index - 1) % 3]
             fi_slot = 0 if index <= 3 else 1 if index <= 6 else 2
@@ -372,11 +393,10 @@ class OracleProtagonistAgent:
         if world.winner == "mastermind":
             return -1.0
         value = max(-1.0, min(1.0, -self.evaluator(world)))
-        if self.rollout_horizon != "day" or world.module == "BTX":
+        if self.rollout_horizon != "day":
             return value
-        plot = world.scenario["main_plot"]
-        danger_board = "school" if plot == "protect" else (
-            "shrine" if plot == "sealed" else None)
+        danger_board = self._plot_board(
+            world.scenario, world.protagonist_team_view())
         plot_pressure = (world.state.locations[danger_board]
                          if danger_board is not None else 0)
         killer_pressure = sum(

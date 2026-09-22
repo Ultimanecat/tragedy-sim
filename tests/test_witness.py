@@ -367,7 +367,7 @@ class FsbtxWitnessTests(unittest.TestCase):
         witnesses = [item for item in FsbtxWitnessCompiler().compile(view)
                      if item.kind == "plot_pressure"]
         self.assertEqual({item.subject for item in witnesses},
-                         {"sealed", "change"})
+                         {"sealed", "change", "bomb"})
         self.assertTrue(all(item.strength == WitnessStrength.SOFT
                             for item in witnesses))
         matcher = FsbtxWitnessMatcher()
@@ -397,6 +397,9 @@ class FsbtxWitnessTests(unittest.TestCase):
             {"kind": "loop_lost", "loop": 1, "round": view["days"]},
         ]
         witnesses = FsbtxWitnessCompiler().compile(view)
+        plot_pressure = [item for item in witnesses
+                         if item.kind == "plot_pressure"]
+        self.assertEqual({item.subject for item in plot_pressure}, {"bomb"})
         joint = [item for item in witnesses
                  if item.kind == "joint_plot_role_pressure"]
         self.assertEqual({item.subject for item in joint}, {"sign", "bomb"})

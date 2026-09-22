@@ -281,6 +281,28 @@ class OracleProtagonistTests(unittest.TestCase):
                          [(event["kind"], event.get("message"))
                           for event in world.state.events])
 
+    def test_known_btx_bomb_board_enters_joint_defense_candidates(self):
+        game = Game(ScenarioLibrary().get(
+            "official-btx-06-secret-that-was-kept"))
+        game = game.search_transition(game.search_actions(game.controller)[0])
+        witch = next(cid for cid, role in game.roles.items() if role == "witch")
+        board = game.protagonist_team_view()["characters"][witch][
+            "initial_location"]
+        for card, target in (("i2", board), ("fg", "rich"),
+                             ("fp", "shrine")):
+            action = next(item for item in game.search_actions(game.controller)
+                          if item.get("card") == card
+                          and item.get("target") == target)
+            game = game.search_transition(action)
+        oracle = FullCardOracleProtagonistAgent(SearchBudget(node_limit=12))
+        view = game.protagonist_team_view()
+        self.assertEqual(oracle._plot_board(game.scenario, view), board)
+        bundles = [oracle._bundle(game, view, index) for index in range(1, 10)]
+        self.assertTrue(all(
+            any(action["card"] == "fi" and action["target"] == board
+                for action in bundle)
+            for bundle in bundles))
+
 
 if __name__ == "__main__":
     unittest.main()
