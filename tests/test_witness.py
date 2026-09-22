@@ -428,6 +428,25 @@ class FsbtxWitnessTests(unittest.TestCase):
             "joint_plot_role_pressure", "role_pressure"} for item in ablated))
         self.assertEqual(len(ablated), len(witnesses) - 3)
 
+    def test_btx_final_day_declared_loss_supports_time_traveler(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1,
+             "round": view["days"], "target": "girl",
+             "counter": "goodwill", "after": 2},
+            {"kind": "protagonists_lost", "loop": 1,
+             "round": view["days"], "timing": "day_end"},
+            {"kind": "loop_lost", "loop": 1,
+             "round": view["days"], "timing": "loop_end"},
+        ]
+        witnesses = FsbtxWitnessCompiler().compile(view)
+        traveler = next(item for item in witnesses
+                        if item.kind == "role_pressure"
+                        and item.subject == "time_traveler")
+        self.assertIn("girl", traveler.value["candidates"])
+        self.assertEqual(traveler.timing, "loop_end")
+
     def test_part_timer_replacement_uses_visible_replacement_threshold(self):
         scenario = example_scenario("BTX")
         scenario["cast"].pop(next(iter(scenario["cast"])))

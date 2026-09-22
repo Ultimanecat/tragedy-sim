@@ -289,8 +289,14 @@ class FsbtxWitnessCompiler:
                   and event.get("happened")):
                 butterfly_happened = True
             elif (event.get("kind") == "loop_lost" and index > 0
-                  and events[index - 1].get("kind") == "day_ended"
-                  and events[index - 1].get("loop") == event.get("loop")):
+                  and ((events[index - 1].get("kind") == "day_ended"
+                        and events[index - 1].get("loop") == event.get("loop"))
+                       or any(
+                           previous.get("kind") == "protagonists_lost"
+                           and previous.get("loop") == event.get("loop")
+                           and previous.get("round") == event.get("round")
+                           and previous.get("timing") == "day_end"
+                           for previous in events[:index]))):
                 if module == "FS" and school >= 2:
                     result.append(PublicWitness(
                         "plot_pressure", "protect", True,
