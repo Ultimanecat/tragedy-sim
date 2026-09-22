@@ -23,6 +23,8 @@ class ParticleEnsembleTests(unittest.TestCase):
             ParticleEnsembleProtagonistAgent(rollout_horizon="match")
         with self.assertRaises(ValueError):
             ParticleEnsembleProtagonistAgent(mastermind_policy_samples=0)
+        with self.assertRaises(ValueError):
+            ParticleEnsembleProtagonistAgent(information_reward_weight=-0.1)
 
     def test_single_policy_sample_retains_seeded_baseline(self):
         game = protagonist_position()
@@ -35,6 +37,13 @@ class ParticleEnsembleTests(unittest.TestCase):
         options = agent.oracle._mastermind_strategy_options(game)
         selected = agent._mastermind_strategies(game)
         self.assertEqual(selected, (options[0], options[-1]))
+
+    def test_information_shaping_cannot_override_survival(self):
+        safe = (1.0, -1.0, 1.0, -1.0, -1.0, "safe")
+        attractive_but_dead = (0.75, 1.0, 0.75, 1.0, 1.0, "info")
+        best = max((safe, attractive_but_dead),
+                   key=ParticleEnsembleProtagonistAgent._evaluation_key)
+        self.assertEqual(best[5], "safe")
 
     def test_public_view_yields_legal_three_card_plan_and_posteriors(self):
         game = protagonist_position()
@@ -53,7 +62,13 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertEqual(trace.mastermind_policy_samples, 3)
         self.assertEqual(trace.mastermind_policy_aggregation,
                          "per_world_worst")
+        self.assertEqual(trace.information_reward_weight, 0.01)
         self.assertTrue(all(row["policy_rollouts"] >= trace.particles
+                            for row in trace.root_actions))
+        self.assertTrue(all(0 <= row["information_bonus"] <= 0.012
+                            for row in trace.root_actions))
+        self.assertTrue(all({"information_future", "information_realized",
+                             "information_refusal"} <= set(row)
                             for row in trace.root_actions))
         self.assertGreater(trace.particles, 0)
         self.assertTrue(trace.belief_roles)

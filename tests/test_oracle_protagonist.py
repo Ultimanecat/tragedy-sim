@@ -123,12 +123,15 @@ class OracleProtagonistTests(unittest.TestCase):
         oracle = FullCardOracleProtagonistAgent(
             SearchBudget(node_limit=2, rollout_depth=12),
             rollout_horizon="match")
-        score, survived, steps, terminal = oracle._rollout_score(
+        outcome = oracle._rollout_score(
             game, game.state.loop, game.state.round)
+        score, survived, steps, terminal, information = outcome[:5]
         self.assertEqual(score, 1.0)
         self.assertTrue(survived)
         self.assertTrue(terminal)
         self.assertEqual(steps, 1)
+        self.assertEqual(information, 0.0)
+        self.assertEqual(outcome[5:], (0.0, 0.0, 0.0))
 
     def test_hidden_card_mode_is_invariant_to_actual_pending_faces(self):
         game = protagonist_position()

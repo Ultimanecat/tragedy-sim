@@ -84,6 +84,7 @@ class IsmctsTrace:
     rollout_horizon: str = "day"
     mastermind_policy_samples: int = 1
     mastermind_policy_aggregation: str = "single"
+    information_reward_weight: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False,

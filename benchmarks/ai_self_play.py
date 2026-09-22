@@ -18,6 +18,7 @@ from tragedy_sim.mcts import FullInformationMctsMastermindAgent
 from tragedy_sim.optimized_mcts import OptimizedMctsMastermindAgent
 from tragedy_sim.strategic_mcts import StrategicMctsMastermindAgent
 from tragedy_sim.joint_mastermind import JointPlanMastermindAgent
+from tragedy_sim.information_value import INFORMATION_ABILITY_KINDS
 from tragedy_sim.witness import FsbtxWitnessCompiler, WitnessStrength
 from tragedy_sim.ismcts import (IsmctsProtagonistAgent,
                                 LegacyIsmctsProtagonistAgent,
@@ -33,12 +34,6 @@ MASTERMIND_STRATEGIES = ("random", "fixed", "naive", "optimized", "strategic", "
 PROTAGONIST_STRATEGIES = ("random", "baseline", "defensive", "risk_aware",
                          "ismcts", "ismcts_legacy", "ismcts_survival",
                          "oracle_cards", "oracle_script", "particle_ensemble")
-INFORMATION_ABILITY_KINDS = frozenset({
-    "reveal", "culprit", "culprit_any", "plot", "copycat_identify",
-    "part_timer_reveal",
-})
-
-
 @dataclass(frozen=True)
 class LoopLossRecord:
     loop: int
@@ -216,7 +211,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          protagonist_time_limit_ms: int | None = None,
          joint_witness: bool = True,
          oracle_horizon: str = "day",
-         mastermind_policy_samples: int = 3) -> MatchResult:
+         mastermind_policy_samples: int = 3,
+         information_reward_weight: float = 0.01) -> MatchResult:
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -256,7 +252,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             protagonist_budget, particle_count=max(4, min(24,
                                 (protagonist_nodes or nodes) // 8)), rng_seed=seed,
             joint_witness=joint_witness, rollout_horizon=oracle_horizon,
-            mastermind_policy_samples=mastermind_policy_samples)
+            mastermind_policy_samples=mastermind_policy_samples,
+            information_reward_weight=information_reward_weight)
     protagonists = {
         seat: (team_ismcts if team_ismcts is not None else
                RiskAwareProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
@@ -472,6 +469,8 @@ def main() -> None:
                         help="ablate BTX plot-role soft correlation witnesses")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
                         help="mastermind routes tested per particle world")
+    parser.add_argument("--information-reward-weight", type=float, default=0.01,
+                        help="small public-belief information tiebreak weight")
     parser.add_argument("--protagonist-horizon", "--oracle-horizon",
                         dest="oracle_horizon",
                         choices=("day", "loop", "match"),
@@ -484,7 +483,8 @@ def main() -> None:
             or args.time_limit_ms is not None and args.time_limit_ms < 1
             or args.protagonist_time_limit_ms is not None
             and args.protagonist_time_limit_ms < 1
-            or args.mastermind_policy_samples < 1):
+            or args.mastermind_policy_samples < 1
+            or args.information_reward_weight < 0):
         parser.error("games, nodes and depth must be positive")
     if args.protagonists == "particle_ensemble" and args.oracle_horizon == "match":
         parser.error("particle ensemble supports day or loop horizon")
@@ -505,7 +505,9 @@ def main() -> None:
                               joint_witness=not args.disable_joint_witness,
                               oracle_horizon=args.oracle_horizon,
                               mastermind_policy_samples=
-                              args.mastermind_policy_samples)
+                              args.mastermind_policy_samples,
+                              information_reward_weight=
+                              args.information_reward_weight)
                 results.append(result)
                 if args.progress:
                     guess = (f" guess={sum(item.correct for item in result.final_guesses)}"
@@ -524,7 +526,8 @@ def main() -> None:
         print(f"scenarios={len(scenarios)} games/strategy={len(scenarios) * args.games} "
               f"protagonists={args.protagonists} nodes={args.nodes} depth={args.depth} "
               f"horizon={args.oracle_horizon} "
-              f"mastermind-policies={args.mastermind_policy_samples}")
+              f"mastermind-policies={args.mastermind_policy_samples} "
+              f"information-weight={args.information_reward_weight}")
         _print_summary(results)
 
 

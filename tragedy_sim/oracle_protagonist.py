@@ -20,6 +20,7 @@ from .evaluation import ScenarioConditionedEvaluator
 from .game import Game
 from .ismcts import PublicStateDeterminizer, _command, _key
 from .engine import Placement
+from .information_value import InformationOpportunityEvaluator
 from .search import SearchBudget
 
 
@@ -412,9 +413,11 @@ class OracleProtagonistAgent:
 
     def _rollout_score(self, world: Game, start_loop: int,
                        start_day: int, *,
-                       mastermind_strategy: str | None = None
-                       ) -> tuple[float, bool, int, bool]:
+                       mastermind_strategy: str | None = None,
+                       information_model: InformationOpportunityEvaluator | None = None
+                       ) -> tuple[float, bool, int, bool, float, float, float, float]:
         root_events = len(world.state.events)
+        rollout_events: list[dict[str, Any]] = []
         multiplier = {"day": 8, "loop": 32, "match": 128}[
             self.rollout_horizon]
         hard_limit = max(128, self.budget.rollout_depth * multiplier)
@@ -433,8 +436,16 @@ class OracleProtagonistAgent:
             actions = world.search_actions(world.controller)
             if not actions:
                 break
+            previous_event = (world.state.events[-1]
+                              if world.state.events else None)
             world = world.search_transition(
                 self._rollout_action(world, actions, mastermind))
+            # search clones retain one previous event and append this
+            # transition's public events.
+            inherited = int(previous_event is not None
+                            and bool(world.state.events)
+                            and world.state.events[0] == previous_event)
+            rollout_events.extend(world.state.events[inherited:])
         reached = self._horizon_reached(
             world, root_events, start_loop, start_day)
         if not reached and self.rollout_horizon == "day":
@@ -455,7 +466,18 @@ class OracleProtagonistAgent:
             score = 0.55 + 0.22 * score - 0.10 * traveler_gap / days_left
         survived = (world.winner == "protagonists" or
                     world.winner is None and not loop_lost)
-        return score, survived, steps, world.winner is not None
+        information = 0.0
+        information_future = information_realized = information_refusal = 0.0
+        if (information_model is not None and survived
+                and world.winner is None and world.state.loop == start_loop):
+            breakdown = information_model.evaluate_cutoff(
+                world.protagonist_team_view(), rollout_events)
+            information = breakdown.total
+            information_future = breakdown.future_potential
+            information_realized = breakdown.realized_information
+            information_refusal = breakdown.refusal_witness
+        return (score, survived, steps, world.winner is not None, information,
+                information_future, information_realized, information_refusal)
 
     def _day_score(self, world: Game, start_loop: int,
                    start_day: int, *,
@@ -464,7 +486,7 @@ class OracleProtagonistAgent:
         original = self.rollout_horizon
         self.rollout_horizon = "day"
         try:
-            score, survived, _, _ = self._rollout_score(
+            score, survived, *_ = self._rollout_score(
                 world, start_loop, start_day,
                 mastermind_strategy=mastermind_strategy)
             return score, survived

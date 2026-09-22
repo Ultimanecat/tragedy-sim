@@ -16,6 +16,7 @@ from typing import Any, Mapping, Sequence
 
 from .belief import DarkCardBelief, PublicEvidence
 from .ismcts import IsmctsProtagonistAgent, IsmctsTrace, _command, _key
+from .information_value import InformationOpportunityEvaluator
 from .oracle_protagonist import OracleProtagonistAgent
 from .search import SearchBudget
 from .witness import FsbtxWitnessCompiler
@@ -28,12 +29,16 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                  particle_count: int = 12, rng_seed: int = 0,
                  joint_witness: bool = True,
                  rollout_horizon: str = "day",
-                 mastermind_policy_samples: int = 3):
+                 mastermind_policy_samples: int = 3,
+                 information_reward_weight: float = 0.01):
         if rollout_horizon not in {"day", "loop"}:
             raise ValueError("particle rollout_horizon must be day or loop")
         if (type(mastermind_policy_samples) is not int
                 or mastermind_policy_samples < 1):
             raise ValueError("mastermind_policy_samples must be positive")
+        if (not isinstance(information_reward_weight, (int, float))
+                or information_reward_weight < 0):
+            raise ValueError("information_reward_weight must be non-negative")
         super().__init__(budget or SearchBudget(node_limit=24,
                                                 rollout_depth=12,
                                                 time_limit_ms=3000),
@@ -42,6 +47,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
         self.compiler = FsbtxWitnessCompiler(include_joint=joint_witness)
         self.rollout_horizon = rollout_horizon
         self.mastermind_policy_samples = mastermind_policy_samples
+        self.information_reward_weight = float(information_reward_weight)
         self.oracle = OracleProtagonistAgent(
             reveal_cards=True, budget=self.budget, rng_seed=rng_seed,
             rollout_horizon=rollout_horizon, script_aware_rollout=False)
@@ -49,6 +55,11 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
     @property
     def plan_name(self) -> str:
         return "public_fs_btx_particle_ensemble"
+
+    @staticmethod
+    def _evaluation_key(row: tuple[Any, ...]) -> tuple[Any, ...]:
+        """Safety dimensions precede every bounded shaping contribution."""
+        return row[:5]
 
     def _mastermind_strategies(self, world: Any) -> tuple[str | None, ...]:
         # One sample is the retained historical baseline: let the seeded
@@ -138,6 +149,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                                   sampled.reason or "no_particles",
                                   len(witnesses))
         roles, culprits, dark = self._counts(worlds, evidence)
+        information_model = InformationOpportunityEvaluator(worlds, view)
         discarded = set(view.get("discarded", {}).get("m", ()))
         tendencies = DarkCardBelief.placement_tendencies(
             view.get("events", ()), day=position[1], loop=position[0],
@@ -173,6 +185,37 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                                            and perf_counter() >= proposal_deadline
                                            and len(proposals) >= min(6, limit)):
                 break
+        # Reserve up to two slots for belief-valued information investments.
+        # Generate them for both reward-on and reward-off runs so the weight
+        # switch is a clean scoring ablation rather than a coverage change.
+        bases = tuple(proposals.values())
+        information_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
+        for card, amount in (("g1", 1), ("g2", 2)):
+            for target in information_model.investment_targets(view, amount):
+                for base in bases:
+                    for slot, command in enumerate(base):
+                        anchored = [dict(item) for item in base]
+                        anchored[slot] = {**anchored[slot], "card": card,
+                                          "target": target}
+                        bundle = tuple(anchored)
+                        if (_key(bundle[0]) not in offers_by_key
+                                or self._apply_bundle(worlds[0], bundle) is None):
+                            continue
+                        signature = _key(bundle)
+                        if signature not in proposals:
+                            information_proposals.setdefault(signature, bundle)
+                        break
+                    if len(information_proposals) >= min(2, limit - 1):
+                        break
+                if len(information_proposals) >= min(2, limit - 1):
+                    break
+            if len(information_proposals) >= min(2, limit - 1):
+                break
+        if information_proposals:
+            retained = list(proposals.items())[
+                :max(1, limit - len(information_proposals))]
+            proposals = dict(retained)
+            proposals.update(information_proposals)
         if not proposals:
             return self._fallback(participant, view, offers,
                                   "no_legal_bundle", len(witnesses))
@@ -186,6 +229,10 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                 break
             scores: list[tuple[float, bool]] = []
             day_scores: list[tuple[float, bool]] = []
+            information_values: list[float] = []
+            information_futures: list[float] = []
+            information_realized: list[float] = []
+            information_refusals: list[float] = []
             policy_rollouts = 0
             for world in worlds:
                 successor = self._apply_bundle(world, bundle)
@@ -198,8 +245,11 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                 for strategy in strategies:
                     outcome = self.oracle._rollout_score(
                         successor, position[0], position[1],
-                        mastermind_strategy=strategy)
-                    policy_outcomes.append(outcome[:2])
+                        mastermind_strategy=strategy,
+                        information_model=(information_model
+                                           if self.rollout_horizon == "day"
+                                           else None))
+                    policy_outcomes.append((outcome[0], outcome[1], *outcome[4:8]))
                     if self.rollout_horizon != "day":
                         policy_day_scores.append(self.oracle._day_score(
                             successor, position[0], position[1],
@@ -209,8 +259,15 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                 # The script is uncertain to the protagonists, but the
                 # mastermind knows it and may choose any applicable route.
                 # Defend against the most dangerous sampled route per world.
-                scores.append(min(policy_outcomes,
-                                  key=lambda item: (item[1], item[0])))
+                selected_policy = min(
+                    policy_outcomes,
+                    key=lambda item: (item[1], item[0]
+                                      + self.information_reward_weight * item[2]))
+                scores.append(selected_policy[:2])
+                information_values.append(selected_policy[2])
+                information_futures.append(selected_policy[3])
+                information_realized.append(selected_policy[4])
+                information_refusals.append(selected_policy[5])
                 if policy_day_scores:
                     day_scores.append(min(
                         policy_day_scores, key=lambda item: (item[1], item[0])))
@@ -221,17 +278,28 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             tail = values[max(0, len(values) // 5 - 1)]
             scarce = sum(item["card"] in {"fm", "g2", "p-1"}
                          for item in bundle)
-            mean = sum(values) / len(values) - 0.025 * scarce
+            information_value = (sum(information_values) /
+                                 len(information_values))
+            information_future = sum(information_futures) / len(information_futures)
+            information_fact = sum(information_realized) / len(information_realized)
+            information_refusal = sum(information_refusals) / len(information_refusals)
+            information_bonus = min(
+                0.012, self.information_reward_weight * information_value)
+            mean = (sum(values) / len(values) - 0.025 * scarce
+                    + information_bonus)
             day_survival = (sum(ok for _, ok in day_scores) / len(day_scores)
                             if day_scores else survival)
             day_mean = (sum(value for value, _ in day_scores) / len(day_scores)
                         if day_scores else mean)
             evaluated.append((survival, tail, day_survival, day_mean,
-                              mean, bundle, policy_rollouts))
+                              mean, bundle, policy_rollouts,
+                              information_value, information_bonus,
+                              information_future, information_fact,
+                              information_refusal))
         if not evaluated:
             return self._fallback(participant, view, offers,
                                   "no_common_legal_bundle", len(witnesses))
-        best = max(evaluated, key=lambda row: row[:5])
+        best = max(evaluated, key=self._evaluation_key)
         bundle = best[5]
         self._joint_plan = [dict(command) for command in bundle[1:]]
         self._joint_plan_position = position
@@ -245,6 +313,11 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                    "mean_value": row[4], "day_survivals": round(row[2] * len(worlds)),
                    "horizon_survivals": round(row[0] * len(worlds)),
                    "tail_value": row[1], "policy_rollouts": row[6]}
+                  | {"information_value": row[7],
+                     "information_bonus": row[8],
+                     "information_future": row[9],
+                     "information_realized": row[10],
+                     "information_refusal": row[11]}
                   for row in evaluated),
             roles, "factorized", self.evidence_ledger.updates,
             self.evidence_ledger.hard_count, self.evidence_ledger.soft_count,
@@ -257,5 +330,6 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                          and perf_counter() >= deadline else "candidate_limit"),
             rollout_horizon=self.rollout_horizon,
             mastermind_policy_samples=self.mastermind_policy_samples,
-            mastermind_policy_aggregation="per_world_worst")
+            mastermind_policy_aggregation="per_world_worst",
+            information_reward_weight=self.information_reward_weight)
         return chosen
