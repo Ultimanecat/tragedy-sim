@@ -81,6 +81,7 @@ class IsmctsTrace:
     evaluated_pairs: int = 0
     stop_reason: str | None = None
     belief_setups: tuple[dict[str, Any], ...] = ()
+    rollout_horizon: str = "day"
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False,

@@ -121,6 +121,7 @@ class MatchResult:
     protagonist_evidence_seconds: float = 0.0
     protagonist_search_seconds: float = 0.0
     ability_usage: tuple[AbilityUsageRecord, ...] = ()
+    protagonist_horizon: str = "day"
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -213,7 +214,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          protagonist_depth: int | None = None,
          time_limit_ms: int | None = None,
          protagonist_time_limit_ms: int | None = None,
-         joint_witness: bool = True) -> MatchResult:
+         joint_witness: bool = True,
+         oracle_horizon: str = "day") -> MatchResult:
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -242,15 +244,17 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         else None)
     if protagonist_strategy == "oracle_cards":
         team_ismcts = FullCardOracleProtagonistAgent(protagonist_budget,
-                                                    rng_seed=seed)
+                                                    rng_seed=seed,
+                                                    rollout_horizon=oracle_horizon)
     elif protagonist_strategy == "oracle_script":
         team_ismcts = HiddenCardOracleProtagonistAgent(protagonist_budget,
-                                                      rng_seed=seed)
+                                                      rng_seed=seed,
+                                                      rollout_horizon=oracle_horizon)
     elif protagonist_strategy == "particle_ensemble":
         team_ismcts = ParticleEnsembleProtagonistAgent(
             protagonist_budget, particle_count=max(4, min(24,
                                 (protagonist_nodes or nodes) // 8)), rng_seed=seed,
-            joint_witness=joint_witness)
+            joint_witness=joint_witness, rollout_horizon=oracle_horizon)
     protagonists = {
         seat: (team_ismcts if team_ismcts is not None else
                RiskAwareProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
@@ -399,7 +403,9 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         protagonist_searches=tuple(protagonist_searches),
         protagonist_evidence_seconds=protagonist_evidence_ms / 1000,
         protagonist_search_seconds=protagonist_search_ms / 1000,
-        ability_usage=_ability_usage(game.state.events))
+        ability_usage=_ability_usage(game.state.events),
+        protagonist_horizon=(oracle_horizon if protagonist_strategy in {
+            "oracle_cards", "oracle_script", "particle_ensemble"} else "day"))
 
 
 def _scenario_ids(args: argparse.Namespace, library: ScenarioLibrary) -> list[str]:
@@ -462,6 +468,11 @@ def main() -> None:
                         help="print one progress line after each completed match")
     parser.add_argument("--disable-joint-witness", action="store_true",
                         help="ablate BTX plot-role soft correlation witnesses")
+    parser.add_argument("--protagonist-horizon", "--oracle-horizon",
+                        dest="oracle_horizon",
+                        choices=("day", "loop", "match"),
+                        default="day",
+                        help="stable rollout boundary (particle ensemble supports day/loop)")
     args = parser.parse_args()
     if (args.games < 1 or args.nodes < 1 or args.depth < 1
             or args.protagonist_nodes is not None and args.protagonist_nodes < 1
@@ -470,6 +481,8 @@ def main() -> None:
             or args.protagonist_time_limit_ms is not None
             and args.protagonist_time_limit_ms < 1):
         parser.error("games, nodes and depth must be positive")
+    if args.protagonists == "particle_ensemble" and args.oracle_horizon == "match":
+        parser.error("particle ensemble supports day or loop horizon")
     library = ScenarioLibrary()
     scenarios = _scenario_ids(args, library)
     strategies = MASTERMIND_STRATEGIES if args.strategy == "all" else (args.strategy,)
@@ -484,7 +497,8 @@ def main() -> None:
                               protagonist_depth=args.protagonist_depth,
                               time_limit_ms=args.time_limit_ms,
                               protagonist_time_limit_ms=args.protagonist_time_limit_ms,
-                              joint_witness=not args.disable_joint_witness)
+                              joint_witness=not args.disable_joint_witness,
+                              oracle_horizon=args.oracle_horizon)
                 results.append(result)
                 if args.progress:
                     guess = (f" guess={sum(item.correct for item in result.final_guesses)}"
@@ -501,7 +515,8 @@ def main() -> None:
                          indent=2))
     else:
         print(f"scenarios={len(scenarios)} games/strategy={len(scenarios) * args.games} "
-              f"protagonists={args.protagonists} nodes={args.nodes} depth={args.depth}")
+              f"protagonists={args.protagonists} nodes={args.nodes} depth={args.depth} "
+              f"horizon={args.oracle_horizon}")
         _print_summary(results)
 
 

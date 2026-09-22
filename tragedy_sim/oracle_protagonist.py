@@ -14,7 +14,7 @@ import random
 from time import perf_counter
 from typing import Any, Mapping, Sequence
 
-from .ai import DefensiveProtagonistAgent
+from .ai import DefensiveProtagonistAgent, FixedStrategyMastermindAgent
 from .belief import HiddenWorldHypothesis, PublicEvidence
 from .evaluation import ScenarioConditionedEvaluator
 from .game import Game
@@ -32,6 +32,9 @@ class OracleTrace:
     elapsed_ms: float
     selected_bundle: tuple[dict[str, Any], ...]
     fallback: str | None = None
+    rollout_horizon: str = "day"
+    max_rollout_steps: int = 0
+    terminal_samples: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False))
@@ -43,12 +46,20 @@ class OracleProtagonistAgent:
     controls_protagonist_team = True
     uses_public_view = True
 
+    ROLLOUT_HORIZONS = frozenset({"day", "loop", "match"})
+
     def __init__(self, *, reveal_cards: bool, budget: SearchBudget | None = None,
-                 scenario_count: int = 4, rng_seed: int = 0):
+                 scenario_count: int = 4, rng_seed: int = 0,
+                 rollout_horizon: str = "day",
+                 script_aware_rollout: bool = True):
+        if rollout_horizon not in self.ROLLOUT_HORIZONS:
+            raise ValueError("rollout_horizon must be day, loop, or match")
         self.reveal_cards = reveal_cards
         self.budget = budget or SearchBudget(node_limit=48, rollout_depth=24)
         self.scenario_count = max(1, scenario_count)
         self.rng_seed = rng_seed
+        self.rollout_horizon = rollout_horizon
+        self.script_aware_rollout = bool(script_aware_rollout)
         self.evaluator = ScenarioConditionedEvaluator()
         self.determinizer = PublicStateDeterminizer()
         self.fallback = DefensiveProtagonistAgent(random.Random(rng_seed))
@@ -100,9 +111,13 @@ class OracleProtagonistAgent:
         roles = scenario["cast"]
         character = view.get("characters", {}).get(target, {})
         critical = roles.get(target) in {"key", "friend", "time_traveler"}
-        incident = any(item["day"] == view["round"]
-                       and item["culprit"] == target
-                       for item in scenario.get("incidents", ()))
+        incident_distances = [
+            int(item["day"]) - int(view["round"])
+            for item in scenario.get("incidents", ())
+            if item["culprit"] == target and int(item["day"]) >= int(view["round"])
+        ]
+        incident_distance = min(incident_distances, default=None)
+        incident = incident_distance == 0
         at_risk = int(character.get("intrigue", 0)) >= 1 or critical
         if card == "fi":
             plot_board = ("school" if scenario["main_plot"] == "protect" else
@@ -121,7 +136,10 @@ class OracleProtagonistAgent:
         if card == "fm":
             return 87 if critical else 30 if at_risk else 9
         if card == "p-1":
-            return 85 if incident else 24 + 15 * int(character.get("paranoia", 0))
+            future_urgency = (0 if incident_distance is None else
+                              max(38, 85 - 18 * incident_distance))
+            return max(future_urgency,
+                       24 + 15 * int(character.get("paranoia", 0)))
         if card in {"h", "v", "d"}:
             return 72 if critical else 44 if roles.get(target) in {"serial", "killer"} else 18
         if card == "g1":
@@ -133,7 +151,7 @@ class OracleProtagonistAgent:
                 return 96
             return 21 if critical else 4
         if card == "p1":
-            return -35 if incident or critical else 0
+            return -35 if incident_distance is not None or critical else 0
         return 0
 
     def _bundle(self, root: Game, view: Mapping[str, Any], index: int
@@ -295,69 +313,71 @@ class OracleProtagonistAgent:
         pending[index] = Placement("m", card, target)
         return world
 
-    def _day_score(self, world: Game, start_loop: int,
-                   start_day: int) -> tuple[float, bool]:
-        root_events = len(world.state.events)
-        for _ in range(96):
-            if world.winner is not None or (world.state.loop, world.state.round) != (start_loop, start_day):
-                break
-            actions = world.search_actions(world.controller)
-            if not actions:
-                break
-            if world.controller == "m":
-                # Mastermind choices are normally deterministic in FS; prefer
-                # the choice whose immediate successor is worst for heroes.
-                if len(actions) > 1 and all(a["action"] == "choose" for a in actions):
-                    selected = max(actions, key=lambda a: self.evaluator(
-                        world.search_transition(a)))
-                else:
-                    selected = actions[0]
-            else:
-                offers = [self._offer(action, world) for action in actions]
-                chosen = self.fallback.choose_action(
-                    participant="team", view=world.protagonist_team_view(),
-                    offers=offers)
-                selected = actions[next(i for i, offer in enumerate(offers)
-                                        if offer["id"] == chosen["id"])]
-            world = world.search_transition(selected)
-        if (world.winner is None and
-                (world.state.loop, world.state.round) == (start_loop, start_day)):
-            raise RuntimeError(
-                "oracle day rollout stopped before a day boundary: "
-                f"phase={world.state.phase} loop={world.state.loop} "
-                f"day={world.state.round}")
-        failed = (world.winner == "mastermind" or
-                  world.state.loop != start_loop or
-                  any(event.get("kind") == "loop_lost"
-                      for event in world.state.events[root_events:]))
-        if failed:
-            return -1.0, False
+    def _rollout_action(self, world: Game,
+                        actions: Sequence[Mapping[str, Any]],
+                        mastermind: FixedStrategyMastermindAgent
+                        ) -> Mapping[str, Any]:
+        if world.state.phase == "final_guess":
+            return {"actor": world.controller, "action": "guess_all",
+                    "guesses": dict(world.scenario["cast"])}
+        if world.controller == "m":
+            offers = [self._offer(action, world) for action in actions]
+            chosen = mastermind.choose_action(
+                participant="m", view=world.view("m"), offers=offers)
+            return actions[next(i for i, offer in enumerate(offers)
+                                if offer["id"] == chosen["id"])]
+        if (self.script_aware_rollout
+                and world.state.phase == "protagonists"
+                and all(action.get("action") == "play" for action in actions)):
+            view = world.protagonist_team_view()
+            # These two diagnostic agents deliberately know the script.  Their
+            # future policy must preserve that premise; falling back to a
+            # public-only one-card policy made every continuation miss known
+            # future culprits and polluted the root comparison.
+            return min(actions, key=lambda action: (
+                -self._rank(action, view, world.scenario), _key(action)))
+        offers = [self._offer(action, world) for action in actions]
+        state_seed = hashlib.sha256(
+            f"{self.rng_seed}:{world.state_key()}".encode()
+        ).hexdigest()
+        policy = DefensiveProtagonistAgent(random.Random(state_seed))
+        chosen = policy.choose_action(
+            participant="team", view=world.protagonist_team_view(),
+            offers=offers)
+        return actions[next(i for i, offer in enumerate(offers)
+                            if offer["id"] == chosen["id"])]
+
+    @staticmethod
+    def _saw_loop_loss(world: Game, event_cursor: int,
+                       start_loop: int) -> bool:
+        return any(event.get("kind") == "loop_lost"
+                   and int(event.get("loop", start_loop)) == start_loop
+                   for event in world.state.events[event_cursor:])
+
+    def _horizon_reached(self, world: Game, event_cursor: int,
+                         start_loop: int, start_day: int) -> bool:
+        if world.winner is not None:
+            return True
+        if self.rollout_horizon == "day":
+            return (world.state.loop, world.state.round) != (start_loop, start_day)
+        if self.rollout_horizon == "loop":
+            return (world.state.loop != start_loop
+                    or self._saw_loop_loss(world, event_cursor, start_loop))
+        return False
+
+    def _cutoff_value(self, world: Game, start_day: int) -> float:
         if world.winner == "protagonists":
-            return 1.0, True
-        if world.module == "BTX":
-            # BTX shares the legal day planner but has different plots and a
-            # final guess. Keep the first vertical slice's day-boundary value
-            # ruleset-neutral; FS-only board and role pressure below would
-            # mis-score BTX positions. Long-horizon information value follows
-            # once BTX terminal behavior has a measured baseline.
-            value = max(-1.0, min(1.0, -self.evaluator(world)))
-            days_left = max(1, world.scenario["days"] - start_day)
-            traveler_gap = sum(
-                max(0, 3 - world.state.characters[cid].goodwill)
-                for cid, role in world.scenario["cast"].items()
-                if role == "time_traveler")
-            return 0.55 + 0.22 * value - 0.10 * traveler_gap / days_left, True
-        # Survival dominates all position gains.  Stable position helps avoid
-        # spending once-per-loop defenses when several safe bundles exist.
+            return 1.0
+        if world.winner == "mastermind":
+            return -1.0
         value = max(-1.0, min(1.0, -self.evaluator(world)))
+        if self.rollout_horizon != "day" or world.module == "BTX":
+            return value
         plot = world.scenario["main_plot"]
         danger_board = "school" if plot == "protect" else (
             "shrine" if plot == "sealed" else None)
         plot_pressure = (world.state.locations[danger_board]
                          if danger_board is not None else 0)
-        # A one-day rollout otherwise treats positions with accumulating
-        # irreversible pressure as almost equal.  Penalize progress toward
-        # known future loss routes before spending scarce one-use defenses.
         killer_pressure = sum(
             c.intrigue for cid, c in world.state.characters.items()
             if c.present and c.alive and world.roles.get(cid) == "killer")
@@ -374,8 +394,6 @@ class OracleProtagonistAgent:
             if key is None or not key.alive or not key.present:
                 continue
             company = [c for c in living if c.location == key.location]
-            # A lone key can be paired with a serial killer by a single
-            # movement next day.  This was the missed FS01 continuation.
             key_exposure += 0.10 if len(company) == 1 else (
                 0.04 if len(company) == 2 else 0.0)
             if any(world.roles.get(c.id) == "killer" for c in company):
@@ -390,7 +408,61 @@ class OracleProtagonistAgent:
                     1 + incident["day"] - start_day)
         return (0.55 + 0.22 * value - 0.15 * plot_pressure
                 - 0.06 * killer_pressure - 0.035 * key_pressure
-                - key_exposure - incident_pressure), True
+                - key_exposure - incident_pressure)
+
+    def _rollout_score(self, world: Game, start_loop: int,
+                       start_day: int) -> tuple[float, bool, int, bool]:
+        root_events = len(world.state.events)
+        multiplier = {"day": 8, "loop": 32, "match": 128}[
+            self.rollout_horizon]
+        hard_limit = max(128, self.budget.rollout_depth * multiplier)
+        policy_seed = hashlib.sha256(
+            f"rollout:{self.rng_seed}:{world.state_key()}".encode()
+        ).hexdigest()
+        mastermind = FixedStrategyMastermindAgent(random.Random(policy_seed))
+        steps = 0
+        for steps in range(1, hard_limit + 1):
+            if self._horizon_reached(
+                    world, root_events, start_loop, start_day):
+                steps -= 1
+                break
+            actions = world.search_actions(world.controller)
+            if not actions:
+                break
+            world = world.search_transition(
+                self._rollout_action(world, actions, mastermind))
+        reached = self._horizon_reached(
+            world, root_events, start_loop, start_day)
+        if not reached and self.rollout_horizon == "day":
+            raise RuntimeError(
+                "oracle day rollout stopped before a day boundary: "
+                f"phase={world.state.phase} loop={world.state.loop} "
+                f"day={world.state.round}")
+        loop_lost = self._saw_loop_loss(
+            world, root_events, start_loop) or world.state.loop != start_loop
+        score = self._cutoff_value(world, start_day)
+        if self.rollout_horizon == "day" and world.module == "BTX" \
+                and world.winner is None and not loop_lost:
+            days_left = max(1, world.scenario["days"] - start_day)
+            traveler_gap = sum(
+                max(0, 3 - world.state.characters[cid].goodwill)
+                for cid, role in world.scenario["cast"].items()
+                if role == "time_traveler")
+            score = 0.55 + 0.22 * score - 0.10 * traveler_gap / days_left
+        survived = (world.winner == "protagonists" or
+                    world.winner is None and not loop_lost)
+        return score, survived, steps, world.winner is not None
+
+    def _day_score(self, world: Game, start_loop: int,
+                   start_day: int) -> tuple[float, bool]:
+        original = self.rollout_horizon
+        self.rollout_horizon = "day"
+        try:
+            score, survived, _, _ = self._rollout_score(
+                world, start_loop, start_day)
+            return score, survived
+        finally:
+            self.rollout_horizon = original
 
     def choose_game_action(self, *, participant: str, game: Game,
                            offers: Sequence[dict[str, Any]],
@@ -422,6 +494,8 @@ class OracleProtagonistAgent:
                 participant="team", view=view, offers=offers)
 
         started = perf_counter()
+        deadline = (None if self.budget.time_limit_ms is None else
+                    started + self.budget.time_limit_ms / 1000)
         public_key = json.dumps(view, sort_keys=True, ensure_ascii=False,
                                 default=str)
         rng = random.Random(f"{self.rng_seed}:{self.budget.seed}:"
@@ -443,12 +517,20 @@ class OracleProtagonistAgent:
             return self.fallback.choose_action(
                 participant="team", view=view, offers=offers)
         evaluations = []
+        max_rollout_steps = terminal_samples = 0
         public_targets = tuple(sorted(str(item.get("target"))
                                       for item in view.get("pending", ())
                                       if item.get("actor") == "m"))
         for bundle in candidates:
+            if deadline is not None and perf_counter() >= deadline and evaluations:
+                break
             scores = []
+            day_scores = []
             for root_world in worlds:
+                if deadline is not None and perf_counter() >= deadline and scores:
+                    scores = []
+                    day_scores = []
+                    break
                 world = root_world
                 for command in bundle:
                     legal = {_key(action): action
@@ -458,16 +540,30 @@ class OracleProtagonistAgent:
                         break
                     world = world.search_transition(legal[_key(command)])
                 if world is not None:
-                    scores.append(self._day_score(
-                        world, int(view["loop"]), int(view["round"])))
+                    outcome = self._rollout_score(
+                        world, int(view["loop"]), int(view["round"]))
+                    scores.append(outcome[:2])
+                    if self.rollout_horizon != "day":
+                        day_scores.append(self._day_score(
+                            world, int(view["loop"]), int(view["round"])))
+                    max_rollout_steps = max(max_rollout_steps, outcome[2])
+                    terminal_samples += int(outcome[3])
             if scores:
                 survival_rate = sum(survived for _, survived in scores) / len(scores)
                 mean_score = sum(score for score, _ in scores) / len(scores)
+                day_survival = (sum(survived for _, survived in day_scores)
+                                / len(day_scores) if day_scores else survival_rate)
+                day_mean = (sum(score for score, _ in day_scores) / len(day_scores)
+                            if day_scores else mean_score)
                 # Save scarce one-use cards unless they actually improve
                 # survival or the resulting board.  This matters across days.
                 scarce = sum(command["card"] in {"fm", "g2", "p-1"}
                              for command in bundle)
-                mean_score -= 0.025 * scarce
+                resource_value = -0.025 * scarce
+                if self.rollout_horizon == "day":
+                    mean_score += resource_value
+                    day_mean = mean_score
+                    resource_value = 0.0
                 signature = tuple(_key(command) for command in bundle)
                 repetitions = sum(
                     previous == signature
@@ -480,29 +576,37 @@ class OracleProtagonistAgent:
                 # world in the usual sampled set.
                 evaluations.append((survival_rate - 0.06 * repetitions,
                                     mean_score - 0.12 * repetitions,
+                                    day_survival, day_mean + resource_value,
                                     bundle, survival_rate))
         if not evaluations:
             return self.fallback.choose_action(
                 participant="team", view=view, offers=offers)
-        _, _, best, survival = max(evaluations,
-                                   key=lambda item: (item[0], item[1]))
+        _, _, _, _, best, survival = max(
+            evaluations, key=lambda item: item[:4])
         self._plan = [dict(command) for command in best[1:]]
         self._loop_plans[(position[0], position[1], public_targets)] = tuple(
             _key(command) for command in best)
         self.last_trace = OracleTrace(self.plan_name, len(worlds), len(candidates),
                                       round(survival * len(worlds)),
                                       (perf_counter() - started) * 1000,
-                                      tuple(dict(command) for command in best))
+                                      tuple(dict(command) for command in best),
+                                      rollout_horizon=self.rollout_horizon,
+                                      max_rollout_steps=max_rollout_steps,
+                                      terminal_samples=terminal_samples)
         return keyed[_key(best[0])]
 
 
 class FullCardOracleProtagonistAgent(OracleProtagonistAgent):
-    def __init__(self, budget: SearchBudget | None = None, *, rng_seed: int = 0):
-        super().__init__(reveal_cards=True, budget=budget, rng_seed=rng_seed)
+    def __init__(self, budget: SearchBudget | None = None, *, rng_seed: int = 0,
+                 rollout_horizon: str = "day"):
+        super().__init__(reveal_cards=True, budget=budget, rng_seed=rng_seed,
+                         rollout_horizon=rollout_horizon)
 
 
 class HiddenCardOracleProtagonistAgent(OracleProtagonistAgent):
     def __init__(self, budget: SearchBudget | None = None, *,
-                 scenario_count: int = 4, rng_seed: int = 0):
+                 scenario_count: int = 4, rng_seed: int = 0,
+                 rollout_horizon: str = "day"):
         super().__init__(reveal_cards=False, budget=budget,
-                         scenario_count=scenario_count, rng_seed=rng_seed)
+                         scenario_count=scenario_count, rng_seed=rng_seed,
+                         rollout_horizon=rollout_horizon)

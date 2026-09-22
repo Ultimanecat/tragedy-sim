@@ -18,6 +18,10 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class ParticleEnsembleTests(unittest.TestCase):
+    def test_rollout_horizon_is_validated(self):
+        with self.assertRaises(ValueError):
+            ParticleEnsembleProtagonistAgent(rollout_horizon="match")
+
     def test_public_view_yields_legal_three_card_plan_and_posteriors(self):
         game = protagonist_position()
         agent = ParticleEnsembleProtagonistAgent(
@@ -75,6 +79,21 @@ class ParticleEnsembleTests(unittest.TestCase):
                          "public_fs_btx_particle_ensemble")
         self.assertGreater(agent.last_trace.evaluated_pairs, 0)
         self.assertEqual(len(agent.last_trace.planned_commands), 2)
+
+    def test_loop_horizon_uses_public_followup_policy(self):
+        game = protagonist_position()
+        agent = ParticleEnsembleProtagonistAgent(
+            SearchBudget(node_limit=4, rollout_depth=8, seed=15),
+            particle_count=4, rng_seed=15, rollout_horizon="loop")
+        offers = [_policy_offer(game, action)
+                  for action in game.action_offers(game.controller)]
+        chosen = agent.choose_action(
+            participant="team", view=game.protagonist_team_view(), offers=offers)
+        self.assertIn(chosen, offers)
+        self.assertEqual(agent.last_trace.rollout_horizon, "loop")
+        self.assertFalse(agent.oracle.script_aware_rollout)
+        self.assertTrue(all("horizon_survivals" in row
+                            for row in agent.last_trace.root_actions))
 
     def test_btx_final_guess_uses_joint_role_posterior(self):
         game = Game(example_scenario("BTX"))

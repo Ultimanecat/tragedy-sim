@@ -22,6 +22,10 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_rollout_horizon_is_validated(self):
+        with self.assertRaises(ValueError):
+            FullCardOracleProtagonistAgent(rollout_horizon="week")
+
     def test_visible_pressure_on_known_killer_enters_defense_candidates(self):
         game = Game(ScenarioLibrary().get("silent-town-fs"))
         game = game.search_transition(game.search_actions("m")[0])
@@ -93,6 +97,38 @@ class OracleProtagonistTests(unittest.TestCase):
                 self.assertGreater(agent.last_trace.candidates, 0)
                 self.assertEqual(agent.last_trace.to_dict()["strategy"],
                                  agent.plan_name)
+
+    def test_loop_horizon_crosses_day_boundary_and_is_traced(self):
+        game = protagonist_position()
+        offers = [{**item.to_dict(), "type": item.kind.removeprefix("core.")}
+                  for item in game.action_offers(game.controller)]
+        day = FullCardOracleProtagonistAgent(
+            SearchBudget(node_limit=4, rollout_depth=12),
+            rollout_horizon="day")
+        loop = FullCardOracleProtagonistAgent(
+            SearchBudget(node_limit=4, rollout_depth=12),
+            rollout_horizon="loop")
+        day.choose_game_action(participant="team", game=game, offers=offers)
+        loop.choose_game_action(participant="team", game=game, offers=offers)
+        self.assertEqual(day.last_trace.rollout_horizon, "day")
+        self.assertEqual(loop.last_trace.rollout_horizon, "loop")
+        self.assertGreater(loop.last_trace.max_rollout_steps,
+                           day.last_trace.max_rollout_steps)
+        self.assertGreater(loop.last_trace.terminal_samples, 0)
+
+    def test_match_rollout_submits_oracle_final_guess(self):
+        game = Game(ScenarioLibrary().get(
+            "official-btx-01-machina-solar-cogwheel"))
+        game._start_final_guess()
+        oracle = FullCardOracleProtagonistAgent(
+            SearchBudget(node_limit=2, rollout_depth=12),
+            rollout_horizon="match")
+        score, survived, steps, terminal = oracle._rollout_score(
+            game, game.state.loop, game.state.round)
+        self.assertEqual(score, 1.0)
+        self.assertTrue(survived)
+        self.assertTrue(terminal)
+        self.assertEqual(steps, 1)
 
     def test_hidden_card_mode_is_invariant_to_actual_pending_faces(self):
         game = protagonist_position()

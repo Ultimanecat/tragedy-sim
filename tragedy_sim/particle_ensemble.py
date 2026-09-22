@@ -26,15 +26,20 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
 
     def __init__(self, budget: SearchBudget | None = None, *,
                  particle_count: int = 12, rng_seed: int = 0,
-                 joint_witness: bool = True):
+                 joint_witness: bool = True,
+                 rollout_horizon: str = "day"):
+        if rollout_horizon not in {"day", "loop"}:
+            raise ValueError("particle rollout_horizon must be day or loop")
         super().__init__(budget or SearchBudget(node_limit=24,
                                                 rollout_depth=12,
                                                 time_limit_ms=3000),
                          particle_count=particle_count, rng_seed=rng_seed,
                          survival_first=True)
         self.compiler = FsbtxWitnessCompiler(include_joint=joint_witness)
+        self.rollout_horizon = rollout_horizon
         self.oracle = OracleProtagonistAgent(
-            reveal_cards=True, budget=self.budget, rng_seed=rng_seed)
+            reveal_cards=True, budget=self.budget, rng_seed=rng_seed,
+            rollout_horizon=rollout_horizon, script_aware_rollout=False)
 
     @property
     def plan_name(self) -> str:
@@ -88,7 +93,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                 self.last_trace = IsmctsTrace(
                     self.plan_name, self.rng_seed, str(view["module"]), 0, 0, 0,
                     self.budget.rollout_depth, "joint_plan_followup",
-                    chosen["id"], (), planned_commands=tuple(self._joint_plan))
+                    chosen["id"], (), planned_commands=tuple(self._joint_plan),
+                    rollout_horizon=self.rollout_horizon)
                 return chosen
             self._joint_plan = []
 
@@ -160,13 +166,18 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             if deadline is not None and perf_counter() >= deadline and evaluated:
                 break
             scores: list[tuple[float, bool]] = []
+            day_scores: list[tuple[float, bool]] = []
             for world in worlds:
                 successor = self._apply_bundle(world, bundle)
                 if successor is None:
                     scores = []
                     break
-                scores.append(self.oracle._day_score(
-                    successor, position[0], position[1]))
+                outcome = self.oracle._rollout_score(
+                    successor, position[0], position[1])
+                scores.append(outcome[:2])
+                if self.rollout_horizon != "day":
+                    day_scores.append(self.oracle._day_score(
+                        successor, position[0], position[1]))
                 pairs += 1
             if len(scores) != len(worlds):
                 continue
@@ -176,12 +187,17 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             scarce = sum(item["card"] in {"fm", "g2", "p-1"}
                          for item in bundle)
             mean = sum(values) / len(values) - 0.025 * scarce
-            evaluated.append((survival, tail, mean, bundle))
+            day_survival = (sum(ok for _, ok in day_scores) / len(day_scores)
+                            if day_scores else survival)
+            day_mean = (sum(value for value, _ in day_scores) / len(day_scores)
+                        if day_scores else mean)
+            evaluated.append((survival, tail, day_survival, day_mean,
+                              mean, bundle))
         if not evaluated:
             return self._fallback(participant, view, offers,
                                   "no_common_legal_bundle", len(witnesses))
-        best = max(evaluated, key=lambda row: row[:3])
-        bundle = best[3]
+        best = max(evaluated, key=lambda row: row[:5])
+        bundle = best[5]
         self._joint_plan = [dict(command) for command in bundle[1:]]
         self._joint_plan_position = position
         chosen = offers_by_key[_key(bundle[0])]
@@ -189,9 +205,10 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             self.plan_name, self.rng_seed, evidence.module, len(worlds),
             len(witnesses), len(evaluated), self.budget.rollout_depth,
             None, chosen["id"],
-            tuple({"bundle": [dict(item) for item in row[3]],
+            tuple({"bundle": [dict(item) for item in row[5]],
                    "visits": len(worlds), "availability": len(worlds),
-                   "mean_value": row[2], "day_survivals": round(row[0] * len(worlds)),
+                   "mean_value": row[4], "day_survivals": round(row[2] * len(worlds)),
+                   "horizon_survivals": round(row[0] * len(worlds)),
                    "tail_value": row[1]} for row in evaluated),
             roles, "factorized", self.evidence_ledger.updates,
             self.evidence_ledger.hard_count, self.evidence_ledger.soft_count,
@@ -201,5 +218,6 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             belief_culprits=culprits, belief_dark_cards=dark,
             placement_tendencies=tendencies, evaluated_pairs=pairs,
             stop_reason=("time_limit" if deadline is not None
-                         and perf_counter() >= deadline else "candidate_limit"))
+                         and perf_counter() >= deadline else "candidate_limit"),
+            rollout_horizon=self.rollout_horizon)
         return chosen
