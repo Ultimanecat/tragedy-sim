@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
 from .witness_rules.btx_immediate_death import compile_immediate_death_losses
+from .witness_rules.btx_threads import compile_threads_at_loop_start
 from .witness_rules.btx_time_traveler import (
     compile_death_prevention, compile_ignored_goodwill_forbids)
 from .witness_rules.btx_virus import compile_virus_reveal_thresholds
@@ -19,7 +20,8 @@ from .witness_rules.common_day_end import compile_hero_deaths
 from .witness_rules.common_death_clues import compile_death_clues
 from .witness_rules.common_incidents import (
     compile_direct_culprits, compile_effect_locations,
-    compile_suicide_victims)
+    compile_effective_incidents, compile_guru_incidents,
+    compile_suicide_prevented_targets, compile_suicide_victims)
 from .witness_rules.common_intrigue import compile_ignored_intrigue_forbids
 from .witness_rules.common_loop_end import compile_loop_end_clues
 from .witness_rules.common_public import (compile_accepted_goodwill,
@@ -60,6 +62,9 @@ VIRUS_REVEAL_THRESHOLDS = _component(
     "btx.virus_reveal_thresholds", compile_virus_reveal_thresholds,
     "public_virus_serial_without_threshold",
     "public_ordinary_after_virus_threshold")
+THREADS_LOOP_START = _component(
+    "btx.threads_loop_start", compile_threads_at_loop_start,
+    "public_threads_loop_start_paranoia")
 INTRIGUE_FORBID = _component(
     "common.intrigue_forbid", compile_ignored_intrigue_forbids,
     "public_intrigue_forbid_ignored")
@@ -75,6 +80,15 @@ ACCEPTED_GOODWILL = _component(
 SUICIDE_VICTIM = _component(
     "common.suicide_victim", compile_suicide_victims,
     "public_suicide_victim")
+SUICIDE_PREVENTED = _component(
+    "common.suicide_prevented", compile_suicide_prevented_targets,
+    "public_suicide_prevented_target")
+GURU_INCIDENT = _component(
+    "common.guru_incident", compile_guru_incidents,
+    "public_guru_incident_doubled")
+EFFECTIVE_INCIDENT = _component(
+    "common.effective_incident", compile_effective_incidents,
+    "public_effective_incident_excludes_black_cat")
 DIRECT_INCIDENT_CULPRIT = _component(
     "common.direct_incident_culprit", compile_direct_culprits,
     "public_missing_moved_culprit")
@@ -109,6 +123,9 @@ COMMON_COMPONENTS = (
     DAY_END_HERO_DEATH,
     ACCEPTED_GOODWILL,
     SUICIDE_VICTIM,
+    SUICIDE_PREVENTED,
+    GURU_INCIDENT,
+    EFFECTIVE_INCIDENT,
     DIRECT_INCIDENT_CULPRIT,
     INCIDENT_EFFECT_LOCATION,
     PUBLIC_REVEALS,
@@ -127,6 +144,9 @@ RULESET_WITNESS_COMPONENTS = {
         DAY_END_HERO_DEATH,
         ACCEPTED_GOODWILL,
         SUICIDE_VICTIM,
+        SUICIDE_PREVENTED,
+        GURU_INCIDENT,
+        EFFECTIVE_INCIDENT,
         DIRECT_INCIDENT_CULPRIT,
         INCIDENT_EFFECT_LOCATION,
         PUBLIC_REVEALS,
@@ -139,11 +159,15 @@ RULESET_WITNESS_COMPONENTS = {
         GOODWILL_FORBID,
         TIME_TRAVELER_DEATH_PREVENTION,
         VIRUS_REVEAL_THRESHOLDS,
+        THREADS_LOOP_START,
         INTRIGUE_FORBID,
         DAY_END_HERO_DEATH,
         BTX_IMMEDIATE_DEATH,
         ACCEPTED_GOODWILL,
         SUICIDE_VICTIM,
+        SUICIDE_PREVENTED,
+        GURU_INCIDENT,
+        EFFECTIVE_INCIDENT,
         DIRECT_INCIDENT_CULPRIT,
         INCIDENT_EFFECT_LOCATION,
         PUBLIC_REVEALS,

@@ -252,6 +252,254 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertFalse(any(item.source == source
                              for item in FsbtxWitnessCompiler().compile(view)))
 
+    def test_prevented_suicide_identifies_attempted_target(self):
+        source = "public_suicide_prevented_target"
+        for prevention in (
+                {"kind": "guard_spent", "target": "doctor"},
+                {"kind": "death_prevented", "target": "doctor"},
+                {"kind": "death_replaced", "protected": ["doctor"],
+                 "servant": "servant"}):
+            with self.subTest(prevention=prevention["kind"]):
+                view = deepcopy(self.view)
+                view["events"] = [
+                    {"kind": "incident_status", "loop": 1, "round": 2,
+                     "incident": "suicide", "happened": True},
+                    {**prevention, "loop": 1, "round": 2},
+                    {"kind": "incident_ended", "loop": 1, "round": 2},
+                ]
+                witness = next(item for item in
+                               FsbtxWitnessCompiler().compile(view)
+                               if item.source == source)
+                self.assertEqual((witness.kind, witness.subject,
+                                  witness.value),
+                                 ("culprit_is", "2", "doctor"))
+                wrong = replace(self.hypothesis, incidents=(
+                    (2, "suicide", "suicide", "girl"),))
+                self.assertEqual(FsbtxWitnessMatcher().verdict(wrong, witness),
+                                 WitnessVerdict.CONTRADICTED)
+                self.assertFalse(any(item.source == source for item in
+                                     FsbtxWitnessCompiler(
+                                         disabled_sources={source}).compile(view)))
+
+        view["events"][1] = {"kind": "guard_spent", "loop": 1,
+                             "round": 3, "target": "doctor"}
+        self.assertFalse(any(item.source == source for item in
+                             FsbtxWitnessCompiler().compile(view)))
+
+    def test_threads_checks_all_consecutive_prior_goodwill_targets(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 2,
+             "target": "doctor", "counter": "goodwill",
+             "before": 0, "after": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 2,
+             "target": "office_worker", "counter": "goodwill",
+             "before": 0, "after": 1},
+            {"kind": "loop_lost", "loop": 1, "round": 3},
+            {"kind": "loop_started", "loop": 2, "round": 1},
+            {"kind": "counter_changed", "loop": 2, "round": 1,
+             "target": "doctor", "counter": "paranoia",
+             "before": 0, "after": 2},
+            {"kind": "counter_changed", "loop": 2, "round": 1,
+             "target": "office_worker", "counter": "paranoia",
+             "before": 0, "after": 2},
+        ]
+        source = "public_threads_loop_start_paranoia"
+        self.assertEqual(sum(item.source == source for item in
+                             FsbtxWitnessCompiler().compile(view)), 2)
+
+    def test_doubled_scheduled_incident_identifies_guru_only_in_its_window(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "incident_status", "loop": 1, "round": 2,
+             "incident": "murder", "happened": True},
+            {"kind": "incident_effect_doubled", "loop": 1, "round": 2,
+             "character": "guru"},
+            {"kind": "incident_ended", "loop": 1, "round": 2},
+        ]
+        source = "public_guru_incident_doubled"
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.source == source)
+        self.assertEqual((witness.kind, witness.value), ("culprit_is", "guru"))
+        wrong = replace(self.hypothesis, incidents=(
+            (2, "murder", "murder", "doctor"),))
+        self.assertEqual(FsbtxWitnessMatcher().verdict(wrong, witness),
+                         WitnessVerdict.CONTRADICTED)
+        view["events"] = view["events"][1:]
+        self.assertFalse(any(item.source == source for item in
+                             FsbtxWitnessCompiler().compile(view)))
+
+    def test_effective_incident_excludes_black_cat_but_no_effect_does_not(self):
+        view = deepcopy(self.view)
+        view["characters"]["black_cat"] = {
+            "location": "shrine", "present": True, "alive": True}
+        view["events"] = [
+            {"kind": "incident_status", "loop": 1, "round": 2,
+             "incident": "suicide", "happened": True},
+            {"kind": "incident_ended", "loop": 1, "round": 2,
+             "effective": True},
+        ]
+        source = "public_effective_incident_excludes_black_cat"
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.source == source)
+        self.assertEqual(witness.kind, "culprit_in")
+        self.assertNotIn("black_cat", witness.value)
+        cat = replace(self.hypothesis, incidents=(
+            (2, "suicide", "suicide", "black_cat"),))
+        self.assertEqual(FsbtxWitnessMatcher().verdict(cat, witness),
+                         WitnessVerdict.CONTRADICTED)
+        view["events"][1]["effective"] = False
+        self.assertFalse(any(item.source == source for item in
+                             FsbtxWitnessCompiler().compile(view)))
+
+    def test_threads_need_complete_previous_loop_and_first_start_effect(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 2,
+             "target": "doctor", "counter": "goodwill",
+             "before": 0, "after": 1},
+            {"kind": "loop_lost", "loop": 1, "round": 3},
+            {"kind": "loop_started", "loop": 2, "round": 1},
+            {"kind": "counter_changed", "loop": 2, "round": 1,
+             "target": "doctor", "counter": "paranoia",
+             "before": 0, "after": 2},
+        ]
+        source = "public_threads_loop_start_paranoia"
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.source == source)
+        self.assertEqual((witness.kind, witness.subject),
+                         ("plot_present", "threads"))
+        without = replace(self.hypothesis, subplots=("rumor", "virus"))
+        self.assertEqual(FsbtxWitnessMatcher().verdict(without, witness),
+                         WitnessVerdict.CONTRADICTED)
+        self.assertFalse(any(item.source == source for item in
+                             FsbtxWitnessCompiler(
+                                 disabled_sources={source}).compile(view)))
+        view["events"].pop(2)
+        self.assertFalse(any(item.source == source for item in
+                             FsbtxWitnessCompiler().compile(view)))
+        view["events"].insert(2, {"kind": "loop_lost", "loop": 1,
+                                  "round": 3})
+        view["events"].insert(4, {"kind": "counter_changed", "loop": 2,
+                                  "round": 1, "target": "shrine",
+                                  "counter": "intrigue", "before": 0,
+                                  "after": 1})
+        self.assertFalse(any(item.source == source for item in
+                             FsbtxWitnessCompiler().compile(view)))
+
+    def test_real_incident_observations_keep_true_world_compatible(self):
+        cases = (
+            ("FS", "suicide", "doctor", "public_suicide_prevented_target"),
+            ("BTX", "foul_play", "guru", "public_guru_incident_doubled"),
+            ("FS", "hospital", "doctor",
+             "public_effective_incident_excludes_black_cat"),
+        )
+        for module, kind, culprit, source in cases:
+            with self.subTest(source=source):
+                scenario = example_scenario(module)
+                scenario["cast"]["black_cat"] = "ordinary"
+                if culprit == "guru":
+                    scenario["cast"]["guru"] = "ordinary"
+                scenario["incidents"] = [{"day": 2, "kind": kind,
+                                          "culprit": culprit}]
+                game = Game(scenario)
+                game.state.round = 2
+                game.state.phase = "incident"
+                game.state.characters[culprit].paranoia = (
+                    3 if culprit == "guru" else 2)
+                if kind == "suicide":
+                    game.guards[culprit] = 1
+                if kind == "hospital":
+                    game.state.locations["hospital"] = 1
+                game.dispatch("m", "next")
+                view = game.protagonist_team_view()
+                witnesses = FsbtxWitnessCompiler().compile(view)
+                self.assertTrue(any(item.source == source for item in witnesses))
+                true_world = HiddenWorldHypothesis.from_scenario(game.scenario)
+                self.assertTrue(FsbtxWitnessMatcher().matches(
+                    true_world, witnesses))
+
+    def test_real_black_cat_incident_never_emits_effective_exclusion(self):
+        scenario = example_scenario("FS")
+        scenario["cast"]["black_cat"] = "ordinary"
+        scenario["incidents"] = [{"day": 2, "kind": "suicide",
+                                  "culprit": "black_cat"}]
+        game = Game(scenario)
+        game.state.round = 2
+        game.state.phase = "incident"
+        game.dispatch("m", "next")
+        witnesses = FsbtxWitnessCompiler().compile(
+            game.protagonist_team_view())
+        self.assertFalse(any(
+            item.source == "public_effective_incident_excludes_black_cat"
+            for item in witnesses))
+        self.assertTrue(FsbtxWitnessMatcher().matches(
+            HiddenWorldHypothesis.from_scenario(game.scenario), witnesses))
+
+    def test_real_threads_reset_confirms_positive_subplot(self):
+        game = Game(example_scenario("BTX"))
+        game._change("doctor", "goodwill", 1)
+        game._finish_loop(forced=True)
+        game.dispatch("m", "next")
+        witnesses = FsbtxWitnessCompiler().compile(
+            game.protagonist_team_view())
+        self.assertTrue(any(item.source == "public_threads_loop_start_paranoia"
+                            for item in witnesses))
+        self.assertTrue(FsbtxWitnessMatcher().matches(
+            HiddenWorldHypothesis.from_scenario(game.scenario), witnesses))
+
+    def test_new_incident_sources_shrink_culprit_candidates_independently(self):
+        cases = (
+            ("public_suicide_prevented_target", "suicide", "doctor",
+             {"kind": "guard_spent", "target": "doctor"}),
+            ("public_guru_incident_doubled", "murder", "guru",
+             {"kind": "incident_effect_doubled", "character": "guru"}),
+            ("public_effective_incident_excludes_black_cat", "suicide",
+             "doctor", {"kind": "incident_ended", "effective": True}),
+        )
+        for source, incident, culprit, effect in cases:
+            with self.subTest(source=source):
+                view = deepcopy(self.view)
+                view["characters"]["black_cat"] = {
+                    "location": "shrine", "present": True, "alive": True}
+                view["characters"]["guru"] = {
+                    "location": "shrine", "present": True, "alive": True}
+                view["schedule"] = [{"day": 2, "kind": incident}]
+                view["events"] = [
+                    {"kind": "incident_status", "loop": 1, "round": 2,
+                     "incident": incident, "happened": True},
+                    {**effect, "loop": 1, "round": 2},
+                ]
+                evidence = PublicEvidence.from_view(view)
+                enabled = FsbtxWitnessCompiler().compile(view)
+                ablated = FsbtxWitnessCompiler(
+                    disabled_sources={source}).compile(view)
+                belief = FactorizedBeliefState(capacity=64, seed=1)
+                yes = belief._culprits(evidence, enabled)[2]
+                no = belief._culprits(evidence, ablated)[2]
+                self.assertIn(culprit, yes)
+                self.assertLess(len(yes), len(no))
+
+    def test_threads_source_shrinks_exact_plot_candidates(self):
+        game = Game(example_scenario("BTX"))
+        game._change("doctor", "goodwill", 1)
+        game._finish_loop(forced=True)
+        game.dispatch("m", "next")
+        view = game.protagonist_team_view()
+        source = "public_threads_loop_start_paranoia"
+        evidence = PublicEvidence.from_view(view)
+        enabled = FsbtxWitnessCompiler().compile(view)
+        ablated = FsbtxWitnessCompiler(
+            disabled_sources={source}).compile(view)
+        yes = FactorizedBeliefState(capacity=1, seed=1).exact_role_map(
+            evidence, enabled)
+        no = FactorizedBeliefState(capacity=1, seed=1).exact_role_map(
+            evidence, ablated)
+        self.assertTrue(yes.ranked)
+        self.assertLess(yes.plot_sets, no.plot_sets)
+
     def test_suicide_replacement_maps_question_mark_to_part_timer(self):
         view = deepcopy(self.view)
         view["events"] = [{

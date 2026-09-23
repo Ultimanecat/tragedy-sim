@@ -40,6 +40,107 @@ def compile_suicide_victims(view: Mapping[str, Any]) -> list[PublicWitness]:
     return result
 
 
+def compile_suicide_prevented_targets(
+        view: Mapping[str, Any]) -> list[PublicWitness]:
+    """A prevented Suicide still targets its culprit, not the substitute victim."""
+    events = tuple(view.get("events", ()))
+    result: list[PublicWitness] = []
+    for index, event in enumerate(events):
+        if (event.get("kind") != "incident_status"
+                or event.get("incident") != "suicide"
+                or not bool(event.get("happened", False))):
+            continue
+        target = None
+        for follow in events[index + 1:]:
+            if (follow.get("loop") != event.get("loop")
+                    or follow.get("round") != event.get("round")):
+                break
+            kind = follow.get("kind")
+            if kind in {"incident_status", "incident_ended", "day_ended"}:
+                break
+            if kind in {"death_prevented", "guard_spent"}:
+                target = follow.get("target")
+                break
+            if kind == "death_replaced":
+                protected = follow.get("protected", ())
+                if isinstance(protected, (list, tuple)) and len(protected) == 1:
+                    target = protected[0]
+                break
+            if kind == "character_died":
+                break
+        if not isinstance(target, str):
+            continue
+        subject = ("part_timer" if target == "part_timer_question"
+                   else target)
+        day = int(event.get("round", view.get("round", 1)))
+        result.append(PublicWitness(
+            "culprit_is", str(day), subject,
+            int(event.get("loop", view.get("loop", 1))), day,
+            "incident", "public_suicide_prevented_target"))
+    return result
+
+
+def compile_guru_incidents(view: Mapping[str, Any]) -> list[PublicWitness]:
+    """A public doubled-effect announcement identifies the scheduled culprit."""
+    events = tuple(view.get("events", ()))
+    result: list[PublicWitness] = []
+    for index, event in enumerate(events):
+        if (event.get("kind") != "incident_status"
+                or not bool(event.get("happened", False))):
+            continue
+        for follow in events[index + 1:]:
+            if (follow.get("loop") != event.get("loop")
+                    or follow.get("round") != event.get("round")):
+                break
+            kind = follow.get("kind")
+            if kind in {"incident_status", "incident_ended", "day_ended"}:
+                break
+            if kind != "incident_effect_doubled":
+                continue
+            if follow.get("character") != "guru":
+                break
+            day = int(event.get("round", view.get("round", 1)))
+            result.append(PublicWitness(
+                "culprit_is", str(day), "guru",
+                int(event.get("loop", view.get("loop", 1))), day,
+                "incident", "public_guru_incident_doubled"))
+            break
+    return result
+
+
+def compile_effective_incidents(view: Mapping[str, Any]) -> list[PublicWitness]:
+    """Black Cat's incident never has an effect; a positive effect excludes it."""
+    characters = view.get("characters", {})
+    if "black_cat" not in characters:
+        return []
+    candidates = tuple(sorted(
+        ("part_timer" if cid == "part_timer_question" else str(cid))
+        for cid in characters if cid != "black_cat"))
+    events = tuple(view.get("events", ()))
+    result: list[PublicWitness] = []
+    for index, event in enumerate(events):
+        if (event.get("kind") != "incident_status"
+                or not bool(event.get("happened", False))):
+            continue
+        for follow in events[index + 1:]:
+            if (follow.get("loop") != event.get("loop")
+                    or follow.get("round") != event.get("round")):
+                break
+            kind = follow.get("kind")
+            if kind == "incident_status" or kind == "day_ended":
+                break
+            if kind != "incident_ended":
+                continue
+            if follow.get("effective") is True:
+                day = int(event.get("round", view.get("round", 1)))
+                result.append(PublicWitness(
+                    "culprit_in", str(day), candidates,
+                    int(event.get("loop", view.get("loop", 1))), day,
+                    "incident", "public_effective_incident_excludes_black_cat"))
+            break
+    return result
+
+
 def compile_direct_culprits(view: Mapping[str, Any]) -> list[PublicWitness]:
     """A positive Missing movement reveals the moving culprit."""
     rules = {

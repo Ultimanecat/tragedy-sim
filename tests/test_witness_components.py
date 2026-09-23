@@ -35,15 +35,17 @@ class WitnessComponentRegistryTests(unittest.TestCase):
             [item.component_id for item in components_for("FS")], [
                 "fs.key_death", "common.intrigue_forbid",
                 "common.day_end_hero_death", "common.accepted_goodwill",
-                "common.suicide_victim", "common.direct_incident_culprit",
+                "common.suicide_victim", "common.suicide_prevented",
+                "common.guru_incident", "common.effective_incident",
+                "common.direct_incident_culprit",
                 "common.incident_effect_location", "common.public_reveals",
                 "common.goodwill_refusal", "common.incident_status",
                 "common.death_clues", "common.loop_end_clues",
             ])
         self.assertEqual(
-            [item.component_id for item in components_for("BTX")][:6], [
+            [item.component_id for item in components_for("BTX")][:7], [
                 "btx.goodwill_forbid", "btx.time_traveler_death_prevention",
-                "btx.virus_reveal_thresholds",
+                "btx.virus_reveal_thresholds", "btx.threads_loop_start",
                 "common.intrigue_forbid", "common.day_end_hero_death",
                 "btx.immediate_death_loss",
             ])
