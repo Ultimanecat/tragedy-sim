@@ -25,7 +25,10 @@ from .belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
                      ObservationCheckpoint, ObservationParticleAdvancer,
                      PublicEvidence, PublicSnapshot)
 from .witness import (FsbtxWitnessCompiler, FsbtxWitnessMatcher, PublicWitness,
-                      WitnessEvaluation, WitnessStrength, WitnessVerdict)
+                      RulesetWitnessCompiler, WitnessEvaluation,
+                      WitnessStrength, WitnessVerdict)
+from .witness_components import (RULESET_WITNESS_COMPONENTS,
+                                 WitnessComponentSpec, components_for)
 from .search import MastermindEvaluator, RootActionStats, SearchBudget, SearchTrace
 from .evaluation import (EvaluationContribution, PositionEvaluation, PositionFeatures,
                          ScenarioConditionedEvaluator, ScenarioEvaluationContext)
@@ -46,7 +49,9 @@ __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "Activat
            "HiddenWorldHypothesis", "ParticleReplayResult", "ParticleReplayer",
            "ParticleAdvanceResult", "ObservationParticleAdvancer",
            "ObservationCheckpoint", "PublicEvidence", "PublicSnapshot",
-           "FsbtxWitnessCompiler", "FsbtxWitnessMatcher", "PublicWitness",
+           "FsbtxWitnessCompiler", "RulesetWitnessCompiler",
+           "FsbtxWitnessMatcher", "PublicWitness", "WitnessComponentSpec",
+           "RULESET_WITNESS_COMPONENTS", "components_for",
            "WitnessEvaluation", "WitnessStrength", "WitnessVerdict",
            "MastermindEvaluator", "RootActionStats",
            "EvaluationContribution", "PositionEvaluation", "PositionFeatures",

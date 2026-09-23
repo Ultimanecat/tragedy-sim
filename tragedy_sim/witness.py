@@ -11,6 +11,7 @@ from enum import StrEnum
 from typing import Any, Iterable, Mapping, Sequence
 
 from .catalog import CHARACTERS, REFUSAL
+from .witness_components import components_for
 
 
 class WitnessStrength(StrEnum):
@@ -80,15 +81,18 @@ class PublicEvidenceLedger:
                    for item in self.witnesses)
 
 
-class FsbtxWitnessCompiler:
-    """Compile the conservative, rules-certain FS/BTX witness subset."""
+class RulesetWitnessCompiler:
+    """Compile witnesses from the components registered for a ruleset."""
 
     modules = frozenset({"FS", "BTX"})
 
     def __init__(self, *, include_joint: bool = True,
-                 disabled_sources: Iterable[str] = ()):
+                 disabled_sources: Iterable[str] = (),
+                 disabled_components: Iterable[str] = ()):
         self.include_joint = bool(include_joint)
         self.disabled_sources = frozenset(str(item) for item in disabled_sources)
+        self.disabled_components = frozenset(
+            str(item) for item in disabled_components)
 
     @staticmethod
     def _hard_accepted_goodwill(view: Mapping[str, Any]) -> list[PublicWitness]:
@@ -777,22 +781,12 @@ class FsbtxWitnessCompiler:
                                  else WitnessStrength.SOFT)))
         return result
 
-    def compile(self, view: Mapping[str, Any]) -> tuple[PublicWitness, ...]:
-        module = str(view.get("module", ""))
-        if module not in self.modules:
-            return ()
+    @staticmethod
+    def _public_reveals(view: Mapping[str, Any]) -> list[PublicWitness]:
         loop = int(view.get("loop", 1))
         day = int(view.get("round", 1))
         timing = str(view.get("timing", view.get("phase", "unknown")))
-        result: list[PublicWitness] = self._hard_fs_key_deaths(view)
-        result.extend(self._hard_ignored_goodwill_forbids(view))
-        result.extend(self._hard_ignored_intrigue_forbids(view))
-        result.extend(self._hard_day_end_hero_deaths(view))
-        result.extend(self._hard_btx_immediate_death_losses(view))
-        result.extend(self._hard_accepted_goodwill(view))
-        result.extend(self._hard_suicide_victims(view))
-        result.extend(self._hard_direct_incident_culprits(view))
-        result.extend(self._hard_incident_effect_locations(view))
+        result: list[PublicWitness] = []
         for cid, fact in sorted(view.get("known_roles", {}).items()):
             role = fact.get("role") if isinstance(fact, Mapping) else None
             if isinstance(role, str):
@@ -809,6 +803,13 @@ class FsbtxWitnessCompiler:
             result.append(PublicWitness(
                 "plot_present", plot, True, loop, day, timing,
                 "public_plot_reveal"))
+        return result
+
+    @staticmethod
+    def _goodwill_refusals(view: Mapping[str, Any]) -> list[PublicWitness]:
+        loop = int(view.get("loop", 1))
+        day = int(view.get("round", 1))
+        result: list[PublicWitness] = []
         for event in view.get("events", ()):
             if event.get("kind") != "goodwill_refused":
                 continue
@@ -820,6 +821,14 @@ class FsbtxWitnessCompiler:
                 int(event.get("loop", loop)), int(event.get("round", day)),
                 str(event.get("timing", "protagonist_ability")),
                 "public_goodwill_refusal"))
+        return result
+
+    @staticmethod
+    def _incident_status_witnesses(
+            view: Mapping[str, Any]) -> list[PublicWitness]:
+        loop = int(view.get("loop", 1))
+        day = int(view.get("round", 1))
+        result: list[PublicWitness] = []
         incident_events = [
             event for event in view.get("events", ())
             if event.get("kind") == "incident_status"
@@ -861,8 +870,19 @@ class FsbtxWitnessCompiler:
                 }, incident_loop, incident_day, "incident",
                 "public_incident_status",
                 (WitnessStrength.HARD if happened else WitnessStrength.SOFT)))
-        result.extend(self._soft_death_witnesses(view))
-        result.extend(self._soft_plot_pressure(view))
+        return result
+
+    def compile(self, view: Mapping[str, Any]) -> tuple[PublicWitness, ...]:
+        module = str(view.get("module", ""))
+        components = components_for(module)
+        if not components:
+            return ()
+        result: list[PublicWitness] = []
+        for component in components:
+            if component.component_id in self.disabled_components:
+                continue
+            compile_component = getattr(self, component.method)
+            result.extend(compile_component(view))
         if not self.include_joint:
             result = [item for item in result
                       if item.kind != "joint_plot_role_pressure"
@@ -872,6 +892,10 @@ class FsbtxWitnessCompiler:
             result = [item for item in result
                       if item.source not in self.disabled_sources]
         return tuple(result)
+
+
+class FsbtxWitnessCompiler(RulesetWitnessCompiler):
+    """Backward-compatible name for the original FS/BTX public API."""
 
 
 class FsbtxWitnessMatcher:
