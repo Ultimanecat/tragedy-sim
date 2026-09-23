@@ -20,6 +20,8 @@
 | 可拒绝的好感能力被接受 | 发动者、能力可拒绝、接受结果 | 发动者不是强制拒绝者 | 硬 | `public_refusable_goodwill_accepted` |
 | 禁止好感被实际忽略 | 同目标禁止好感、好感牌、好感仍增加 | 该角色是时间旅行者 | 硬 | `public_goodwill_forbid_ignored` |
 | 死亡被角色自身能力阻止 | `death_prevented`，且不是护卫消耗或侍从替死 | 该角色是时间旅行者 | 硬 | `public_time_traveler_death_prevention` |
+| 杀人狂身份公开且本轮未曾达到不安 3 | 完整本轮公开计数历史和身份公开 | 初始身份不是普通人；病毒不能解释这次身份 | 硬 | `public_virus_serial_without_threshold` |
+| 普通人身份公开且本轮存活时曾达到不安 3 | 包括行动结算中暂时达到 3 的完整变化步骤 | 病毒副规则不存在 | 硬 | `public_ordinary_after_virus_threshold` |
 | 单张禁止密谋被实际忽略 | 同目标禁止密谋、密谋牌、密谋仍增加及结算后位置 | 合法区域发动者中至少一人是邪教徒 | 硬 | `public_intrigue_forbid_ignored` |
 | 最终日日末专用失败 | `protagonists_lost(day_end)` 及当时好感 | 时间旅行者属于存活且好感未满 3 的角色 | 硬 | `public_final_day_low_goodwill_loss` |
 | 日末主人公死亡 | `heroes_died(day_end)` 及公开计数物 | 达阈值的杀手或求爱者候选中至少一条身份路线成立 | 硬 | `public_day_end_hero_death` |

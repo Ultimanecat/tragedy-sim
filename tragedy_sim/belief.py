@@ -714,7 +714,8 @@ class FactorizedBeliefState:
     @staticmethod
     def _role_witnesses(witnesses: Sequence[Any]) -> tuple[Any, ...]:
         return tuple(w for w in witnesses if w.kind in {
-            "role_is", "role_in", "role_not_in", "plot_present", "plot_pressure",
+            "role_is", "role_in", "role_not_in", "plot_present",
+            "plot_not_present", "plot_pressure",
             "day_end_death_companion", "joint_plot_role_pressure",
             "role_pressure", "day_end_killer_candidate", "loss_after_death",
             "loop_end_plot_explanation", "role_route_pressure"})
@@ -873,6 +874,7 @@ class FactorizedBeliefState:
         plot_sets = 0
         known_roles = dict(evidence.known_roles)
         known_role_sets: dict[str, set[str]] = {}
+        excluded_roles: dict[str, set[str]] = {}
         for witness in role_witnesses:
             if witness.strength != WitnessStrength.HARD:
                 continue
@@ -885,6 +887,11 @@ class FactorizedBeliefState:
                            "part_timer_question" else str(witness.subject))
                 known_role_sets.setdefault(subject, set(
                     str(role) for role in witness.value))
+            elif witness.kind == "role_not_in":
+                subject = ("part_timer" if witness.subject ==
+                           "part_timer_question" else str(witness.subject))
+                excluded_roles.setdefault(subject, set()).update(
+                    str(role) for role in witness.value)
 
         known_culprits = dict(evidence.known_culprits)
         used_culprits: set[str] = set()
@@ -904,6 +911,11 @@ class FactorizedBeliefState:
             if any(witness.strength == WitnessStrength.HARD
                    and witness.kind == "plot_present"
                    and witness.subject not in plots
+                   for witness in role_witnesses):
+                continue
+            if any(witness.strength == WitnessStrength.HARD
+                   and witness.kind == "plot_not_present"
+                   and witness.subject in plots
                    for witness in role_witnesses):
                 continue
             slots = self.sampler._role_slots(evidence.module, plots)
@@ -926,7 +938,8 @@ class FactorizedBeliefState:
                                         and role in REFUSAL)
                                 and not (cid == "ai" and role == "ordinary")
                                 and (cid not in known_role_sets
-                                     or role in known_role_sets[cid]))
+                                     or role in known_role_sets[cid])
+                                and role not in excluded_roles.get(cid, ()))
                 domains[cid] = allowed
             if any(not domain for domain in domains.values()):
                 continue
@@ -940,7 +953,8 @@ class FactorizedBeliefState:
                     if (observed is None or _observed_role_matches(
                         role, observed, plots))
                     and ("irregular" not in known_role_sets
-                         or role in known_role_sets["irregular"]))
+                         or role in known_role_sets["irregular"])
+                    and role not in excluded_roles.get("irregular", ()))
                 if not irregular_options:
                     continue
             gender_split = MODULES[evidence.module].friend_gender_split

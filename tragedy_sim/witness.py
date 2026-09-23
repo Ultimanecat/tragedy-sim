@@ -7,45 +7,12 @@ return UNKNOWN when a public phenomenon has multiple legal explanations.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
 from typing import Any, Iterable, Mapping, Sequence
 
 from .catalog import CHARACTERS, REFUSAL
 from .witness_components import components_for
-
-
-class WitnessStrength(StrEnum):
-    HARD = "hard"
-    SOFT = "soft"
-
-
-class WitnessVerdict(StrEnum):
-    SATISFIED = "satisfied"
-    CONTRADICTED = "contradicted"
-    UNKNOWN = "unknown"
-
-
-@dataclass(frozen=True)
-class PublicWitness:
-    kind: str
-    subject: str
-    value: Any
-    loop: int
-    day: int
-    timing: str
-    source: str
-    strength: WitnessStrength = WitnessStrength.HARD
-
-
-@dataclass(frozen=True)
-class WitnessEvaluation:
-    compatible: bool
-    verdicts: tuple[tuple[PublicWitness, WitnessVerdict], ...]
-
-    @property
-    def contradicted(self) -> tuple[PublicWitness, ...]:
-        return tuple(witness for witness, verdict in self.verdicts
-                     if verdict == WitnessVerdict.CONTRADICTED)
+from .witness_types import (PublicWitness, WitnessEvaluation,
+                            WitnessStrength, WitnessVerdict)
 
 
 @dataclass
@@ -910,7 +877,8 @@ class RulesetWitnessCompiler:
         for component in components:
             if component.component_id in self.disabled_components:
                 continue
-            compile_component = getattr(self, component.method)
+            compile_component = (component.method if callable(component.method)
+                                 else getattr(self, component.method))
             result.extend(compile_component(view))
         if not self.include_joint:
             result = [item for item in result
@@ -975,6 +943,10 @@ class FsbtxWitnessMatcher:
             plots = {hypothesis.main_plot, *hypothesis.subplots}
             return (WitnessVerdict.SATISFIED if witness.subject in plots
                     else WitnessVerdict.CONTRADICTED)
+        if witness.kind == "plot_not_present":
+            plots = {hypothesis.main_plot, *hypothesis.subplots}
+            return (WitnessVerdict.CONTRADICTED if witness.subject in plots
+                    else WitnessVerdict.SATISFIED)
         if witness.kind == "plot_pressure":
             return (WitnessVerdict.SATISFIED
                     if hypothesis.main_plot == witness.subject

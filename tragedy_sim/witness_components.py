@@ -9,6 +9,13 @@ including the same spec in its tuple instead of copying compiler logic.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Callable, Mapping
+
+from .witness_rules.btx_virus import compile_virus_reveal_thresholds
+from .witness_types import PublicWitness
+
+
+WitnessCompiler = Callable[[Mapping[str, Any]], list[PublicWitness]]
 
 
 @dataclass(frozen=True)
@@ -16,11 +23,11 @@ class WitnessComponentSpec:
     """One independently testable witness-producing rule family."""
 
     component_id: str
-    method: str
+    method: str | WitnessCompiler
     sources: frozenset[str]
 
 
-def _component(component_id: str, method: str, *sources: str
+def _component(component_id: str, method: str | WitnessCompiler, *sources: str
                ) -> WitnessComponentSpec:
     return WitnessComponentSpec(component_id, method, frozenset(sources))
 
@@ -34,6 +41,10 @@ TIME_TRAVELER_DEATH_PREVENTION = _component(
     "btx.time_traveler_death_prevention",
     "_hard_time_traveler_death_prevention",
     "public_time_traveler_death_prevention")
+VIRUS_REVEAL_THRESHOLDS = _component(
+    "btx.virus_reveal_thresholds", compile_virus_reveal_thresholds,
+    "public_virus_serial_without_threshold",
+    "public_ordinary_after_virus_threshold")
 INTRIGUE_FORBID = _component(
     "common.intrigue_forbid", "_hard_ignored_intrigue_forbids",
     "public_intrigue_forbid_ignored")
@@ -112,6 +123,7 @@ RULESET_WITNESS_COMPONENTS = {
     "BTX": (
         GOODWILL_FORBID,
         TIME_TRAVELER_DEATH_PREVENTION,
+        VIRUS_REVEAL_THRESHOLDS,
         INTRIGUE_FORBID,
         DAY_END_HERO_DEATH,
         BTX_IMMEDIATE_DEATH,

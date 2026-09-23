@@ -477,6 +477,130 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertEqual(matcher.verdict(initial_serial, witness),
                          WitnessVerdict.SATISFIED)
 
+    def test_serial_reveal_without_this_loops_threshold_excludes_ordinary(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 2,
+             "target": "worker", "counter": "paranoia",
+             "before": 0, "after": 2, "steps": [0, 2]},
+            {"kind": "role_revealed", "loop": 1, "round": 2,
+             "character": "worker", "role": "serial"},
+        ]
+        source = "public_virus_serial_without_threshold"
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.source == source)
+        roles = dict(self.hypothesis.roles)
+        roles["worker"] = "ordinary"
+        virus = replace(self.hypothesis, subplots=("virus", "threads"),
+                        roles=tuple(sorted(roles.items())))
+        roles["worker"] = "serial"
+        serial = replace(virus, roles=tuple(sorted(roles.items())))
+        matcher = FsbtxWitnessMatcher()
+        self.assertEqual(matcher.verdict(virus, witness),
+                         WitnessVerdict.CONTRADICTED)
+        self.assertEqual(matcher.verdict(serial, witness),
+                         WitnessVerdict.SATISFIED)
+
+    def test_ordinary_reveal_after_temporary_three_excludes_virus(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 2,
+             "target": "worker", "counter": "paranoia",
+             "before": 2, "after": 2, "steps": [2, 3, 2]},
+            {"kind": "role_revealed", "loop": 1, "round": 2,
+             "character": "worker", "role": "ordinary"},
+        ]
+        source = "public_ordinary_after_virus_threshold"
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.source == source)
+        self.assertEqual((witness.kind, witness.subject),
+                         ("plot_not_present", "virus"))
+        matcher = FsbtxWitnessMatcher()
+        virus = replace(self.hypothesis, subplots=("virus", "threads"))
+        self.assertEqual(matcher.verdict(virus, witness),
+                         WitnessVerdict.CONTRADICTED)
+        self.assertEqual(matcher.verdict(self.hypothesis, witness),
+                         WitnessVerdict.SATISFIED)
+        self.assertFalse(any(item.source == source for item in
+                             FsbtxWitnessCompiler(
+                                 disabled_sources={source}).compile(view)))
+
+    def test_dead_character_reaching_threshold_does_not_exclude_virus(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "character_died", "loop": 1, "round": 2,
+             "target": "worker"},
+            {"kind": "counter_changed", "loop": 1, "round": 2,
+             "target": "worker", "counter": "paranoia",
+             "before": 2, "after": 3},
+            {"kind": "role_revealed", "loop": 1, "round": 2,
+             "character": "worker", "role": "ordinary"},
+        ]
+        self.assertFalse(any(
+            item.source == "public_ordinary_after_virus_threshold"
+            for item in FsbtxWitnessCompiler().compile(view)))
+
+    def test_virus_threshold_evidence_resets_between_loops(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 2,
+             "target": "worker", "counter": "paranoia",
+             "before": 2, "after": 3},
+            {"kind": "loop_started", "loop": 2, "round": 1},
+            {"kind": "role_revealed", "loop": 2, "round": 1,
+             "character": "worker", "role": "serial"},
+        ]
+        sources = {item.source for item in FsbtxWitnessCompiler().compile(view)}
+        self.assertIn("public_virus_serial_without_threshold", sources)
+        self.assertNotIn("public_ordinary_after_virus_threshold", sources)
+
+        view["events"] = view["events"][1:]
+        view["events"].insert(0, {
+            "kind": "role_revealed", "loop": 1, "round": 1,
+            "character": "doctor", "role": "serial",
+        })
+        self.assertFalse(any(item.source == "public_virus_serial_without_threshold"
+                             and item.subject == "doctor"
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
+    def test_virus_reveal_constraints_reach_exact_role_map(self):
+        view = deepcopy(self.view)
+        view["known_roles"] = {"worker": {"role": "serial"}}
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "role_revealed", "loop": 1, "round": 1,
+             "character": "worker", "role": "serial"},
+        ]
+        evidence = PublicEvidence.from_view(view)
+        witnesses = FsbtxWitnessCompiler().compile(view)
+        solved = FactorizedBeliefState(capacity=1, seed=1).exact_role_map(
+            evidence, witnesses)
+        self.assertTrue(solved.ranked)
+        self.assertTrue(all(dict(world.roles).get("worker") == "serial"
+                            for world, _ in solved.ranked))
+
+    def test_real_ordinary_reveal_after_three_keeps_true_setup(self):
+        game = Game(example_scenario("BTX"))
+        game._change("student", "paranoia", 3)
+        game._reveal_role("student")
+        view = game.protagonist_team_view()
+        witnesses = FsbtxWitnessCompiler().compile(view)
+        self.assertTrue(any(
+            item.source == "public_ordinary_after_virus_threshold"
+            for item in witnesses))
+        true_world = HiddenWorldHypothesis.from_scenario(game.scenario)
+        self.assertTrue(FsbtxWitnessMatcher().matches(true_world, witnesses))
+
+        solved = FactorizedBeliefState(capacity=1, seed=1).exact_role_map(
+            PublicEvidence.from_view(view), witnesses)
+        self.assertTrue(solved.ranked)
+        self.assertTrue(all("virus" not in {world.main_plot, *world.subplots}
+                            for world, _ in solved.ranked))
+
     def test_catalog_match_keeps_virus_transformed_ordinary_world(self):
         library = ScenarioLibrary()
         scenario = library.get("official-btx-08-mirror-passcode")
