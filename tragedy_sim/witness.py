@@ -208,18 +208,19 @@ class RulesetWitnessCompiler:
             view: Mapping[str, Any]) -> list[PublicWitness]:
         """Restrict culprits using effects that must target their location."""
         effect_kinds = {
-            "murder": "character_died",
-            "butterfly": "counter_changed",
+            "murder": frozenset({"character_died", "death_prevented",
+                                  "guard_spent", "death_replaced"}),
+            "butterfly": frozenset({"counter_changed"}),
         }
         events = tuple(view.get("events", ()))
         result: list[PublicWitness] = []
         for index, event in enumerate(events):
             incident = str(event.get("incident"))
-            effect_kind = effect_kinds.get(incident)
+            allowed_effects = effect_kinds.get(incident)
             characters = event.get("characters")
             if (event.get("kind") != "incident_status"
                     or not bool(event.get("happened", False))
-                    or effect_kind is None
+                    or allowed_effects is None
                     or not isinstance(characters, Mapping)):
                 continue
             target = None
@@ -227,9 +228,14 @@ class RulesetWitnessCompiler:
                 kind = follow.get("kind")
                 if kind in {"incident_status", "incident_ended", "day_ended"}:
                     break
-                if kind != effect_kind:
+                if kind not in allowed_effects:
                     continue
-                candidate = follow.get("target")
+                if kind == "death_replaced":
+                    protected = follow.get("protected", ())
+                    candidate = (protected[0] if isinstance(protected, list)
+                                 and protected else None)
+                else:
+                    candidate = follow.get("target")
                 if isinstance(candidate, str) and candidate in characters:
                     target = candidate
                 break
@@ -330,6 +336,29 @@ class RulesetWitnessCompiler:
                     int(event.get("round", view.get("round", 1))),
                     str(event.get("timing", "action_resolution")),
                     "public_goodwill_forbid_ignored"))
+        return result
+
+    @staticmethod
+    def _hard_time_traveler_death_prevention(
+            view: Mapping[str, Any]) -> list[PublicWitness]:
+        """BTX's explicit death-prevention event identifies Time Traveler."""
+        if view.get("module") != "BTX":
+            return []
+        result: list[PublicWitness] = []
+        for event in view.get("events", ()):
+            if event.get("kind") != "death_prevented":
+                continue
+            target = event.get("target")
+            if not isinstance(target, str):
+                continue
+            subject = ("part_timer" if target == "part_timer_question"
+                       else target)
+            result.append(PublicWitness(
+                "role_is", subject, "time_traveler",
+                int(event.get("loop", view.get("loop", 1))),
+                int(event.get("round", view.get("round", 1))),
+                str(event.get("timing", "unknown")),
+                "public_time_traveler_death_prevention"))
         return result
 
     @staticmethod

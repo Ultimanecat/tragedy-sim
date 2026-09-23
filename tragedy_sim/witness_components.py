@@ -30,6 +30,10 @@ FS_KEY_DEATH = _component(
 GOODWILL_FORBID = _component(
     "btx.goodwill_forbid", "_hard_ignored_goodwill_forbids",
     "public_goodwill_forbid_ignored")
+TIME_TRAVELER_DEATH_PREVENTION = _component(
+    "btx.time_traveler_death_prevention",
+    "_hard_time_traveler_death_prevention",
+    "public_time_traveler_death_prevention")
 INTRIGUE_FORBID = _component(
     "common.intrigue_forbid", "_hard_ignored_intrigue_forbids",
     "public_intrigue_forbid_ignored")
@@ -107,6 +111,7 @@ RULESET_WITNESS_COMPONENTS = {
     ),
     "BTX": (
         GOODWILL_FORBID,
+        TIME_TRAVELER_DEATH_PREVENTION,
         INTRIGUE_FORBID,
         DAY_END_HERO_DEATH,
         BTX_IMMEDIATE_DEATH,

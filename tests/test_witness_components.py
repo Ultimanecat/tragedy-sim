@@ -36,9 +36,9 @@ class WitnessComponentRegistryTests(unittest.TestCase):
             ])
         self.assertEqual(
             [item.component_id for item in components_for("BTX")][:5], [
-                "btx.goodwill_forbid", "common.intrigue_forbid",
-                "common.day_end_hero_death", "btx.immediate_death_loss",
-                "common.accepted_goodwill",
+                "btx.goodwill_forbid", "btx.time_traveler_death_prevention",
+                "common.intrigue_forbid", "common.day_end_hero_death",
+                "btx.immediate_death_loss",
             ])
 
     def test_all_compiled_sources_are_declared_by_the_ruleset(self):

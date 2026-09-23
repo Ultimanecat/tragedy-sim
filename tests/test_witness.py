@@ -152,6 +152,51 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertTrue(any(dict(world.roles).get("worker") in forbidden
                             for world, _ in ablated))
 
+    def test_explicit_death_prevention_identifies_time_traveler(self):
+        view = deepcopy(self.view)
+        view["events"] = [{
+            "kind": "death_prevented", "loop": 2, "round": 4,
+            "timing": "incident", "target": "worker",
+        }]
+        source = "public_time_traveler_death_prevention"
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.source == source)
+        self.assertEqual((witness.kind, witness.subject, witness.value),
+                         ("role_is", "worker", "time_traveler"))
+
+        roles = dict(self.hypothesis.roles)
+        roles["worker"] = "time_traveler"
+        traveler = replace(
+            self.hypothesis, roles=tuple(sorted(roles.items())))
+        roles["worker"] = "factor"
+        factor = replace(self.hypothesis, roles=tuple(sorted(roles.items())))
+        matcher = FsbtxWitnessMatcher()
+        self.assertEqual(matcher.verdict(traveler, witness),
+                         WitnessVerdict.SATISFIED)
+        self.assertEqual(matcher.verdict(factor, witness),
+                         WitnessVerdict.CONTRADICTED)
+
+        disabled = FsbtxWitnessCompiler(
+            disabled_sources={source}).compile(view)
+        self.assertFalse(any(item.source == source for item in disabled))
+
+    def test_guard_or_servant_prevention_does_not_identify_time_traveler(self):
+        view = deepcopy(self.view)
+        source = "public_time_traveler_death_prevention"
+        view["events"] = [
+            {"kind": "guard_spent", "loop": 1, "round": 2,
+             "target": "worker"},
+            {"kind": "death_replaced", "loop": 1, "round": 2,
+             "servant": "servant", "protected": ["worker"]},
+        ]
+        self.assertFalse(any(item.source == source
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
+        view["module"] = "FS"
+        view["events"] = [{"kind": "death_prevented", "target": "worker"}]
+        self.assertFalse(any(item.source == source
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
     def test_successful_suicide_death_identifies_the_culprit(self):
         view = deepcopy(self.view)
         view["events"] = [
@@ -361,6 +406,52 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertFalse(any(item.source == source for item in
                              FsbtxWitnessCompiler(
                                  disabled_sources={source}).compile(view)))
+
+    def test_murder_location_uses_original_target_on_servant_replacement(self):
+        view = deepcopy(self.view)
+        characters = {
+            "rich": {"location": "city", "present": True, "alive": True},
+            "servant": {"location": "city", "present": True, "alive": True},
+            "doctor": {"location": "city", "present": True, "alive": True},
+            "girl": {"location": "school", "present": True, "alive": True},
+        }
+        view["events"] = [{
+            "kind": "incident_status", "loop": 1, "round": 2,
+            "incident": "murder", "happened": True,
+            "characters": characters,
+        }, {
+            "kind": "death_replaced", "loop": 1, "round": 2,
+            "servant": "servant", "protected": ["rich"],
+        }, {
+            "kind": "character_died", "loop": 1, "round": 2,
+            "target": "servant",
+        }]
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.source == "public_incident_effect_location")
+        self.assertEqual(witness.value, ("doctor", "servant"))
+
+    def test_prevented_murder_still_reveals_target_location(self):
+        view = deepcopy(self.view)
+        characters = {
+            "worker": {"location": "city", "present": True, "alive": True},
+            "doctor": {"location": "city", "present": True, "alive": True},
+            "girl": {"location": "school", "present": True, "alive": True},
+        }
+        base = {
+            "kind": "incident_status", "loop": 1, "round": 2,
+            "incident": "murder", "happened": True,
+            "characters": characters,
+        }
+        for prevented_kind in ("guard_spent", "death_prevented"):
+            with self.subTest(kind=prevented_kind):
+                view["events"] = [base, {
+                    "kind": prevented_kind, "loop": 1, "round": 2,
+                    "target": "worker",
+                }]
+                witness = next(
+                    item for item in FsbtxWitnessCompiler().compile(view)
+                    if item.source == "public_incident_effect_location")
+                self.assertEqual(witness.value, ("doctor",))
 
     def test_virus_role_reveal_does_not_rewrite_initial_identity(self):
         ordinary = next(cid for cid, role in self.hypothesis.roles
