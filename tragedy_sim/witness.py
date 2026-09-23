@@ -157,6 +157,101 @@ class FsbtxWitnessCompiler:
         return result
 
     @staticmethod
+    def _hard_direct_incident_culprits(
+            view: Mapping[str, Any]) -> list[PublicWitness]:
+        """Compile incident effects whose public target is the culprit itself.
+
+        Missing moves its culprit. Only a positive effect log is used: a
+        blocked move provides no negative identity information.
+        """
+        rules = {
+            "missing": ("character_moved", ("target", "character"),
+                        "public_missing_moved_culprit"),
+        }
+        events = tuple(view.get("events", ()))
+        result: list[PublicWitness] = []
+        for index, event in enumerate(events):
+            rule = rules.get(str(event.get("incident")))
+            if (event.get("kind") != "incident_status"
+                    or not bool(event.get("happened", False))
+                    or rule is None):
+                continue
+            effect_kind, target_fields, source = rule
+            culprit = None
+            for follow in events[index + 1:]:
+                kind = follow.get("kind")
+                if kind in {"incident_status", "incident_ended", "day_ended"}:
+                    break
+                if kind != effect_kind:
+                    continue
+                target = next((follow.get(field) for field in target_fields
+                               if isinstance(follow.get(field), str)), None)
+                if isinstance(target, str):
+                    culprit = ("part_timer" if target == "part_timer_question"
+                               else target)
+                break
+            if culprit is None:
+                continue
+            incident_day = int(event.get("round", view.get("round", 1)))
+            result.append(PublicWitness(
+                "culprit_is", str(incident_day), culprit,
+                int(event.get("loop", view.get("loop", 1))), incident_day,
+                "incident", source))
+        return result
+
+    @staticmethod
+    def _hard_incident_effect_locations(
+            view: Mapping[str, Any]) -> list[PublicWitness]:
+        """Restrict culprits using effects that must target their location."""
+        effect_kinds = {
+            "murder": "character_died",
+            "butterfly": "counter_changed",
+        }
+        events = tuple(view.get("events", ()))
+        result: list[PublicWitness] = []
+        for index, event in enumerate(events):
+            incident = str(event.get("incident"))
+            effect_kind = effect_kinds.get(incident)
+            characters = event.get("characters")
+            if (event.get("kind") != "incident_status"
+                    or not bool(event.get("happened", False))
+                    or effect_kind is None
+                    or not isinstance(characters, Mapping)):
+                continue
+            target = None
+            for follow in events[index + 1:]:
+                kind = follow.get("kind")
+                if kind in {"incident_status", "incident_ended", "day_ended"}:
+                    break
+                if kind != effect_kind:
+                    continue
+                candidate = follow.get("target")
+                if isinstance(candidate, str) and candidate in characters:
+                    target = candidate
+                break
+            target_state = characters.get(target) if target is not None else None
+            target_location = (target_state.get("location")
+                               if isinstance(target_state, Mapping) else None)
+            if not isinstance(target_location, str):
+                continue
+            candidates = tuple(sorted(
+                ("part_timer" if cid == "part_timer_question" else str(cid))
+                for cid, state in characters.items()
+                if isinstance(state, Mapping)
+                and state.get("location") == target_location
+                and bool(state.get("present", False))
+                and bool(state.get("alive", False))
+                and not (incident == "murder" and cid == target)))
+            if not candidates:
+                continue
+            incident_day = int(event.get("round", view.get("round", 1)))
+            result.append(PublicWitness(
+                "culprit_in", str(incident_day), candidates,
+                int(event.get("loop", view.get("loop", 1))), incident_day,
+                "incident", "public_incident_effect_location"))
+        return result
+
+    @staticmethod
     def _hard_fs_key_deaths(view: Mapping[str, Any]) -> list[PublicWitness]:
         """An immediate FS loss after one death certifies the Key Person.
 
@@ -696,6 +791,8 @@ class FsbtxWitnessCompiler:
         result.extend(self._hard_btx_immediate_death_losses(view))
         result.extend(self._hard_accepted_goodwill(view))
         result.extend(self._hard_suicide_victims(view))
+        result.extend(self._hard_direct_incident_culprits(view))
+        result.extend(self._hard_incident_effect_locations(view))
         for cid, fact in sorted(view.get("known_roles", {}).items()):
             role = fact.get("role") if isinstance(fact, Mapping) else None
             if isinstance(role, str):
@@ -746,6 +843,7 @@ class FsbtxWitnessCompiler:
             if observed_characters is None and incident_day == day:
                 observed_characters = {
                     cid: {
+                        "location": character.get("location"),
                         "paranoia": int(character.get("paranoia", 0)),
                         "goodwill": int(character.get("goodwill", 0)),
                         "intrigue": int(character.get("intrigue", 0)),
@@ -812,6 +910,13 @@ class FsbtxWitnessMatcher:
             if incident is None:
                 return WitnessVerdict.CONTRADICTED
             return (WitnessVerdict.SATISFIED if incident[3] == witness.value
+                    else WitnessVerdict.CONTRADICTED)
+        if witness.kind == "culprit_in":
+            incident = self._incident(hypothesis, int(witness.subject))
+            if incident is None:
+                return WitnessVerdict.CONTRADICTED
+            return (WitnessVerdict.SATISFIED
+                    if incident[3] in set(witness.value)
                     else WitnessVerdict.CONTRADICTED)
         if witness.kind == "plot_present":
             plots = {hypothesis.main_plot, *hypothesis.subplots}

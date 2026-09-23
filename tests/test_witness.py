@@ -239,6 +239,129 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertEqual(belief._culprits(evidence, enabled)[3], ("doctor",))
         self.assertGreater(len(belief._culprits(evidence, ablated)[3]), 1)
 
+    def test_missing_move_identifies_the_culprit(self):
+        view = deepcopy(self.view)
+        view["schedule"] = [{"day": 2, "kind": "missing"}]
+        view["events"] = [
+            {"kind": "incident_status", "loop": 1, "round": 2,
+             "incident": "missing", "happened": True},
+            {"kind": "character_moved", "loop": 1, "round": 2,
+             "target": "worker", "location": "city"},
+            {"kind": "counter_changed", "loop": 1, "round": 2,
+             "target": "city", "counter": "intrigue", "after": 1},
+            {"kind": "incident_ended", "loop": 1, "round": 2},
+        ]
+        witnesses = FsbtxWitnessCompiler().compile(view)
+        direct = next(item for item in witnesses
+                      if item.source == "public_missing_moved_culprit")
+        self.assertEqual(
+            (direct.subject, direct.value),
+            ("2", "worker"))
+
+        evidence = PublicEvidence.from_view(view)
+        belief = FactorizedBeliefState(capacity=64, seed=1)
+        culprits = belief._culprits(evidence, witnesses)
+        self.assertEqual(culprits[2], ("worker",))
+
+    def test_blocked_missing_move_makes_no_culprit_claim(self):
+        source = "public_missing_moved_culprit"
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "incident_status", "loop": 1, "round": 2,
+             "incident": "missing", "happened": True},
+            {"kind": "movement_blocked", "loop": 1, "round": 2},
+            {"kind": "incident_ended", "loop": 1, "round": 2,
+             "effective": False},
+        ]
+        self.assertFalse(any(item.source == source
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
+    def test_missing_culprit_source_maps_replacement_and_is_ablatable(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "incident_status", "loop": 1, "round": 2,
+             "incident": "missing", "happened": True},
+            {"kind": "character_moved", "loop": 1, "round": 2,
+             "character": "part_timer_question"},
+            {"kind": "incident_ended", "loop": 1, "round": 2},
+        ]
+        missing = "public_missing_moved_culprit"
+        witnesses = FsbtxWitnessCompiler(
+            disabled_sources={missing}).compile(view)
+        self.assertFalse(any(item.source == missing for item in witnesses))
+        self.assertEqual(next(item.value for item in
+                              FsbtxWitnessCompiler().compile(view)
+                              if item.source == missing), "part_timer")
+
+    def test_murder_and_butterfly_targets_restrict_culprit_location(self):
+        view = deepcopy(self.view)
+        characters = {
+            cid: {
+                "location": ("school" if cid in {"girl", "doctor"}
+                             else "city"),
+                "paranoia": CHARACTERS[cid].limit, "goodwill": 0,
+                "intrigue": 0, "guard": 0,
+                "present": True, "alive": True,
+            }
+            for cid in view["characters"]
+        }
+        view["schedule"] = [
+            {"day": 2, "kind": "murder"},
+            {"day": 3, "kind": "butterfly"},
+        ]
+        view["events"] = [
+            {"kind": "incident_status", "loop": 1, "round": 2,
+             "incident": "murder", "happened": True,
+             "characters": characters},
+            {"kind": "character_died", "loop": 1, "round": 2,
+             "target": "girl"},
+            {"kind": "incident_ended", "loop": 1, "round": 2},
+            {"kind": "incident_status", "loop": 1, "round": 3,
+             "incident": "butterfly", "happened": True,
+             "characters": characters},
+            {"kind": "counter_changed", "loop": 1, "round": 3,
+             "target": "girl", "counter": "goodwill", "after": 1},
+            {"kind": "incident_ended", "loop": 1, "round": 3},
+        ]
+        source = "public_incident_effect_location"
+        witnesses = [item for item in FsbtxWitnessCompiler().compile(view)
+                     if item.source == source]
+        self.assertEqual([(item.subject, item.value) for item in witnesses], [
+            ("2", ("doctor",)),
+            ("3", ("doctor", "girl")),
+        ])
+
+        evidence = PublicEvidence.from_view(view)
+        culprits = FactorizedBeliefState(capacity=64, seed=1)._culprits(
+            evidence, FsbtxWitnessCompiler().compile(view))
+        self.assertEqual(culprits[2], ("doctor",))
+        self.assertEqual(culprits[3], ("doctor", "girl"))
+
+    def test_incident_location_witness_requires_snapshot_and_is_ablatable(self):
+        view = deepcopy(self.view)
+        view["events"] = [{
+            "kind": "incident_status", "loop": 1, "round": 2,
+            "incident": "murder", "happened": True,
+            "characters": {
+                "girl": {"present": True, "alive": True},
+                "doctor": {"present": True, "alive": True},
+            },
+        }, {
+            "kind": "character_died", "loop": 1, "round": 2,
+            "target": "girl",
+        }]
+        source = "public_incident_effect_location"
+        self.assertFalse(any(item.source == source
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
+        view["events"][0]["characters"]["girl"]["location"] = "school"
+        view["events"][0]["characters"]["doctor"]["location"] = "school"
+        self.assertTrue(any(item.source == source
+                            for item in FsbtxWitnessCompiler().compile(view)))
+        self.assertFalse(any(item.source == source for item in
+                             FsbtxWitnessCompiler(
+                                 disabled_sources={source}).compile(view)))
+
     def test_virus_role_reveal_does_not_rewrite_initial_identity(self):
         ordinary = next(cid for cid, role in self.hypothesis.roles
                         if role == "ordinary")
@@ -453,8 +576,11 @@ class FsbtxWitnessTests(unittest.TestCase):
                      if item["kind"] == "incident_status")
         observed = event["characters"][culprit]
         self.assertEqual(set(observed), {
-            "paranoia", "goodwill", "intrigue", "guard", "present", "alive",
+            "location", "paranoia", "goodwill", "intrigue", "guard",
+            "present", "alive",
         })
+        self.assertEqual(observed["location"],
+                         game.state.characters[culprit].location)
         self.assertEqual(observed["paranoia"], CHARACTERS[culprit].limit)
 
     def test_nonoccurrence_is_not_an_unsafe_negative_identity_inference(self):

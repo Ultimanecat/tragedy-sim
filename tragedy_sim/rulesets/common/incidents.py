@@ -8,6 +8,7 @@ def _public_incident_characters(game):
     """Freeze the public threshold state at the instant an incident is checked."""
     return {
         cid: {
+            'location': character.location,
             'paranoia': character.paranoia,
             'goodwill': character.goodwill,
             'intrigue': character.intrigue,

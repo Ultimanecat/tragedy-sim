@@ -673,7 +673,8 @@ class FactorizedBeliefState:
         result: dict[int, tuple[str, ...]] = {}
         for day, public_kind in evidence.schedule:
             day_witnesses = tuple(w for w in witnesses if w.kind in {
-                "culprit_is", "incident_happened", "incident_not_happened"}
+                "culprit_is", "culprit_in", "incident_happened",
+                "incident_not_happened"}
                 and int(w.subject) == day)
             candidates = []
             for cid in evidence.characters:
@@ -1030,7 +1031,8 @@ class FactorizedBeliefState:
         roles = tuple(world for world, _ in ranked_roles)
         weights = [weight for _, weight in ranked_roles]
         culprit_witnesses = tuple(w for w in witnesses if w.kind in {
-            "culprit_is", "incident_happened", "incident_not_happened"})
+            "culprit_is", "culprit_in", "incident_happened",
+            "incident_not_happened"})
         culprit_weights = {
             day: [2.0 ** matcher.soft_score(HiddenWorldHypothesis(
                 "belief-culprit", "", (), (),
