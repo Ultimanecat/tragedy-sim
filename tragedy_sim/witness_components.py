@@ -13,6 +13,7 @@ from typing import Any, Callable, Mapping
 
 from .witness_rules.btx_immediate_death import compile_immediate_death_losses
 from .witness_rules.btx_love import compile_love_death_reactions
+from .witness_rules.btx_mandatory_serial import compile_mandatory_serial_routes
 from .witness_rules.btx_threads import compile_threads_at_loop_start
 from .witness_rules.btx_time_traveler import (
     compile_death_prevention, compile_ignored_goodwill_forbids)
@@ -71,6 +72,9 @@ THREADS_LOOP_START = _component(
 LOVE_DEATH_REACTION = _component(
     "btx.love_death_reaction", compile_love_death_reactions,
     "public_love_death_reaction")
+BTX_MANDATORY_SERIAL = _component(
+    "btx.mandatory_serial", compile_mandatory_serial_routes,
+    "public_btx_mandatory_serial_route")
 MASTERMIND_COUNTER_SOURCES = _component(
     "common.mastermind_counter_sources", compile_mastermind_counter_sources,
     "public_mastermind_intrigue_source",
@@ -174,6 +178,7 @@ RULESET_WITNESS_COMPONENTS = {
         VIRUS_REVEAL_THRESHOLDS,
         THREADS_LOOP_START,
         LOVE_DEATH_REACTION,
+        BTX_MANDATORY_SERIAL,
         INTRIGUE_FORBID,
         DAY_END_HERO_DEATH,
         BTX_IMMEDIATE_DEATH,

@@ -719,7 +719,7 @@ class FactorizedBeliefState:
             "day_end_death_companion", "joint_plot_role_pressure",
             "role_pressure", "day_end_killer_candidate", "loss_after_death",
             "loop_end_plot_explanation", "role_route_pressure",
-            "mastermind_ability_route"})
+            "mastermind_ability_route", "mandatory_serial_route"})
 
     @staticmethod
     def _assignment_count(characters: tuple[str, ...],
@@ -823,6 +823,13 @@ class FactorizedBeliefState:
             return tuple({str(cid): str(role)}
                          for role, candidates in value.get("roles", {}).items()
                          for cid in candidates)
+        if witness.kind == "mandatory_serial_route":
+            routes = [{str(cid): "serial"}
+                      for cid in value.get("serial", ())]
+            if "virus" in {main, *plots}:
+                routes.extend({str(cid): "ordinary"}
+                              for cid in value.get("virus_ordinary", ()))
+            return tuple(routes)
         if witness.kind == "joint_plot_role_pressure":
             if main != witness.subject:
                 return ({},)
@@ -984,7 +991,8 @@ class FactorizedBeliefState:
                 sort_keys=True, ensure_ascii=False, default=str): witness
                 for witness in role_witnesses
                 if witness.strength == WitnessStrength.HARD
-                and witness.kind == "mastermind_ability_route"}
+                and witness.kind in {"mastermind_ability_route",
+                                     "mandatory_serial_route"}}
             realization_groups = tuple(
                 self._soft_realizations(witness, main, plots)
                 for witness in (*unique_soft.values(), *hard_routes.values()))

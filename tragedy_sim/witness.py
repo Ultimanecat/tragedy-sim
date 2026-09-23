@@ -176,6 +176,19 @@ class FsbtxWitnessMatcher:
                                  else cid) == role for cid in candidates):
                     return WitnessVerdict.SATISFIED
             return WitnessVerdict.CONTRADICTED
+        if witness.kind == "mandatory_serial_route":
+            value = witness.value
+            if any(roles.get("part_timer" if cid == "part_timer_question"
+                             else cid) == "serial"
+                   for cid in value.get("serial", ())):
+                return WitnessVerdict.SATISFIED
+            plots = {hypothesis.main_plot, *hypothesis.subplots}
+            if ("virus" in plots and any(
+                    roles.get("part_timer" if cid == "part_timer_question"
+                              else cid) == "ordinary"
+                    for cid in value.get("virus_ordinary", ()))):
+                return WitnessVerdict.SATISFIED
+            return WitnessVerdict.CONTRADICTED
         if witness.kind == "loop_end_plot_explanation":
             value = witness.value
             boards = value.get("location_intrigue", {})

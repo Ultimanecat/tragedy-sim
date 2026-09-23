@@ -547,6 +547,10 @@ class Game(ActionGame):
             if (self._timing_window is not None
                     and self._timing_window.stage == WindowStage.RESOLVING_MANDATORY):
                 self._timing_window.finish_mandatory()
+                if self._timing_window.context.timing == TimingId.DAY_END:
+                    self._event("mandatory_window_resolved",
+                                "日末强制能力已全部结算；现在可以选择可选能力。",
+                                timing=TimingId.DAY_END)
 
     def _incident(self):
         return self.ruleset.operations['_incident'](self)
