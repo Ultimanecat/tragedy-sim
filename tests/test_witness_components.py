@@ -4,6 +4,9 @@ from tragedy_sim.game import Game
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.witness import (FsbtxWitnessCompiler,
                                  RulesetWitnessCompiler)
+from tragedy_sim.witness_rules.common_public import (
+    compile_goodwill_refusals, compile_incident_status,
+    compile_public_reveals)
 from tragedy_sim.witness_components import (RULESET_WITNESS_COMPONENTS,
                                              components_for,
                                              registered_sources)
@@ -67,6 +70,40 @@ class WitnessComponentRegistryTests(unittest.TestCase):
         disabled = FsbtxWitnessCompiler(disabled_components={
             "common.direct_incident_culprit"}).compile(view)
         self.assertFalse(any(item.source == source for item in disabled))
+
+    def test_shared_components_compile_directly_in_both_rulesets(self):
+        for module in ("FS", "BTX"):
+            view = Game(example_scenario(module)).view("a")
+            view["known_roles"] = {"student": {"role": "ordinary"}}
+            view["known_culprits"] = {"2": "student"}
+            view["events"] = [
+                {"kind": "goodwill_refused", "source": "student",
+                 "loop": 1, "round": 1},
+                {"kind": "incident_status", "incident": "suicide",
+                 "happened": False, "loop": 1, "round": 1},
+            ]
+            direct = [*compile_public_reveals(view),
+                      *compile_goodwill_refusals(view),
+                      *compile_incident_status(view)]
+            source_set = {item.source for item in direct}
+            via_registry = [
+                item for item in RulesetWitnessCompiler().compile(view)
+                if item.source in source_set]
+            self.assertEqual(direct, via_registry)
+            self.assertEqual(len(direct), 4)
+
+    def test_migrated_components_are_standalone_callables(self):
+        migrated = {
+            "fs.key_death", "btx.goodwill_forbid",
+            "btx.time_traveler_death_prevention",
+            "btx.virus_reveal_thresholds", "common.public_reveals",
+            "common.goodwill_refusal", "common.incident_status",
+        }
+        by_id = {component.component_id: component
+                 for module in ("FS", "BTX")
+                 for component in components_for(module)}
+        self.assertTrue(all(callable(by_id[component_id].method)
+                            for component_id in migrated))
 
     def test_registry_has_no_duplicate_component_ids_per_ruleset(self):
         for module, components in RULESET_WITNESS_COMPONENTS.items():

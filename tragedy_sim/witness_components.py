@@ -11,7 +11,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
+from .witness_rules.btx_time_traveler import (
+    compile_death_prevention, compile_ignored_goodwill_forbids)
 from .witness_rules.btx_virus import compile_virus_reveal_thresholds
+from .witness_rules.common_public import (compile_goodwill_refusals,
+                                          compile_incident_status,
+                                          compile_public_reveals)
+from .witness_rules.fs_key_death import compile_key_deaths
 from .witness_types import PublicWitness
 
 
@@ -33,13 +39,13 @@ def _component(component_id: str, method: str | WitnessCompiler, *sources: str
 
 
 FS_KEY_DEATH = _component(
-    "fs.key_death", "_hard_fs_key_deaths", "immediate_fs_death_loss")
+    "fs.key_death", compile_key_deaths, "immediate_fs_death_loss")
 GOODWILL_FORBID = _component(
-    "btx.goodwill_forbid", "_hard_ignored_goodwill_forbids",
+    "btx.goodwill_forbid", compile_ignored_goodwill_forbids,
     "public_goodwill_forbid_ignored")
 TIME_TRAVELER_DEATH_PREVENTION = _component(
     "btx.time_traveler_death_prevention",
-    "_hard_time_traveler_death_prevention",
+    compile_death_prevention,
     "public_time_traveler_death_prevention")
 VIRUS_REVEAL_THRESHOLDS = _component(
     "btx.virus_reveal_thresholds", compile_virus_reveal_thresholds,
@@ -67,13 +73,13 @@ INCIDENT_EFFECT_LOCATION = _component(
     "common.incident_effect_location", "_hard_incident_effect_locations",
     "public_incident_effect_location")
 PUBLIC_REVEALS = _component(
-    "common.public_reveals", "_public_reveals",
+    "common.public_reveals", compile_public_reveals,
     "public_role_reveal", "public_culprit_reveal", "public_plot_reveal")
 GOODWILL_REFUSAL = _component(
-    "common.goodwill_refusal", "_goodwill_refusals",
+    "common.goodwill_refusal", compile_goodwill_refusals,
     "public_goodwill_refusal")
 INCIDENT_STATUS = _component(
-    "common.incident_status", "_incident_status_witnesses",
+    "common.incident_status", compile_incident_status,
     "public_incident_status")
 DEATH_CLUES = _component(
     "common.death_clues", "_soft_death_witnesses",
