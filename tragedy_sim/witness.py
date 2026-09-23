@@ -343,6 +343,57 @@ class FsbtxWitnessCompiler:
         return result
 
     @staticmethod
+    def _hard_btx_immediate_death_losses(
+            view: Mapping[str, Any]) -> list[PublicWitness]:
+        """A BTX loss immediately following deaths proves a Key ability."""
+        if view.get("module") != "BTX":
+            return []
+        events = view.get("events", ())
+        city_intrigue = 0
+        result: list[PublicWitness] = []
+        for index, event in enumerate(events):
+            if event.get("kind") == "loop_started":
+                city_intrigue = 0
+                continue
+            if (event.get("kind") == "counter_changed"
+                    and event.get("target") == "city"
+                    and event.get("counter") == "intrigue"
+                    and isinstance(event.get("after"), int)):
+                city_intrigue = event["after"]
+                continue
+            if event.get("kind") != "loop_lost":
+                continue
+            victims: list[str] = []
+            cursor = index - 1
+            while cursor >= 0:
+                previous = events[cursor]
+                if (previous.get("loop") != event.get("loop")
+                        or previous.get("round") != event.get("round")):
+                    break
+                kind = previous.get("kind")
+                if kind == "character_died":
+                    target = previous.get("target")
+                    if isinstance(target, str):
+                        victims.append(target)
+                elif kind not in {"incident_ended", "role_revealed"}:
+                    break
+                cursor -= 1
+            if not victims:
+                continue
+            routes: dict[str, tuple[str, ...]] = {
+                "key": tuple(sorted(set(victims))),
+            }
+            if city_intrigue >= 2:
+                routes["factor"] = tuple(sorted(set(victims)))
+            result.append(PublicWitness(
+                "role_route_pressure", "immediate_death_loss", routes,
+                int(event.get("loop", view.get("loop", 1))),
+                int(event.get("round", view.get("round", 1))),
+                str(event.get("timing", "loop_end")),
+                "public_btx_immediate_death_loss"))
+        return result
+
+    @staticmethod
     def _soft_death_witnesses(view: Mapping[str, Any]) -> list[PublicWitness]:
         """Reconstruct death clues from the public journal.
 
@@ -603,6 +654,7 @@ class FsbtxWitnessCompiler:
         result.extend(self._hard_ignored_goodwill_forbids(view))
         result.extend(self._hard_ignored_intrigue_forbids(view))
         result.extend(self._hard_day_end_hero_deaths(view))
+        result.extend(self._hard_btx_immediate_death_losses(view))
         result.extend(self._hard_accepted_goodwill(view))
         for cid, fact in sorted(view.get("known_roles", {}).items()):
             role = fact.get("role") if isinstance(fact, Mapping) else None

@@ -708,6 +708,51 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertFalse(any(item.source == source
                              for item in FsbtxWitnessCompiler().compile(view)))
 
+    def test_btx_immediate_death_loss_requires_key_ability(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "loop_started", "loop": 1, "round": 1},
+            {"kind": "counter_changed", "loop": 1, "round": 1,
+             "target": "city", "counter": "intrigue", "after": 2},
+            {"kind": "character_died", "loop": 1, "round": 1,
+             "target": "girl", "timing": "day_end"},
+            {"kind": "character_died", "loop": 1, "round": 1,
+             "target": "student", "timing": "day_end"},
+            {"kind": "incident_ended", "loop": 1, "round": 1},
+            {"kind": "loop_lost", "loop": 1, "round": 1,
+             "timing": "loop_end"},
+        ]
+        source = "public_btx_immediate_death_loss"
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.source == source)
+        expected = ("girl", "student")
+        self.assertEqual(witness.value,
+                         {"key": expected, "factor": expected})
+        matcher = FsbtxWitnessMatcher()
+        roles = dict(self.hypothesis.roles)
+        roles["girl"] = "ordinary"
+        roles["student"] = "factor"
+        factor = replace(self.hypothesis,
+                         roles=tuple(sorted(roles.items())))
+        self.assertEqual(matcher.verdict(factor, witness),
+                         WitnessVerdict.SATISFIED)
+        roles["student"] = "ordinary"
+        wrong = replace(self.hypothesis,
+                        roles=tuple(sorted(roles.items())))
+        self.assertEqual(matcher.verdict(wrong, witness),
+                         WitnessVerdict.CONTRADICTED)
+
+        disabled = FsbtxWitnessCompiler(
+            disabled_sources={source}).compile(view)
+        self.assertFalse(any(item.source == source for item in disabled))
+
+        # A normal day boundary means the later loop loss may be a plot or
+        # Friend route rather than an immediate Key death.
+        view["events"].insert(-1, {
+            "kind": "day_ended", "loop": 1, "round": 1})
+        self.assertFalse(any(item.source == source
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
     def test_part_timer_replacement_uses_visible_replacement_threshold(self):
         scenario = example_scenario("BTX")
         scenario["cast"].pop(next(iter(scenario["cast"])))
@@ -812,7 +857,10 @@ class FsbtxWitnessTests(unittest.TestCase):
                 {"kind": "loop_lost", "loop": loop, "round": 1,
                  "timing": "loop_end"},
             ])
-        witnesses = FsbtxWitnessCompiler().compile(view)
+        # Isolate the older soft repetition channel by ablating the newer,
+        # logically stronger immediate-loss constraint in this test.
+        witnesses = FsbtxWitnessCompiler(disabled_sources={
+            "public_btx_immediate_death_loss"}).compile(view)
         soft = [item for item in witnesses
                 if item.strength == WitnessStrength.SOFT]
         self.assertTrue(soft)
