@@ -38,6 +38,26 @@ class JointMastermindTests(unittest.TestCase):
             world = world.search_transition(choice.command)
         self.assertEqual(world.state.phase, "protagonists")
 
+    def test_btx_three_card_plan_stays_legal_and_nonmutating(self):
+        game = Game(ScenarioLibrary().get(
+            "official-btx-09-those-with-antibodies"))
+        game = game.search_transition(game.search_actions("m")[0])
+        before = game.state_key("m")
+        agent = JointPlanMastermindAgent(
+            SearchBudget(node_limit=4, rollout_depth=6, seed=3),
+            reply_nodes=4)
+        self.assertTrue(agent._placement_phase(game))
+        world = game
+        for index in range(3):
+            choice = agent.search(world)
+            self.assertIn(choice, world.action_offers("m"))
+            if index:
+                self.assertEqual(agent.last_trace.stop_reason,
+                                 "joint_plan_followup")
+            world = world.search_transition(choice.command)
+        self.assertEqual(world.state.phase, "protagonists")
+        self.assertEqual(game.state_key("m"), before)
+
 
 if __name__ == "__main__":
     unittest.main()

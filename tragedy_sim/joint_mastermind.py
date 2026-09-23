@@ -44,7 +44,7 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
 
     @staticmethod
     def _placement_phase(game: SearchGame) -> bool:
-        return (game.scenario.get("module") == "FS"
+        return (game.scenario.get("module") in {"FS", "BTX"}
                 and game.state.phase == "mastermind"
                 and any(action.get("action") == "play"
                         for action in game.search_actions("m")))

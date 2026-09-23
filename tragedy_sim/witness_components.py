@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
 from .witness_rules.btx_immediate_death import compile_immediate_death_losses
+from .witness_rules.btx_love import compile_love_death_reactions
 from .witness_rules.btx_threads import compile_threads_at_loop_start
 from .witness_rules.btx_time_traveler import (
     compile_death_prevention, compile_ignored_goodwill_forbids)
@@ -65,6 +66,9 @@ VIRUS_REVEAL_THRESHOLDS = _component(
 THREADS_LOOP_START = _component(
     "btx.threads_loop_start", compile_threads_at_loop_start,
     "public_threads_loop_start_paranoia")
+LOVE_DEATH_REACTION = _component(
+    "btx.love_death_reaction", compile_love_death_reactions,
+    "public_love_death_reaction")
 INTRIGUE_FORBID = _component(
     "common.intrigue_forbid", compile_ignored_intrigue_forbids,
     "public_intrigue_forbid_ignored")
@@ -160,6 +164,7 @@ RULESET_WITNESS_COMPONENTS = {
         TIME_TRAVELER_DEATH_PREVENTION,
         VIRUS_REVEAL_THRESHOLDS,
         THREADS_LOOP_START,
+        LOVE_DEATH_REACTION,
         INTRIGUE_FORBID,
         DAY_END_HERO_DEATH,
         BTX_IMMEDIATE_DEATH,

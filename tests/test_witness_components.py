@@ -43,9 +43,10 @@ class WitnessComponentRegistryTests(unittest.TestCase):
                 "common.death_clues", "common.loop_end_clues",
             ])
         self.assertEqual(
-            [item.component_id for item in components_for("BTX")][:7], [
+            [item.component_id for item in components_for("BTX")][:8], [
                 "btx.goodwill_forbid", "btx.time_traveler_death_prevention",
                 "btx.virus_reveal_thresholds", "btx.threads_loop_start",
+                "btx.love_death_reaction",
                 "common.intrigue_forbid", "common.day_end_hero_death",
                 "btx.immediate_death_loss",
             ])

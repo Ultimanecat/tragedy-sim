@@ -339,8 +339,9 @@ class RoomService:
                                                      "particle_ensemble_protagonist"}
                     and room.module not in {"FS", "BTX"}):
                 raise ServiceError("INVALID_AI_STRATEGY", "该主人公 AI 目前只支持 FS/BTX", status=409)
-            if request["enabled"] and strategy == "joint_mastermind" and room.module != "FS":
-                raise ServiceError("INVALID_AI_STRATEGY", "三牌联合剧作家 AI 目前只支持 FS", status=409)
+            if (request["enabled"] and strategy == "joint_mastermind"
+                    and room.module not in {"FS", "BTX"}):
+                raise ServiceError("INVALID_AI_STRATEGY", "三牌联合剧作家 AI 目前只支持 FS/BTX", status=409)
             required = ("m", *SEATS[1:1 + room.protagonist_count])
             if seat not in required:
                 raise ServiceError("SEAT_UNAVAILABLE", "该人数模式没有这个参与者席位", status=409)

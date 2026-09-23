@@ -77,6 +77,6 @@
 
 ## 代码入口
 
-- 策略入口：[公开信息策略](../tragedy_sim/ai.py)、[朴素 MCTS](../tragedy_sim/mcts.py)、[优化 MCTS](../tragedy_sim/optimized_mcts.py)、[策略 MCTS](../tragedy_sim/strategic_mcts.py)、[FS 三牌联合搜索](../tragedy_sim/joint_mastermind.py)、[主人公 ISMCTS](../tragedy_sim/ismcts.py)、[已知剧本诊断基线](../tragedy_sim/oracle_protagonist.py)。
+- 策略入口：[公开信息策略](../tragedy_sim/ai.py)、[朴素 MCTS](../tragedy_sim/mcts.py)、[优化 MCTS](../tragedy_sim/optimized_mcts.py)、[策略 MCTS](../tragedy_sim/strategic_mcts.py)、[FS/BTX 三牌联合搜索](../tragedy_sim/joint_mastermind.py)、[主人公 ISMCTS](../tragedy_sim/ismcts.py)、[已知剧本诊断基线](../tragedy_sim/oracle_protagonist.py)。
 - 信念与估值：[隐藏世界采样](../tragedy_sim/belief.py)、[公开 witness](../tragedy_sim/witness.py)、[剧本条件化估值](../tragedy_sim/evaluation.py)。
 - 复现入口：[自对弈脚本](../benchmarks/ai_self_play.py)。例：`python -m benchmarks.ai_self_play --scenario official-fs-01-first-script --games 5 --seed 0 --nodes 24 --depth 12 --protagonist-nodes 96 --protagonist-depth 16 --strategy strategic --protagonists ismcts_survival --progress`。
