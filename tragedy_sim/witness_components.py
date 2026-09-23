@@ -25,6 +25,8 @@ from .witness_rules.common_incidents import (
     compile_suicide_prevented_targets, compile_suicide_victims)
 from .witness_rules.common_intrigue import compile_ignored_intrigue_forbids
 from .witness_rules.common_loop_end import compile_loop_end_clues
+from .witness_rules.common_mastermind_abilities import (
+    compile_mastermind_counter_sources)
 from .witness_rules.common_public import (compile_accepted_goodwill,
                                           compile_goodwill_refusals,
                                           compile_incident_status,
@@ -69,6 +71,10 @@ THREADS_LOOP_START = _component(
 LOVE_DEATH_REACTION = _component(
     "btx.love_death_reaction", compile_love_death_reactions,
     "public_love_death_reaction")
+MASTERMIND_COUNTER_SOURCES = _component(
+    "common.mastermind_counter_sources", compile_mastermind_counter_sources,
+    "public_mastermind_intrigue_source",
+    "public_mastermind_paranoia_source")
 INTRIGUE_FORBID = _component(
     "common.intrigue_forbid", compile_ignored_intrigue_forbids,
     "public_intrigue_forbid_ignored")
@@ -123,6 +129,7 @@ LOOP_END_CLUES = _component(
 
 
 COMMON_COMPONENTS = (
+    MASTERMIND_COUNTER_SOURCES,
     INTRIGUE_FORBID,
     DAY_END_HERO_DEATH,
     ACCEPTED_GOODWILL,
@@ -144,6 +151,7 @@ COMMON_COMPONENTS = (
 RULESET_WITNESS_COMPONENTS = {
     "FS": (
         FS_KEY_DEATH,
+        MASTERMIND_COUNTER_SOURCES,
         INTRIGUE_FORBID,
         DAY_END_HERO_DEATH,
         ACCEPTED_GOODWILL,
@@ -160,6 +168,7 @@ RULESET_WITNESS_COMPONENTS = {
         LOOP_END_CLUES,
     ),
     "BTX": (
+        MASTERMIND_COUNTER_SOURCES,
         GOODWILL_FORBID,
         TIME_TRAVELER_DEATH_PREVENTION,
         VIRUS_REVEAL_THRESHOLDS,

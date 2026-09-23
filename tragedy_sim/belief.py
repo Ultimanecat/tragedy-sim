@@ -718,7 +718,8 @@ class FactorizedBeliefState:
             "plot_not_present", "plot_pressure",
             "day_end_death_companion", "joint_plot_role_pressure",
             "role_pressure", "day_end_killer_candidate", "loss_after_death",
-            "loop_end_plot_explanation", "role_route_pressure"})
+            "loop_end_plot_explanation", "role_route_pressure",
+            "mastermind_ability_route"})
 
     @staticmethod
     def _assignment_count(characters: tuple[str, ...],
@@ -816,6 +817,12 @@ class FactorizedBeliefState:
                            plots: Sequence[str]) -> tuple[dict[str, str], ...]:
         """Small constructive alternatives that can satisfy one soft factor."""
         value = witness.value
+        if witness.kind == "mastermind_ability_route":
+            if set(value.get("plots", ())) & {main, *plots}:
+                return ({},)
+            return tuple({str(cid): str(role)}
+                         for role, candidates in value.get("roles", {}).items()
+                         for cid in candidates)
         if witness.kind == "joint_plot_role_pressure":
             if main != witness.subject:
                 return ({},)
@@ -972,9 +979,15 @@ class FactorizedBeliefState:
                 unconstrained_size //= factorial(amount)
             unconstrained_size *= len(irregular_options)
 
+            hard_routes = {json.dumps(
+                [witness.kind, witness.subject, witness.value],
+                sort_keys=True, ensure_ascii=False, default=str): witness
+                for witness in role_witnesses
+                if witness.strength == WitnessStrength.HARD
+                and witness.kind == "mastermind_ability_route"}
             realization_groups = tuple(
                 self._soft_realizations(witness, main, plots)
-                for witness in unique_soft.values())
+                for witness in (*unique_soft.values(), *hard_routes.values()))
             seen_roles: set[tuple[tuple[str, str], ...]] = set()
 
             def propose(index: int, fixed: dict[str, str]) -> None:

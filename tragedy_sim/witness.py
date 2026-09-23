@@ -166,6 +166,16 @@ class FsbtxWitnessMatcher:
             return (WitnessVerdict.CONTRADICTED
                     if witness.strength == WitnessStrength.HARD
                     else WitnessVerdict.UNKNOWN)
+        if witness.kind == "mastermind_ability_route":
+            value = witness.value
+            plots = {hypothesis.main_plot, *hypothesis.subplots}
+            if plots.intersection(value.get("plots", ())):
+                return WitnessVerdict.SATISFIED
+            for role, candidates in value.get("roles", {}).items():
+                if any(roles.get("part_timer" if cid == "part_timer_question"
+                                 else cid) == role for cid in candidates):
+                    return WitnessVerdict.SATISFIED
+            return WitnessVerdict.CONTRADICTED
         if witness.kind == "loop_end_plot_explanation":
             value = witness.value
             boards = value.get("location_intrigue", {})

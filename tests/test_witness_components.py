@@ -33,7 +33,8 @@ class WitnessComponentRegistryTests(unittest.TestCase):
     def test_component_order_preserves_legacy_fs_and_btx_order(self):
         self.assertEqual(
             [item.component_id for item in components_for("FS")], [
-                "fs.key_death", "common.intrigue_forbid",
+                "fs.key_death", "common.mastermind_counter_sources",
+                "common.intrigue_forbid",
                 "common.day_end_hero_death", "common.accepted_goodwill",
                 "common.suicide_victim", "common.suicide_prevented",
                 "common.guru_incident", "common.effective_incident",
@@ -43,7 +44,8 @@ class WitnessComponentRegistryTests(unittest.TestCase):
                 "common.death_clues", "common.loop_end_clues",
             ])
         self.assertEqual(
-            [item.component_id for item in components_for("BTX")][:8], [
+            [item.component_id for item in components_for("BTX")][:9], [
+                "common.mastermind_counter_sources",
                 "btx.goodwill_forbid", "btx.time_traveler_death_prevention",
                 "btx.virus_reveal_thresholds", "btx.threads_loop_start",
                 "btx.love_death_reaction",
