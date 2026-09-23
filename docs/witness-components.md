@@ -1,13 +1,13 @@
 # Witness 组件架构
 
 Witness 不再由一个总编译流程按规则集写死调用。组件注册表位于
-`tragedy_sim/witness_components.py`，规则实现暂由
-`RulesetWitnessCompiler` 提供；`FsbtxWitnessCompiler` 是兼容旧调用的薄子类。
+`tragedy_sim/witness_components.py`，编译实现位于
+`tragedy_sim/witness_rules/`；`RulesetWitnessCompiler` 只负责按注册顺序调度和消融，`FsbtxWitnessCompiler` 是兼容旧调用的薄子类。
 
 ## 三层职责
 
 1. `PublicWitness` 只描述公开观察所得的约束，不读取真实剧本。
-2. `WitnessComponentSpec` 声明组件 ID、编译方法和所有可消融 source。
+2. `WitnessComponentSpec` 声明组件 ID、独立编译函数和所有可消融 source。
 3. `RULESET_WITNESS_COMPONENTS` 为每个规则集显式组合有序组件。
 
 组件顺序是确定性接口的一部分：AI 的证据摘要和固定种子实验依赖稳定顺序，重构或复用组件时不得无意重排。
@@ -39,4 +39,4 @@ Witness 不再由一个总编译流程按规则集写死调用。组件注册表
 
 存档和 replay 仍保存公开事件，而不是保存编译后的候选世界；组件升级后可从公开历史重新计算证据。旧事件缺少新快照字段时，组件必须不生成该硬约束。
 
-BTX 病毒阈值、时间旅行者，FS 关键人物即时死亡，以及三组共用公开线索已迁到独立函数模块。其余旧组件仍通过兼容方法名接入注册表；迁移时可逐个把 `method` 换为函数引用，调用方与 source 名称均不变。
+FS/BTX 当前所有注册的 witness 都由独立函数编译，总编译器不再保存具体观察规则。死亡与轮回末组件仍包含 FS/BTX 分支；向新规则集复用它们前，必须拆出差异并分别验证，不能因事件名称相同就直接注册。

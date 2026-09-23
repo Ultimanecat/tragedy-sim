@@ -8,6 +8,32 @@ from ..catalog import REFUSAL
 from ..witness_types import PublicWitness, WitnessStrength
 
 
+def compile_accepted_goodwill(view: Mapping[str, Any]) -> list[PublicWitness]:
+    """Accepting a refusable ability rules out mandatory refusers.
+
+    Old journals lack the unrefusable flag, so they cannot support this hard
+    deduction.
+    """
+    result: list[PublicWitness] = []
+    mandatory = tuple(sorted(
+        role for role in ("cultist", "witch")
+        if REFUSAL.get(role) == "mandatory"))
+    for event in view.get("events", ()):
+        if (event.get("kind") != "goodwill_accepted"
+                or event.get("unrefusable") is not False):
+            continue
+        source = event.get("source")
+        if not isinstance(source, str):
+            continue
+        result.append(PublicWitness(
+            "role_not_in", source, mandatory,
+            int(event.get("loop", view.get("loop", 1))),
+            int(event.get("round", view.get("round", 1))),
+            str(event.get("timing", "protagonist_ability")),
+            "public_refusable_goodwill_accepted"))
+    return result
+
+
 def compile_public_reveals(view: Mapping[str, Any]) -> list[PublicWitness]:
     loop = int(view.get("loop", 1))
     day = int(view.get("round", 1))

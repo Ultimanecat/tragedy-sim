@@ -11,10 +11,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
+from .witness_rules.btx_immediate_death import compile_immediate_death_losses
 from .witness_rules.btx_time_traveler import (
     compile_death_prevention, compile_ignored_goodwill_forbids)
 from .witness_rules.btx_virus import compile_virus_reveal_thresholds
-from .witness_rules.common_public import (compile_goodwill_refusals,
+from .witness_rules.common_day_end import compile_hero_deaths
+from .witness_rules.common_death_clues import compile_death_clues
+from .witness_rules.common_incidents import (
+    compile_direct_culprits, compile_effect_locations,
+    compile_suicide_victims)
+from .witness_rules.common_intrigue import compile_ignored_intrigue_forbids
+from .witness_rules.common_loop_end import compile_loop_end_clues
+from .witness_rules.common_public import (compile_accepted_goodwill,
+                                          compile_goodwill_refusals,
                                           compile_incident_status,
                                           compile_public_reveals)
 from .witness_rules.fs_key_death import compile_key_deaths
@@ -29,13 +38,13 @@ class WitnessComponentSpec:
     """One independently testable witness-producing rule family."""
 
     component_id: str
-    method: str | WitnessCompiler
+    compile: WitnessCompiler
     sources: frozenset[str]
 
 
-def _component(component_id: str, method: str | WitnessCompiler, *sources: str
+def _component(component_id: str, compile: WitnessCompiler, *sources: str
                ) -> WitnessComponentSpec:
-    return WitnessComponentSpec(component_id, method, frozenset(sources))
+    return WitnessComponentSpec(component_id, compile, frozenset(sources))
 
 
 FS_KEY_DEATH = _component(
@@ -52,25 +61,25 @@ VIRUS_REVEAL_THRESHOLDS = _component(
     "public_virus_serial_without_threshold",
     "public_ordinary_after_virus_threshold")
 INTRIGUE_FORBID = _component(
-    "common.intrigue_forbid", "_hard_ignored_intrigue_forbids",
+    "common.intrigue_forbid", compile_ignored_intrigue_forbids,
     "public_intrigue_forbid_ignored")
 DAY_END_HERO_DEATH = _component(
-    "common.day_end_hero_death", "_hard_day_end_hero_deaths",
+    "common.day_end_hero_death", compile_hero_deaths,
     "public_day_end_hero_death")
 BTX_IMMEDIATE_DEATH = _component(
-    "btx.immediate_death_loss", "_hard_btx_immediate_death_losses",
+    "btx.immediate_death_loss", compile_immediate_death_losses,
     "public_btx_immediate_death_loss")
 ACCEPTED_GOODWILL = _component(
-    "common.accepted_goodwill", "_hard_accepted_goodwill",
+    "common.accepted_goodwill", compile_accepted_goodwill,
     "public_refusable_goodwill_accepted")
 SUICIDE_VICTIM = _component(
-    "common.suicide_victim", "_hard_suicide_victims",
+    "common.suicide_victim", compile_suicide_victims,
     "public_suicide_victim")
 DIRECT_INCIDENT_CULPRIT = _component(
-    "common.direct_incident_culprit", "_hard_direct_incident_culprits",
+    "common.direct_incident_culprit", compile_direct_culprits,
     "public_missing_moved_culprit")
 INCIDENT_EFFECT_LOCATION = _component(
-    "common.incident_effect_location", "_hard_incident_effect_locations",
+    "common.incident_effect_location", compile_effect_locations,
     "public_incident_effect_location")
 PUBLIC_REVEALS = _component(
     "common.public_reveals", compile_public_reveals,
@@ -82,11 +91,11 @@ INCIDENT_STATUS = _component(
     "common.incident_status", compile_incident_status,
     "public_incident_status")
 DEATH_CLUES = _component(
-    "common.death_clues", "_soft_death_witnesses",
+    "common.death_clues", compile_death_clues,
     "fs_lone_companion_death", "public_death_and_location",
     "public_death_and_intrigue", "public_death_before_loop_loss")
 LOOP_END_CLUES = _component(
-    "common.loop_end_clues", "_soft_plot_pressure",
+    "common.loop_end_clues", compile_loop_end_clues,
     "public_normal_loop_end_loss", "public_school_pressure_and_loss",
     "public_shrine_pressure_and_loss", "public_butterfly_and_loss",
     "public_character_intrigue_and_loss",

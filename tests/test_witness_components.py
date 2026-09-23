@@ -4,6 +4,9 @@ from tragedy_sim.game import Game
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.witness import (FsbtxWitnessCompiler,
                                  RulesetWitnessCompiler)
+from tragedy_sim.witness_rules.common_incidents import (
+    compile_direct_culprits, compile_effect_locations,
+    compile_suicide_victims)
 from tragedy_sim.witness_rules.common_public import (
     compile_goodwill_refusals, compile_incident_status,
     compile_public_reveals)
@@ -92,18 +95,36 @@ class WitnessComponentRegistryTests(unittest.TestCase):
             self.assertEqual(direct, via_registry)
             self.assertEqual(len(direct), 4)
 
-    def test_migrated_components_are_standalone_callables(self):
-        migrated = {
-            "fs.key_death", "btx.goodwill_forbid",
-            "btx.time_traveler_death_prevention",
-            "btx.virus_reveal_thresholds", "common.public_reveals",
-            "common.goodwill_refusal", "common.incident_status",
-        }
-        by_id = {component.component_id: component
-                 for module in ("FS", "BTX")
-                 for component in components_for(module)}
-        self.assertTrue(all(callable(by_id[component_id].method)
-                            for component_id in migrated))
+    def test_every_registered_component_is_a_standalone_callable(self):
+        for module in ("FS", "BTX"):
+            for component in components_for(module):
+                self.assertTrue(callable(component.compile),
+                                component.component_id)
+
+    def test_incident_components_are_reused_in_fs_and_btx(self):
+        for module in ("FS", "BTX"):
+            view = Game(example_scenario(module)).view("a")
+            view["events"] = [
+                {"kind": "incident_status", "incident": "suicide",
+                 "happened": True, "loop": 1, "round": 2},
+                {"kind": "character_died", "target": "student",
+                 "loop": 1, "round": 2},
+                {"kind": "incident_ended", "loop": 1, "round": 2},
+                {"kind": "incident_status", "incident": "missing",
+                 "happened": True, "loop": 1, "round": 3},
+                {"kind": "character_moved", "target": "student",
+                 "loop": 1, "round": 3},
+            ]
+            direct = [*compile_suicide_victims(view),
+                      *compile_direct_culprits(view),
+                      *compile_effect_locations(view)]
+            self.assertEqual({item.source for item in direct}, {
+                "public_suicide_victim", "public_missing_moved_culprit"})
+            source_set = {item.source for item in direct}
+            via_registry = [
+                item for item in RulesetWitnessCompiler().compile(view)
+                if item.source in source_set]
+            self.assertEqual(direct, via_registry)
 
     def test_registry_has_no_duplicate_component_ids_per_ruleset(self):
         for module, components in RULESET_WITNESS_COMPONENTS.items():
