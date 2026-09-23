@@ -118,6 +118,45 @@ class FsbtxWitnessCompiler:
         return result
 
     @staticmethod
+    def _hard_suicide_victims(view: Mapping[str, Any]) -> list[PublicWitness]:
+        """A character killed by a successful Suicide is its culprit.
+
+        The public schedule identifies the incident as Suicide, while its
+        mandatory effect kills the culprit itself.  A prevention effect may
+        leave no death to observe; in that case this compiler deliberately
+        emits no negative inference.
+        """
+        events = tuple(view.get("events", ()))
+        result: list[PublicWitness] = []
+        for index, event in enumerate(events):
+            if (event.get("kind") != "incident_status"
+                    or event.get("incident") != "suicide"
+                    or not bool(event.get("happened", False))):
+                continue
+            victim = None
+            for follow in events[index + 1:]:
+                kind = follow.get("kind")
+                if kind in {"incident_status", "day_ended"}:
+                    break
+                if kind == "character_died":
+                    target = follow.get("target")
+                    if isinstance(target, str):
+                        victim = ("part_timer" if target == "part_timer_question"
+                                  else target)
+                    break
+                if kind == "incident_ended":
+                    break
+            if victim is None:
+                continue
+            result.append(PublicWitness(
+                "culprit_is", str(int(event.get(
+                    "round", view.get("round", 1)))), victim,
+                int(event.get("loop", view.get("loop", 1))),
+                int(event.get("round", view.get("round", 1))),
+                "incident", "public_suicide_victim"))
+        return result
+
+    @staticmethod
     def _hard_fs_key_deaths(view: Mapping[str, Any]) -> list[PublicWitness]:
         """An immediate FS loss after one death certifies the Key Person.
 
@@ -656,6 +695,7 @@ class FsbtxWitnessCompiler:
         result.extend(self._hard_day_end_hero_deaths(view))
         result.extend(self._hard_btx_immediate_death_losses(view))
         result.extend(self._hard_accepted_goodwill(view))
+        result.extend(self._hard_suicide_victims(view))
         for cid, fact in sorted(view.get("known_roles", {}).items()):
             role = fact.get("role") if isinstance(fact, Mapping) else None
             if isinstance(role, str):

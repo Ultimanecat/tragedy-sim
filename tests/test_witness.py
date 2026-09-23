@@ -152,6 +152,93 @@ class FsbtxWitnessTests(unittest.TestCase):
         self.assertTrue(any(dict(world.roles).get("worker") in forbidden
                             for world, _ in ablated))
 
+    def test_successful_suicide_death_identifies_the_culprit(self):
+        view = deepcopy(self.view)
+        view["events"] = [
+            {"kind": "incident_status", "loop": 2, "round": 3,
+             "timing": "incident", "incident": "suicide",
+             "happened": True},
+            {"kind": "character_died", "loop": 2, "round": 3,
+             "timing": "incident", "target": "doctor"},
+            {"kind": "incident_ended", "loop": 2, "round": 3},
+        ]
+        source = "public_suicide_victim"
+        compiler = FsbtxWitnessCompiler()
+        witness = next(item for item in compiler.compile(view)
+                       if item.source == source)
+        self.assertEqual(
+            (witness.kind, witness.subject, witness.value, witness.strength),
+            ("culprit_is", "3", "doctor", WitnessStrength.HARD))
+
+        matching = replace(
+            self.hypothesis,
+            incidents=((3, "suicide", "suicide", "doctor"),))
+        wrong = replace(
+            self.hypothesis,
+            incidents=((3, "suicide", "suicide", "girl"),))
+        matcher = FsbtxWitnessMatcher()
+        self.assertEqual(matcher.verdict(matching, witness),
+                         WitnessVerdict.SATISFIED)
+        self.assertEqual(matcher.verdict(wrong, witness),
+                         WitnessVerdict.CONTRADICTED)
+        self.assertFalse(any(item.source == source for item in
+                             FsbtxWitnessCompiler(
+                                 disabled_sources={source}).compile(view)))
+
+    def test_prevented_or_unfinished_suicide_makes_no_culprit_claim(self):
+        source = "public_suicide_victim"
+        view = deepcopy(self.view)
+        view["events"] = [{
+            "kind": "incident_status", "loop": 1, "round": 2,
+            "timing": "incident", "incident": "suicide",
+            "happened": True,
+        }, {
+            "kind": "incident_ended", "loop": 1, "round": 2,
+            "effective": False,
+        }]
+        self.assertFalse(any(item.source == source
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
+        view["events"][0]["happened"] = False
+        view["events"].insert(1, {
+            "kind": "character_died", "loop": 1, "round": 2,
+            "timing": "day_end", "target": "doctor",
+        })
+        self.assertFalse(any(item.source == source
+                             for item in FsbtxWitnessCompiler().compile(view)))
+
+    def test_suicide_replacement_maps_question_mark_to_part_timer(self):
+        view = deepcopy(self.view)
+        view["events"] = [{
+            "kind": "incident_status", "loop": 1, "round": 2,
+            "incident": "suicide", "happened": True,
+        }, {
+            "kind": "character_died", "loop": 1, "round": 2,
+            "target": "part_timer_question",
+        }]
+        witness = next(item for item in FsbtxWitnessCompiler().compile(view)
+                       if item.source == "public_suicide_victim")
+        self.assertEqual(witness.value, "part_timer")
+
+    def test_suicide_victim_collapses_the_culprit_dimension(self):
+        view = deepcopy(self.view)
+        view["schedule"] = [{"day": 3, "kind": "suicide"}]
+        view["events"] = [{
+            "kind": "incident_status", "loop": 1, "round": 3,
+            "incident": "suicide", "happened": True,
+        }, {
+            "kind": "character_died", "loop": 1, "round": 3,
+            "target": "doctor",
+        }]
+        evidence = PublicEvidence.from_view(view)
+        source = "public_suicide_victim"
+        enabled = FsbtxWitnessCompiler().compile(view)
+        ablated = FsbtxWitnessCompiler(
+            disabled_sources={source}).compile(view)
+        belief = FactorizedBeliefState(capacity=64, seed=1)
+        self.assertEqual(belief._culprits(evidence, enabled)[3], ("doctor",))
+        self.assertGreater(len(belief._culprits(evidence, ablated)[3]), 1)
+
     def test_virus_role_reveal_does_not_rewrite_initial_identity(self):
         ordinary = next(cid for cid, role in self.hypothesis.roles
                         if role == "ordinary")
