@@ -36,6 +36,19 @@ class OracleProtagonistTests(unittest.TestCase):
         self.assertAlmostEqual(agent._cutoff_value(standard, 1),
                                agent._cutoff_value(easy, 1))
 
+    def test_rollout_policy_seed_key_ignores_difficulty_metadata(self):
+        library = ScenarioLibrary()
+        standard = Game(library.get("official-btx-02-traditional-ensemble-murder"))
+        easy = Game(library.get(
+            "official-btx-02-traditional-ensemble-murder-easy"))
+        agent = FullCardOracleProtagonistAgent()
+        self.assertEqual(agent._policy_state_key(standard),
+                         agent._policy_state_key(easy))
+
+        easy.state.locations["school"] = 1
+        self.assertNotEqual(agent._policy_state_key(standard),
+                            agent._policy_state_key(easy))
+
     def test_visible_pressure_on_known_killer_enters_defense_candidates(self):
         game = Game(ScenarioLibrary().get("silent-town-fs"))
         game = game.search_transition(game.search_actions("m")[0])

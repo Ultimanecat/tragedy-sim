@@ -361,7 +361,7 @@ class OracleProtagonistAgent:
                 -self._rank(action, view, world.scenario), _key(action)))
         offers = [self._offer(action, world) for action in actions]
         state_seed = hashlib.sha256(
-            f"{self.rng_seed}:{world.state_key()}".encode()
+            f"{self.rng_seed}:{self._policy_state_key(world)}".encode()
         ).hexdigest()
         policy = DefensiveProtagonistAgent(random.Random(state_seed))
         chosen = policy.choose_action(
@@ -369,6 +369,23 @@ class OracleProtagonistAgent:
             offers=offers)
         return actions[next(i for i, offer in enumerate(offers)
                             if offer["id"] == chosen["id"])]
+
+    @staticmethod
+    def _policy_state_key(world: Game) -> str:
+        """Canonical private rollout state without difficulty-only metadata.
+
+        Paired Standard/Easy scripts have the same hidden setup.  Total loop
+        count may affect explicit long-horizon valuation, but it must not
+        silently reshuffle random target choices inside an otherwise identical
+        semantic rollout policy.
+        """
+        projection = dict(world.view("m"))
+        projection.pop("events", None)
+        for field in ("scenario_id", "title", "loops", "language",
+                      "phase_name", "timepoint", "module_name", "labels"):
+            projection.pop(field, None)
+        return json.dumps(projection, sort_keys=True, ensure_ascii=False,
+                          separators=(",", ":"), default=str)
 
     @staticmethod
     def _saw_loop_loss(world: Game, event_cursor: int,
@@ -452,7 +469,8 @@ class OracleProtagonistAgent:
         multiplier = {"day": 8, "loop": 32, "match": 128}[
             self.rollout_horizon]
         hard_limit = max(128, self.budget.rollout_depth * multiplier)
-        seed_material = f"rollout:{self.rng_seed}:{world.state_key()}"
+        seed_material = (
+            f"rollout:{self.rng_seed}:{self._policy_state_key(world)}")
         if mastermind_strategy is not None:
             seed_material += f":{mastermind_strategy}"
         policy_seed = hashlib.sha256(seed_material.encode()).hexdigest()
