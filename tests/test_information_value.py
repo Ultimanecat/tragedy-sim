@@ -88,6 +88,33 @@ class InformationValueTests(unittest.TestCase):
         model = InformationOpportunityEvaluator(worlds("copycat"), root)
         self.assertEqual(model.potential(root), 0.0)
 
+    def test_confirmed_threads_prices_new_goodwill_but_not_existing_goodwill(self):
+        root = view("worker", day=2)
+        root.update(module="BTX", loops=3)
+        final = deepcopy(root)
+        final["round"] = 3
+        final["characters"]["worker"]["goodwill"] = 2
+        confirmed = InformationOpportunityEvaluator(
+            worlds("worker"), root, threads_confirmed=True)
+        unknown = InformationOpportunityEvaluator(worlds("worker"), root)
+        result = confirmed.evaluate_cutoff(final, ())
+        self.assertGreater(result.future_potential, 0.0)
+        self.assertAlmostEqual(result.threads_carryover_risk, 0.003)
+        final["characters"]["worker"]["alive"] = False
+        self.assertAlmostEqual(confirmed.evaluate_cutoff(
+            final, ()).threads_carryover_risk, 0.003)
+        self.assertEqual(unknown.evaluate_cutoff(final, ()).threads_carryover_risk,
+                         0.0)
+
+        root["characters"]["worker"]["goodwill"] = 1
+        self.assertEqual(InformationOpportunityEvaluator(
+            worlds("worker"), root, threads_confirmed=True
+        ).evaluate_cutoff(final, ()).threads_carryover_risk, 0.0)
+        root["loop"] = root["loops"]
+        self.assertEqual(InformationOpportunityEvaluator(
+            worlds("worker"), root, threads_confirmed=True
+        ).evaluate_cutoff(final, ()).threads_carryover_risk, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

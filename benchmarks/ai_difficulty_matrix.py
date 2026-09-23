@@ -121,6 +121,8 @@ def main() -> None:
     parser.add_argument("--depth", type=int, default=6)
     parser.add_argument("--protagonist-nodes", type=int, default=4)
     parser.add_argument("--protagonist-depth", type=int, default=6)
+    parser.add_argument("--protagonist-particles", type=int,
+                        help="override particle worlds without changing bundle budget")
     parser.add_argument("--time-limit-ms", type=int)
     parser.add_argument("--protagonist-time-limit-ms", type=int)
     parser.add_argument("--mastermind", choices=MASTERMIND_STRATEGIES,
@@ -138,6 +140,8 @@ def main() -> None:
     positive = (args.games, args.nodes, args.depth, args.protagonist_nodes,
                 args.protagonist_depth, args.mastermind_policy_samples)
     if (any(value < 1 for value in positive)
+            or args.protagonist_particles is not None
+            and args.protagonist_particles < 1
             or args.time_limit_ms is not None and args.time_limit_ms < 1
             or args.protagonist_time_limit_ms is not None
             and args.protagonist_time_limit_ms < 1
@@ -168,6 +172,7 @@ def main() -> None:
                     oracle_horizon=args.protagonist_horizon,
                     mastermind_policy_samples=args.mastermind_policy_samples,
                     information_reward_weight=args.information_reward_weight,
+                    protagonist_particles=args.protagonist_particles,
                     disabled_witness_sources=tuple(
                         args.disable_witness_source))
                 matches.append(result)

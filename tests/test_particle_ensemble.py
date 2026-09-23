@@ -90,9 +90,36 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertIsNotNone(bundle)
         self.assertEqual(bundle[0]["card"], "g1")
         self.assertEqual(bundle[1]["card"], "g2")
+        later = ParticleEnsembleProtagonistAgent._time_traveler_screening_bundle(
+            base, view, candidates, offset=3)
+        self.assertIsNone(later)
+        view["characters"]["rich"] = {"goodwill": 0, "alive": True}
+        view["characters"]["girl"] = {"goodwill": 0, "alive": True}
+        later = ParticleEnsembleProtagonistAgent._time_traveler_screening_bundle(
+            base, view, (*candidates, "girl", "rich"), offset=3)
+        self.assertIsNotNone(later)
+        self.assertEqual(later[0]["target"], "rich")
+        offsets = ParticleEnsembleProtagonistAgent._time_traveler_screening_offsets
+        self.assertEqual(offsets(tuple("abcde")), (0,))
+        self.assertEqual(offsets(tuple("abcdefgh")), (0, 3))
         self.assertEqual(
             ParticleEnsembleProtagonistAgent._time_traveler_screening_bonus(
-                bundle, view, candidates), 0.008)
+                bundle, view, candidates), 0.07)
+        final_day = {**view, "days": 4, "round": 4}
+        partial = ({"card": "g2", "target": "doctor"},)
+        final_day["characters"]["doctor"]["goodwill"] = 0
+        self.assertEqual(
+            ParticleEnsembleProtagonistAgent._time_traveler_screening_bonus(
+                partial, final_day, candidates), 0.0)
+
+    def test_threads_risk_requires_public_confirmation(self):
+        confirmed = ParticleEnsembleProtagonistAgent._threads_confirmed
+        witness = PublicWitness("plot_present", "threads", True,
+                                2, 1, "loop_start", "test",
+                                WitnessStrength.HARD)
+        self.assertFalse(confirmed({"known_plots": []}, ()))
+        self.assertTrue(confirmed({"known_plots": ["threads"]}, ()))
+        self.assertTrue(confirmed({"known_plots": []}, (witness,)))
 
     def test_sampling_seed_is_coupled_across_loop_difficulties(self):
         library = ScenarioLibrary()
@@ -151,7 +178,8 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertTrue(all(0 <= row["information_bonus"] <= 0.012
                             for row in trace.root_actions))
         self.assertTrue(all({"information_future", "information_realized",
-                             "information_refusal", "location_guard_bonus"}
+                             "information_refusal", "location_guard_bonus",
+                             "threads_carryover_risk"}
                             <= set(row)
                             for row in trace.root_actions))
         self.assertGreater(trace.particles, 0)

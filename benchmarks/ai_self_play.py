@@ -229,7 +229,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          disabled_witness_sources: tuple[str, ...] = (),
          oracle_horizon: str = "day",
          mastermind_policy_samples: int = 3,
-         information_reward_weight: float = 0.01) -> MatchResult:
+         information_reward_weight: float = 0.01,
+         protagonist_particles: int | None = None) -> MatchResult:
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -266,8 +267,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                                                       rollout_horizon=oracle_horizon)
     elif protagonist_strategy == "particle_ensemble":
         team_ismcts = ParticleEnsembleProtagonistAgent(
-            protagonist_budget, particle_count=max(4, min(24,
-                                (protagonist_nodes or nodes) // 8)), rng_seed=seed,
+            protagonist_budget,
+            particle_count=(protagonist_particles if protagonist_particles
+                            is not None else max(4, min(24,
+                                (protagonist_nodes or nodes) // 8))), rng_seed=seed,
             joint_witness=joint_witness, rollout_horizon=oracle_horizon,
             disabled_witness_sources=disabled_witness_sources,
             mastermind_policy_samples=mastermind_policy_samples,

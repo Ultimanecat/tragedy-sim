@@ -33,6 +33,7 @@ class InformationValueBreakdown:
     future_potential: float = 0.0
     realized_information: float = 0.0
     refusal_witness: float = 0.0
+    threads_carryover_risk: float = 0.0
 
     @property
     def total(self) -> float:
@@ -44,14 +45,39 @@ class InformationOpportunityEvaluator:
     """Estimate information value only from the shared public belief ensemble."""
 
     def __init__(self, worlds: Sequence[Any], root_view: Mapping[str, Any], *,
-                 discount: float = 0.75):
+                 discount: float = 0.75,
+                 threads_confirmed: bool = False):
         if not worlds:
             raise ValueError("information evaluator requires at least one world")
         self.worlds = tuple(worlds)
         self.root_view = root_view
         self.discount = discount
+        self.threads_confirmed = threads_confirmed
         self.world_count = len(worlds)
         self._root_potential = self.potential(root_view)
+
+    def _threads_carryover_risk(self, final_view: Mapping[str, Any]) -> float:
+        """Price newly exposed characters, not extra goodwill on old targets.
+
+        Threads triggers only after a lost loop, so this remains a small,
+        discounted tie-breaker.  Dead characters still count at loop reset.
+        """
+        root = self.root_view
+        if (not self.threads_confirmed or root.get("module") != "BTX"
+                or int(root.get("loop", 1)) >= int(root.get("loops", 1))
+                or final_view.get("loop") != root.get("loop")):
+            return 0.0
+        before = root.get("characters", {})
+        after = final_view.get("characters", {})
+        newly_exposed = sum(
+            int(character.get("present", True)
+                and int(character.get("goodwill", 0)) > 0
+                and int(before.get(cid, {}).get("goodwill", 0)) == 0)
+            for cid, character in after.items())
+        days_until_reset = max(0, int(root.get("days", 1))
+                               - int(root.get("round", 1)))
+        return min(0.008, 0.004 * newly_exposed
+                   * self.discount ** days_until_reset)
 
     @staticmethod
     def _known_roles(view: Mapping[str, Any]) -> set[str]:
@@ -245,4 +271,5 @@ class InformationOpportunityEvaluator:
                 refusal += 0.15
         future_delta = max(0.0, self.potential(final_view) - self._root_potential)
         return InformationValueBreakdown(
-            min(1.0, future_delta), realized, min(0.3, refusal))
+            min(1.0, future_delta), realized, min(0.3, refusal),
+            self._threads_carryover_risk(final_view))

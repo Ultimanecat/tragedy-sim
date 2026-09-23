@@ -154,7 +154,7 @@ class OracleProtagonistTests(unittest.TestCase):
         self.assertTrue(terminal)
         self.assertEqual(steps, 1)
         self.assertEqual(information, 0.0)
-        self.assertEqual(outcome[5:], (0.0, 0.0, 0.0))
+        self.assertEqual(outcome[5:], (0.0, 0.0, 0.0, 0.0))
 
     def test_hidden_card_mode_is_invariant_to_actual_pending_faces(self):
         game = protagonist_position()

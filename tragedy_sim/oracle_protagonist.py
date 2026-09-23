@@ -463,7 +463,8 @@ class OracleProtagonistAgent:
                        start_day: int, *,
                        mastermind_strategy: str | None = None,
                        information_model: InformationOpportunityEvaluator | None = None
-                       ) -> tuple[float, bool, int, bool, float, float, float, float]:
+                       ) -> tuple[float, bool, int, bool, float, float, float,
+                                  float, float]:
         root_events = len(world.state.events)
         rollout_events: list[dict[str, Any]] = []
         multiplier = {"day": 8, "loop": 32, "match": 128}[
@@ -517,6 +518,7 @@ class OracleProtagonistAgent:
                     world.winner is None and not loop_lost)
         information = 0.0
         information_future = information_realized = information_refusal = 0.0
+        threads_carryover_risk = 0.0
         if (information_model is not None and survived
                 and world.winner is None and world.state.loop == start_loop):
             breakdown = information_model.evaluate_cutoff(
@@ -525,8 +527,10 @@ class OracleProtagonistAgent:
             information_future = breakdown.future_potential
             information_realized = breakdown.realized_information
             information_refusal = breakdown.refusal_witness
+            threads_carryover_risk = breakdown.threads_carryover_risk
         return (score, survived, steps, world.winner is not None, information,
-                information_future, information_realized, information_refusal)
+                information_future, information_realized, information_refusal,
+                threads_carryover_risk)
 
     def _day_score(self, world: Game, start_loop: int,
                    start_day: int, *,

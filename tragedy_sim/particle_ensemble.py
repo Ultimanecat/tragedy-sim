@@ -99,7 +99,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
     @staticmethod
     def _time_traveler_screening_bundle(
             base: Sequence[Mapping[str, Any]], view: Mapping[str, Any],
-            candidates: Sequence[str]) -> tuple[dict[str, Any], ...] | None:
+            candidates: Sequence[str], *, offset: int = 0
+            ) -> tuple[dict[str, Any], ...] | None:
         """Build one public-information bundle that tests distinct candidates."""
         characters = view.get("characters", {})
         hands = view.get("team_hands", {})
@@ -109,6 +110,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
              and characters[cid].get("alive", True)
              and int(characters[cid].get("goodwill", 0)) < 3),
             key=lambda cid: (-int(characters[cid].get("goodwill", 0)), cid))
+        ranked = ranked[offset:offset + 3]
         if not ranked:
             return None
         result = [dict(command) for command in base]
@@ -135,17 +137,45 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
     def _time_traveler_screening_bonus(
             bundle: Sequence[Mapping[str, Any]], view: Mapping[str, Any],
             candidates: Sequence[str]) -> float:
+        """Reward progress against a *publicly inferred* terminal-loss threat.
+
+        A 0→2 investment needs a later card; the old threshold-only bonus
+        discarded it, so the planner repeatedly failed to finish screening.
+        No partial credit is given when there is no later day in this loop.
+        """
         characters = view.get("characters", {})
-        screened = set()
+        remaining_days = max(0, int(view.get("days", 1))
+                             - int(view.get("round", 1)))
+        progress: dict[str, int] = {}
         for command in bundle:
             target = str(command.get("target", ""))
             if target not in candidates or target not in characters:
                 continue
             amount = {"g1": 1, "g2": 2}.get(command.get("card"), 0)
+            progress[target] = progress.get(target, 0) + amount
+        bonus = 0.0
+        for target, amount in progress.items():
             before = int(characters[target].get("goodwill", 0))
-            if before < 3 <= before + amount:
-                screened.add(target)
-        return min(0.012, 0.004 * len(screened))
+            after = min(3, before + amount)
+            if before >= 3 or after + 2 * remaining_days < 3:
+                continue
+            bonus += 0.016 * (after - before)
+            if after == 3:
+                bonus += 0.012
+        return min(0.07, bonus)
+
+    @staticmethod
+    def _time_traveler_screening_offsets(
+            candidates: Sequence[str]) -> tuple[int, ...]:
+        """Reserve another proposal for unusually broad public candidate sets."""
+        return (0, 3) if len(candidates) > 6 else (0,)
+
+    @staticmethod
+    def _threads_confirmed(view: Mapping[str, Any],
+                           witnesses: Sequence[Any]) -> bool:
+        return ("threads" in view.get("known_plots", ())
+                or any(w.kind == "plot_present" and w.subject == "threads"
+                       and w.strength == "hard" for w in witnesses))
 
     def _mastermind_strategies(self, world: Any) -> tuple[str | None, ...]:
         # One sample is the retained historical baseline: let the seeded
@@ -243,6 +273,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
         evidence = PublicEvidence.from_view(view)
         witnesses = self.evidence_ledger.update(view, self.compiler)
         traveler_candidates = self._time_traveler_candidates(witnesses)
+        threads_confirmed = self._threads_confirmed(view, witnesses)
         public_hash = self._sampling_hash(view)
         rng = random.Random(f"{self.budget.seed}:{self.rng_seed}:{public_hash}")
         sampled = self.factorized_belief.sample(
@@ -257,7 +288,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                                   sampled.reason or "no_particles",
                                   len(witnesses))
         roles, culprits, dark = self._counts(worlds, evidence)
-        information_model = InformationOpportunityEvaluator(worlds, view)
+        information_model = InformationOpportunityEvaluator(
+            worlds, view, threads_confirmed=threads_confirmed)
         discarded = set(view.get("discarded", {}).get("m", ()))
         tendencies = DarkCardBelief.placement_tendencies(
             view.get("events", ()), day=position[1], loop=position[0],
@@ -328,14 +360,21 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             proposals.update(guard_proposals)
         screening_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
         if proposals and traveler_candidates:
-            screening = self._time_traveler_screening_bundle(
-                next(iter(proposals.values())), view, traveler_candidates)
-            if (screening is not None
-                    and _key(screening[0]) in offers_by_key
-                    and self._apply_bundle(worlds[0], screening) is not None):
-                signature = _key(screening)
-                if signature not in proposals:
-                    screening_proposals[signature] = screening
+            # A second candidate group is warranted by a *large public
+            # traveler set*, even before Threads itself can be confirmed.
+            # Smaller sets can be rotated across days without displacing a
+            # defensive Oracle proposal (BTX01 is a regression example).
+            for offset in self._time_traveler_screening_offsets(
+                    traveler_candidates):
+                screening = self._time_traveler_screening_bundle(
+                    next(iter(proposals.values())), view,
+                    traveler_candidates, offset=offset)
+                if (screening is not None
+                        and _key(screening[0]) in offers_by_key
+                        and self._apply_bundle(worlds[0], screening) is not None):
+                    signature = _key(screening)
+                    if signature not in proposals:
+                        screening_proposals[signature] = screening
         # Reserve up to two slots for belief-valued information investments.
         # Generate them for both reward-on and reward-off runs so the weight
         # switch is a clean scoring ablation rather than a coverage change.
@@ -389,6 +428,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             information_futures: list[float] = []
             information_realized: list[float] = []
             information_refusals: list[float] = []
+            threads_risks: list[float] = []
             policy_rollouts = 0
             for world in worlds:
                 successor = self._apply_bundle(world, bundle)
@@ -405,7 +445,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                         information_model=(information_model
                                            if self.rollout_horizon == "day"
                                            else None))
-                    policy_outcomes.append((outcome[0], outcome[1], *outcome[4:8]))
+                    policy_outcomes.append((
+                        outcome[0], outcome[1], *outcome[4:8], outcome[8]))
                     if self.rollout_horizon != "day":
                         policy_day_scores.append(self.oracle._day_score(
                             successor, position[0], position[1],
@@ -418,12 +459,15 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                 selected_policy = min(
                     policy_outcomes,
                     key=lambda item: (item[1], item[0]
-                                      + self.information_reward_weight * item[2]))
+                                      + min(0.012,
+                                            self.information_reward_weight
+                                            * item[2]) - item[6]))
                 scores.append(selected_policy[:2])
                 information_values.append(selected_policy[2])
                 information_futures.append(selected_policy[3])
                 information_realized.append(selected_policy[4])
                 information_refusals.append(selected_policy[5])
+                threads_risks.append(selected_policy[6])
                 if policy_day_scores:
                     day_scores.append(min(
                         policy_day_scores, key=lambda item: (item[1], item[0])))
@@ -443,11 +487,12 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             information_future = sum(information_futures) / len(information_futures)
             information_fact = sum(information_realized) / len(information_realized)
             information_refusal = sum(information_refusals) / len(information_refusals)
+            threads_risk = sum(threads_risks) / len(threads_risks)
             information_bonus = min(
                 0.012, self.information_reward_weight * information_value)
             mean = (sum(values) / len(values) - 0.025 * scarce
                     + information_bonus + traveler_screening_bonus
-                    + location_guard_bonus)
+                    + location_guard_bonus - threads_risk)
             day_survival = (sum(ok for _, ok in day_scores) / len(day_scores)
                             if day_scores else survival)
             day_mean = ((sum(value for value, _ in day_scores) /
@@ -458,7 +503,7 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                               information_value, information_bonus,
                               information_future, information_fact,
                               information_refusal, location_guard_bonus,
-                              traveler_screening_bonus))
+                              traveler_screening_bonus, threads_risk))
         if not evaluated:
             return self._fallback(participant, view, offers,
                                   "no_common_legal_bundle", len(witnesses))
@@ -482,7 +527,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                      "information_realized": row[10],
                      "information_refusal": row[11],
                      "location_guard_bonus": row[12],
-                     "time_traveler_screening_bonus": row[13]}
+                     "time_traveler_screening_bonus": row[13],
+                     "threads_carryover_risk": row[14]}
                   for row in evaluated),
             roles, "factorized", self.evidence_ledger.updates,
             self.evidence_ledger.hard_count, self.evidence_ledger.soft_count,
