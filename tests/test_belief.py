@@ -17,9 +17,82 @@ from tragedy_sim.catalog import PLOTS
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.witness import PublicWitness, WitnessStrength
+from tragedy_sim.witness_rules.common_public import compile_public_reveals
 
 
 class FactorizedBeliefTests(unittest.TestCase):
+    def test_private_role_answer_constrains_red_final_guess(self):
+        game = Game(example_scenario("BTX"))
+        view = game.protagonist_team_view()
+        target = next(iter(game.roles))
+        role = game.roles[target]
+        view["protagonist_knowledge"] = {"roles": {target: role}}
+        evidence = PublicEvidence.from_view(view)
+        self.assertEqual(dict(evidence.known_roles)[target], role)
+        solved = FactorizedBeliefState(seed=2).exact_role_map(
+            evidence, ())
+        self.assertTrue(solved.ranked)
+        self.assertTrue(all(dict(world.roles)[target] == role
+                            for world, _ in solved.ranked))
+
+    def test_part_timer_query_refers_to_initial_script_assignment(self):
+        game = Game({
+            "id": "private-part-timer", "title": "Part-Timer query",
+            "module": "FS", "days": 3, "loops": 3,
+            "main_plot": "avenger", "subplots": ["rumor"],
+            "cast": {"doctor": "ordinary", "maiden": "conspiracy",
+                     "part_timer": "brain"},
+            "incidents": [], "table_talk": False,
+            "character_options": {},
+        })
+        worker = game.state.characters["part_timer"]
+        worker.goodwill = worker.paranoia = worker.intrigue = 1
+        game.state.phase = "day_end"
+        game._queue_day_end_mandatory_batch()
+        game._return_phase = "day_end"
+        game._drain()
+        self.assertFalse(worker.alive)
+        game.state.round = 2
+        game._prepare_day_start()
+        replacement = game.state.characters["part_timer_question"]
+        replacement.goodwill = 3
+        game.state.phase = "goodwill"
+        choices = game.options(game.controller)
+        query = next(i for i, choice in enumerate(choices, 1)
+                     if choice.get("source") == "part_timer_question"
+                     and choice.get("ability") == "reveal_and_help")
+        game.dispatch(game.controller, "choose", index=query)
+        accept = next(i for i, choice in enumerate(game.options("m"), 1)
+                      if choice.get("accept"))
+        game.dispatch("m", "choose", index=accept)
+        view = game.protagonist_team_view()
+        view["known_roles"]["part_timer"] = {"role": "ordinary"}
+        self.assertEqual(view["protagonist_knowledge"]["roles"],
+                         {"part_timer_question": "brain"})
+        evidence = PublicEvidence.from_view(view)
+        self.assertEqual(dict(evidence.known_roles)["part_timer"], "brain")
+        self.assertNotIn("part_timer_question", evidence.characters)
+        public_witnesses = compile_public_reveals(view)
+        self.assertFalse(any(witness.kind == "role_is"
+                             and witness.subject == "part_timer"
+                             for witness in public_witnesses))
+        self.assertTrue(any(witness.kind == "role_not_in"
+                            and witness.subject == "part_timer"
+                            and "ordinary" in witness.value
+                            for witness in public_witnesses))
+        uninformed = deepcopy(view)
+        uninformed["protagonist_knowledge"] = {}
+        before_query = FactorizedBeliefState(seed=2).exact_role_map(
+            PublicEvidence.from_view(uninformed), public_witnesses)
+        self.assertTrue(before_query.ranked)
+        self.assertTrue(all(dict(world.roles)["part_timer"] != "ordinary"
+                            for world, _ in before_query.ranked))
+        solved = FactorizedBeliefState(seed=2).exact_role_map(
+            evidence, public_witnesses)
+        self.assertTrue(solved.ranked)
+        self.assertTrue(all(dict(world.roles)["part_timer"] == "brain"
+                            for world, _ in solved.ranked))
+
     def test_exact_final_map_matches_small_exhaustive_map(self):
         evidence = PublicEvidence.from_view(
             Game(example_scenario("BTX")).protagonist_team_view())

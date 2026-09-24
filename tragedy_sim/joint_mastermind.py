@@ -25,6 +25,25 @@ from .witness import FsbtxWitnessCompiler
 from .witness_types import WitnessStrength
 
 
+def _certain_red_knowledge(events: Sequence[dict[str, Any]],
+                           roles: dict[str, str]) -> dict[str, Any]:
+    """Reconstruct only private answers implied by completed public queries.
+
+    The event announces the query and its result type, never the answer.
+    The mastermind knows the script's initial roles. Older untyped events and
+    same-role-group queries need more history and remain deliberately unknown.
+    """
+    learned = {
+        cid: roles[cid]
+        for event in events
+        if event.get("kind") == "private_information_gained"
+        and event.get("information_kind") == "role"
+        and isinstance((cid := event.get("character")), str)
+        and cid in roles
+    }
+    return {"roles": learned} if learned else {}
+
+
 class _PublicReplyEvaluator(OracleProtagonistAgent):
     """Day cutoff scored from the public red view, including final guesses."""
 
@@ -48,10 +67,11 @@ class _PublicReplyEvaluator(OracleProtagonistAgent):
                             rollout_events: Sequence[dict[str, Any]]
                             ) -> dict[str, Any]:
         view = world.protagonist_team_view()
-        view["protagonist_knowledge"] = {}
         if self.root_view is not None:
             view["events"] = [*self.root_view.get("events", ()),
                               *rollout_events]
+        view["protagonist_knowledge"] = _certain_red_knowledge(
+            view.get("events", ()), world.roles)
         return view
 
     def _role_entropy(self, view: dict[str, Any]) -> float:
@@ -74,6 +94,10 @@ class _PublicReplyEvaluator(OracleProtagonistAgent):
                 role = fact.get("role")
                 if role in roles:
                     domains[cid].intersection_update({role})
+        for cid, role in view.get("protagonist_knowledge", {}).get(
+                "roles", {}).items():
+            if cid in domains and role in roles:
+                domains[cid].intersection_update({role})
         for witness in self._compiler.compile(view):
             if witness.strength != WitnessStrength.HARD:
                 continue
@@ -285,8 +309,8 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
                 information_weight=(self.information_weight
                                     if self.reply_model == "belief" else 0.0))
             if evaluator.information_weight:
-                initial_view = game.protagonist_team_view()
-                initial_view["protagonist_knowledge"] = {}
+                initial_view = self._red_reply_view(
+                    game, game, game.protagonist_team_view().get("events", ()))
                 evaluator._root_entropy = evaluator._role_entropy(initial_view)
             policy = (ParticleEnsembleProtagonistAgent(
                 SearchBudget(node_limit=min(reply_limit, 8), rollout_depth=6,
@@ -343,22 +367,18 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
     def _red_reply_view(game: SearchGame, world: SearchGame,
                         observed_events: Sequence[dict[str, Any]] | None = None
                         ) -> dict[str, Any]:
-        """Public red observation as estimated by black, without private clues.
-
-        The real game object also holds results of protagonist-only role
-        investigations. Black can see that an investigation happened but may
-        not read its private answer to choose a hypothetical red response.
-        """
+        """Red observation with only answers black can infer from events."""
         view = world.protagonist_team_view()
-        view["protagonist_knowledge"] = {}
         if observed_events is not None:
             view["events"] = list(observed_events)
-            return view
-        prior = game.protagonist_team_view().get("events", ())
-        recent = view.get("events", ())
-        if prior and recent and prior[-1] == recent[0]:
-            recent = recent[1:]
-        view["events"] = [*prior, *recent]
+        else:
+            prior = game.protagonist_team_view().get("events", ())
+            recent = view.get("events", ())
+            if prior and recent and prior[-1] == recent[0]:
+                recent = recent[1:]
+            view["events"] = [*prior, *recent]
+        view["protagonist_knowledge"] = _certain_red_knowledge(
+            view["events"], world.roles)
         return view
 
     def search(self, game: SearchGame) -> Any:

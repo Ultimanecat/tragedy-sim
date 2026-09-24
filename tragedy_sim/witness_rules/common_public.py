@@ -39,7 +39,15 @@ def compile_public_reveals(view: Mapping[str, Any]) -> list[PublicWitness]:
     day = int(view.get("round", 1))
     timing = str(view.get("timing", view.get("phase", "unknown")))
     result: list[PublicWitness] = []
+    if "part_timer_question" in view.get("characters", {}):
+        result.append(PublicWitness(
+            "role_not_in", "part_timer", ("ordinary",), loop, day, timing,
+            "public_part_timer_replacement"))
     for cid, fact in sorted(view.get("known_roles", {}).items()):
+        # Part-Timer's visible current role is always Ordinary. Its printed
+        # initial script assignment belongs to Part-Timer? after replacement.
+        if cid == "part_timer":
+            continue
         role = fact.get("role") if isinstance(fact, Mapping) else None
         if isinstance(role, str):
             result.append(PublicWitness(

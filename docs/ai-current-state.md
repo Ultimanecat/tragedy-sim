@@ -81,6 +81,8 @@
 
 2026-09-24 联合黑方的默认回复改为只读主人公公开视图的 `RiskAware` 策略；原“知道剧本但不知道当天暗牌”的 `hidden` 回复和全明牌 `full` 回复仍可用于消融。当前公开回复没有显式信念粒子，行动仍逐张选取，黑方只展开到日末；因此不能把它视为红方最优回应或完整对手建模。参见 [等时间基准](ai-benchmark-results.md)及[后续路线](future-roadmap.md)。
 
-同日增加 BTX 专用的实验黑方 `belief_joint_mastermind`：复用红方公开 witness 与分维粒子，随机生成联合三牌回应，由黑方根节点 UCB 搜索比较自己的三牌。红方真实私密调查答案尚未做概率反推；首轮 BTX02/09 各 3-seed 低预算测试均未优于固定公开回复。随后加入终猜边界的公开视角整套身份实际猜测，答对全部身份才按红方终局胜利计分；较早的日末只用权重 0.02 的硬角色候选域熵差作微弱排序信号，可设为 0 消融。这是有界的均匀独立近似，不能解释为终猜胜率。大厅该实验 AI 每步软上限为 10 秒；目前只有两组配对小样本，结论见[基准记录](ai-benchmark-results.md)。
+同日增加 BTX 专用的实验黑方 `belief_joint_mastermind`：复用红方公开 witness 与分维粒子，随机生成联合三牌回应，由黑方根节点 UCB 搜索比较自己的三牌。首轮 BTX02/09 各 3-seed 低预算测试均未优于固定公开回复。随后加入终猜边界的公开视角整套身份实际猜测，答对全部身份才按红方终局胜利计分；较早的日末只用权重 0.02 的硬角色候选域熵差作微弱排序信号，可设为 0 消融。这是有界的均匀独立近似，不能解释为终猜胜率。大厅该实验 AI 每步软上限为 10 秒；目前只有两组配对小样本，结论见[基准记录](ai-benchmark-results.md)。
+
+接着补上黑方可确定的红方私密身份知识下界：只有公开日志明确记录一次查身份效果已实际结算，黑方模拟视图才从自己的真实剧本推得红方收到的答案；申请、拒绝、旧版无类型日志和“查同身份群”不会触发这条推断。红方的隐藏世界抽样与整套身份终猜现在都读取自己的私密身份答案。临时工？的答案约束原剧本中的临时工初始身份，临时工当前固定显示平民不再错误排除真剧本；其登场本身提供“初始身份非平民”的公开硬 witness。已录入的 BTX02/09 剧本没有这类角色，故此切片是信息正确性与后续剧本能力测试的基础，不能声称 BTX 棋力提升。
 - 信念与估值：[隐藏世界采样](../tragedy_sim/belief.py)、[公开 witness](../tragedy_sim/witness.py)、[剧本条件化估值](../tragedy_sim/evaluation.py)。
 - 复现入口：[自对弈脚本](../benchmarks/ai_self_play.py)。例：`python -m benchmarks.ai_self_play --scenario official-fs-01-first-script --games 5 --seed 0 --nodes 24 --depth 12 --protagonist-nodes 96 --protagonist-depth 16 --strategy strategic --protagonists ismcts_survival --progress`。

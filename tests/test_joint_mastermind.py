@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from tragedy_sim import Game
 from tragedy_sim.ai import RiskAwareProtagonistAgent
+from tragedy_sim.effects.characters import learn_role
 from tragedy_sim.joint_mastermind import (JointPlanMastermindAgent,
                                          _PublicReplyEvaluator)
 from tragedy_sim.oracle_protagonist import OracleProtagonistAgent
@@ -226,6 +227,43 @@ class JointMastermindTests(unittest.TestCase):
         self.assertEqual(sum(event.get("kind") == "card_placed"
                              and event.get("actor") == "m"
                              for event in seen[0]["events"]), 3)
+
+    def test_completed_private_query_is_inferred_only_after_its_event(self):
+        game = Game(ScenarioLibrary().get(
+            "official-btx-09-those-with-antibodies"))
+        agent = JointPlanMastermindAgent(reply_model="belief")
+        game.protagonist_knowledge["roles"] = {"journalist": "false_answer"}
+        before = agent._red_reply_view(game, game, game.state.events)
+        self.assertEqual(before["protagonist_knowledge"], {})
+
+        learn_role(game, {"target": "journalist"})
+        public_event = game.view("m")["events"][-1]
+        self.assertEqual(public_event["information_kind"], "role")
+        self.assertNotIn("role", public_event)
+        self.assertNotIn("protagonist_knowledge", game.view("m"))
+        inferred = agent._red_reply_view(game, game, game.state.events)
+        self.assertEqual(inferred["protagonist_knowledge"], {
+            "roles": {"journalist": game.roles["journalist"]}})
+        self.assertNotIn("secret", inferred)
+
+        old_or_group = [{"kind": "private_information_gained",
+                         "character": "girl"},
+                        {"kind": "private_information_gained",
+                         "character": "girl",
+                         "information_kind": "same_role_group"}]
+        uncertain = agent._red_reply_view(game, game, old_or_group)
+        self.assertEqual(uncertain["protagonist_knowledge"], {})
+
+    def test_final_guess_model_receives_inferred_private_query(self):
+        game = Game(ScenarioLibrary().get(
+            "official-btx-09-those-with-antibodies"))
+        learn_role(game, {"target": "journalist"})
+        evaluator = _PublicReplyEvaluator(
+            SearchBudget(), 0,
+            root_view={"events": game.view("m")["events"]})
+        view = evaluator._public_cutoff_view(game, ())
+        self.assertEqual(view["protagonist_knowledge"]["roles"], {
+            "journalist": game.roles["journalist"]})
 
     def test_belief_root_search_resamples_replies_and_returns_legal_plan(self):
         game = Game(ScenarioLibrary().get(

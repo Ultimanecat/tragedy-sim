@@ -75,11 +75,24 @@ class PublicEvidence:
     @classmethod
     def from_view(cls, view: Mapping[str, Any]) -> "PublicEvidence":
         """Extract only facts explicitly present in a protagonist view."""
-        known_roles = tuple(sorted(
-            (cid, fact["role"])
+        known = {
+            cid: fact["role"]
             for cid, fact in view.get("known_roles", {}).items()
-            if isinstance(fact, Mapping) and isinstance(fact.get("role"), str)
-        ))
+            if cid != "part_timer"
+            and isinstance(fact, Mapping) and isinstance(fact.get("role"), str)
+        }
+        if "part_timer_question" in known:
+            known["part_timer"] = known.pop("part_timer_question")
+        # A successful private identity query reveals the initial script
+        # role. It can be more precise than a public current-role reveal
+        # after a temporary transformation such as BTX's Virus.
+        known.update({
+            ("part_timer" if cid == "part_timer_question" else cid): role
+            for cid, role in view.get("protagonist_knowledge", {}).get(
+                "roles", {}).items()
+            if isinstance(cid, str) and isinstance(role, str)
+        })
+        known_roles = tuple(sorted(known.items()))
         known_culprits = tuple(sorted(
             (int(day), cid)
             for day, cid in view.get("known_culprits", {}).items()
@@ -92,7 +105,8 @@ class PublicEvidence:
             module=str(view["module"]), days=int(view["days"]),
             loops=int(view["loops"]),
             table_talk=bool(view.get("table_talk", False)),
-            characters=tuple(sorted(view.get("characters", {}))),
+            characters=tuple(sorted(cid for cid in view.get("characters", {})
+                                    if cid != "part_timer_question")),
             schedule=schedule, known_roles=known_roles,
             known_culprits=known_culprits,
             known_plots=tuple(sorted(str(item) for item in view.get("known_plots", ()))),

@@ -78,7 +78,7 @@ def learn_role(game, effect):
     game.protagonist_knowledge.setdefault("roles", {})[target] = game.roles[target]
     game._event("private_information_gained",
                 f"主人公获得了关于{game.name(target)}身份的私密信息。",
-                character=target)
+                character=target, information_kind="role")
 
 
 def copycat_identify(game, effect):
@@ -88,7 +88,7 @@ def copycat_identify(game, effect):
                      if assigned == role and game.state.characters[cid].present)
     game.protagonist_knowledge.setdefault("same_role_groups", {})[target] = matches
     game._event("private_information_gained", "主人公得知了所有与模仿者身份相同的角色。",
-                character=target)
+                character=target, information_kind="same_role_group")
 
 
 def servant_protect(game, effect):

@@ -111,7 +111,8 @@ INCIDENT_EFFECT_LOCATION = _component(
     "public_incident_effect_location")
 PUBLIC_REVEALS = _component(
     "common.public_reveals", compile_public_reveals,
-    "public_role_reveal", "public_culprit_reveal", "public_plot_reveal")
+    "public_role_reveal", "public_culprit_reveal", "public_plot_reveal",
+    "public_part_timer_replacement")
 GOODWILL_REFUSAL = _component(
     "common.goodwill_refusal", compile_goodwill_refusals,
     "public_goodwill_refusal")
