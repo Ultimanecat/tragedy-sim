@@ -8,7 +8,7 @@ import json
 import random
 from statistics import mean
 from time import perf_counter
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 from tragedy_sim import Game
 from tragedy_sim.ai import (BaselineProtagonistAgent, DefensiveProtagonistAgent,
@@ -245,7 +245,9 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          information_reward_weight: float = 0.01,
          protagonist_particles: int | None = None,
          joint_reply_model: str = "public",
-         joint_information_weight: float = 0.02) -> MatchResult:
+         joint_information_weight: float = 0.02,
+         cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
+         ) -> MatchResult:
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -401,6 +403,12 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                if key not in {"actor", "action"}})
         new_loop_events = game.state.events[loop_event_cursor:]
         loop_event_cursor = len(game.state.events)
+        if cutoff_observer is not None:
+            for event in new_loop_events:
+                if (event.get("kind") == "day_ended"
+                        and game.winner is None
+                        and game.state.phase == "day_start"):
+                    cutoff_observer(game, event)
         if any(event.get("kind") == "final_guess_started" for event in new_loop_events):
             known_roles_before_final = sum(
                 fact.get("role") == scenario["cast"].get(cid)

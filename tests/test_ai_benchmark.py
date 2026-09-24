@@ -6,13 +6,43 @@ from io import StringIO
 from unittest.mock import patch
 
 from benchmarks import ai_mastermind_matrix
+from benchmarks.ai_cutoff_calibration import summarize as summarize_cutoffs, weighted_auc
 from benchmarks.ai_difficulty_matrix import (difficulty_groups, paired_outcomes,
                                              summarize, wilson_interval)
-from benchmarks.ai_self_play import MatchResult, _ability_usage
+from benchmarks.ai_self_play import MatchResult, _ability_usage, play
 from tragedy_sim.scenario_library import ScenarioLibrary
 
 
 class AbilityUsageTests(unittest.TestCase):
+    def test_cutoff_auc_ranks_match_outcomes_and_handles_one_class(self):
+        rows = [
+            {"scenario": "a", "strategy": "fixed", "seed": 0,
+             "red_win": True, "direct_red_win": True, "weight": 0.5,
+             "hero_score": 0.8, "negative_entropy": -0.3,
+             "score_minus_entropy": 0.79},
+            {"scenario": "a", "strategy": "fixed", "seed": 1,
+             "red_win": False, "direct_red_win": False, "weight": 1.0,
+             "hero_score": 0.2, "negative_entropy": -0.7,
+             "score_minus_entropy": 0.19},
+        ]
+        self.assertEqual(weighted_auc(rows, "hero_score"), 1.0)
+        self.assertIsNone(weighted_auc(rows[:1], "hero_score"))
+        self.assertEqual(summarize_cutoffs(rows)["matches"], 2)
+
+    def test_cutoff_observer_receives_only_stable_nonterminal_days(self):
+        observed = []
+
+        def inspect(game, event):
+            observed.append((event["kind"], int(event["round"]),
+                             game.state.phase, game.winner))
+
+        play("official-btx-02-traditional-ensemble-murder", 0, 2, 2,
+             "fixed", "baseline", cutoff_observer=inspect)
+        self.assertTrue(observed)
+        self.assertTrue(all(kind == "day_ended" and phase == "day_start"
+                            and winner is None and day >= 1
+                            for kind, day, phase, winner in observed))
+
     def test_mastermind_matrix_pairs_strategies_under_same_budget(self):
         def fake_play(scenario, seed, nodes, depth, strategy, protagonists, **kwargs):
             self.assertEqual((scenario, seed, nodes, depth, protagonists),
