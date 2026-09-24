@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from benchmarks import ai_mastermind_matrix
 from benchmarks.ai_cutoff_calibration import summarize as summarize_cutoffs, weighted_auc
+from benchmarks.ai_path_calibration import cross_validated_paths
 from benchmarks.ai_difficulty_matrix import (difficulty_groups, paired_outcomes,
                                              summarize, wilson_interval)
 from benchmarks.ai_self_play import MatchResult, _ability_usage, play
@@ -14,6 +15,32 @@ from tragedy_sim.scenario_library import ScenarioLibrary
 
 
 class AbilityUsageTests(unittest.TestCase):
+    def test_dual_path_calibration_holds_out_seeds_and_handles_sparse_guesses(self):
+        modes = ("survival_win", "final_guess_win", "final_guess_loss",
+                 "other_black_win")
+        rows = []
+        for seed, mode in enumerate(modes):
+            for day in (1, 2):
+                rows.append({
+                    "scenario": "btx", "strategy": "fixed", "seed": seed,
+                    "loop": 1, "day_ended": day, "days": 3, "loops": 2,
+                    "hero_score": (0.8 if mode == "survival_win" else -0.3),
+                    "hard_role_entropy": (0.1 if mode == "final_guess_win"
+                                          else 0.8),
+                    "outcome_mode": mode,
+                    "red_win": mode.endswith("win"), "weight": 0.5,
+                })
+        report = cross_validated_paths(rows)
+        self.assertEqual(report["heldout_seeds"], 4)
+        self.assertEqual(report["matches"], 4)
+        self.assertEqual(report["conditional_guess_win_matches"], 1)
+        self.assertEqual(report["conditional_guess_loss_matches"], 1)
+        self.assertGreaterEqual(report["path_brier"], 0)
+        self.assertLessEqual(report["path_brier"], 1)
+        self.assertGreaterEqual(report["single_brier"], 0)
+        self.assertLessEqual(report["single_brier"], 1)
+        self.assertEqual(cross_validated_paths(rows[:2])["heldout_seeds"], 1)
+
     def test_cutoff_auc_ranks_match_outcomes_and_handles_one_class(self):
         rows = [
             {"scenario": "a", "strategy": "fixed", "seed": 0,

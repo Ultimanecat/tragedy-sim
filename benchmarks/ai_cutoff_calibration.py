@@ -48,10 +48,13 @@ def weighted_auc(rows: list[dict[str, Any]], field: str, *,
 def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     if not rows:
         return {"snapshots": 0, "matches": 0}
-    grouped = {(row["scenario"], row["strategy"], row["seed"])
+    grouped = {(row["scenario"], row["strategy"],
+                row.get("protagonist_strategy", "particle_ensemble"), row["seed"])
                for row in rows}
     ordered = sorted(rows, key=lambda row: row["hero_score"])
     exact = [row for row in rows if "exact_correct" in row]
+    exact_guess = [row for row in exact
+                   if row["outcome_mode"].startswith("final_guess_")]
     bins = []
     for index in range(3):
         selected = ordered[len(ordered) * index // 3:
@@ -76,6 +79,10 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "exact_snapshots": len(exact),
         "exact_correct_auc": (weighted_auc(exact, "exact_correct_fraction")
                               if exact else None),
+        "exact_correct_given_guess_auc": (
+            weighted_auc(exact_guess, "exact_correct_fraction")
+            if exact_guess else None),
+        "exact_guess_snapshots": len(exact_guess),
         "exact_ms_max": max((row["exact_ms"] for row in exact), default=None),
         "tertiles": bins,
     }
@@ -87,6 +94,9 @@ def main() -> None:
     parser.add_argument("--games", type=int, default=3)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--strategy", action="append", choices=("fixed", "joint"))
+    parser.add_argument("--protagonist-strategy", default="particle_ensemble",
+                        choices=("particle_ensemble", "risk_aware",
+                                 "defensive", "baseline"))
     parser.add_argument("--mastermind-nodes", type=int, default=16)
     parser.add_argument("--mastermind-ms", type=int, default=1000)
     parser.add_argument("--protagonist-nodes", type=int, default=8)
@@ -94,6 +104,8 @@ def main() -> None:
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--exact-penultimate", action="store_true",
                         help="also solve red's identity MAP before the final day")
+    parser.add_argument("--path-cv", action="store_true",
+                        help="fit three outcome heads, holding out complete seeds")
     args = parser.parse_args()
     if min(args.games, args.mastermind_nodes, args.mastermind_ms,
            args.protagonist_nodes, args.protagonist_ms) < 1:
@@ -112,8 +124,11 @@ def main() -> None:
                     view = game.protagonist_team_view()
                     row = {
                         "scenario": scenario, "strategy": strategy,
+                        "protagonist_strategy": args.protagonist_strategy,
                         "seed": seed, "loop": game.state.loop,
                         "day_ended": int(event["round"]),
+                        "days": game.scenario["days"],
+                        "loops": game.scenario["loops"],
                         "hero_score": evaluator._cutoff_value(
                             game, int(event["round"])),
                         "hard_role_entropy": evaluator._role_entropy(view),
@@ -137,7 +152,8 @@ def main() -> None:
 
                 result = play(
                     scenario, seed, args.mastermind_nodes, 8, strategy,
-                    "particle_ensemble", protagonist_nodes=args.protagonist_nodes,
+                    args.protagonist_strategy,
+                    protagonist_nodes=args.protagonist_nodes,
                     time_limit_ms=args.mastermind_ms,
                     protagonist_time_limit_ms=args.protagonist_ms,
                     joint_reply_model="belief", joint_information_weight=0,
@@ -158,6 +174,7 @@ def main() -> None:
                             for row in snapshots)
                 matches.append({
                     "scenario": scenario, "strategy": strategy,
+                    "protagonist_strategy": args.protagonist_strategy,
                     "seed": seed, "red_win": red_win,
                     "outcome_mode": outcome_mode,
                     "snapshots": len(snapshots),
@@ -176,11 +193,16 @@ def main() -> None:
                                  for mode in sorted({item["outcome_mode"]
                                                      for item in matches})},
               "matches": matches, "rows": rows}
+    if args.path_cv:
+        from .ai_path_calibration import cross_validated_paths
+        report["path_cv"] = cross_validated_paths(rows)
     if args.json:
         print(json.dumps(report, ensure_ascii=False))
     else:
         print(json.dumps({"summary": report["summary"],
-                          "outcome_counts": report["outcome_counts"]},
+                          "outcome_counts": report["outcome_counts"],
+                          **({"path_cv": report["path_cv"]} if args.path_cv
+                             else {})},
                          ensure_ascii=False, indent=2))
 
 
