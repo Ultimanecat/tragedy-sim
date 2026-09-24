@@ -34,7 +34,7 @@ def main() -> None:
     parser.add_argument("--depth", type=int, default=8)
     parser.add_argument("--protagonists", choices=("particle_ensemble", "oracle_script"),
                         default="particle_ensemble")
-    parser.add_argument("--joint-reply-model", choices=("public", "hidden", "full"),
+    parser.add_argument("--joint-reply-model", choices=("public", "belief", "hidden", "full"),
                         default="public")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--trace", action="store_true",

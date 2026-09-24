@@ -116,6 +116,7 @@ class MatchResult:
     mastermind_decisions: int
     search_nodes: int
     elapsed_seconds: float
+    mastermind_reply_model: str = "none"
     mastermind_search_seconds: float = 0.0
     mastermind_max_decision_seconds: float = 0.0
     mastermind_time_overruns: int = 0
@@ -460,6 +461,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         difficulty=_scenario_difficulty(scenario_id),
         mastermind_strategy=strategy, protagonist_strategy=protagonist_strategy,
         seed=seed, winner=game.winner, decisions=decisions,
+        mastermind_reply_model=(joint_reply_model if strategy == "joint"
+                                else "none"),
         mastermind_decisions=mastermind_decisions, search_nodes=search_nodes,
         elapsed_seconds=perf_counter() - started,
         mastermind_search_seconds=mastermind_search_seconds,
@@ -538,7 +541,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--strategy", choices=("all", *MASTERMIND_STRATEGIES),
                         default="all")
-    parser.add_argument("--joint-reply-model", choices=("public", "hidden", "full"),
+    parser.add_argument("--joint-reply-model", choices=("public", "belief", "hidden", "full"),
                         default="public")
     parser.add_argument("--protagonists", choices=PROTAGONIST_STRATEGIES,
                         default="baseline")

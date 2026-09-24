@@ -8,11 +8,13 @@ decision occurs between those three placements.
 from __future__ import annotations
 
 import random
+import math
 from time import perf_counter
 from typing import Any
 
 from .ai import RiskAwareProtagonistAgent
 from .optimized_mcts import _command_key
+from .particle_ensemble import ParticleEnsembleProtagonistAgent
 from .oracle_protagonist import (OracleProtagonistAgent,
                                  FullCardOracleProtagonistAgent,
                                  HiddenCardOracleProtagonistAgent)
@@ -47,8 +49,8 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
         super().__init__(budget)
         if reply_nodes < 1:
             raise ValueError("reply_nodes must be positive")
-        if reply_model not in {"public", "hidden", "full"}:
-            raise ValueError("reply_model must be public, hidden or full")
+        if reply_model not in {"public", "belief", "hidden", "full"}:
+            raise ValueError("reply_model must be public, belief, hidden or full")
         self.reply_nodes = reply_nodes
         self.reply_model = reply_model
         self._plan: list[dict[str, Any]] = []
@@ -56,7 +58,8 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
 
     @property
     def plan_name(self) -> str:
-        return "joint_day_mastermind"
+        return ("joint_belief_root_mcts" if self.reply_model == "belief"
+                else "joint_day_mastermind")
 
     @staticmethod
     def _placement_phase(game: SearchGame) -> bool:
@@ -175,20 +178,21 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
         reply_budget = SearchBudget(node_limit=reply_limit,
                                     rollout_depth=12, seed=seed,
                                     time_limit_ms=remaining_ms)
-        if self.reply_model == "public":
+        if self.reply_model in {"public", "belief"}:
             evaluator = _PublicReplyEvaluator(reply_budget, seed)
-            policy = RiskAwareProtagonistAgent(random.Random(self.budget.seed))
-            prior_events = game.protagonist_team_view().get("events", ())
+            policy = (ParticleEnsembleProtagonistAgent(
+                SearchBudget(node_limit=min(reply_limit, 8), rollout_depth=6,
+                             time_limit_ms=remaining_ms, seed=seed),
+                particle_count=max(2, min(4, reply_limit // 2)),
+                rng_seed=seed, mastermind_policy_samples=1)
+                if self.reply_model == "belief" else
+                RiskAwareProtagonistAgent(random.Random(self.budget.seed)))
             while world.state.phase == "protagonists":
                 actions = world.search_actions(world.controller)
                 if not actions:
                     break
                 offers = [evaluator._offer(action) for action in actions]
-                view = world.protagonist_team_view()
-                recent = view.get("events", ())
-                if prior_events and recent and prior_events[-1] == recent[0]:
-                    recent = recent[1:]
-                view["events"] = [*prior_events, *recent]
+                view = self._red_reply_view(game, world)
                 chosen = policy.choose_action(
                     participant="team", view=view, offers=offers)
                 selected = actions[next(i for i, offer in enumerate(offers)
@@ -225,6 +229,23 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
             world, game.state.loop, game.state.round)
         return -hero_score
 
+    @staticmethod
+    def _red_reply_view(game: SearchGame, world: SearchGame) -> dict[str, Any]:
+        """Public red observation as estimated by black, without private clues.
+
+        The real game object also holds results of protagonist-only role
+        investigations. Black can see that an investigation happened but may
+        not read its private answer to choose a hypothetical red response.
+        """
+        view = world.protagonist_team_view()
+        view["protagonist_knowledge"] = {}
+        prior = game.protagonist_team_view().get("events", ())
+        recent = view.get("events", ())
+        if prior and recent and prior[-1] == recent[0]:
+            recent = recent[1:]
+        view["events"] = [*prior, *recent]
+        return view
+
     def search(self, game: SearchGame) -> Any:
         if game.controller != "m":
             raise ValueError("joint mastermind requires a mastermind decision")
@@ -255,6 +276,8 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
         self._plan.clear()
         self._plan_day = position
         self._retained_root = None
+        if self.reply_model == "belief":
+            return self._search_belief(game, started, root_hash, offered)
         rng = random.Random(f"{self.budget.seed}:{root_hash}:joint")
         seen: set[tuple[str, ...]] = set()
         evaluations: list[tuple[float, tuple[dict[str, Any], ...]]] = []
@@ -316,4 +339,72 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
                          else "node_limit"), selected_action_id=selected.id,
             root_actions=stats, candidate_actions=attempts,
             expanded_actions=len(evaluations))
+        return selected
+
+    def _search_belief(self, game: SearchGame, started: float,
+                       root_hash: str, offered: dict[str, Any]) -> Any:
+        """Root-bandit search over plans with fresh public-belief red replies."""
+        deadline = (None if self.budget.time_limit_ms is None else
+                    started + self.budget.time_limit_ms / 1000)
+        rng = random.Random(f"{self.budget.seed}:{root_hash}:belief")
+        candidate_limit = min(8, max(1, self.budget.node_limit // 2))
+        plans: list[tuple[dict[str, Any], ...]] = []
+        scores: list[list[float]] = []
+        seen: set[tuple[str, ...]] = set()
+        attempts = 0
+        while (len(plans) < candidate_limit
+               and attempts < self.budget.node_limit * 8):
+            if deadline is not None and perf_counter() >= deadline and plans:
+                break
+            bundle = self._candidate(game, attempts, rng)
+            attempts += 1
+            signature = tuple(sorted(_command_key(item) for item in bundle))
+            if not bundle or signature in seen:
+                continue
+            seen.add(signature)
+            score = self._evaluate(game, bundle, self.budget.seed + 1,
+                                   deadline=deadline)
+            plans.append(bundle)
+            scores.append([score])
+        if not plans:
+            return super().search(game)
+        samples = len(plans)
+        while samples < self.budget.node_limit:
+            if deadline is not None and perf_counter() >= deadline:
+                break
+            index = max(range(len(plans)), key=lambda i: (
+                sum(scores[i]) / len(scores[i])
+                + self.budget.exploration
+                * math.sqrt(math.log(samples + 1) / len(scores[i]))))
+            score = self._evaluate(
+                game, plans[index], self.budget.seed + 1000 + samples,
+                deadline=deadline)
+            scores[index].append(score)
+            samples += 1
+        best_index = max(range(len(plans)),
+                         key=lambda i: sum(scores[i]) / len(scores[i]))
+        best = plans[best_index]
+        self._plan = list(best[1:])
+        selected = offered[_command_key(best[0])]
+        first_stats: dict[str, list[float]] = {}
+        for bundle, values in zip(plans, scores):
+            first_stats.setdefault(_command_key(bundle[0]), []).extend(values)
+        stats = tuple(RootActionStats(
+            action_id=offer.id, actor=offer.actor, kind=offer.kind,
+            parameters=dict(offer.parameters),
+            visits=len(first_stats.get(key, ())),
+            mean_value=(sum(first_stats[key]) / len(first_stats[key])
+                        if key in first_stats else 0.0))
+            for key, offer in offered.items())
+        self.last_trace = SearchTrace(
+            strategy=self.plan_name, seed=self.budget.seed,
+            root_key_hash=root_hash, node_limit=self.budget.node_limit,
+            rollout_depth=self.budget.rollout_depth,
+            time_limit_ms=self.budget.time_limit_ms,
+            nodes=samples, iterations=samples, max_depth=3,
+            elapsed_ms=(perf_counter() - started) * 1000,
+            stop_reason=("time_limit" if samples < self.budget.node_limit
+                         else "node_limit"), selected_action_id=selected.id,
+            root_actions=stats, candidate_actions=attempts,
+            expanded_actions=len(plans))
         return selected

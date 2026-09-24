@@ -481,6 +481,28 @@ class RoomServiceTests(unittest.TestCase):
                 self.assertEqual(updated["room"]["seats"]["m"]["nickname"],
                                  "三牌联合剧作家 AI")
 
+    def test_belief_joint_mastermind_is_btx_only_and_selectable(self):
+        rooms = RoomService()
+        created = rooms.create({"module": "BTX", "nickname": "Hero",
+                                "seat": "a", "protagonist_count": 1})
+        updated = rooms.set_ai(
+            created["room"]["code"],
+            {"seat": "m", "enabled": True,
+             "strategy": "belief_joint_mastermind"},
+            token=created["credential"]["admin_token"])
+        self.assertEqual(updated["room"]["seats"]["m"]["nickname"],
+                         "信念采样剧作家 AI")
+        self.assertEqual(rooms._rooms[created["room"]["code"]]
+                         .seats["m"].ai_policy.reply_model, "belief")
+
+        fs = rooms.create({"module": "FS", "nickname": "Hero",
+                           "seat": "a", "protagonist_count": 1})
+        with self.assertRaises(ServiceError):
+            rooms.set_ai(fs["room"]["code"],
+                         {"seat": "m", "enabled": True,
+                          "strategy": "belief_joint_mastermind"},
+                         token=fs["credential"]["admin_token"])
+
     def test_four_room_tokens_can_complete_a_match_and_export_replay(self):
         self.join_all()
         for seat in "mabc":

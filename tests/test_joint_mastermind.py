@@ -10,6 +10,7 @@ from tragedy_sim import Game
 from tragedy_sim.ai import RiskAwareProtagonistAgent
 from tragedy_sim.joint_mastermind import (JointPlanMastermindAgent,
                                          _PublicReplyEvaluator)
+from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
 
@@ -132,6 +133,47 @@ class JointMastermindTests(unittest.TestCase):
         self.assertFalse(evaluator.script_aware_rollout)
         world = SimpleNamespace(state=SimpleNamespace(phase="final_guess"))
         self.assertTrue(evaluator._horizon_reached(world, 0, 1, 1))
+
+    def test_belief_reply_samples_public_worlds_without_private_result(self):
+        game = Game(ScenarioLibrary().get(
+            "official-btx-09-those-with-antibodies"))
+        game = game.search_transition(game.search_actions("m")[0])
+        game.protagonist_knowledge["roles"] = {"journalist": "time_traveler"}
+        agent = JointPlanMastermindAgent(
+            SearchBudget(node_limit=4, rollout_depth=6, seed=0),
+            reply_model="belief")
+        bundle = agent._candidate(game, 0, random.Random(0))
+        seen = []
+        original_choose = ParticleEnsembleProtagonistAgent.choose_action
+
+        def checked_choose(policy, *, participant, view, offers):
+            self.assertEqual(participant, "team")
+            self.assertNotIn("secret", view)
+            self.assertEqual(view["protagonist_knowledge"], {})
+            seen.append(view)
+            return original_choose(policy, participant=participant,
+                                   view=view, offers=offers)
+
+        with patch.object(ParticleEnsembleProtagonistAgent, "choose_action",
+                          new=checked_choose):
+            score = agent._evaluate(game, bundle, 1)
+        self.assertIsInstance(score, float)
+        self.assertEqual(len(seen), 3)
+
+    def test_belief_root_search_resamples_replies_and_returns_legal_plan(self):
+        game = Game(ScenarioLibrary().get(
+            "official-btx-09-those-with-antibodies"))
+        game = game.search_transition(game.search_actions("m")[0])
+        before = game.state_key("m")
+        agent = JointPlanMastermindAgent(
+            SearchBudget(node_limit=4, rollout_depth=6, seed=5),
+            reply_model="belief")
+        choice = agent.search(game)
+        self.assertIn(choice, game.action_offers("m"))
+        self.assertEqual(agent.last_trace.strategy, "joint_belief_root_mcts")
+        self.assertEqual(agent.last_trace.nodes, 4)
+        self.assertLessEqual(agent.last_trace.expanded_actions, 2)
+        self.assertEqual(game.state_key("m"), before)
 
 
 if __name__ == "__main__":

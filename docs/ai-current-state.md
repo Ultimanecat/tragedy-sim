@@ -80,5 +80,7 @@
 - 策略入口：[公开信息策略](../tragedy_sim/ai.py)、[朴素 MCTS](../tragedy_sim/mcts.py)、[优化 MCTS](../tragedy_sim/optimized_mcts.py)、[策略 MCTS](../tragedy_sim/strategic_mcts.py)、[FS/BTX 三牌联合搜索](../tragedy_sim/joint_mastermind.py)、[主人公 ISMCTS](../tragedy_sim/ismcts.py)、[已知剧本诊断基线](../tragedy_sim/oracle_protagonist.py)。
 
 2026-09-24 联合黑方的默认回复改为只读主人公公开视图的 `RiskAware` 策略；原“知道剧本但不知道当天暗牌”的 `hidden` 回复和全明牌 `full` 回复仍可用于消融。当前公开回复没有显式信念粒子，行动仍逐张选取，黑方只展开到日末；因此不能把它视为红方最优回应或完整对手建模。参见 [等时间基准](ai-benchmark-results.md)及[后续路线](future-roadmap.md)。
+
+同日增加 BTX 专用的实验黑方 `belief_joint_mastermind`：复用红方公开 witness 与分维粒子，随机生成联合三牌回应，由黑方根节点 UCB 搜索比较自己的三牌。已知局限是红方真实私密调查答案尚未做概率反推，日末估值不含最终猜测后验；首轮 BTX02/09 各 3-seed 低预算测试均未优于固定公开回复。该模式保留为后续信念／终猜估值调优的可选基线。
 - 信念与估值：[隐藏世界采样](../tragedy_sim/belief.py)、[公开 witness](../tragedy_sim/witness.py)、[剧本条件化估值](../tragedy_sim/evaluation.py)。
 - 复现入口：[自对弈脚本](../benchmarks/ai_self_play.py)。例：`python -m benchmarks.ai_self_play --scenario official-fs-01-first-script --games 5 --seed 0 --nodes 24 --depth 12 --protagonist-nodes 96 --protagonist-depth 16 --strategy strategic --protagonists ismcts_survival --progress`。

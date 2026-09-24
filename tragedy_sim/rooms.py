@@ -315,7 +315,8 @@ class RoomService:
         strategy = request.get("strategy", "random")
         mastermind_strategies = {
             "fixed_mastermind", "mcts_mastermind", "optimized_mcts_mastermind",
-            "strategic_mcts_mastermind", "joint_mastermind"}
+            "strategic_mcts_mastermind", "joint_mastermind",
+            "belief_joint_mastermind"}
         protagonist_strategies = {
             "baseline_protagonist", "defensive_protagonist", "risk_aware_protagonist",
             "ismcts_protagonist", "ismcts_legacy_protagonist",
@@ -342,6 +343,9 @@ class RoomService:
             if (request["enabled"] and strategy == "joint_mastermind"
                     and room.module not in {"FS", "BTX"}):
                 raise ServiceError("INVALID_AI_STRATEGY", "三牌联合剧作家 AI 目前只支持 FS/BTX", status=409)
+            if (request["enabled"] and strategy == "belief_joint_mastermind"
+                    and room.module != "BTX"):
+                raise ServiceError("INVALID_AI_STRATEGY", "信念采样剧作家 AI 目前只支持 BTX", status=409)
             required = ("m", *SEATS[1:1 + room.protagonist_count])
             if seat not in required:
                 raise ServiceError("SEAT_UNAVAILABLE", "该人数模式没有这个参与者席位", status=409)
@@ -375,6 +379,7 @@ class RoomService:
                               "朴素 MCTS 剧作家 AI" if strategy == "mcts_mastermind"
                               else "优化 MCTS 剧作家 AI" if strategy == "optimized_mcts_mastermind"
                               else "三牌联合剧作家 AI" if strategy == "joint_mastermind"
+                              else "信念采样剧作家 AI" if strategy == "belief_joint_mastermind"
                               else "策略 MCTS 剧作家 AI"),
                     token=secrets.token_urlsafe(24), ready=True,
                     last_seen=self._clock(), ai=True, ai_type=strategy,
@@ -419,6 +424,11 @@ class RoomService:
                                JointPlanMastermindAgent(
                                    SearchBudget(node_limit=24, rollout_depth=12))
                                if strategy == "joint_mastermind" else
+                               JointPlanMastermindAgent(
+                                   SearchBudget(node_limit=24, rollout_depth=12,
+                                                time_limit_ms=3000),
+                                   reply_model="belief")
+                               if strategy == "belief_joint_mastermind" else
                                StrategicMctsMastermindAgent(
                                    SearchBudget(node_limit=24, rollout_depth=12))),
                 )
