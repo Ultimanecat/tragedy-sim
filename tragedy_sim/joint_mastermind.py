@@ -85,6 +85,7 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
         plot = cls._plot_target(game)
         key = cls._role_holder(game, "key")
         killer = cls._role_holder(game, "killer")
+        serial = cls._role_holder(game, "serial")
         incidents = sorted(
             (item for item in game.scenario.get("incidents", ())
              if item["day"] >= game.state.round),
@@ -93,6 +94,27 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
         hospital = ("hospital" if any(item["kind"] == "hospital"
                                      for item in incidents) else None)
         routes: list[tuple[tuple[str, str], ...]] = []
+        # The serial-killer route can end the loop without any intrigue.
+        # Keep it in the joint candidate set even when a conventional
+        # killer/key intrigue route also exists, as in FS01.
+        serial_state = game.state.characters.get(serial) if serial else None
+        if serial_state is not None and serial_state.alive and serial_state.present:
+            company = [character for character in game.state.characters.values()
+                       if character.present and character.alive
+                       and character.location == serial_state.location]
+            if len(company) == 1:
+                for victim in (cid for cid, role in game.roles.items()
+                               if role in {"key", "friend"}):
+                    state = game.state.characters.get(victim)
+                    if state is None or not state.alive or not state.present:
+                        continue
+                    for move in ("h", "v", "d"):
+                        if cls._destination(state.location, move) != serial_state.location:
+                            continue
+                        for pressure in (killer, victim):
+                            if pressure is not None:
+                                routes.append(((move, victim), ("i2", pressure),
+                                               ("p1a", culprit or victim)))
         if plot and hospital:
             for first, second in (("i2", "i1"), ("i1", "i2")):
                 for third in (culprit, key):
@@ -117,7 +139,8 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
     def _evaluate(self, game: SearchGame,
                   bundle: tuple[dict[str, Any], ...], seed: int, *,
                   reply_nodes: int | None = None,
-                  scenario_count: int = 1) -> float:
+                  scenario_count: int = 1,
+                  deadline: float | None = None) -> float:
         world = game.search_clone()
         for command in bundle:
             world = world.search_transition(command)
@@ -125,8 +148,17 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
             return self.evaluator(world)
         if world.state.phase != "protagonists":
             return self.evaluator(world)
-        reply_budget = SearchBudget(node_limit=reply_nodes or self.reply_nodes,
-                                    rollout_depth=12, seed=seed)
+        remaining_ms = (None if deadline is None else
+                        max(1, int((deadline - perf_counter()) * 1000)))
+        reply_limit = reply_nodes or self.reply_nodes
+        if remaining_ms is not None:
+            # One oracle candidate is indivisible, so a deadline alone can
+            # still overshoot. Shrink the reply search as the shared budget
+            # runs down instead of always starting a full 12/24-node search.
+            reply_limit = min(reply_limit, max(1, remaining_ms // 150))
+        reply_budget = SearchBudget(node_limit=reply_limit,
+                                    rollout_depth=12, seed=seed,
+                                    time_limit_ms=remaining_ms)
         oracle = (HiddenCardOracleProtagonistAgent(
             reply_budget, scenario_count=scenario_count, rng_seed=seed)
             if self.reply_model == "hidden" else
@@ -202,7 +234,8 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
             if not bundle or signature in seen:
                 continue
             seen.add(signature)
-            score = self._evaluate(game, bundle, self.budget.seed + attempts)
+            score = self._evaluate(game, bundle, self.budget.seed + attempts,
+                                   deadline=deadline)
             evaluations.append((score, bundle))
         if not evaluations:
             return super().search(game)
@@ -215,7 +248,8 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
                     break
                 score = self._evaluate(
                     game, bundle, self.budget.seed + 1000 + index,
-                    reply_nodes=max(24, self.reply_nodes), scenario_count=3)
+                    reply_nodes=max(24, self.reply_nodes), scenario_count=3,
+                    deadline=deadline)
                 validated.append((score, bundle))
         _, best = max(validated or evaluations, key=lambda item: item[0])
         self._plan = list(best[1:])

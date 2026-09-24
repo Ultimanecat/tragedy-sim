@@ -64,6 +64,14 @@ class ProtagonistPlayRecord:
 
 
 @dataclass(frozen=True)
+class MastermindPlayRecord:
+    loop: int
+    day: int
+    card: str
+    target: str
+
+
+@dataclass(frozen=True)
 class ProtagonistSearchRecord:
     loop: int
     day: int
@@ -108,6 +116,9 @@ class MatchResult:
     mastermind_decisions: int
     search_nodes: int
     elapsed_seconds: float
+    mastermind_search_seconds: float = 0.0
+    mastermind_max_decision_seconds: float = 0.0
+    mastermind_time_overruns: int = 0
     loop_losses: tuple[LoopLossRecord, ...] = ()
     final_guesses: tuple[FinalGuessRecord, ...] = ()
     known_roles_before_final: int = 0
@@ -120,6 +131,7 @@ class MatchResult:
     final_true_setup_in_exact_space: bool | None = None
     final_true_setup_hard_compatible: bool | None = None
     protagonist_plays: tuple[ProtagonistPlayRecord, ...] = ()
+    mastermind_plays: tuple[MastermindPlayRecord, ...] = ()
     protagonist_searches: tuple[ProtagonistSearchRecord, ...] = ()
     protagonist_evidence_seconds: float = 0.0
     protagonist_search_seconds: float = 0.0
@@ -287,6 +299,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         for seat in "abc"
     }
     decisions = mastermind_decisions = search_nodes = 0
+    mastermind_search_seconds = mastermind_max_decision_seconds = 0.0
+    mastermind_time_overruns = 0
     reason_cursor = 0
     loop_event_cursor = 0
     loop_losses: list[LoopLossRecord] = []
@@ -300,6 +314,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     final_true_setup_in_exact_space = None
     final_true_setup_hard_compatible = None
     protagonist_plays: list[ProtagonistPlayRecord] = []
+    mastermind_plays: list[MastermindPlayRecord] = []
     protagonist_searches: list[ProtagonistSearchRecord] = []
     protagonist_evidence_ms = protagonist_search_ms = 0.0
     started = perf_counter()
@@ -311,7 +326,15 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         if game.controller == "m":
             mastermind_decisions += 1
             if strategy in {"naive", "optimized", "strategic", "joint"}:
+                search_started = perf_counter()
                 action = mastermind.search(game)
+                search_elapsed = perf_counter() - search_started
+                mastermind_search_seconds += search_elapsed
+                mastermind_max_decision_seconds = max(
+                    mastermind_max_decision_seconds, search_elapsed)
+                if (time_limit_ms is not None
+                        and search_elapsed * 1000 > time_limit_ms):
+                    mastermind_time_overruns += 1
                 search_nodes += mastermind.last_trace.nodes
             elif strategy == "fixed":
                 action, arguments = _choose_policy_action(mastermind, "m", game, actions)
@@ -338,6 +361,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             else:
                 action = policy.choice(actions)
         command = {**action.command, **(arguments or {})}
+        if command.get("action") == "play" and command.get("actor") == "m":
+            mastermind_plays.append(MastermindPlayRecord(
+                game.state.loop, game.state.round,
+                command["card"], command["target"]))
         if command.get("action") == "play" and command.get("actor") != "m":
             trace = getattr(protagonists[command["actor"]], "last_trace", None)
             protagonist_evidence_ms += getattr(
@@ -433,6 +460,9 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         seed=seed, winner=game.winner, decisions=decisions,
         mastermind_decisions=mastermind_decisions, search_nodes=search_nodes,
         elapsed_seconds=perf_counter() - started,
+        mastermind_search_seconds=mastermind_search_seconds,
+        mastermind_max_decision_seconds=mastermind_max_decision_seconds,
+        mastermind_time_overruns=mastermind_time_overruns,
         loop_losses=tuple(loop_losses), final_guesses=tuple(final_guesses),
         known_roles_before_final=known_roles_before_final,
         cast_size=len(scenario["cast"]),
@@ -444,6 +474,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         final_true_setup_in_exact_space=final_true_setup_in_exact_space,
         final_true_setup_hard_compatible=final_true_setup_hard_compatible,
         protagonist_plays=tuple(protagonist_plays),
+        mastermind_plays=tuple(mastermind_plays),
         protagonist_searches=tuple(protagonist_searches),
         protagonist_evidence_seconds=protagonist_evidence_ms / 1000,
         protagonist_search_seconds=protagonist_search_ms / 1000,

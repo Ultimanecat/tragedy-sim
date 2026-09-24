@@ -1,6 +1,9 @@
 """Joint mastermind planning stays legal and leaves real state untouched."""
 
+import random
 import unittest
+from time import perf_counter
+from unittest.mock import patch
 
 from tragedy_sim import Game
 from tragedy_sim.joint_mastermind import JointPlanMastermindAgent
@@ -9,6 +12,12 @@ from tragedy_sim.search import SearchBudget
 
 
 class JointMastermindTests(unittest.TestCase):
+    def test_fs01_routes_include_serial_isolation_before_intrigue(self):
+        game = Game(ScenarioLibrary().get("official-fs-01-first-script"))
+        game = game.search_transition(game.search_actions("m")[0])
+        agent = JointPlanMastermindAgent(SearchBudget(node_limit=8))
+        self.assertEqual(agent._routes(game)[0][0], ("v", "girl"))
+
     def test_fs02_routes_cover_plot_and_future_hospital_pressure(self):
         game = Game(ScenarioLibrary().get("official-fs-02-prevailing-secrecy"))
         game = game.search_transition(game.search_actions("m")[0])
@@ -57,6 +66,37 @@ class JointMastermindTests(unittest.TestCase):
             world = world.search_transition(choice.command)
         self.assertEqual(world.state.phase, "protagonists")
         self.assertEqual(game.state_key("m"), before)
+
+    def test_reply_search_receives_remaining_joint_deadline(self):
+        game = Game(ScenarioLibrary().get("silent-town-fs"))
+        game = game.search_transition(game.search_actions("m")[0])
+        agent = JointPlanMastermindAgent(SearchBudget(node_limit=4), reply_nodes=8)
+        bundle = agent._candidate(game, 0, random.Random(0))
+        budgets = []
+
+        class FakeOracle:
+            last_trace = None
+
+            def __init__(self, budget, **kwargs):
+                budgets.append(budget)
+
+            def choose_game_action(self, **kwargs):
+                return None
+
+            def _offer(self, action):
+                return action
+
+            def _day_score(self, *args):
+                return 0.0, True
+
+        with patch("tragedy_sim.joint_mastermind.HiddenCardOracleProtagonistAgent",
+                   FakeOracle):
+            agent._evaluate(game, bundle, 0, deadline=perf_counter() + 0.5)
+        self.assertEqual(len(budgets), 1)
+        self.assertIsNotNone(budgets[0].time_limit_ms)
+        self.assertGreater(budgets[0].time_limit_ms, 0)
+        self.assertLessEqual(budgets[0].time_limit_ms, 500)
+        self.assertLessEqual(budgets[0].node_limit, 3)
 
 
 if __name__ == "__main__":

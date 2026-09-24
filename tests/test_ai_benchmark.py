@@ -1,7 +1,11 @@
 """Developer benchmark telemetry regressions."""
 
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
+from unittest.mock import patch
 
+from benchmarks import ai_mastermind_matrix
 from benchmarks.ai_difficulty_matrix import (difficulty_groups, paired_outcomes,
                                              summarize, wilson_interval)
 from benchmarks.ai_self_play import MatchResult, _ability_usage
@@ -9,6 +13,38 @@ from tragedy_sim.scenario_library import ScenarioLibrary
 
 
 class AbilityUsageTests(unittest.TestCase):
+    def test_mastermind_matrix_pairs_strategies_under_same_budget(self):
+        def fake_play(scenario, seed, nodes, depth, strategy, protagonists, **kwargs):
+            self.assertEqual((scenario, seed, nodes, depth, protagonists),
+                             ("official-fs-01-first-script", 2, 7, 5,
+                              "particle_ensemble"))
+            self.assertEqual(kwargs["time_limit_ms"], 900)
+            self.assertEqual(kwargs["protagonist_time_limit_ms"], 800)
+            return MatchResult(
+                scenario_id=scenario, scenario_title="FS01", module="FS",
+                loops=3, difficulty="standard", mastermind_strategy=strategy,
+                protagonist_strategy=protagonists, seed=seed,
+                winner="mastermind", decisions=3, mastermind_decisions=1,
+                search_nodes=7, elapsed_seconds=1.0,
+                mastermind_search_seconds=0.4)
+
+        output = StringIO()
+        with (patch("sys.argv", ["ai_mastermind_matrix",
+                                 "--scenario", "official-fs-01-first-script",
+                                 "--games", "1", "--seed", "2",
+                                 "--mastermind-ms", "900",
+                                 "--mastermind-nodes", "7",
+                                 "--protagonist-ms", "800",
+                                 "--protagonist-nodes", "4",
+                                 "--depth", "5"]),
+              patch.object(ai_mastermind_matrix, "play", side_effect=fake_play)
+              as mocked,
+              redirect_stdout(output)):
+            ai_mastermind_matrix.main()
+        self.assertEqual([call.args[4] for call in mocked.call_args_list],
+                         ["strategic", "joint"])
+        self.assertIn("joint: black wins 1/1", output.getvalue())
+
     def test_summarizes_information_ability_lifecycle(self):
         common = {"source": "worker", "ability": "reveal",
                   "ability_kind": "reveal"}
