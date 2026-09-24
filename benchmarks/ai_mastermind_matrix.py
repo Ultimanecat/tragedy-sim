@@ -34,6 +34,8 @@ def main() -> None:
     parser.add_argument("--depth", type=int, default=8)
     parser.add_argument("--protagonists", choices=("particle_ensemble", "oracle_script"),
                         default="particle_ensemble")
+    parser.add_argument("--joint-reply-model", choices=("public", "hidden", "full"),
+                        default="public")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--trace", action="store_true",
                         help="include mastermind plays and loop-loss reasons")
@@ -55,10 +57,12 @@ def main() -> None:
                     protagonist_nodes=args.protagonist_nodes,
                     protagonist_depth=args.depth,
                     time_limit_ms=args.mastermind_ms,
-                    protagonist_time_limit_ms=args.protagonist_ms)
+                    protagonist_time_limit_ms=args.protagonist_ms,
+                    joint_reply_model=args.joint_reply_model)
                 row = {
                     "scenario": scenario, "seed": seed,
                     "strategy": strategy, "winner": match.winner,
+                    "joint_reply_model": args.joint_reply_model,
                     "loops": match.loops, "difficulty": match.difficulty,
                     "final_correct": sum(item.correct for item in match.final_guesses),
                     "final_total": len(match.final_guesses),

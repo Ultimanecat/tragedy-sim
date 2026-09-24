@@ -20,6 +20,7 @@ class AbilityUsageTests(unittest.TestCase):
                               "particle_ensemble"))
             self.assertEqual(kwargs["time_limit_ms"], 900)
             self.assertEqual(kwargs["protagonist_time_limit_ms"], 800)
+            self.assertEqual(kwargs["joint_reply_model"], "public")
             return MatchResult(
                 scenario_id=scenario, scenario_title="FS01", module="FS",
                 loops=3, difficulty="standard", mastermind_strategy=strategy,

@@ -242,7 +242,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          oracle_horizon: str = "day",
          mastermind_policy_samples: int = 3,
          information_reward_weight: float = 0.01,
-         protagonist_particles: int | None = None) -> MatchResult:
+         protagonist_particles: int | None = None,
+         joint_reply_model: str = "public") -> MatchResult:
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -252,7 +253,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         FullInformationMctsMastermindAgent(budget) if strategy == "naive" else
         OptimizedMctsMastermindAgent(budget) if strategy == "optimized" else
         StrategicMctsMastermindAgent(budget) if strategy == "strategic" else
-        JointPlanMastermindAgent(budget) if strategy == "joint" else
+        JointPlanMastermindAgent(budget, reply_model=joint_reply_model)
+        if strategy == "joint" else
         FixedStrategyMastermindAgent(random.Random(f"mastermind:{seed}"))
         if strategy == "fixed" else random.Random(f"mastermind:{seed}"))
     protagonist_budget = SearchBudget(
@@ -536,6 +538,8 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--strategy", choices=("all", *MASTERMIND_STRATEGIES),
                         default="all")
+    parser.add_argument("--joint-reply-model", choices=("public", "hidden", "full"),
+                        default="public")
     parser.add_argument("--protagonists", choices=PROTAGONIST_STRATEGIES,
                         default="baseline")
     parser.add_argument("--json", action="store_true")
@@ -587,7 +591,8 @@ def main() -> None:
                               mastermind_policy_samples=
                               args.mastermind_policy_samples,
                               information_reward_weight=
-                              args.information_reward_weight)
+                              args.information_reward_weight,
+                              joint_reply_model=args.joint_reply_model)
                 results.append(result)
                 if args.progress:
                     guess = (f" guess={sum(item.correct for item in result.final_guesses)}"

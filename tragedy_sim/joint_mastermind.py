@@ -11,28 +11,44 @@ import random
 from time import perf_counter
 from typing import Any
 
+from .ai import RiskAwareProtagonistAgent
 from .optimized_mcts import _command_key
-from .oracle_protagonist import (FullCardOracleProtagonistAgent,
+from .oracle_protagonist import (OracleProtagonistAgent,
+                                 FullCardOracleProtagonistAgent,
                                  HiddenCardOracleProtagonistAgent)
 from .search import RootActionStats, SearchBudget, SearchGame, SearchTrace
 from .strategic_mcts import StrategicMctsMastermindAgent
 
 
+class _PublicReplyEvaluator(OracleProtagonistAgent):
+    """Day cutoff without script-aware red continuation or exact final guess."""
+
+    def __init__(self, budget: SearchBudget, seed: int):
+        super().__init__(reveal_cards=False, budget=budget, rng_seed=seed,
+                         script_aware_rollout=False)
+
+    def _horizon_reached(self, world: SearchGame, event_cursor: int,
+                         start_loop: int, start_day: int) -> bool:
+        return (world.state.phase == "final_guess"
+                or super()._horizon_reached(
+                    world, event_cursor, start_loop, start_day))
+
+
 class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
     """Budgeted joint-day candidates, each tested against a three-card reply.
 
-    By default the reply planner knows the script but not today's dark-card
-    faces. A full-card response is available as a diagnostic ablation.
+    By default the reply policy sees only the protagonist team's public view.
+    Script-aware hidden/full-card replies remain diagnostic ablations.
     Non-placement mastermind decisions retain the strategic MCTS baseline.
     """
 
     def __init__(self, budget: SearchBudget | None = None, *,
-                 reply_nodes: int = 12, reply_model: str = "hidden"):
+                 reply_nodes: int = 12, reply_model: str = "public"):
         super().__init__(budget)
         if reply_nodes < 1:
             raise ValueError("reply_nodes must be positive")
-        if reply_model not in {"hidden", "full"}:
-            raise ValueError("reply_model must be hidden or full")
+        if reply_model not in {"public", "hidden", "full"}:
+            raise ValueError("reply_model must be public, hidden or full")
         self.reply_nodes = reply_nodes
         self.reply_model = reply_model
         self._plan: list[dict[str, Any]] = []
@@ -159,6 +175,28 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
         reply_budget = SearchBudget(node_limit=reply_limit,
                                     rollout_depth=12, seed=seed,
                                     time_limit_ms=remaining_ms)
+        if self.reply_model == "public":
+            evaluator = _PublicReplyEvaluator(reply_budget, seed)
+            policy = RiskAwareProtagonistAgent(random.Random(self.budget.seed))
+            prior_events = game.protagonist_team_view().get("events", ())
+            while world.state.phase == "protagonists":
+                actions = world.search_actions(world.controller)
+                if not actions:
+                    break
+                offers = [evaluator._offer(action) for action in actions]
+                view = world.protagonist_team_view()
+                recent = view.get("events", ())
+                if prior_events and recent and prior_events[-1] == recent[0]:
+                    recent = recent[1:]
+                view["events"] = [*prior_events, *recent]
+                chosen = policy.choose_action(
+                    participant="team", view=view, offers=offers)
+                selected = actions[next(i for i, offer in enumerate(offers)
+                                        if offer["id"] == chosen["id"])]
+                world = world.search_transition(selected)
+            hero_score, _ = evaluator._day_score(
+                world, game.state.loop, game.state.round)
+            return -hero_score
         oracle = (HiddenCardOracleProtagonistAgent(
             reply_budget, scenario_count=scenario_count, rng_seed=seed)
             if self.reply_model == "hidden" else
