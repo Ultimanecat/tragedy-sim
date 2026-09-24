@@ -36,6 +36,8 @@ def main() -> None:
                         default="particle_ensemble")
     parser.add_argument("--joint-reply-model", choices=("public", "belief", "hidden", "full"),
                         default="public")
+    parser.add_argument("--joint-information-weight", type=float, default=0.02,
+                        help="bounded BTX final-guess entropy tiebreak (0 ablates)")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--trace", action="store_true",
                         help="include mastermind plays and loop-loss reasons")
@@ -43,6 +45,8 @@ def main() -> None:
     if min(args.games, args.mastermind_ms, args.mastermind_nodes,
            args.protagonist_ms, args.protagonist_nodes, args.depth) < 1:
         parser.error("games, budgets and depth must be positive")
+    if not 0 <= args.joint_information_weight <= 0.1:
+        parser.error("joint information weight must be between 0 and 0.1")
     scenarios = args.scenarios or DEFAULT_SCENARIOS
     results = []
     for scenario in scenarios:
@@ -58,11 +62,13 @@ def main() -> None:
                     protagonist_depth=args.depth,
                     time_limit_ms=args.mastermind_ms,
                     protagonist_time_limit_ms=args.protagonist_ms,
-                    joint_reply_model=args.joint_reply_model)
+                    joint_reply_model=args.joint_reply_model,
+                    joint_information_weight=args.joint_information_weight)
                 row = {
                     "scenario": scenario, "seed": seed,
                     "strategy": strategy, "winner": match.winner,
                     "joint_reply_model": args.joint_reply_model,
+                    "joint_information_weight": args.joint_information_weight,
                     "loops": match.loops, "difficulty": match.difficulty,
                     "final_correct": sum(item.correct for item in match.final_guesses),
                     "final_total": len(match.final_guesses),

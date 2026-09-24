@@ -459,6 +459,11 @@ class OracleProtagonistAgent:
                 - 0.06 * killer_pressure - 0.035 * key_pressure
                 - key_exposure - incident_pressure)
 
+    def _cutoff_value_with_events(self, world: Game, start_day: int,
+                                  rollout_events: Sequence[dict[str, Any]]) -> float:
+        """Override point for models that score the complete public rollout."""
+        return self._cutoff_value(world, start_day)
+
     def _rollout_score(self, world: Game, start_loop: int,
                        start_day: int, *,
                        mastermind_strategy: str | None = None,
@@ -505,9 +510,10 @@ class OracleProtagonistAgent:
                 f"day={world.state.round}")
         loop_lost = self._saw_loop_loss(
             world, root_events, start_loop) or world.state.loop != start_loop
-        score = self._cutoff_value(world, start_day)
+        score = self._cutoff_value_with_events(world, start_day, rollout_events)
         if self.rollout_horizon == "day" and world.module == "BTX" \
-                and world.winner is None and not loop_lost:
+                and world.winner is None and not loop_lost \
+                and world.state.phase != "final_guess":
             days_left = max(1, world.scenario["days"] - start_day)
             traveler_gap = sum(
                 max(0, 3 - world.state.characters[cid].goodwill)

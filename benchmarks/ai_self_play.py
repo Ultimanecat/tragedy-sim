@@ -244,7 +244,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          mastermind_policy_samples: int = 3,
          information_reward_weight: float = 0.01,
          protagonist_particles: int | None = None,
-         joint_reply_model: str = "public") -> MatchResult:
+         joint_reply_model: str = "public",
+         joint_information_weight: float = 0.02) -> MatchResult:
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -254,7 +255,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         FullInformationMctsMastermindAgent(budget) if strategy == "naive" else
         OptimizedMctsMastermindAgent(budget) if strategy == "optimized" else
         StrategicMctsMastermindAgent(budget) if strategy == "strategic" else
-        JointPlanMastermindAgent(budget, reply_model=joint_reply_model)
+        JointPlanMastermindAgent(budget, reply_model=joint_reply_model,
+                                 information_weight=joint_information_weight)
         if strategy == "joint" else
         FixedStrategyMastermindAgent(random.Random(f"mastermind:{seed}"))
         if strategy == "fixed" else random.Random(f"mastermind:{seed}"))
@@ -543,6 +545,8 @@ def main() -> None:
                         default="all")
     parser.add_argument("--joint-reply-model", choices=("public", "belief", "hidden", "full"),
                         default="public")
+    parser.add_argument("--joint-information-weight", type=float, default=0.02,
+                        help="bounded BTX final-guess entropy tiebreak (0 ablates)")
     parser.add_argument("--protagonists", choices=PROTAGONIST_STRATEGIES,
                         default="baseline")
     parser.add_argument("--json", action="store_true")
@@ -569,7 +573,8 @@ def main() -> None:
             or args.protagonist_time_limit_ms is not None
             and args.protagonist_time_limit_ms < 1
             or args.mastermind_policy_samples < 1
-            or args.information_reward_weight < 0):
+            or args.information_reward_weight < 0
+            or not 0 <= args.joint_information_weight <= 0.1):
         parser.error("games, nodes and depth must be positive")
     if args.protagonists == "particle_ensemble" and args.oracle_horizon == "match":
         parser.error("particle ensemble supports day or loop horizon")
@@ -595,7 +600,8 @@ def main() -> None:
                               args.mastermind_policy_samples,
                               information_reward_weight=
                               args.information_reward_weight,
-                              joint_reply_model=args.joint_reply_model)
+                              joint_reply_model=args.joint_reply_model,
+                              joint_information_weight=args.joint_information_weight)
                 results.append(result)
                 if args.progress:
                     guess = (f" guess={sum(item.correct for item in result.final_guesses)}"

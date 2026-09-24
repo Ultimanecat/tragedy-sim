@@ -425,8 +425,8 @@ class RoomService:
                                    SearchBudget(node_limit=24, rollout_depth=12))
                                if strategy == "joint_mastermind" else
                                JointPlanMastermindAgent(
-                                   SearchBudget(node_limit=24, rollout_depth=12,
-                                                time_limit_ms=3000),
+                                   SearchBudget(node_limit=96, rollout_depth=12,
+                                                time_limit_ms=10000),
                                    reply_model="belief")
                                if strategy == "belief_joint_mastermind" else
                                StrategicMctsMastermindAgent(

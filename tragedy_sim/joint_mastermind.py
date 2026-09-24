@@ -10,9 +10,10 @@ from __future__ import annotations
 import random
 import math
 from time import perf_counter
-from typing import Any
+from typing import Any, Sequence
 
 from .ai import RiskAwareProtagonistAgent
+from .catalog import MODULES, PLOTS
 from .optimized_mcts import _command_key
 from .particle_ensemble import ParticleEnsembleProtagonistAgent
 from .oracle_protagonist import (OracleProtagonistAgent,
@@ -20,20 +21,105 @@ from .oracle_protagonist import (OracleProtagonistAgent,
                                  HiddenCardOracleProtagonistAgent)
 from .search import RootActionStats, SearchBudget, SearchGame, SearchTrace
 from .strategic_mcts import StrategicMctsMastermindAgent
+from .witness import FsbtxWitnessCompiler
+from .witness_types import WitnessStrength
 
 
 class _PublicReplyEvaluator(OracleProtagonistAgent):
-    """Day cutoff without script-aware red continuation or exact final guess."""
+    """Day cutoff scored from the public red view, including final guesses."""
 
-    def __init__(self, budget: SearchBudget, seed: int):
+    def __init__(self, budget: SearchBudget, seed: int, *,
+                 root_view: dict[str, Any] | None = None,
+                 information_weight: float = 0.0):
         super().__init__(reveal_cards=False, budget=budget, rng_seed=seed,
                          script_aware_rollout=False)
+        self.root_view = root_view
+        self.information_weight = information_weight
+        self._compiler = FsbtxWitnessCompiler()
+        self._root_entropy: float | None = None
 
     def _horizon_reached(self, world: SearchGame, event_cursor: int,
                          start_loop: int, start_day: int) -> bool:
         return (world.state.phase == "final_guess"
                 or super()._horizon_reached(
                     world, event_cursor, start_loop, start_day))
+
+    def _public_cutoff_view(self, world: SearchGame,
+                            rollout_events: Sequence[dict[str, Any]]
+                            ) -> dict[str, Any]:
+        view = world.protagonist_team_view()
+        view["protagonist_knowledge"] = {}
+        if self.root_view is not None:
+            view["events"] = [*self.root_view.get("events", ()),
+                              *rollout_events]
+        return view
+
+    def _role_entropy(self, view: dict[str, Any]) -> float:
+        """Cheap, conservative hard-role domain entropy at a day cutoff.
+
+        Full joint posterior reconstruction is unbounded in late-game witness
+        histories and must not consume the per-decision search deadline.
+        Soft witnesses affect actual red guesses at the terminal boundary.
+        """
+        module = view.get("module")
+        if module not in MODULES:
+            return 0.0
+        roles = {"ordinary", *(role for plot in MODULES[module].plots
+                               for role in PLOTS[plot][2])}
+        if len(roles) < 2:
+            return 0.0
+        domains = {str(cid): set(roles) for cid in view.get("characters", ())}
+        for cid, fact in view.get("known_roles", {}).items():
+            if cid in domains and isinstance(fact, dict):
+                role = fact.get("role")
+                if role in roles:
+                    domains[cid].intersection_update({role})
+        for witness in self._compiler.compile(view):
+            if witness.strength != WitnessStrength.HARD:
+                continue
+            cid = ("part_timer" if witness.subject == "part_timer_question"
+                   else witness.subject)
+            if cid not in domains:
+                continue
+            if witness.kind == "role_is":
+                allowed = {str(witness.value)}
+                if witness.value == "serial" and module == "BTX":
+                    allowed.add("ordinary")  # Virus may convert Ordinary.
+                domains[cid].intersection_update(allowed)
+            elif witness.kind == "role_in":
+                domains[cid].intersection_update(map(str, witness.value))
+            elif witness.kind == "role_not_in":
+                domains[cid].difference_update(map(str, witness.value))
+        if not domains:
+            return 0.0
+        return sum(math.log(max(1, len(domain))) for domain in domains.values()
+                   ) / (len(domains) * math.log(len(roles)))
+
+    def _cutoff_value_with_events(self, world: SearchGame, start_day: int,
+                                  rollout_events: Sequence[dict[str, Any]]) -> float:
+        if world.state.phase == "final_guess":
+            view = self._public_cutoff_view(world, rollout_events)
+            actions = world.search_actions(world.controller)
+            offers = [self._offer(action, world) for action in actions]
+            model = ParticleEnsembleProtagonistAgent(
+                SearchBudget(node_limit=1, rollout_depth=6, seed=self.rng_seed),
+                particle_count=2, rng_seed=self.rng_seed)
+            chosen = model.choose_action(
+                participant="team", view=view, offers=offers)
+            guesses = chosen.get("arguments", {}).get("guesses", {})
+            return (1.0 if all(guesses.get(cid) == role
+                               for cid, role in world.roles.items())
+                    else -1.0)
+        score = super()._cutoff_value(world, start_day)
+        if (self.information_weight <= 0 or self.root_view is None
+                or world.winner is not None):
+            return score
+        if self._root_entropy is None:
+            self._root_entropy = self._role_entropy(self.root_view)
+        entropy = self._role_entropy(
+            self._public_cutoff_view(world, rollout_events))
+        return max(-0.99, min(0.99, score - self.information_weight
+                              * (entropy - self._root_entropy)))
 
 
 class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
@@ -45,14 +131,18 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
     """
 
     def __init__(self, budget: SearchBudget | None = None, *,
-                 reply_nodes: int = 12, reply_model: str = "public"):
+                 reply_nodes: int = 12, reply_model: str = "public",
+                 information_weight: float = 0.02):
         super().__init__(budget)
         if reply_nodes < 1:
             raise ValueError("reply_nodes must be positive")
         if reply_model not in {"public", "belief", "hidden", "full"}:
             raise ValueError("reply_model must be public, belief, hidden or full")
+        if not 0 <= information_weight <= 0.1:
+            raise ValueError("information_weight must be between 0 and 0.1")
         self.reply_nodes = reply_nodes
         self.reply_model = reply_model
+        self.information_weight = information_weight
         self._plan: list[dict[str, Any]] = []
         self._plan_day: tuple[int, int] | None = None
 
@@ -161,8 +251,18 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
                   scenario_count: int = 1,
                   deadline: float | None = None) -> float:
         world = game.search_clone()
-        for command in bundle:
+        observed_events = list(game.protagonist_team_view().get("events", ()))
+
+        def advance(command: dict[str, Any]) -> None:
+            nonlocal world
+            previous = world.state.events[-1] if world.state.events else None
             world = world.search_transition(command)
+            inherited = int(previous is not None and world.state.events
+                            and world.state.events[0] == previous)
+            observed_events.extend(world.state.events[inherited:])
+
+        for command in bundle:
+            advance(command)
         if world.winner is not None:
             return self.evaluator(world)
         if world.state.phase != "protagonists":
@@ -179,7 +279,15 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
                                     rollout_depth=12, seed=seed,
                                     time_limit_ms=remaining_ms)
         if self.reply_model in {"public", "belief"}:
-            evaluator = _PublicReplyEvaluator(reply_budget, seed)
+            evaluator = _PublicReplyEvaluator(
+                reply_budget, seed,
+                root_view=self._red_reply_view(game, world, observed_events),
+                information_weight=(self.information_weight
+                                    if self.reply_model == "belief" else 0.0))
+            if evaluator.information_weight:
+                initial_view = game.protagonist_team_view()
+                initial_view["protagonist_knowledge"] = {}
+                evaluator._root_entropy = evaluator._role_entropy(initial_view)
             policy = (ParticleEnsembleProtagonistAgent(
                 SearchBudget(node_limit=min(reply_limit, 8), rollout_depth=6,
                              time_limit_ms=remaining_ms, seed=seed),
@@ -192,12 +300,14 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
                 if not actions:
                     break
                 offers = [evaluator._offer(action) for action in actions]
-                view = self._red_reply_view(game, world)
+                view = self._red_reply_view(game, world, observed_events)
                 chosen = policy.choose_action(
                     participant="team", view=view, offers=offers)
                 selected = actions[next(i for i, offer in enumerate(offers)
                                         if offer["id"] == chosen["id"])]
-                world = world.search_transition(selected)
+                advance(selected)
+            evaluator.root_view = self._red_reply_view(
+                game, world, observed_events)
             hero_score, _ = evaluator._day_score(
                 world, game.state.loop, game.state.round)
             return -hero_score
@@ -230,7 +340,9 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
         return -hero_score
 
     @staticmethod
-    def _red_reply_view(game: SearchGame, world: SearchGame) -> dict[str, Any]:
+    def _red_reply_view(game: SearchGame, world: SearchGame,
+                        observed_events: Sequence[dict[str, Any]] | None = None
+                        ) -> dict[str, Any]:
         """Public red observation as estimated by black, without private clues.
 
         The real game object also holds results of protagonist-only role
@@ -239,6 +351,9 @@ class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
         """
         view = world.protagonist_team_view()
         view["protagonist_knowledge"] = {}
+        if observed_events is not None:
+            view["events"] = list(observed_events)
+            return view
         prior = game.protagonist_team_view().get("events", ())
         recent = view.get("events", ())
         if prior and recent and prior[-1] == recent[0]:
