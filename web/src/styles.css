@@ -31,6 +31,7 @@ h1 { font: 700 clamp(2rem, 5vw, 4rem)/.9 "SimSun", serif; letter-spacing: .08em;
 h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .eyebrow { color: #c18c70; font-size: .7rem; letter-spacing: .35em; margin: 0 0 .55rem; }
 .new-game { display: flex; flex-wrap: wrap; justify-content: end; gap: .55rem; }
+.scenario-description { flex-basis: 100%; order: 5; text-align: right; color: var(--muted); }
 .room-heading { display: flex; flex-direction: column; align-items: end; }
 .room-heading small { color: #aa9ba0; }
 .room-heading strong { color: #f0d7c0; font-size: 1.5rem; letter-spacing: .18em; }
@@ -58,6 +59,10 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .seat-grid article strong { font-size: 1.1rem; }
 .seat-grid .ai-badge { display: inline-block; margin-left: .45rem; padding: .12rem .35rem; border-radius: 1rem; color: #eadcff; background: #614a7b; font: 700 .62rem sans-serif; vertical-align: middle; }
 .seat-grid article button { margin-top: auto; }
+.ai-picker { display: flex; flex-direction: column; gap: .45rem; margin-top: auto; }
+.seat-grid .ai-picker label { margin: 0; }
+.ai-picker select { width: 100%; min-width: 0; }
+.ai-picker p { min-height: 3.6em; margin: 0; color: var(--muted); font-size: .76rem; line-height: 1.45; }
 .lobby-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: .55rem; border-top: 1px solid #44383d; padding-top: 1rem; }
 .lobby-controls label { margin: 0 auto 0 0; min-width: min(320px, 100%); }
 .room-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1.5rem; margin: 1rem 0; padding: .65rem .9rem; border: 1px solid #6c555b; border-radius: .65rem; background: #241e21ee; box-shadow: 0 .5rem 1.8rem #0003; }

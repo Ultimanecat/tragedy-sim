@@ -8,6 +8,7 @@ import { ApiClient, ApiError, type StoredRoom, type StoredSession } from "./api/
 import type { ActionOffer, CatalogResponse, GameView, ModuleId, ModuleSummary, PublicEvent, RoomResponse, ScenarioSummary, Seat, Viewer } from "./api/types";
 import { abilityUseName, itemName } from "./display";
 import gameAssets from "./generated/game-assets.json";
+import { aiChoice, availableAiChoices, scenarioOptionLabel, type AiStrategy } from "./lobbyChoices";
 import { parseReplayTimeline } from "./replay";
 
 const SESSION_KEY = "tragedy-sim.local-session.v1";
@@ -32,6 +33,30 @@ function GameAsset({ src, className, draggable }: { src?: string; className?: st
   if (!src) return null;
   return <img className={className} src={src} alt="" loading="lazy" draggable={draggable}
     onError={event => { event.currentTarget.hidden = true; }} />;
+}
+
+function AiSeatPicker({ seat, module, protagonistCount, busy, onAssign }: {
+  seat: Seat; module: ModuleId; protagonistCount: number; busy: boolean;
+  onAssign: (strategy: AiStrategy) => void;
+}) {
+  const choices = availableAiChoices(seat, module, protagonistCount);
+  const [selected, setSelected] = useState<AiStrategy>(seat === "m" ? "strategic_mcts_mastermind" : "defensive_protagonist");
+  const current = choices.find(choice => choice.id === selected) ?? choices[0];
+  return <div className="ai-picker">
+    <label>填入 AI
+      <select aria-label={`${seat === "m" ? "剧作家" : `主人公 ${seat.toUpperCase()}`} AI 策略`}
+        value={current.id} onChange={event => setSelected(event.target.value as AiStrategy)}>
+        {(["推荐试玩", "其他策略", "实验与对照", "开眼测试"] as const).map(group => {
+          const grouped = choices.filter(choice => choice.group === group);
+          return grouped.length ? <optgroup key={group} label={group}>
+            {grouped.map(choice => <option key={choice.id} value={choice.id}>{choice.label}</option>)}
+          </optgroup> : null;
+        })}
+      </select>
+    </label>
+    <p>{current.description}</p>
+    <button disabled={busy} onClick={() => onAssign(current.id)}>添加 AI</button>
+  </div>;
 }
 
 export function AnimatedCounter({ label, value, suffix = "", hideWhenZero = false }: {
@@ -709,7 +734,7 @@ export default function App() {
   }
 
   async function setAiRoomSeat(seat: Seat, enabled: boolean,
-                               strategy: "random" | "baseline_protagonist" | "defensive_protagonist" | "risk_aware_protagonist" | "ismcts_protagonist" | "survival_ismcts_protagonist" | "ismcts_legacy_protagonist" | "oracle_cards_protagonist" | "oracle_script_protagonist" | "particle_ensemble_protagonist" | "fixed_mastermind" | "mcts_mastermind" | "optimized_mcts_mastermind" | "strategic_mcts_mastermind" | "joint_mastermind" | "belief_joint_mastermind" = "random") {
+                               strategy: AiStrategy = "random") {
     setBusy(true); setError("");
     try { setRoomInfo(await client.setAiSeat(seat, enabled, strategy)); persist(); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "AI 座位更新失败"); }
@@ -776,20 +801,21 @@ export default function App() {
   const ownOccupant = ownSeat ? roomInfo?.room.seats[ownSeat] : null;
   const roomReady = roomInfo?.room.ready_to_start ?? false;
   const shareUrl = roomCode ? `${window.location.origin}${window.location.pathname}?room=${roomCode}` : "";
+  const selectedScenario = availableScenarios.find(item => item.id === effectiveScenarioId);
+  const selectedModuleName = modules.find(item => item.id === module)?.name ?? module;
 
   return <main>
     <header className="masthead"><div><p className="eyebrow">TRAGEDY LOOPER</p><h1>悲剧轮回</h1></div>{roomCode ? <div className="room-heading">
-      <small>局域网房间</small><strong>{roomCode}</strong>
+      <small>联机房间</small><strong>{roomCode}</strong>
     </div> : <div className="new-game">
       <select aria-label="规则集" value={module} onChange={event => setModule(event.target.value as ModuleId)}>
         {modules.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
       <select aria-label="剧本" value={effectiveScenarioId} disabled={!availableScenarios.length}
         onChange={event => setScenarioId(event.target.value)}>
         {availableScenarios.map(item => <option key={item.id} value={item.id}>
-          {item.title} · {item.days} 天/{item.loop_options.length > 1
-            ? `${item.loop_options[0]}–${item.loop_options.at(-1)} 轮（默认 ${item.loops}）`
-            : `${item.loops} 轮`}
+          {scenarioOptionLabel(item)}
         </option>)}</select>
+      {selectedScenario && <small className="scenario-description">所属规则集：{selectedModuleName}（{selectedScenario.module}） · {selectedScenario.source === "tutorial" ? "教学剧本" : "收录剧本"}</small>}
       <button className="primary" disabled={busy} onClick={createGame}>新建对局</button>
       <label className="file-button">载入存档/剧本<input type="file" accept="application/json" onChange={event => event.target.files?.[0] && void restore(event.target.files[0])} /></label>
     </div>}</header>
@@ -800,47 +826,18 @@ export default function App() {
     </section> : roomCode && (!roomInfo || roomInfo.room.status === "waiting") ? <section className="lobby" aria-label="房间大厅">
       {!roomInfo ? <h2>正在连接房间 {roomCode}…</h2> : <>
         <div className="lobby-intro"><div><p className="eyebrow">WAITING ROOM</p><h2>等待所有玩家入座并准备</h2></div>
-          <div><label>邀请链接<input readOnly value={shareUrl} onFocus={event => event.currentTarget.select()} /></label><small>复制此链接给同一 Wi-Fi 下的玩家。</small></div></div>
-        <p className="muted">{roomInfo.room.scenario_title} · 本局由 1 名剧作家和 {roomInfo.room.protagonist_count} 名主人公玩家参与。</p>
+          <div><label>邀请链接<input readOnly value={shareUrl} onFocus={event => event.currentTarget.select()} /></label><small>将链接分享给其他玩家。</small></div></div>
+        <p className="muted">[{roomInfo.room.module}] {roomInfo.room.scenario_title} · 本局由 1 名剧作家和 {roomInfo.room.protagonist_count} 名主人公玩家参与。</p>
         <div className="seat-grid">{roomInfo.room.required_seats.map(seat => {
           const occupant = roomInfo.room.seats[seat];
           return <article className={`${occupant ? "occupied" : ""} ${occupant?.ai ? "ai-seat" : ""}`} key={seat}>
             <small>{seat === "m" ? "剧作家" : `主人公 ${seat.toUpperCase()}`}</small>
             <strong>{occupant?.nickname ?? "空位"}{occupant?.ai && <small className="ai-badge">AI</small>}</strong>
-            <span>{occupant?.ai ? (occupant.ai_type === "baseline_protagonist" ? "逆向移动并由领队独占禁止密谋" : occupant.ai_type === "defensive_protagonist" ? "依据公开事件、身份与能力主动防守" : occupant.ai_type === "risk_aware_protagonist" ? "从公开揭牌历史估计剧作家目标" : occupant.ai_type === "ismcts_protagonist" ? "一名团队 AI 搜索完整三牌组合（FS/BTX）" : occupant.ai_type === "survival_ismcts_protagonist" ? "历史暗牌采样与当日生存优先搜索（FS/BTX）" : occupant.ai_type === "ismcts_legacy_protagonist" ? "旧版团队 ISMCTS：后两张由防守策略补全" : occupant.ai_type === "oracle_cards_protagonist" ? "知道剧本与当天剧作家牌面的测试 AI（FS/BTX）" : occupant.ai_type === "oracle_script_protagonist" ? "知道剧本但看不到当天暗牌的测试 AI（FS/BTX）" : occupant.ai_type === "particle_ensemble_protagonist" ? "仅用可见证据维护粒子，联合评估三张牌（FS/BTX 实验）" : occupant.ai_type === "fixed_mastermind" ? "从可行获胜定式中择一执行" : occupant.ai_type === "mcts_mastermind" ? "完整行动空间的朴素蒙特卡洛树搜索" : occupant.ai_type === "optimized_mcts_mastermind" ? "渐进拓宽的优化蒙特卡洛树搜索" : occupant.ai_type === "strategic_mcts_mastermind" ? "剧本路线先验与策略 rollout" : occupant.ai_type === "joint_mastermind" ? "联合搜索当天三张暗牌，并测试主人公三牌回应（FS/BTX）" : occupant.ai_type === "belief_joint_mastermind" ? "抽样主人公信念与联合回应，根节点 UCB 搜索（BTX 实验）" : "自动随机行动") : occupant ? (occupant.ready ? "已准备" : "尚未准备") : "等待加入"}</span>
+            <span>{occupant?.ai ? `${aiChoice(occupant.ai_type)?.label ?? "随机"}：${aiChoice(occupant.ai_type)?.description ?? "自动随机行动"}` : occupant ? (occupant.ready ? "已准备" : "尚未准备") : "等待加入"}</span>
             {!ownSeat && !occupant && <button disabled={busy || !nickname.trim()} onClick={() => void joinRoom(seat)}>坐到这里</button>}
-            {client.room?.adminToken && !occupant && <button disabled={busy} onClick={() => void setAiRoomSeat(seat, true)}>随机 AI</button>}
-            {client.room?.adminToken && !occupant && seat !== "m" && <button disabled={busy}
-              onClick={() => void setAiRoomSeat(seat, true, "baseline_protagonist")}>基础干扰主人公 AI</button>}
-            {client.room?.adminToken && !occupant && seat !== "m" && <button disabled={busy}
-              onClick={() => void setAiRoomSeat(seat, true, "defensive_protagonist")}>公开信息防守主人公 AI</button>}
-            {client.room?.adminToken && !occupant && seat !== "m" && <button disabled={busy}
-              onClick={() => void setAiRoomSeat(seat, true, "risk_aware_protagonist")}>历史风险主人公 AI</button>}
-            {client.room?.adminToken && !occupant && seat !== "m" && roomInfo.room.protagonist_count === 1 && <button disabled={busy}
-              onClick={() => void setAiRoomSeat(seat, true, "ismcts_protagonist")}>团队 ISMCTS 主人公 AI（FS/BTX）</button>}
-            {client.room?.adminToken && !occupant && seat !== "m" && roomInfo.room.protagonist_count === 1 && <button disabled={busy}
-              onClick={() => void setAiRoomSeat(seat, true, "survival_ismcts_protagonist")}>当日生存优先 ISMCTS（FS/BTX）</button>}
-            {client.room?.adminToken && !occupant && seat !== "m" && roomInfo.room.protagonist_count === 1 && ["FS", "BTX"].includes(roomInfo.room.module) && <button disabled={busy}
-              onClick={() => void setAiRoomSeat(seat, true, "oracle_cards_protagonist")}>已知剧本＋明牌 AI（FS/BTX 测试）</button>}
-            {client.room?.adminToken && !occupant && seat !== "m" && roomInfo.room.protagonist_count === 1 && ["FS", "BTX"].includes(roomInfo.room.module) && <button disabled={busy}
-              onClick={() => void setAiRoomSeat(seat, true, "oracle_script_protagonist")}>已知剧本＋暗牌 AI（FS/BTX 测试）</button>}
-            {client.room?.adminToken && !occupant && seat !== "m" && roomInfo.room.protagonist_count === 1 && ["FS", "BTX"].includes(roomInfo.room.module) && <button disabled={busy}
-              onClick={() => void setAiRoomSeat(seat, true, "particle_ensemble_protagonist")}>粒子集成主人公 AI（FS/BTX 实验）</button>}
-            {client.room?.adminToken && !occupant && seat !== "m" && roomInfo.room.protagonist_count === 1 && <button className="secondary" disabled={busy}
-              onClick={() => void setAiRoomSeat(seat, true, "ismcts_legacy_protagonist")}>旧版团队 ISMCTS（对照）</button>}
-            {client.room?.adminToken && !occupant && seat === "m" && <button disabled={busy}
-              onClick={() => void setAiRoomSeat(seat, true, "fixed_mastermind")}>定式剧作家 AI</button>}
-            {client.room?.adminToken && !occupant && seat === "m" && <button disabled={busy}
-              onClick={() => void setAiRoomSeat(seat, true, "mcts_mastermind")}>朴素 MCTS 剧作家 AI</button>}
-            {client.room?.adminToken && !occupant && seat === "m" && <button className="secondary" type="button"
-              onClick={() => void setAiRoomSeat(seat, true, "optimized_mcts_mastermind")}>优化 MCTS 剧作家 AI</button>}
-            {client.room?.adminToken && !occupant && seat === "m" && <button className="secondary" type="button"
-              onClick={() => void setAiRoomSeat(seat, true, "strategic_mcts_mastermind")}>策略 MCTS 剧作家 AI</button>}
-            {client.room?.adminToken && !occupant && seat === "m" &&
-              (module === "FS" || module === "BTX") && <button disabled={busy} type="button"
-              onClick={() => void setAiRoomSeat(seat, true, "joint_mastermind")}>三牌联合剧作家 AI</button>}
-            {client.room?.adminToken && !occupant && seat === "m" && module === "BTX" && <button disabled={busy} type="button"
-              onClick={() => void setAiRoomSeat(seat, true, "belief_joint_mastermind")}>信念采样剧作家 AI（实验）</button>}
+            {client.room?.adminToken && !occupant && <AiSeatPicker seat={seat} module={roomInfo.room.module}
+              protagonistCount={roomInfo.room.protagonist_count} busy={busy}
+              onAssign={strategy => void setAiRoomSeat(seat, true, strategy)} />}
             {client.room?.adminToken && occupant && seat !== ownSeat && <button disabled={busy}
               onClick={() => void (occupant.ai ? setAiRoomSeat(seat, false) : kickRoomSeat(seat))}>释放座位</button>}
           </article>;
