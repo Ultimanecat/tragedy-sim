@@ -36,3 +36,18 @@ curl --fail --silent --show-error https://tragedy.niegu.top/v1/health
 手机访问 `https://tragedy.niegu.top/` 即可创建房间并分享链接。
 IP 入口仍然可用，其短期证书仍须自动续期。若之后只想保留域名，
 先完成域名联机验证，再单独撤下 IP 入口和证书。
+
+## 后续一键更新
+
+在游戏结束、没有需要保留的房间时，以 root 身份运行：
+
+```bash
+cd /home/admin/akarin/tragedy-sim
+bash deploy/update-ecs.sh
+```
+
+脚本会检查本地仓库是否干净，快进拉取 `origin/master`，按需更新依赖，构建前端，
+重启 `tragedy-sim` 服务，再检查本机健康接口。首次使用仍需按部署说明
+安装 Python 虚拟环境、前端依赖和 systemd 服务。重启会清空所有房间；
+脚本不会改动 Nginx 配置，也不会自动更新已安装的 systemd unit 文件。
+如果仓库有本地修改，先人工检查，脚本不会覆盖它们。
