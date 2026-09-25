@@ -112,6 +112,7 @@ FS/BTX 另提供 `oracle_cards` / `oracle_script` 主人公诊断基线：两者
 
 小范围公网试玩可参考 [ECS 试部署说明](docs/ecs-deployment.md)：使用公网 IP、HTTPS 反向代理和请求限速，
 后端只监听服务器本机。此配置尚未完成长期公开服务所需的资源限制与抗滥用审计。
+如果想在现有 IP 入口之外增加域名入口，参见 [ECS 域名切换说明](docs/ecs-domain-switch.md)。
 
 ## 本地热座 GUI
 
