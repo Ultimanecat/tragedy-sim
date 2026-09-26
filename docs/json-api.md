@@ -116,6 +116,39 @@ Content-Type: application/json
 
 revision 不匹配返回 HTTP 409 与 `STALE_REVISION`，客户端应刷新视图和合法行动，不能盲目重试旧命令。
 
+### 三牌草稿与原子提交
+
+```text
+GET  /v1/games/{session_id}/card-plan?actor=m
+POST /v1/games/{session_id}/card-plan
+GET  /v1/rooms/{code}/game/card-plan
+POST /v1/rooms/{code}/game/card-plan
+```
+
+GET 返回 `revision`、有序 `slots[{actor,actions}]` 及 `constraints`：`distinct_targets` 和
+按席位、牌 ID 计数的 `card_limits`。这些描述由行动牌解析器生成，前端只据此编辑本地草稿；
+GET 不修改对局，也不接收或存储草稿。后续槽位的候选不能作为当前单步命令提交。
+POST 一次发送完整三牌，例如：
+
+```json
+{"actor":"m","expected_revision":12,"plays":[
+  {"actor":"m","card":"p1a","target":"student"},
+  {"actor":"m","card":"p1b","target":"girl"},
+  {"actor":"m","card":"i1","target":"school"}
+]}
+```
+
+服务端在隔离副本中依次验证和执行，再整体提交。响应含 `accepted_actions` 三项，`revision` 增加 3，
+保存和回放仍记录三条普通 `play` 决策。错误时正式状态、revision、决策和日志均不变。
+成功后的房间通知一次发布完整状态，随后沿用既有 AI 推进流程。
+
+本地接口中，剧作家座位或管理令牌可提交黑方；红方完整计划需管理令牌。
+房间接口只接收参与者令牌：剧作家可提交黑方；红方仅在一名主人公玩家控制 A/B/C 的两人局可用，
+`actor` 为该参与者席位，`plays` 的顺序来自 `slots`，包含各逻辑席位。
+三人和四人局红方保持单步命令，批量接口拒绝越权。阶段不符或同阵营已放过牌时返回
+`CARD_PLAN_NOT_AVAILABLE`，旧中途存档可继续使用单步流程。
+草稿不跨页面刷新保存；普通同步及提交失败保留草稿，过期 revision 刷新后丢弃。
+
 管理接口需要管理令牌：
 
 ```text

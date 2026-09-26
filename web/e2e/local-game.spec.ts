@@ -13,6 +13,16 @@ async function createGame(page: Page, module = "BTX") {
 const createBtxGame = (page: Page) => createGame(page, "BTX");
 
 async function selectFirstAction(page: Page) {
+  if (await page.locator(".batch-guess").count()) {
+    for (const selector of await page.locator(".batch-guess select").all()) {
+      await selector.selectOption({ index: 1 });
+    }
+    const accepted = page.waitForResponse(response => response.request().method() === "POST" && response.url().endsWith("/commands"));
+    await page.getByRole("button", { name: "统一提交最终猜测" }).click();
+    await accepted;
+    await expect(page.locator(".batch-guess")).toBeHidden();
+    return;
+  }
   await expect(page.locator(
     ".actions-panel .hand button, .actions-panel .guess-characters button, .actions-panel .action-grid button",
   ).first()).toBeVisible();
@@ -25,6 +35,15 @@ async function selectFirstAction(page: Page) {
     await page.locator(".actions-panel .action-grid button").first().click();
   } else {
     await page.locator(".actions-panel .action-grid button").first().click();
+  }
+  if (await page.locator(".card-plan-editor").count()) {
+    const submit = page.getByRole("button", { name: "确认三张牌并提交" });
+    if (!await submit.isEnabled()) return;
+    const accepted = page.waitForResponse(response => response.request().method() === "POST" && response.url().endsWith("/card-plan"));
+    await submit.click();
+    await accepted;
+    await expect(submit).toBeHidden();
+    return;
   }
   await expect(page.getByRole("button", { name: "确认执行" })).toBeVisible();
   const accepted = page.waitForResponse(response => response.request().method() === "POST" && response.url().endsWith("/commands"));
@@ -68,9 +87,62 @@ test("a missing room offers a direct return to the lobby", async ({ page }) => {
   await expect(page.getByRole("button", { name: "进入房间" })).toBeEnabled();
 });
 
+test("both sides keep three-card drafts private and submit once in a two-player room", async ({ browser }) => {
+  const hostContext = await browser.newContext();
+  const heroContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const host = await hostContext.newPage();
+  const hero = await heroContext.newPage();
+  const draftFirst = async (page: Page) => {
+    await page.locator(".hand button").first().click();
+    await page.locator(".board .legal-board-target").last().click();
+  };
+  try {
+    await host.goto("/");
+    await host.getByLabel("主人公玩家人数").selectOption("1");
+    await host.getByLabel("昵称").fill("Host");
+    await host.getByRole("button", { name: "创建房间" }).click();
+    await expect(host.getByRole("heading", { name: "等待所有玩家入座并准备" })).toBeVisible();
+    await hero.goto(host.url());
+    await hero.getByLabel("你的昵称").fill("Hero");
+    await hero.locator(".seat-grid article").filter({ hasText: "主人公 A" })
+      .getByRole("button", { name: "坐到这里" }).click();
+    await hero.getByRole("button", { name: "我已准备" }).click();
+    await host.getByRole("button", { name: "我已准备" }).click();
+    await host.getByRole("button", { name: "开始游戏" }).click();
+    await selectFirstAction(host);
+    const submissions: string[] = [];
+    for (const page of [host, hero]) page.on("request", request => {
+      if (request.method() === "POST" && request.url().endsWith("/game/card-plan")) submissions.push(request.url());
+    });
+    for (let index = 0; index < 3; index += 1) await draftFirst(host);
+    expect(submissions).toHaveLength(0);
+    await expect(host.locator(".draft-placement")).toHaveCount(3);
+    await expect(hero.locator(".placement")).toHaveCount(0);
+    await host.getByRole("button", { name: "撤回第 2 张" }).click();
+    await expect(host.getByRole("button", { name: "确认三张牌并提交" })).toBeDisabled();
+    await draftFirst(host);
+    await host.getByRole("button", { name: "确认三张牌并提交" }).click();
+    await expect(hero.locator(".placement")).toHaveCount(3);
+    await expect(hero.locator(".placement").first()).toContainText("暗牌");
+    await expect(hero.locator(".card-plan-editor")).toBeVisible();
+    expect(submissions).toHaveLength(1);
+    for (let index = 0; index < 3; index += 1) await draftFirst(hero);
+    await expect(host.locator(".placement")).toHaveCount(3);
+    expect(submissions).toHaveLength(1);
+    expect(await hero.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await hero.getByRole("button", { name: "确认三张牌并提交" }).click();
+    await expect(host.locator(".placement")).toHaveCount(6);
+    await expect(hero.locator(".card-plan-editor")).toHaveCount(0);
+    expect(submissions).toHaveLength(2);
+  } finally {
+    await hostContext.close();
+    await heroContext.close();
+  }
+});
+
 test("the lobby creates games from the server-owned scenario catalog", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByLabel("剧本", { exact: true }).locator("option")).toHaveCount(1);
+  await expect(page.getByLabel("剧本", { exact: true }).locator("option").first()).toContainText("[BTX]");
   await page.getByLabel("规则集").selectOption("FS");
   await expect(page.getByLabel("剧本", { exact: true })).toHaveValue("silent-town-fs");
   const request = page.waitForRequest(candidate => candidate.method() === "POST"
@@ -80,15 +152,39 @@ test("the lobby creates games from the server-owned scenario catalog", async ({ 
   await expect(page.getByText(/轮回 1\/.*第 1 天/)).toBeVisible();
 });
 
+test("a rejected card plan keeps the editable draft for retry", async ({ page }) => {
+  await createBtxGame(page);
+  await page.getByRole("button", { name: "剧作家", exact: true }).click();
+  await selectFirstAction(page);
+  for (let index = 0; index < 3; index += 1) {
+    await page.locator(".hand button").first().click();
+    await page.locator(".board .legal-board-target").last().click();
+  }
+  const draft = await page.locator(".draft-slots").textContent();
+  await page.route("**/v1/games/*/card-plan", route => route.fulfill({
+    status: 409, contentType: "application/json", body: JSON.stringify({ protocol_version: 1,
+      error: { code: "RULE_VIOLATION", message: "第 2 张牌无效", details: { slot: 2 } } }),
+  }));
+  await page.getByRole("button", { name: "确认三张牌并提交" }).click();
+  await expect(page.getByRole("alert")).toContainText("草稿已保留");
+  expect(await page.locator(".draft-slots").textContent()).toBe(draft);
+  await expect(page.locator(".draft-placement")).toHaveCount(3);
+  await expect(page.locator(".placement")).toHaveCount(0);
+  await page.unroute("**/v1/games/*/card-plan");
+  await page.getByRole("button", { name: "确认三张牌并提交" }).click();
+  await expect(page.locator(".placement")).toHaveCount(3);
+});
+
 test("a host can fill an empty side with a random AI and play against it", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("主人公玩家人数").selectOption("1");
   await page.getByLabel("昵称").fill("Host");
   await page.getByRole("button", { name: "创建房间" }).click();
   const heroSeat = page.locator(".seat-grid article").filter({ hasText: "主人公 A" });
-  await heroSeat.getByRole("button", { name: "随机 AI" }).click();
+  await heroSeat.getByLabel("主人公 A AI 策略").selectOption("random");
+  await heroSeat.getByRole("button", { name: "添加 AI" }).click();
   await expect(heroSeat).toContainText("随机 AI");
-  await expect(heroSeat).toContainText("自动随机行动");
+  await expect(heroSeat).toContainText("随机选择合法行动");
   await page.getByRole("button", { name: "我已准备" }).click();
   await expect(page.getByRole("button", { name: "开始游戏" })).toBeEnabled();
   await page.getByRole("button", { name: "开始游戏" }).click();
@@ -106,8 +202,9 @@ test("a protagonist host can select the fixed-strategy mastermind AI", async ({ 
   await page.getByLabel("昵称").fill("Hero");
   await page.getByRole("button", { name: "创建房间" }).click();
   const mastermindSeat = page.locator(".seat-grid article").filter({ hasText: "剧作家" });
-  await mastermindSeat.getByRole("button", { name: "定式剧作家 AI" }).click();
-  await expect(mastermindSeat).toContainText("从可行获胜定式中择一执行");
+  await mastermindSeat.getByLabel("剧作家 AI 策略").selectOption("fixed_mastermind");
+  await mastermindSeat.getByRole("button", { name: "添加 AI" }).click();
+  await expect(mastermindSeat).toContainText("选择一条可行获胜路线执行");
   await page.getByRole("button", { name: "我已准备" }).click();
   await page.getByRole("button", { name: "开始游戏" }).click();
   await expect(page.getByText(/现在轮到你以主人公 A身份行动/)).toBeVisible();
@@ -219,8 +316,9 @@ test("one protagonist browser controls A, B and C in a two-person room", async (
     await expect(hero.locator(".actions-panel .hand button").first()).toBeVisible();
     for (const actor of ["A", "B", "C"]) {
       await selectFirstAction(hero);
-      await expect(hero.locator(".placement").filter({ hasText: `主人公 ${actor}` })).toBeVisible();
+      if (actor !== "C") await expect(hero.locator(".draft-placement").filter({ hasText: `主人公 ${actor}` })).toBeVisible();
     }
+    await expect(hero.locator(".placement").filter({ hasText: "主人公" })).toHaveCount(3);
     await hero.getByRole("button", { name: "返回大厅" }).click();
     await expect(hero.getByRole("heading", { name: "创建局域网房间" })).toBeVisible();
   } finally {
@@ -272,13 +370,16 @@ test("real service preserves private card boundary while actions advance", async
   await page.locator(".actions-panel .hand button").first().click();
   const chosenCard = await page.locator(".actions-panel .hand button.selected strong").innerText();
   await page.locator(".board .legal-board-target").last().click();
-  await page.getByRole("button", { name: "确认执行" }).click();
-  await expect(page.locator(".placement")).toContainText(chosenCard);
+  await expect(page.locator(".draft-placement")).toContainText(chosenCard);
+  await expect(page.locator(".placement")).toHaveCount(0);
+  await selectFirstAction(page);
+  await selectFirstAction(page);
+  await expect(page.locator(".placement").first()).toContainText(chosenCard);
 
   await page.getByRole("button", { name: "公开视角" }).click();
   await expect(page.getByRole("heading", { name: "剧作家资料" })).toHaveCount(0);
-  await expect(page.locator(".placement")).toContainText("暗牌");
-  await expect(page.locator(".placement")).not.toContainText(chosenCard);
+  await expect(page.locator(".placement").first()).toContainText("暗牌");
+  await expect(page.locator(".placement").first()).not.toContainText(chosenCard);
 });
 
 test("action cards can be dragged only onto server-provided legal targets", async ({ page }) => {
@@ -286,13 +387,9 @@ test("action cards can be dragged only onto server-provided legal targets", asyn
   await page.getByRole("button", { name: "剧作家", exact: true }).click();
   await selectFirstAction(page);
   await dragFirstCardToFirstTarget(page);
-  await expect(page.getByRole("button", { name: "确认执行" })).toBeVisible();
+  await expect(page.locator(".draft-placement")).toHaveCount(1);
   await expect(page.locator(".drag-card-overlay")).toHaveCount(0);
-  const accepted = page.waitForResponse(response => response.request().method() === "POST"
-    && response.url().endsWith("/commands"));
-  await page.getByRole("button", { name: "确认执行" }).click();
-  await accepted;
-  await expect(page.locator(".placement")).toHaveCount(1);
+  await expect(page.locator(".placement")).toHaveCount(0);
 });
 
 test("session survives reload and narrow screens retain all controls", async ({ page }) => {
@@ -412,7 +509,7 @@ test("ruleset-specific private and public resources have dedicated presentation"
 
   await createGame(page, "HSA");
   await expect(page.locator(".location").first()).toContainText("尸体 0");
-  await expect(page.getByRole("heading", { name: "事件日程" }).locator(".." )).toContainText("癫狂杀人");
+  await expect(page.getByRole("heading", { name: "事件日程" }).locator(".." )).toContainText("疯狂杀人");
 
   await createGame(page, "WM");
   await expect(page.getByText("Ex 槽 0", { exact: true })).toBeVisible();

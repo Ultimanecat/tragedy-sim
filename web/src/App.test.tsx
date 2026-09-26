@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Actions, AnimatedCounter, Board } from "./App";
 import { abilityUseName } from "./display";
 import { parseReplayTimeline } from "./replay";
-import type { ActionOffer, CatalogResponse, GameView } from "./api/types";
+import type { ActionOffer, CardPlanResponse, CatalogResponse, GameView, Seat } from "./api/types";
 import catalogFixture from "../fixtures/protocol-v1/btx-catalog.json";
 import viewFixture from "../fixtures/protocol-v1/btx-mastermind-view.json";
 
@@ -11,6 +11,52 @@ const catalog = catalogFixture as unknown as CatalogResponse;
 const game = viewFixture.state as unknown as GameView;
 
 describe("local game components", () => {
+  for (const side of ["m", "a"] as const) {
+    it(`edits and submits ${side === "m" ? "mastermind" : "team protagonist"} cards only as a complete local draft`, () => {
+      const actors: Seat[] = side === "m" ? ["m", "m", "m"] : ["a", "b", "c"];
+      const cards = side === "m" ? ["p1a", "p1b", "i1"] : ["g1"];
+      const targets = ["student", "girl", "doctor"];
+      const plan: CardPlanResponse = {
+        protocol_version: 1, session_id: "test", revision: 4,
+        slots: actors.map(actor => ({ actor, actions: cards.flatMap(card => targets.map(target => ({
+          id: `${actor}:${card}:${target}`, actor, type: "play", parameters: { card, target }, label: `${card} → ${target}`,
+        }))) })),
+        constraints: { distinct_targets: true, card_limits: Object.fromEntries(actors.map(actor => [actor,
+          Object.fromEntries(cards.map(card => [card, 1]))])) },
+      };
+      const dispatch = vi.fn();
+      const submit = vi.fn();
+      const props = { offers: [], catalog, game, onAction: dispatch, cardPlan: plan, onCardPlan: submit };
+      const { container, rerender } = render(<Actions {...props} busy={false} />);
+      const final = screen.getByRole("button", { name: "确认三张牌并提交" });
+      expect(final).toBeDisabled();
+      for (let index = 0; index < 3; index += 1) {
+        fireEvent.click(container.querySelector(".hand button")!);
+        fireEvent.click(container.querySelectorAll(".character.legal-board-target")[0]);
+        expect(dispatch).not.toHaveBeenCalled();
+        expect(submit).not.toHaveBeenCalled();
+        expect(container.querySelectorAll(".draft-placement")).toHaveLength(index + 1);
+      }
+      expect(final).toBeEnabled();
+      fireEvent.click(screen.getByRole("button", { name: "撤回第 2 张" }));
+      expect(final).toBeDisabled();
+      expect(container.querySelectorAll(".draft-placement")).toHaveLength(2);
+      fireEvent.click(container.querySelector(".hand button")!);
+      fireEvent.click(container.querySelectorAll(".character.legal-board-target")[0]);
+      const draftTexts = container.querySelector(".draft-slots")!.textContent;
+      fireEvent.click(final);
+      expect(submit).toHaveBeenCalledTimes(1);
+      expect(submit.mock.calls[0][0].map((play: { actor: Seat }) => play.actor)).toEqual(actors);
+      expect(submit.mock.calls[0][1]).toBe(4);
+      rerender(<Actions {...props} busy={true} />);
+      expect(screen.getByRole("button", { name: "正在提交…" })).toBeDisabled();
+      rerender(<Actions {...props} busy={false} />);
+      expect(container.querySelector(".draft-slots")!.textContent).toBe(draftTexts);
+      fireEvent.click(screen.getByRole("button", { name: "清空草稿" }));
+      expect(container.querySelectorAll(".draft-placement")).toHaveLength(0);
+      expect(screen.getByRole("button", { name: "确认三张牌并提交" })).toBeDisabled();
+    });
+  }
   it("indicates whether a visible counter increased or decreased", () => {
     const { rerender } = render(<AnimatedCounter label="友好" value={0} />);
     expect(screen.getByLabelText("友好 0")).not.toHaveClass("counter-up");

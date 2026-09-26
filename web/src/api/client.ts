@@ -1,5 +1,5 @@
 import type {
-  ActionsResponse, ApiErrorBody, CatalogResponse, CommandResponse, CreateGameResponse,
+  ActionsResponse, ApiErrorBody, CardPlanResponse, CardPlanResult, CardPlay, CatalogResponse, CommandResponse, CreateGameResponse,
   Language, ModuleId, ModulesResponse, RoomEvent, RoomResponse, ScenariosResponse, Seat, ViewResponse, Viewer,
 } from "./types";
 
@@ -156,6 +156,31 @@ export class ApiClient {
       });
     session.revision = response.revision;
     return response;
+  }
+
+  async cardPlan(actor: Seat): Promise<CardPlanResponse> {
+    const room = this.room;
+    const session = room ? null : this.requireSession();
+    const url = room ? `/v1/rooms/${room.code}/game/card-plan`
+      : `/v1/games/${session!.sessionId}/card-plan?actor=${actor}`;
+    return this.request<CardPlanResponse>("card-plan", url, {
+      headers: this.auth(room?.roomToken ?? session!.adminToken),
+    });
+  }
+
+  async submitCardPlan(actor: Seat, plays: CardPlay[], revision: number): Promise<CardPlanResult> {
+    const room = this.room;
+    const session = room ? null : this.requireSession();
+    const url = room ? `/v1/rooms/${room.code}/game/card-plan`
+      : `/v1/games/${session!.sessionId}/card-plan`;
+    const result = await this.request<CardPlanResult>("card-plan-submit", url, {
+      method: "POST",
+      headers: { ...this.auth(room?.roomToken ?? session!.adminToken), "Content-Type": "application/json" },
+      body: JSON.stringify({ actor, expected_revision: revision, plays }),
+    });
+    if (room) room.gameRevision = result.revision;
+    else session!.revision = result.revision;
+    return result;
   }
 
   async snapshot(): Promise<unknown> {

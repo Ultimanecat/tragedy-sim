@@ -271,6 +271,8 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
                             self._send_json(200, rooms.game_view(code, token=self._token(), language=language))
                         elif resource == "actions":
                             self._send_json(200, rooms.game_actions(code, token=self._token()))
+                        elif resource == "card-plan":
+                            self._send_json(200, rooms.game_card_plan(code, token=self._token()))
                         elif resource == "snapshot":
                             self._send_json(200, rooms.game_snapshot(code, token=self._token()))
                         elif resource == "replay":
@@ -291,6 +293,9 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
                 elif resource == "actions":
                     actor = query.get("actor", [""])[0]
                     self._send_json(200, service.get_actions(session_id, actor, token=self._token()))
+                elif resource == "card-plan":
+                    actor = query.get("actor", [""])[0]
+                    self._send_json(200, service.get_card_plan(session_id, actor, token=self._token()))
                 elif resource == "snapshot":
                     self._send_json(200, service.get_snapshot(session_id, token=self._token()))
                 elif resource == "replay":
@@ -311,6 +316,9 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
                 if len(parts) == 4 and parts[:2] == ["v1", "games"] and parts[3] == "commands":
                     result = service.dispatch(parts[2], self._json_body(), token=self._token())
                     self._send_json(200, result)
+                    return
+                if len(parts) == 4 and parts[:2] == ["v1", "games"] and parts[3] == "card-plan":
+                    self._send_json(200, service.dispatch_card_plan(parts[2], self._json_body(), token=self._token()))
                     return
                 if parts == ["v1", "rooms"]:
                     self._send_json(201, rooms.create(self._json_body()))
@@ -335,6 +343,9 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
                     return
                 if len(parts) == 5 and parts[:2] == ["v1", "rooms"] and parts[3:] == ["game", "commands"]:
                     self._send_json(200, rooms.game_command(parts[2], self._json_body(), token=self._token()))
+                    return
+                if len(parts) == 5 and parts[:2] == ["v1", "rooms"] and parts[3:] == ["game", "card-plan"]:
+                    self._send_json(200, rooms.game_submit_card_plan(parts[2], self._json_body(), token=self._token()))
                     return
                 raise ServiceError("ROUTE_NOT_FOUND", "接口不存在", status=404)
             except Exception as exc:

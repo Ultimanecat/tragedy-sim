@@ -22,6 +22,7 @@ from .catalog import (CHARACTERS, INCIDENT_NAMES, INCIDENT_RULES, MODULES, PLOTS
                       PLOT_RULES, ROLE_NAMES, ROLE_RULES, TRAIT_NAMES)
 from .engine import RuleError
 from .game import Game
+from .phases.action_cards import ActionCardResolver
 from .i18n import label, normalize_language
 from .replay import dumps as replay_dumps
 from .scenario import example_scenario, validate_scenario
@@ -359,6 +360,75 @@ class GameService:
             return _json_copy({"protocol_version": PROTOCOL_VERSION,
                                "session_id": session_id, "revision": record.revision,
                                "accepted_action": offer,
+                               "view": self._view_payload(session_id, record, "spectator")})
+
+    def _plan_actors(self, record: _Session, actor: str, token: str | None,
+                     expected_revision: int | None = None) -> tuple[str, ...]:
+        authorized = self._token_actors(record, token)
+        if actor not in SEATS:
+            raise ServiceError("INVALID_ACTOR", "actor 必须是有效座位")
+        game = record.game
+        expected_phase = "mastermind" if actor == "m" else "protagonists"
+        actors = ("m",) * game.mastermind_plays if actor == "m" else game.protagonist_order
+        if not set(actors).issubset(authorized):
+            raise ServiceError("FORBIDDEN", "必须控制本阵营全部行动牌", status=403)
+        if expected_revision is not None and expected_revision != record.revision:
+            raise ServiceError("STALE_REVISION", "对局状态已经改变，请刷新后重试", status=409,
+                               details={"expected": expected_revision, "current": record.revision})
+        if (game.state.phase != expected_phase or len(actors) != 3
+                or any((p.actor == "m") == (actor == "m") for p in game.state.pending)):
+            raise ServiceError("CARD_PLAN_NOT_AVAILABLE", "当前不能提交完整三牌计划", status=409)
+        return actors
+
+    def get_card_plan(self, session_id: str, actor: str, *, token: str | None) -> dict[str, Any]:
+        """Publish placement choices and draft constraints, never accept partial drafts."""
+        record = self._session(session_id)
+        with record.lock:
+            actors = self._plan_actors(record, actor, token)
+            resolver = record.game.ruleset.phases.resolve(record.game.state.phase)
+            if not isinstance(resolver, ActionCardResolver):
+                raise ServiceError("CARD_PLAN_NOT_AVAILABLE", "当前阶段不支持三牌计划", status=409)
+            slots = [{"actor": seat, "actions": [self._action_offer(session_id, record, command)
+                      for command in resolver.card_actions(record.game, seat)]} for seat in actors]
+            limits = {seat: {card: record.game.state.hands[seat].count(card)
+                             for card in record.game.state.hands[seat]} for seat in dict.fromkeys(actors)}
+            return _json_copy({"protocol_version": PROTOCOL_VERSION, "session_id": session_id,
+                               "revision": record.revision, "slots": slots,
+                               "constraints": {"distinct_targets": True, "card_limits": limits}})
+
+    def dispatch_card_plan(self, session_id: str, request: Any, *, token: str | None) -> dict[str, Any]:
+        if (not isinstance(request, dict) or set(request) != {"actor", "expected_revision", "plays"}
+                or not isinstance(request["actor"], str)
+                or type(request["expected_revision"]) is not int
+                or not isinstance(request["plays"], list) or len(request["plays"]) != 3):
+            raise ServiceError("INVALID_REQUEST", "三牌计划需要 actor、expected_revision 和三项 plays")
+        for play in request["plays"]:
+            if (not isinstance(play, dict) or set(play) != {"actor", "card", "target"}
+                    or any(not isinstance(value, str) for value in play.values())):
+                raise ServiceError("INVALID_REQUEST", "每张牌需要字符串 actor、card、target")
+        record = self._session(session_id)
+        with record.lock:
+            actors = self._plan_actors(record, request["actor"], token, request["expected_revision"])
+            # Keep the live game, replay and observations untouched until all three succeed.
+            candidate = record.game.clone()
+            draft = _Session(candidate, record.tokens, record.admin_token, record.revision)
+            accepted = []
+            for index, (seat, play) in enumerate(zip(actors, request["plays"]), 1):
+                command = {"actor": play["actor"], "action": "play",
+                           "card": play["card"], "target": play["target"]}
+                if play["actor"] != seat or command not in candidate.legal_actions(seat):
+                    raise ServiceError("RULE_VIOLATION", f"第 {index} 张牌的牌、目标或席位顺序无效；三张均未提交",
+                                       status=409, details={"slot": index})
+                accepted.append(self._action_offer(session_id, draft, command))
+                try:
+                    candidate.dispatch(seat, "play", card=play["card"], target=play["target"])
+                except RuleError as exc:
+                    raise ServiceError("RULE_VIOLATION", str(exc), status=409) from exc
+                draft.revision += 1
+            record.game = candidate
+            record.revision = draft.revision
+            return _json_copy({"protocol_version": PROTOCOL_VERSION, "session_id": session_id,
+                               "revision": record.revision, "accepted_actions": accepted,
                                "view": self._view_payload(session_id, record, "spectator")})
 
     def get_snapshot(self, session_id: str, *, token: str | None) -> dict[str, Any]:

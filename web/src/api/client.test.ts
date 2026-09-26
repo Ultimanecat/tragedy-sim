@@ -7,6 +7,39 @@ import catalog from "../../fixtures/protocol-v1/btx-catalog.json";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("ApiClient", () => {
+  it("does not restore a room when a pending batch completes after returning to the lobby", async () => {
+    let release!: () => void;
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      await waiting;
+      return new Response(JSON.stringify({ protocol_version: 1, revision: 7, accepted_actions: [] }));
+    }));
+    const client = new ApiClient(null, "", {
+      code: "123234", roomToken: "room-a", seat: "a", roomRevision: 2, gameRevision: 4,
+    });
+    const pending = client.submitCardPlan("a", [], 4);
+    client.forgetRoom();
+    release();
+    await expect(pending).resolves.toMatchObject({ revision: 7 });
+    expect(client.room).toBeNull();
+  });
+  it("submits one revision-bound card plan through the room participant token", async () => {
+    const calls: Array<[string, RequestInit | undefined]> = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push([url, init]);
+      return new Response(JSON.stringify({ protocol_version: 1, revision: 7, accepted_actions: [] }));
+    }));
+    const client = new ApiClient(null, "", {
+      code: "123234", roomToken: "room-a", seat: "a", roomRevision: 2, gameRevision: 4,
+    });
+    const plays = (["a", "b", "c"] as const).map((actor, index) => ({ actor, card: "g1", target: `target-${index}` }));
+    await client.submitCardPlan("a", plays, 4);
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).toBe("/v1/rooms/123234/game/card-plan");
+    expect(calls[0][1]?.headers).toMatchObject({ Authorization: "Bearer room-a" });
+    expect(JSON.parse(String(calls[0][1]?.body))).toEqual({ actor: "a", expected_revision: 4, plays });
+    expect(client.room?.gameRevision).toBe(7);
+  });
   it("stores credentials and submits only action id plus revision", async () => {
     const calls: Array<[string, RequestInit | undefined]> = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {

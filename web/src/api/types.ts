@@ -225,6 +225,22 @@ export interface CommandResponse {
   view: ViewResponse;
 }
 
+export interface CardPlay { actor: Seat; card: string; target: string }
+export interface CardPlanResponse {
+  protocol_version: typeof PROTOCOL_VERSION;
+  session_id: string;
+  revision: number;
+  slots: Array<{ actor: Seat; actions: ActionOffer[] }>;
+  constraints: { distinct_targets: boolean; card_limits: Partial<Record<Seat, Record<string, number>>> };
+}
+export interface CardPlanResult {
+  protocol_version: typeof PROTOCOL_VERSION;
+  session_id: string;
+  revision: number;
+  accepted_actions: ActionOffer[];
+  view: ViewResponse;
+}
+
 export interface RoomOccupant {
   nickname: string;
   ready: boolean;

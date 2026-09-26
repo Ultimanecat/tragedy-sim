@@ -18,6 +18,10 @@ class ActionCardResolver(PhaseResolver):
     def legal_actions(self, game, actor: str) -> list[dict[str, Any]]:
         if actor != self.controller(game):
             return []
+        return self.card_actions(game, actor)
+
+    def card_actions(self, game, actor: str) -> list[dict[str, Any]]:
+        """Individual placement options for a locally edited full-side plan."""
         view = game.view(actor)
         occupied = {
             placement["target"] for placement in view["pending"]

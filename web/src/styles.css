@@ -30,8 +30,9 @@ main { width: min(1560px, 100%); margin: auto; padding: 1.25rem clamp(1rem, 2.4v
 h1 { font: 700 clamp(2rem, 5vw, 4rem)/.9 "SimSun", serif; letter-spacing: .08em; margin: 0; color: #f0d7c0; }
 h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .eyebrow { color: #c18c70; font-size: .7rem; letter-spacing: .35em; margin: 0 0 .55rem; }
-.new-game { display: flex; flex-wrap: wrap; justify-content: end; gap: .55rem; }
-.scenario-description { flex-basis: 100%; order: 5; text-align: right; color: var(--muted); }
+.new-game { display: flex; flex-wrap: wrap; justify-content: end; gap: .55rem; min-width: 0; }
+.new-game select { min-width: 0; max-width: 100%; }
+.new-game .scenario-description { flex: 1 1 100%; order: 5; text-align: right; color: var(--muted); }
 .room-heading { display: flex; flex-direction: column; align-items: end; }
 .room-heading small { color: #aa9ba0; }
 .room-heading strong { color: #f0d7c0; font-size: 1.5rem; letter-spacing: .18em; }
@@ -151,6 +152,11 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .character-dialog-rules strong { color: #e2b590; }
 .panel { border: 1px solid #5d4c52; border-radius: .65rem; padding: .9rem; background: #211b1ef2; margin-bottom: .75rem; box-shadow: 0 .35rem 1.2rem #0001; }
 .actions-panel { margin: .85rem 0; border-color: #765961; }
+.draft-placement { display: block; margin-top: .4rem; padding: .25rem .4rem; border: 1px dashed #be9bd5; border-radius: .3rem; color: #ecd8ff; background: #392c46; font-size: .75rem; }
+.draft-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.draft-slots > div { display: flex; flex-direction: column; gap: .3rem; }
+.draft-slots button { width: 100%; padding: .5rem; font-size: .8rem; }
+.draft-controls { display: flex; flex-wrap: wrap; justify-content: end; gap: .5rem; margin: .6rem 0 1rem; }
 .actions-panel.has-actions { border-color: #b7795e; background: linear-gradient(145deg, #342127, #211a1e 62%); box-shadow: 0 .6rem 2rem #0003, inset 3px 0 var(--accent); }
 .action-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .action-header h2 { margin-bottom: 0; }

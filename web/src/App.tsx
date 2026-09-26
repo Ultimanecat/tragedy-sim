@@ -5,7 +5,7 @@ import {
   type CollisionDetection,
 } from "@dnd-kit/core";
 import { ApiClient, ApiError, type StoredRoom, type StoredSession } from "./api/client";
-import type { ActionOffer, CatalogResponse, GameView, ModuleId, ModuleSummary, PublicEvent, RoomResponse, ScenarioSummary, Seat, Viewer } from "./api/types";
+import type { ActionOffer, CardPlanResponse, CardPlay, CatalogResponse, GameView, ModuleId, ModuleSummary, PublicEvent, RoomResponse, ScenarioSummary, Seat, Viewer } from "./api/types";
 import { abilityUseName, itemName } from "./display";
 import gameAssets from "./generated/game-assets.json";
 import { aiChoice, availableAiChoices, scenarioOptionLabel, type AiStrategy } from "./lobbyChoices";
@@ -241,16 +241,19 @@ function CharacterDetailsDialog({ character, game, onClose }: {
 }
 
 export function Board({ game, catalog, targetOffers = [], selectedOffer, abilitySources = [], selectedSource,
-  onTarget, onSource }: {
+  onTarget, onSource, draftPlacements = [] }: {
   game: GameView; catalog: CatalogResponse | null; targetOffers?: ActionOffer[]; selectedOffer?: ActionOffer | null;
   abilitySources?: string[]; selectedSource?: string | null;
   onTarget?: (offer: ActionOffer) => void; onSource?: (id: string) => void;
+  draftPlacements?: CardPlay[];
 }) {
   const cardName = (actor: string, id: unknown) => id
     ? itemName(catalog?.cards[actor as Seat], id) : "暗牌";
   const [detailsCharacter, setDetailsCharacter] = useState<string | null>(null);
   const boardCounter = game.module === "HSA" ? "尸体" : "密谋";
   const offerByTarget = new Map(targetOffers.map(offer => [String(offer.parameters.target), offer]));
+  const draftTag = (target: string) => draftPlacements.filter(play => play.target === target).map(play =>
+    <span className="draft-placement" key={`${play.actor}:${target}`}>草稿 · {game.labels.actors[play.actor]}：{cardName(play.actor, play.card)}</span>);
   return <>
     <section className="board" aria-label="游戏版图">
       {locations.map(location => {
@@ -263,6 +266,7 @@ export function Board({ game, catalog, targetOffers = [], selectedOffer, ability
             <AnimatedCounter label="诅咒" value={game.board_ex[location]} hideWhenZero />
             <span>{characters.length} 人</span>
           </div></header>
+          {draftTag(location)}
           <div className="characters">
           {characters.map(character =>
             <BoardCharacter character={character} offer={offerByTarget.get(character.id)}
@@ -285,6 +289,7 @@ export function Board({ game, catalog, targetOffers = [], selectedOffer, ability
                 </div>
                 <button type="button" className="character-reference-button" data-character-details
                   aria-label={`查看${character.name}资料`} onClick={() => setDetailsCharacter(character.id)}>查看资料</button>
+                {draftTag(character.id)}
               </div>
             </BoardCharacter>)}
           </div>
@@ -339,10 +344,20 @@ function DraggableActionCard({ id, name, imageUrl, selected, busy, onSelect }: {
   </button>;
 }
 
-export function Actions({ offers, catalog, game, busy, onAction }: {
+export function Actions({ offers: baseOffers, catalog, game, busy, onAction, cardPlan, onCardPlan }: {
   offers: ActionOffer[]; catalog: CatalogResponse | null; game: GameView;
   busy: boolean; onAction: (offer: ActionOffer, args?: { guesses: Record<string, string> }) => void;
+  cardPlan?: CardPlanResponse | null;
+  onCardPlan?: (plays: CardPlay[], revision: number) => void;
 }) {
+  const [drafts, setDrafts] = useState<Array<CardPlay | null>>([null, null, null]);
+  const [slot, setSlot] = useState(0);
+  const offers = cardPlan ? cardPlan.slots[slot].actions.filter(offer => {
+    const others = drafts.filter((play, index): play is CardPlay => index !== slot && play !== null);
+    if (cardPlan.constraints.distinct_targets && others.some(play => play.target === offer.parameters.target)) return false;
+    const used = others.filter(play => play.actor === offer.actor && play.card === offer.parameters.card).length;
+    return used < (cardPlan.constraints.card_limits[offer.actor]?.[String(offer.parameters.card)] ?? 0);
+  }) : baseOffers;
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [selected, setSelected] = useState<ActionOffer | null>(null);
@@ -372,7 +387,17 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
   const sourceCharacters = [...new Set(sourcedActions.map(item => String(item.ui?.source)))];
   const selectedSourceActions = sourcedActions.filter(item => item.ui?.source === selectedSource);
   const actor = offers[0]?.actor;
-  const choices = selectedCard ? playGroups.get(selectedCard) ?? [] : [];
+  const choices = !busy && selectedCard ? playGroups.get(selectedCard) ?? [] : [];
+  const selectSlot = (index: number) => {
+    setSlot(index); setSelected(null); setSelectedCard(null); setDraggedCard(null);
+  };
+  const addDraft = (offer: ActionOffer) => {
+    const updated = drafts.map((play, index) => index === slot
+      ? { actor: offer.actor, card: String(offer.parameters.card), target: String(offer.parameters.target) } : play);
+    setDrafts(updated);
+    const next = updated.findIndex(play => play === null);
+    selectSlot(next >= 0 ? next : slot);
+  };
   const startDrag = (event: DragStartEvent) => {
     const card = String(event.active.data.current?.card ?? "");
     if (!playGroups.has(card)) return;
@@ -385,18 +410,37 @@ export function Actions({ offers, catalog, game, busy, onAction }: {
     // the confirmation after that guard is removed prevents the first tap on the
     // confirmation button from being swallowed on touch devices.
     if (offer && choices.some(choice => choice.id === offer.id)) {
-      window.setTimeout(() => setSelected(offer), 80);
+      if (cardPlan) addDraft(offer);
+      else window.setTimeout(() => setSelected(offer), 80);
     }
   };
   return <DndContext sensors={sensors} collisionDetection={smallestPointerTarget}
     onDragStart={startDrag} onDragEnd={finishDrag} onDragCancel={() => setDraggedCard(null)}>
     <Board game={game} catalog={catalog} targetOffers={choices} selectedOffer={selected}
       abilitySources={sourceCharacters} selectedSource={selectedSource}
-      onTarget={offer => setSelected(offer)} onSource={source => { setSelectedSource(source); setSelected(null); }} />
+      draftPlacements={drafts.filter((play): play is CardPlay => play !== null)}
+      onTarget={offer => cardPlan ? addDraft(offer) : setSelected(offer)} onSource={source => { setSelectedSource(source); setSelected(null); }} />
     <section className={`panel actions-panel ${offers.length ? "has-actions" : "is-waiting"}`}>
     <header className="action-header"><div><p className="eyebrow">TURN ACTION</p><h2>可执行行动</h2></div>
       {actor && <span className="actor-badge">{game.labels.actors[actor as Seat]}</span>}</header>
     {!offers.length && <p className="muted">当前视角没有可执行行动。</p>}
+    {cardPlan && <div className="card-plan-editor">
+      <p className="step-label">三牌草稿 · 仅自己可见，最终确认前不会发送或生效</p>
+      <div className="draft-slots">{cardPlan.slots.map((entry, index) => <div className={slot === index ? "active-draft" : ""} key={index}>
+        <button className={slot === index ? "selected" : ""} disabled={busy} onClick={() => selectSlot(index)}>
+          第 {index + 1} 张 · {game.labels.actors[entry.actor]}<br />
+          {drafts[index] ? `${itemName(catalog?.cards[entry.actor], drafts[index]!.card)} → ${targetName(game, drafts[index]!.target)}` : "尚未选择"}
+        </button>
+        {drafts[index] && <button disabled={busy} aria-label={`撤回第 ${index + 1} 张`} onClick={() => {
+          setDrafts(current => current.map((play, position) => position === index ? null : play)); selectSlot(index);
+        }}>撤回</button>}
+      </div>)}</div>
+      <div className="draft-controls"><button disabled={busy || drafts.every(play => play === null)} onClick={() => {
+        setDrafts([null, null, null]); selectSlot(0);
+      }}>清空草稿</button><button className="primary" disabled={busy || drafts.some(play => play === null)}
+        onClick={() => onCardPlan?.(drafts.filter((play): play is CardPlay => play !== null), cardPlan.revision)}>
+        {busy ? "正在提交…" : "确认三张牌并提交"}</button></div>
+    </div>}
     {!!unsourcedActions.length && <div className="action-grid">{unsourcedActions.map(offer =>
       <button className={selected?.id === offer.id ? "selected" : ""} disabled={busy} key={offer.id}
         onClick={() => setSelected(offer)}>{offer.label}</button>)}</div>}
@@ -549,6 +593,7 @@ export default function App() {
   const [game, setGame] = useState<GameView | null>(null);
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
   const [offers, setOffers] = useState<ActionOffer[]>([]);
+  const [cardPlan, setCardPlan] = useState<CardPlanResponse | null>(null);
   const [replayText, setReplayText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -569,11 +614,23 @@ export default function App() {
     if (!quiet) { setBusy(true); setError(""); }
     try {
       const response = await client.view(nextViewer);
-      setGame(response.state);
       const actor = response.state.controller;
       const ownSeat = client.room?.seat;
-      if (client.room && ownSeat) setOffers((await client.actions(ownSeat)).actions);
-      else setOffers(actor && actor === nextViewer ? (await client.actions(actor)).actions : []);
+      const nextOffers = client.room && ownSeat ? (await client.actions(ownSeat)).actions
+        : actor && actor === nextViewer ? (await client.actions(actor)).actions : [];
+      const participant = ownSeat ?? nextViewer;
+      const fullSide = participant === "m" || (!client.room || response.state.participant?.card_actors.length === 3);
+      const placementPhase = participant === "m" ? "mastermind" : "protagonists";
+      let nextPlan: CardPlanResponse | null = null;
+      if (participant !== "spectator" && fullSide && nextOffers.some(offer => offer.type === "play")
+          && response.state.phase === placementPhase
+          && !response.state.pending.some(play => (play.actor === "m") === (participant === "m"))) {
+        try { nextPlan = await client.cardPlan(participant); }
+        catch (reason) {
+          if (!(reason instanceof ApiError && reason.code === "CARD_PLAN_NOT_AVAILABLE")) throw reason;
+        }
+      }
+      setGame(response.state); setOffers(nextOffers); setCardPlan(nextPlan);
       persist();
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === "AbortError") return;
@@ -773,6 +830,23 @@ export default function App() {
     } finally { setBusy(false); }
   }
 
+  async function submitCardPlan(plays: CardPlay[], revision: number) {
+    setBusy(true); setError("");
+    try {
+      const participant = client.room?.seat ?? viewer;
+      if (participant === "spectator" || !participant) return;
+      await client.submitCardPlan(participant, plays, revision);
+      persist(); await refresh(viewer);
+    } catch (reason) {
+      if (reason instanceof ApiError && reason.code === "STALE_REVISION") {
+        await refresh(viewer);
+        setError("对局状态已经改变，已刷新；请按当前阶段重新选择行动。");
+      } else {
+        setError(`${reason instanceof Error ? reason.message : "三牌提交失败"}；草稿已保留。`);
+      }
+    } finally { setBusy(false); }
+  }
+
   async function saveSnapshot() {
     try { download("tragedy-sim-save.json", JSON.stringify(await client.snapshot(), null, 2), "application/json"); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败"); }
@@ -891,7 +965,10 @@ export default function App() {
           : game.controller ? `等待${game.labels.actors[game.controller]}行动` : "正在结算阶段效果"}</strong></div>
         <span>{game.phase_name} · {game.table_talk ? "允许讨论" : "禁止讨论"}</span>
       </section>
-      <div className="workspace"><div className="play-column"><Actions key={`${viewer}:${offers.map(item => item.id).join(",")}`} offers={offers} catalog={catalog} game={game} busy={busy} onAction={act} /></div><aside>
+      <div className="workspace"><div className="play-column"><Actions key={cardPlan
+        ? `${viewer}:${game.loop}:${game.round}:${game.phase}:${cardPlan.revision}`
+        : `${viewer}:${offers.map(item => item.id).join(",")}`} offers={offers} catalog={catalog} game={game}
+        busy={busy} onAction={act} cardPlan={cardPlan} onCardPlan={submitCardPlan} /></div><aside>
         {game.protagonist_secret && <section className="panel personal-secret"><h2>你的 Last Liar 秘密</h2><strong>秘密 {game.protagonist_secret}</strong><p>此编号只对当前主人公可见，请勿向其他玩家展示。</p></section>}
         {game.secret && <section className="panel secret"><h2>剧作家资料</h2><p>规则 Y：{itemName(catalog?.plots, game.secret.main_plot)}</p><p>规则 X：{game.secret.subplots.map(id => itemName(catalog?.plots, id)).join("、")}</p><p>本轮实际天数：{game.secret.current_loop_days}</p>
           <details><summary>身份配置</summary>{Object.entries(game.secret.roles).map(([id, role]) => <p key={id}>{game.characters[id]?.name ?? id}：{itemName(catalog?.roles, role)}{game.secret?.hidden_roles?.[id] ? `／里身份 ${itemName(catalog?.roles, game.secret.hidden_roles[id])}` : ""}</p>)}</details>

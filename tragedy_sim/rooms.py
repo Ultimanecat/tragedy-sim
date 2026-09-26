@@ -686,6 +686,38 @@ class RoomService:
                                "actor": seat, "controlled_actors": sorted({o["actor"] for o in offers}),
                                "actions": offers})
 
+    def _card_plan_participant(self, room: _Room, token: str | None):
+        seat, occupant = self._occupant(room, token)
+        if room.status != "playing":
+            raise ServiceError("ROOM_NOT_PLAYING", "房间当前不能提交行动", status=409)
+        if seat != "m" and room.protagonist_count != 1:
+            raise ServiceError("FORBIDDEN", "三人和四人局主人公保持单张出牌", status=403)
+        return seat, occupant
+
+    def game_card_plan(self, code: str, *, token: str | None) -> dict[str, Any]:
+        room = self._room(code)
+        with room.lock:
+            seat, _ = self._card_plan_participant(room, token)
+            return self.games.get_card_plan(room.session_id, seat, token=room.game_admin)
+
+    def game_submit_card_plan(self, code: str, request: Any, *, token: str | None) -> dict[str, Any]:
+        room = self._room(code)
+        with room.lock:
+            seat, occupant = self._card_plan_participant(room, token)
+            if not isinstance(request, dict) or request.get("actor") != seat:
+                raise ServiceError("FORBIDDEN", "只能提交自己控制的三牌计划", status=403)
+            result = self.games.dispatch_card_plan(room.session_id, request, token=room.game_admin)
+            for accepted in result["accepted_actions"]:
+                self._record_executor(room, seat, occupant, accepted)
+            room.last_activity = self._clock()
+            self._sync_status(room)
+            room.changed.notify_all()
+            self._run_ai_turns(room)
+            final_view = self.games.get_view(room.session_id)
+            result["revision"] = final_view["revision"]
+            result["view"] = final_view
+            return _json_copy(result)
+
     def game_command(self, code: str, request: Any, *, token: str | None) -> dict[str, Any]:
         room = self._room(code)
         with room.lock:
