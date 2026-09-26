@@ -556,7 +556,7 @@ class RoomService:
         return public, offers
 
     def _record_executor(self, room: _Room, seat: str, occupant: _Occupant,
-                         accepted: dict[str, Any]) -> None:
+                         accepted: dict[str, Any], *, record_trace: bool = True) -> None:
         plan = getattr(occupant.ai_policy, "plan_name", None)
         room.executors.append({"decision": len(room.executors) + 1,
                                "participant": seat, "nickname": occupant.nickname,
@@ -564,7 +564,7 @@ class RoomService:
                                "ai_type": occupant.ai_type,
                                **({"ai_plan": plan} if plan else {})})
         trace = getattr(occupant.ai_policy, "last_trace", None)
-        if trace is not None:
+        if trace is not None and record_trace:
             room.ai_debug_traces.append({"decision": len(room.executors),
                                          "participant": seat,
                                          "trace": trace.to_dict()})
@@ -632,8 +632,30 @@ class RoomService:
             }
             if offer.get("arguments") is not None:
                 request["arguments"] = offer["arguments"]
-            result = self.games.dispatch(room.session_id, request, token=room.game_admin)
-            self._record_executor(room, seat, occupant, result["accepted_action"])
+            policy = occupant.ai_policy or self._ai_agent
+            decision = (policy.decision_for_action(offer)
+                        if hasattr(policy, 'decision_for_action') else None)
+            batch_allowed = seat == 'm' or (
+                room.protagonist_count == 1
+                and getattr(policy, 'controls_protagonist_team', False))
+            if decision is not None and decision.card_plan and batch_allowed:
+                try:
+                    result = self.games.dispatch_card_plan(room.session_id, {
+                        'actor': seat, 'expected_revision': revision,
+                        'plays': [play.payload() for play in decision.card_plan],
+                    }, token=room.game_admin)
+                except ServiceError as error:
+                    policy.clear_card_plan()
+                    if error.code == 'STALE_REVISION':
+                        continue
+                    raise
+                policy.clear_card_plan()
+                for index, accepted in enumerate(result['accepted_actions']):
+                    self._record_executor(room, seat, occupant, accepted,
+                                          record_trace=index == 0)
+            else:
+                result = self.games.dispatch(room.session_id, request, token=room.game_admin)
+                self._record_executor(room, seat, occupant, result["accepted_action"])
             room.last_activity = self._clock()
             room.changed.notify_all()
         raise RuntimeError("AI action limit exceeded")

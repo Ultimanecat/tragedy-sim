@@ -13,6 +13,7 @@ from time import perf_counter
 from typing import Any, Sequence
 
 from .ai import RiskAwareProtagonistAgent
+from .ai_decisions import JointCardDecisionProvider
 from .catalog import MODULES, PLOTS
 from .optimized_mcts import _command_key
 from .particle_ensemble import ParticleEnsembleProtagonistAgent
@@ -146,13 +147,20 @@ class _PublicReplyEvaluator(OracleProtagonistAgent):
                               * (entropy - self._root_entropy)))
 
 
-class JointPlanMastermindAgent(StrategicMctsMastermindAgent):
+class JointPlanMastermindAgent(JointCardDecisionProvider, StrategicMctsMastermindAgent):
     """Budgeted joint-day candidates, each tested against a three-card reply.
 
     By default the reply policy sees only the protagonist team's public view.
     Script-aware hidden/full-card replies remain diagnostic ablations.
     Non-placement mastermind decisions retain the strategic MCTS baseline.
     """
+
+    def remaining_card_commands(self):
+        return tuple(dict(command) for command in self._plan)
+
+    def clear_card_plan(self):
+        self._plan.clear()
+        self._plan_day = None
 
     def __init__(self, budget: SearchBudget | None = None, *,
                  reply_nodes: int = 12, reply_model: str = "public",

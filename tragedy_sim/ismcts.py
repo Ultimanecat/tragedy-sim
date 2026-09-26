@@ -17,6 +17,7 @@ from time import perf_counter
 from typing import Any, Mapping, Sequence
 
 from .ai import DefensiveProtagonistAgent, RiskAwareProtagonistAgent
+from .ai_decisions import JointCardDecisionProvider
 from .belief import (CommandObservation, ConstraintBeliefSampler,
                      DarkCardBelief, FactorizedBeliefState,
                      PersistentBeliefState, PublicEvidence)
@@ -191,7 +192,7 @@ class PublicStateDeterminizer:
         return game
 
 
-class IsmctsProtagonistAgent:
+class IsmctsProtagonistAgent(JointCardDecisionProvider):
     """Root information-set MCTS over independently sampled FS/BTX worlds."""
 
     def __init__(self, budget: SearchBudget | None = None, *,
@@ -233,6 +234,13 @@ class IsmctsProtagonistAgent:
     @property
     def controls_protagonist_team(self) -> bool:
         return True
+
+    def remaining_card_commands(self):
+        return tuple(deepcopy(command) for command in self._joint_plan)
+
+    def clear_card_plan(self):
+        self._joint_plan.clear()
+        self._joint_plan_position = None
 
     def observe(self, *, viewer: str,
                 records: Sequence[tuple[int, str, CommandObservation | None]]) -> None:

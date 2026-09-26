@@ -16,6 +16,7 @@ from time import perf_counter
 from typing import Any, Mapping, Sequence
 
 from .ai import DefensiveProtagonistAgent, FixedStrategyMastermindAgent
+from .ai_decisions import JointCardDecisionProvider
 from .belief import HiddenWorldHypothesis, PublicEvidence
 from .evaluation import ScenarioConditionedEvaluator
 from .game import Game
@@ -42,8 +43,15 @@ class OracleTrace:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False))
 
 
-class OracleProtagonistAgent:
+class OracleProtagonistAgent(JointCardDecisionProvider):
     """Team planner.  ``reveal_cards`` is the sole information boundary."""
+
+    def remaining_card_commands(self):
+        return tuple(dict(command) for command in self._plan)
+
+    def clear_card_plan(self):
+        self._plan.clear()
+        self._position = None
 
     controls_protagonist_team = True
     uses_public_view = True
