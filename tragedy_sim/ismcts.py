@@ -136,7 +136,9 @@ class PublicStateDeterminizer:
 
         state.discarded = deepcopy(dict(view["discarded"]))
         state.hands = {actor: [card for card in game._deck(actor)
-                               if card not in state.discarded[actor]]
+                               if card not in state.discarded[actor]
+                               and not (actor == 'm' and card in game.scenario.get(
+                                   'special_rules', {}).get('disabled_mastermind_cards', []))]
                        for actor in ACTORS}
         dark_bundle = DarkCardBelief.sample(
             view.get("pending", ()), state.hands, rng=rng,

@@ -21,6 +21,34 @@ from tragedy_sim.witness_rules.common_public import compile_public_reveals
 
 
 class FactorizedBeliefTests(unittest.TestCase):
+    def test_btx11_public_setup_produces_valid_worlds(self):
+        from tragedy_sim.ismcts import PublicStateDeterminizer
+        scenario = ScenarioLibrary().get('official-btx-11-neverending-happy-sad-story')
+        game = Game(scenario)
+        evidence = PublicEvidence.from_view(game.protagonist_team_view())
+        self.assertEqual(evidence.setup_fields()['character_options'],
+                         scenario['character_options'])
+        sampled = FactorizedBeliefState(seed=0).sample(
+            evidence, (), 4, rng=random.Random(0))
+        self.assertTrue(sampled.worlds)
+        for world in sampled.worlds:
+            candidate = Game(world.materialize(evidence))
+            self.assertEqual(candidate.scenario['character_options'],
+                             scenario['character_options'])
+            self.assertNotIn('fg', candidate.state.hands['m'])
+            self.assertFalse(candidate.state.characters['godly'].present)
+        game.dispatch('m', 'next')
+        for card, target in [('i1', 'school'), ('p1a', 'girl'), ('h', 'boss')]:
+            game.dispatch('m', 'play', card=card, target=target)
+        view = game.protagonist_team_view()
+        determined = PublicStateDeterminizer().determinize(
+            sampled.worlds[0], PublicEvidence.from_view(view), view,
+            rng=random.Random(0))
+        self.assertIsNotNone(determined)
+        self.assertNotIn('fg', determined.state.hands['m'])
+        self.assertTrue(all(placement.card != 'fg'
+                            for placement in determined.state.pending))
+
     def test_private_role_answer_constrains_red_final_guess(self):
         game = Game(example_scenario("BTX"))
         view = game.protagonist_team_view()
@@ -199,6 +227,19 @@ class FactorizedBeliefTests(unittest.TestCase):
 
 
 class PublicEvidenceTests(unittest.TestCase):
+    def test_public_setup_excludes_copycat_source_and_is_detached(self):
+        scenario = example_scenario('BTX')
+        scenario['cast']['copycat'] = 'ordinary'
+        source = next(cid for cid, role in scenario['cast'].items()
+                      if cid != 'copycat' and role == 'ordinary')
+        scenario['character_options'] = {'copycat': {'role_source': source}}
+        game = Game(scenario)
+        view = game.view('a')
+        self.assertNotIn('copycat', view['public_setup']['character_options'])
+        view['public_setup']['special_rules']['disabled_mastermind_cards'] = ['fg']
+        self.assertNotIn('disabled_mastermind_cards',
+                         game.scenario.get('special_rules', {}))
+
     def test_evidence_ignores_scenario_identity_and_unrevealed_secrets(self):
         game = Game(example_scenario("BTX"))
         view = game.view("a")

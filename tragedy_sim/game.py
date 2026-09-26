@@ -624,7 +624,16 @@ class Game(ActionGame):
         self._event("game_ended", message, winner=winner, timing=timing)
 
     def view(self, viewer="spectator", language="zh"):
-        return self.ruleset.operations['view'](self, viewer, language)
+        result = self.ruleset.operations['view'](self, viewer, language)
+        # Printed setup choices are public; Copycat's role source is secret.
+        result['public_setup'] = {
+            'character_options': deepcopy({
+                cid: options for cid, options in self.scenario.get('character_options', {}).items()
+                if cid in {'boss', 'godly', 'transfer_student', 'servant', 'henchman'}
+            }),
+            'special_rules': deepcopy(self.scenario.get('special_rules', {})),
+        }
+        return result
 
     def save(self, path):
         # Local trusted replay file contains secrets. Exclusive create prevents overwrite.

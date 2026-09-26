@@ -8,6 +8,7 @@ function. Use paired seeds and varied opponents before tuning search weights.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 from pathlib import Path
 from statistics import mean
@@ -86,6 +87,23 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "exact_guess_snapshots": len(exact_guess),
         "exact_ms_max": max((row["exact_ms"] for row in exact), default=None),
         "tertiles": bins,
+    }
+
+
+def match_telemetry(result: Any) -> dict[str, Any]:
+    """Placement-only work counters; final-guess solving is not in these timers."""
+    searches = result.protagonist_searches
+    return {
+        "lost_loops": len(result.loop_losses),
+        "recorded_placement_searches": len(searches),
+        "sampled_worlds_min": min((s.particles for s in searches), default=None),
+        "sampled_worlds_max": max((s.particles for s in searches), default=None),
+        "policy_rollouts": sum(s.evaluated_pairs for s in searches),
+        "placement_evidence_seconds": round(result.protagonist_evidence_seconds, 3),
+        "placement_search_seconds": round(result.protagonist_search_seconds, 3),
+        "play_fallback_reasons": dict(Counter(
+            p.reason for p in result.protagonist_plays
+            if p.reason not in {None, "joint_plan_followup"})),
     }
 
 
@@ -196,6 +214,7 @@ def main() -> None:
                              "weight": 1 / len(snapshots)}
                             for row in snapshots)
                 matches.append({
+                    **match_telemetry(result),
                     "scenario": scenario, "strategy": strategy,
                     "protagonist_strategy": args.protagonist_strategy,
                     "seed": seed, "red_win": red_win,
@@ -218,7 +237,7 @@ def main() -> None:
                           f"elapsed={result.elapsed_seconds:.1f}s"
                           + (f" repeat_stable={repeat_stable}"
                              if args.repeat_check else ""), flush=True)
-    report = {"schema_version": 1, "budget": {
+    report = {"schema_version": 2, "budget": {
                   "mode": "fixed_work" if args.fixed_work else "wall_clock",
                   "mastermind_nodes": args.mastermind_nodes,
                   "protagonist_nodes": args.protagonist_nodes,

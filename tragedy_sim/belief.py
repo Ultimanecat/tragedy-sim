@@ -71,6 +71,10 @@ class PublicEvidence:
     known_roles: tuple[tuple[str, str], ...]
     known_culprits: tuple[tuple[int, str], ...]
     known_plots: tuple[str, ...]
+    public_setup_json: str = '{}'
+
+    def setup_fields(self) -> dict[str, Any]:
+        return json.loads(self.public_setup_json)
 
     @classmethod
     def from_view(cls, view: Mapping[str, Any]) -> "PublicEvidence":
@@ -110,6 +114,7 @@ class PublicEvidence:
             schedule=schedule, known_roles=known_roles,
             known_culprits=known_culprits,
             known_plots=tuple(sorted(str(item) for item in view.get("known_plots", ()))),
+            public_setup_json=json.dumps(view.get("public_setup", {}), sort_keys=True),
         )
 
 
@@ -210,6 +215,7 @@ class HiddenWorldHypothesis:
             "loops": evidence.loops, "main_plot": self.main_plot,
             "subplots": list(self.subplots), "cast": dict(self.roles),
             "incidents": incidents, "table_talk": evidence.table_talk,
+            **evidence.setup_fields(),
         })
 
 
@@ -538,6 +544,7 @@ class ConstraintBeliefSampler:
                 "days": evidence.days, "loops": evidence.loops,
                 "main_plot": main, "subplots": list(subplots),
                 "cast": cast, "incidents": incidents, "table_talk": False,
+                **evidence.setup_fields(),
             }
             try:
                 validated = validate_scenario(scenario)
@@ -642,6 +649,7 @@ class FactorizedBeliefState:
                             "subplots": list(subplots), "cast": cast,
                             "incidents": incidents,
                             "table_talk": evidence.table_talk,
+                            **evidence.setup_fields(),
                         })
                     except RuleError:
                         continue
@@ -1247,7 +1255,8 @@ class PersistentBeliefState:
     @staticmethod
     def _static_signature(evidence: PublicEvidence) -> tuple[Any, ...]:
         return (evidence.module, evidence.days, evidence.loops,
-                evidence.table_talk, evidence.characters, evidence.schedule)
+                evidence.table_talk, evidence.characters, evidence.schedule,
+                evidence.public_setup_json)
 
     def reset(self) -> None:
         self.particles = ()

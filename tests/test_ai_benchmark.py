@@ -14,11 +14,38 @@ from benchmarks.ai_cutoff_calibration import summarize as summarize_cutoffs, wei
 from benchmarks.ai_path_calibration import cross_validated_paths
 from benchmarks.ai_difficulty_matrix import (difficulty_groups, paired_outcomes,
                                              summarize, wilson_interval)
-from benchmarks.ai_self_play import MatchResult, _ability_usage, play
+from benchmarks.ai_self_play import (MatchResult, ProtagonistPlayRecord,
+                                    ProtagonistSearchRecord, _ability_usage, play)
 from tragedy_sim.scenario_library import ScenarioLibrary
 
 
 class AbilityUsageTests(unittest.TestCase):
+    def test_calibration_records_actual_world_counts_and_placement_work(self):
+        result = MatchResult(
+            scenario_id="test", scenario_title="test", module="BTX", loops=3,
+            difficulty="standard", mastermind_strategy="fixed",
+            protagonist_strategy="particle_ensemble", seed=0, winner="mastermind",
+            decisions=1, mastermind_decisions=1, search_nodes=0, elapsed_seconds=1)
+        empty = ai_cutoff_calibration.match_telemetry(result)
+        self.assertIsNone(empty["sampled_worlds_min"])
+        self.assertEqual(empty["policy_rollouts"], 0)
+        search = ProtagonistSearchRecord(
+            1, 1, 2, (2, 2), "factorized", None, 12, 0, (), (), (),
+            evaluated_pairs=24)
+        observed = ai_cutoff_calibration.match_telemetry(replace(
+            result, protagonist_searches=(search, replace(
+                search, particles=32, evaluated_pairs=64)),
+            protagonist_evidence_seconds=0.1, protagonist_search_seconds=0.2,
+            protagonist_plays=(ProtagonistPlayRecord(1, 1, "a", "fi", "school",
+                                                    reason="no_particles"),
+                               ProtagonistPlayRecord(1, 1, "b", "fm", "girl",
+                                                    reason="joint_plan_followup"))))
+        self.assertEqual((observed["sampled_worlds_min"],
+                          observed["sampled_worlds_max"]), (12, 32))
+        self.assertEqual(observed["policy_rollouts"], 88)
+        self.assertEqual(observed["play_fallback_reasons"], {"no_particles": 1})
+        self.assertEqual(observed["placement_search_seconds"], 0.2)
+
     def test_match_digest_covers_repeatable_complete_decisions(self):
         first = play("official-btx-02-traditional-ensemble-murder", 0, 2, 2,
                      "fixed", "baseline")
