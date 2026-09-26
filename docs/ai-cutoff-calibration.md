@@ -43,3 +43,22 @@ python -m benchmarks.ai_cutoff_calibration --scenario official-btx-09-those-with
 首轮验证：固定黑方、粒子红方 2 个候选节点、日末 horizon。BTX02 标准版 seed 0、BTX09 标准版 seed 0/1 的完整重复轨迹全部相同（3/3），首次对局分别约 10.3、5.8、7.0 秒。BTX02 在 `PYTHONHASHSEED=1/2` 的独立进程中也得到同一摘要 `f49b9b926df9…`。三个种子均为终猜黑胜，仍缺终猜红胜与这批预算下的直接红胜；本轮不修改生产估值。
 
 下一切片先提高固定工作量红方预算并扩充剧本／轮回数，以保存完整数据的方式收集不同终局路径。确认样本覆盖后，再进行模型校准与跨剧本留出；等墙钟棋力评测继续使用原限时模式，并独立报告实际耗时和轨迹波动。
+
+## 全 FS/BTX 分批采集
+
+`benchmarks.ai_calibration_matrix` 自动发现所有已录入 FS/BTX 官方剧本及标准／Easy／Very Easy 版本。当前为 13 个基础剧本、25 个难度版本。所有子进程串行运行，统一关闭搜索墙钟截止。每局完成后原子保存 JSON；失败局不写成完成检查点。`--max-jobs` 限制本次新增对局数，`--resume` 继续相同矩阵。代码与实际剧本内容都参与配置指纹，修改策略、预算或剧本后会建立独立目录，避免混用不兼容样本；新录入剧本通过新的矩阵自动纳入。
+
+```powershell
+# 首轮低预算覆盖；可加 --max-jobs 5 分批运行。
+python -m benchmarks.ai_calibration_matrix --output-dir references/ai-calibration/2026-09-26 --protagonist-nodes 2 --games 1
+# 继续相同配置，已完成对局不重跑。
+python -m benchmarks.ai_calibration_matrix --output-dir references/ai-calibration/2026-09-26 --protagonist-nodes 2 --games 1 --resume
+# 下一档：多个预算和共同种子，各预算分别汇总，避免混在一起拟合。
+python -m benchmarks.ai_calibration_matrix --output-dir references/ai-calibration/expanded --protagonist-nodes 2 --protagonist-nodes 8 --games 3 --max-jobs 5
+```
+
+每个 `run-<指纹>/` 中保留 `manifest.json`、逐局报告和 `summary.json`。汇总按规则集及红方节点预算分组，报告终局路径计数、日末诊断和 BTX 留出 seed 校准。FS 没有最终猜测，独立汇总，不拟合 BTX 双路径模型。单种子覆盖只用于验证入口和寻找终局案例；增加独立种子后才比较估值或棋力。数据和包含隐藏设置的 manifest 均为离线开发资料，不进入玩家界面。
+
+2026-09-26 首轮全部版本覆盖已完成，数据指纹 `e9e12f9863fa9ceb`：固定黑方、粒子红方、2 节点、日末 horizon、seed 0，25/25 对局正常结束。FS 标准版红胜 **1/2**，包含 Easy 为 **2/4**；BTX 标准版红胜 **6/11**，包含 Easy / Very Easy 为 **11/21**。BTX 的其余 **10 局均为终猜失败**，猜对合计 **54/94**，仍无终猜红胜。共采集 FS 36、BTX 285 个日末记录；只有一个 seed，留出校准明确报告不可进行。难度版本共享秘密和种子，这 25 局不能当作 25 个独立样本估计胜率。
+
+对局耗时合计约 **229 秒**，最慢的 BTX08 Easy 约 **70.5 秒**；未据此定位具体瓶颈，后续需拆分证据维护、行动搜索与终猜求解耗时。相同配置的 `--resume` 已验证完成数仍为 25、新增数为 0，不重新运行子进程。下一批先把红方提高到 8 节点并覆盖同一组版本，再补充 seed 1/2；仍按难度和预算保留各自数据，重点寻找终猜红胜并审计 FS02 等稳定失败案例。
