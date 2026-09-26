@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict, dataclass
+import hashlib
 import json
 import random
 from statistics import mean
@@ -138,6 +139,7 @@ class MatchResult:
     protagonist_search_seconds: float = 0.0
     ability_usage: tuple[AbilityUsageRecord, ...] = ()
     protagonist_horizon: str = "day"
+    decision_digest: str = ""
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -325,6 +327,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     protagonist_searches: list[ProtagonistSearchRecord] = []
     protagonist_evidence_ms = protagonist_search_ms = 0.0
     started = perf_counter()
+    decision_hash = hashlib.sha256()
     while game.winner is None and decisions < 1500:
         actions = game.action_offers(game.controller)
         if not actions:
@@ -368,6 +371,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             else:
                 action = policy.choice(actions)
         command = {**action.command, **(arguments or {})}
+        decision_hash.update(json.dumps(
+            command, sort_keys=True, ensure_ascii=False,
+            separators=(",", ":")).encode("utf-8"))
+        decision_hash.update(b"\n")
         if command.get("action") == "play" and command.get("actor") == "m":
             mastermind_plays.append(MastermindPlayRecord(
                 game.state.loop, game.state.round,
@@ -494,6 +501,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         protagonist_evidence_seconds=protagonist_evidence_ms / 1000,
         protagonist_search_seconds=protagonist_search_ms / 1000,
         ability_usage=_ability_usage(game.state.events),
+        decision_digest=decision_hash.hexdigest(),
         protagonist_horizon=(oracle_horizon if protagonist_strategy in {
             "oracle_cards", "oracle_script", "particle_ensemble"} else "day"))
 

@@ -2,10 +2,14 @@
 
 import unittest
 from contextlib import redirect_stdout
+from dataclasses import replace
 from io import StringIO
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from benchmarks import ai_mastermind_matrix
+from benchmarks import ai_cutoff_calibration, ai_mastermind_matrix
 from benchmarks.ai_cutoff_calibration import summarize as summarize_cutoffs, weighted_auc
 from benchmarks.ai_path_calibration import cross_validated_paths
 from benchmarks.ai_difficulty_matrix import (difficulty_groups, paired_outcomes,
@@ -15,6 +19,64 @@ from tragedy_sim.scenario_library import ScenarioLibrary
 
 
 class AbilityUsageTests(unittest.TestCase):
+    def test_match_digest_covers_repeatable_complete_decisions(self):
+        first = play("official-btx-02-traditional-ensemble-murder", 0, 2, 2,
+                     "fixed", "baseline")
+        second = play("official-btx-02-traditional-ensemble-murder", 0, 2, 2,
+                      "fixed", "baseline")
+        self.assertEqual(len(first.decision_digest), 64)
+        self.assertEqual(first.decision_digest, second.decision_digest)
+        self.assertEqual(first.winner, second.winner)
+
+    def test_fixed_work_cli_removes_both_deadlines_and_checks_repeats(self):
+        def fake_play(scenario, seed, nodes, depth, strategy, protagonists, **kwargs):
+            self.assertIsNone(kwargs["time_limit_ms"])
+            self.assertIsNone(kwargs["protagonist_time_limit_ms"])
+            return MatchResult(
+                scenario_id=scenario, scenario_title="test", module="BTX",
+                loops=3, difficulty="standard", mastermind_strategy=strategy,
+                protagonist_strategy=protagonists, seed=seed,
+                winner="protagonists", decisions=1, mastermind_decisions=1,
+                search_nodes=0, elapsed_seconds=1.0, decision_digest="same")
+
+        output = StringIO()
+        with (patch("sys.argv", ["ai_cutoff_calibration", "--games", "1",
+                                 "--strategy", "fixed", "--fixed-work",
+                                 "--repeat-check", "--json"]),
+              patch.object(ai_cutoff_calibration, "play", side_effect=fake_play)
+              as mocked, redirect_stdout(output)):
+            ai_cutoff_calibration.main()
+        self.assertEqual(mocked.call_count, 4)  # Two scenarios, each repeated.
+        self.assertIn('"unstable": 0', output.getvalue())
+        counter = 0
+
+        def changing_play(*args, **kwargs):
+            nonlocal counter
+            counter += 1
+            return replace(fake_play(*args, **kwargs),
+                           decision_digest=str(counter))
+
+        with (patch("sys.argv", ["ai_cutoff_calibration", "--games", "1",
+                                 "--strategy", "fixed", "--fixed-work",
+                                 "--repeat-check", "--json"]),
+              patch.object(ai_cutoff_calibration, "play",
+                           side_effect=changing_play),
+              redirect_stdout(StringIO()), self.assertRaises(SystemExit) as error):
+            ai_cutoff_calibration.main()
+        self.assertEqual(error.exception.code, 1)
+
+        with TemporaryDirectory() as directory:
+            target = Path(directory) / "nested" / "report.json"
+            with (patch("sys.argv", ["ai_cutoff_calibration", "--games", "1",
+                                     "--strategy", "fixed", "--fixed-work",
+                                     "--output", str(target)]),
+                  patch.object(ai_cutoff_calibration, "play", side_effect=fake_play),
+                  redirect_stdout(StringIO())):
+                ai_cutoff_calibration.main()
+            saved = json.loads(target.read_text(encoding="utf-8"))
+            self.assertEqual(saved["budget"]["mode"], "fixed_work")
+            self.assertEqual(saved["matches"][0]["decision_digest"], "same")
+
     def test_dual_path_calibration_holds_out_seeds_and_handles_sparse_guesses(self):
         modes = ("survival_win", "final_guess_win", "final_guess_loss",
                  "other_black_win")

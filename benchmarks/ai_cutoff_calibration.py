@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 from statistics import mean
 from time import perf_counter
 from typing import Any
@@ -102,10 +103,16 @@ def main() -> None:
     parser.add_argument("--protagonist-nodes", type=int, default=8)
     parser.add_argument("--protagonist-ms", type=int, default=1000)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--output", type=Path,
+                        help="save complete JSON data for later calibration")
     parser.add_argument("--exact-penultimate", action="store_true",
                         help="also solve red's identity MAP before the final day")
     parser.add_argument("--path-cv", action="store_true",
                         help="fit three outcome heads, holding out complete seeds")
+    parser.add_argument("--fixed-work", action="store_true",
+                        help="disable wall-clock search cutoffs; node limits still apply")
+    parser.add_argument("--repeat-check", action="store_true",
+                        help="repeat each match and compare full decision digests")
     args = parser.parse_args()
     if min(args.games, args.mastermind_nodes, args.mastermind_ms,
            args.protagonist_nodes, args.protagonist_ms) < 1:
@@ -150,14 +157,23 @@ def main() -> None:
                             (perf_counter() - started) * 1000, 2)
                     snapshots.append(row)
 
+                play_kwargs = dict(
+                    protagonist_nodes=args.protagonist_nodes,
+                    time_limit_ms=(None if args.fixed_work
+                                   else args.mastermind_ms),
+                    protagonist_time_limit_ms=(None if args.fixed_work
+                                               else args.protagonist_ms),
+                    joint_reply_model="belief", joint_information_weight=0)
                 result = play(
                     scenario, seed, args.mastermind_nodes, 8, strategy,
-                    args.protagonist_strategy,
-                    protagonist_nodes=args.protagonist_nodes,
-                    time_limit_ms=args.mastermind_ms,
-                    protagonist_time_limit_ms=args.protagonist_ms,
-                    joint_reply_model="belief", joint_information_weight=0,
+                    args.protagonist_strategy, **play_kwargs,
                     cutoff_observer=observe)
+                repeated = (play(scenario, seed, args.mastermind_nodes, 8,
+                                 strategy, args.protagonist_strategy,
+                                 **play_kwargs) if args.repeat_check else None)
+                repeat_stable = (result.decision_digest == repeated.decision_digest
+                                 and result.winner == repeated.winner
+                                 if repeated is not None else None)
                 red_win = result.winner == "protagonists"
                 outcome_mode = (
                     "final_guess_win" if red_win and result.final_guesses else
@@ -182,28 +198,62 @@ def main() -> None:
                                          for item in result.final_guesses),
                     "final_total": len(result.final_guesses),
                     "elapsed_seconds": round(result.elapsed_seconds, 3),
+                    "decision_digest": result.decision_digest,
+                    "repeat_stable": repeat_stable,
+                    "repeat_digest": (repeated.decision_digest
+                                      if repeated is not None else None),
+                    "repeat_elapsed_seconds": (round(repeated.elapsed_seconds, 3)
+                                               if repeated is not None else None),
                 })
                 if not args.json:
                     print(f"{scenario} {strategy} seed={seed} "
                           f"winner={result.winner} snapshots={len(snapshots)} "
-                          f"elapsed={result.elapsed_seconds:.1f}s", flush=True)
-    report = {"summary": summarize(rows),
+                          f"elapsed={result.elapsed_seconds:.1f}s"
+                          + (f" repeat_stable={repeat_stable}"
+                             if args.repeat_check else ""), flush=True)
+    report = {"schema_version": 1, "budget": {
+                  "mode": "fixed_work" if args.fixed_work else "wall_clock",
+                  "mastermind_nodes": args.mastermind_nodes,
+                  "protagonist_nodes": args.protagonist_nodes,
+                  "rollout_depth": 8,
+                  "mastermind_ms": None if args.fixed_work else args.mastermind_ms,
+                  "protagonist_ms": None if args.fixed_work else args.protagonist_ms,
+              }, "config": {
+                  "joint_reply_model": "belief", "joint_information_weight": 0,
+                  "protagonist_horizon": "day", "mastermind_policy_samples": 3,
+                  "information_reward_weight": 0.01,
+                  "exact_penultimate": args.exact_penultimate,
+              }, "summary": summarize(rows),
               "outcome_counts": {mode: sum(item["outcome_mode"] == mode
                                       for item in matches)
                                  for mode in sorted({item["outcome_mode"]
                                                      for item in matches})},
               "matches": matches, "rows": rows}
+    if args.repeat_check:
+        report["repeat_check"] = {
+            "stable": sum(item["repeat_stable"] is True for item in matches),
+            "unstable": sum(item["repeat_stable"] is False for item in matches),
+        }
     if args.path_cv:
         from .ai_path_calibration import cross_validated_paths
         report["path_cv"] = cross_validated_paths(rows)
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2),
+                               encoding="utf-8")
     if args.json:
         print(json.dumps(report, ensure_ascii=False))
     else:
-        print(json.dumps({"summary": report["summary"],
+        print(json.dumps({"budget": report["budget"],
+                          "summary": report["summary"],
                           "outcome_counts": report["outcome_counts"],
+                          **({"repeat_check": report["repeat_check"]}
+                             if args.repeat_check else {}),
                           **({"path_cv": report["path_cv"]} if args.path_cv
                              else {})},
                          ensure_ascii=False, indent=2))
+    if args.repeat_check and report["repeat_check"]["unstable"]:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
