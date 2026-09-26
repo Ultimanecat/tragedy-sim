@@ -10,6 +10,7 @@ import { abilityUseName, itemName } from "./display";
 import gameAssets from "./generated/game-assets.json";
 import { aiChoice, availableAiChoices, scenarioOptionLabel, type AiStrategy } from "./lobbyChoices";
 import { parseReplayTimeline } from "./replay";
+import { actionHint, eventPresentation } from "./presentation";
 
 const SESSION_KEY = "tragedy-sim.local-session.v1";
 const ROOM_KEY = "tragedy-sim.room.v1";
@@ -515,15 +516,18 @@ function RulesReference({ catalog }: { catalog: CatalogResponse | null }) {
   </section>;
 }
 
-function PublicLog({ game, catalog }: { game: GameView; catalog: CatalogResponse | null }) {
-  const [scope, setScope] = useState<"today" | "loop" | "all">("today");
+export function PublicLog({ game, catalog }: { game: GameView; catalog: CatalogResponse | null }) {
+  const [scope, setScope] = useState<"recent" | "today" | "loop" | "all">("recent");
   const [query, setQuery] = useState("");
+  const [importantOnly, setImportantOnly] = useState(false);
   const normalized = query.trim().toLocaleLowerCase();
-  const visible = game.events.filter(event => {
+  const matching = game.events.filter(event => {
     if (scope === "today" && (event.loop !== game.loop || event.round !== game.round)) return false;
     if (scope === "loop" && event.loop !== game.loop) return false;
+    if (importantOnly && eventPresentation(event.kind).tone === "normal") return false;
     return !normalized || `${event.timepoint} ${event.message}`.toLocaleLowerCase().includes(normalized);
   });
+  const visible = scope === "recent" ? matching.slice(-12) : matching;
   const groups = new Map<string, PublicEvent[]>();
   for (const event of visible) {
     const key = `${event.loop}:${event.round}:${event.timepoint}`;
@@ -531,20 +535,24 @@ function PublicLog({ game, catalog }: { game: GameView; catalog: CatalogResponse
   }
   return <section className="panel log"><header className="log-header"><h2>公开日志</h2>
     <select aria-label="日志范围" value={scope} onChange={event => setScope(event.target.value as typeof scope)}>
-      <option value="today">今日</option><option value="loop">本轮回</option><option value="all">全部</option>
+      <option value="recent">最近 12 条</option><option value="today">今日</option><option value="loop">本轮回</option><option value="all">全部</option>
     </select></header>
     <input className="log-search" aria-label="搜索公开日志" value={query}
       onChange={event => setQuery(event.target.value)} placeholder="搜索时间点或内容" />
+    <div className="log-filters"><label><input type="checkbox" checked={importantOnly}
+      onChange={event => setImportantOnly(event.target.checked)} />仅看关键记录</label>
+      <small>显示 {visible.length}/{matching.length} 条匹配记录</small></div>
     {!visible.length && <p className="muted">此范围内没有匹配记录。</p>}
     {[...groups.entries()].reverse().map(([key, events]) => <section className="log-group" key={key}>
-      <h3>{events[0].timepoint}</h3>{[...events].reverse().map((event, index) =>
-        <article key={`${event.kind}-${index}`}><p>{event.message}</p>
-          {Array.isArray(event.cards) && event.cards.map((placement, cardIndex) => {
+      <h3>轮回 {events[0].loop} · {events[0].timepoint}</h3>{[...events].reverse().map((event, index) =>
+        <article className={`log-${eventPresentation(event.kind).tone}`} key={`${event.kind}-${index}`}>
+          <small className="event-badge">{eventPresentation(event.kind).label}</small><p>{event.message}</p>
+          {Array.isArray(event.cards) && <details><summary>查看 {event.cards.length} 张行动牌</summary>{event.cards.map((placement, cardIndex) => {
             const card = placement as Record<string, unknown>;
             const actor = String(card.actor) as Seat;
             return <p className="log-detail" key={cardIndex}>{game.labels.actors[actor]}：
               {itemName(catalog?.cards[actor], card.card)} → {targetName(game, card.target)}</p>;
-          })}</article>)}
+          })}</details>}</article>)}
     </section>)}
   </section>;
 }
@@ -962,7 +970,8 @@ export default function App() {
       <section className={`turn-banner ${offers.length ? "active" : "waiting"}`} aria-live="polite">
         <div><small>{offers.length ? "YOUR TURN" : "CURRENT TURN"}</small><strong>{offers.length
           ? `现在轮到你以${game.labels.actors[offers[0].actor as Seat]}身份行动`
-          : game.controller ? `等待${game.labels.actors[game.controller]}行动` : "正在结算阶段效果"}</strong></div>
+          : game.winner ? "对局已结束" : game.controller ? `等待${game.labels.actors[game.controller]}行动` : "正在结算阶段效果"}</strong>
+          <p className="turn-hint">{actionHint(game, offers, busy, Boolean(cardPlan), !roomCode)}</p></div>
         <span>{game.phase_name} · {game.table_talk ? "允许讨论" : "禁止讨论"}</span>
       </section>
       <div className="workspace"><div className="play-column"><Actions key={cardPlan

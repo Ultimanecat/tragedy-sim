@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Actions, AnimatedCounter, Board } from "./App";
+import { Actions, AnimatedCounter, Board, PublicLog } from "./App";
+import { actionHint, eventPresentation } from "./presentation";
 import { abilityUseName } from "./display";
 import { parseReplayTimeline } from "./replay";
 import type { ActionOffer, CardPlanResponse, CatalogResponse, GameView, Seat } from "./api/types";
@@ -11,6 +12,35 @@ const catalog = catalogFixture as unknown as CatalogResponse;
 const game = viewFixture.state as unknown as GameView;
 
 describe("local game components", () => {
+  it("shows recent logs across loops and keeps every record accessible through filters", () => {
+    const events = Array.from({ length: 15 }, (_, index) => ({
+      loop: index < 10 ? 1 : 2, round: 1, phase: "day_end", timing: "day_end",
+      timepoint: "第 1 天结束时", kind: index === 9 ? "loop_lost" : "counter_changed", message: `记录 ${index}`,
+    }));
+    const { container } = render(<PublicLog game={{ ...game, loop: 2, events }} catalog={catalog} />);
+    expect(container.querySelectorAll(".log article")).toHaveLength(12);
+    expect(screen.getByText("记录 9")).toBeInTheDocument();
+    expect(container.querySelector(".log-danger")).toHaveTextContent("记录 9");
+    fireEvent.click(screen.getByLabelText("仅看关键记录"));
+    expect(container.querySelectorAll(".log article")).toHaveLength(1);
+    fireEvent.click(screen.getByLabelText("仅看关键记录"));
+    fireEvent.change(screen.getByLabelText("日志范围"), { target: { value: "all" } });
+    expect(container.querySelectorAll(".log article")).toHaveLength(15);
+    fireEvent.change(screen.getByLabelText("搜索公开日志"), { target: { value: "记录 0" } });
+    expect(container.querySelectorAll(".log article")).toHaveLength(1);
+  });
+
+  it("uses structured action types for guidance and never offers unavailable phase completion", () => {
+    const choice: ActionOffer = { id: "x", actor: "a", type: "choose", parameters: {}, label: "任意文本", ui: { source: "doctor" } };
+    expect(actionHint(game, [choice], false, false)).toContain("先点击版图");
+    expect(actionHint(game, [choice], false, false)).not.toContain("结束阶段");
+    expect(actionHint(game, [choice], false, true)).toContain("安排三张");
+    expect(actionHint(game, [], true, true)).toContain("不要重复提交");
+    expect(actionHint(game, [], false, false)).toContain("自动同步");
+    expect(actionHint(game, [], false, false, true)).toContain("切换");
+    expect(eventPresentation("goodwill_refused").label).toBe("能力拒绝");
+    expect(eventPresentation("unknown_extension").tone).toBe("normal");
+  });
   for (const side of ["m", "a"] as const) {
     it(`edits and submits ${side === "m" ? "mastermind" : "team protagonist"} cards only as a complete local draft`, () => {
       const actors: Seat[] = side === "m" ? ["m", "m", "m"] : ["a", "b", "c"];
