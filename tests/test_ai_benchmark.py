@@ -76,6 +76,16 @@ class AbilityUsageTests(unittest.TestCase):
             saved = json.loads(target.read_text(encoding="utf-8"))
             self.assertEqual(saved["budget"]["mode"], "fixed_work")
             self.assertEqual(saved["matches"][0]["decision_digest"], "same")
+        def particle_play(*args, **kwargs):
+            self.assertEqual(kwargs["protagonist_particles"], 12)
+            return fake_play(*args, **kwargs)
+
+        with (patch("sys.argv", ["ai_cutoff_calibration", "--games", "1",
+                                 "--strategy", "fixed", "--fixed-work",
+                                 "--protagonist-particles", "12"]),
+              patch.object(ai_cutoff_calibration, "play", side_effect=particle_play),
+              redirect_stdout(StringIO())):
+            ai_cutoff_calibration.main()
 
     def test_dual_path_calibration_holds_out_seeds_and_handles_sparse_guesses(self):
         modes = ("survival_win", "final_guess_win", "final_guess_loss",

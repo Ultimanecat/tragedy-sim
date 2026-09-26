@@ -26,6 +26,8 @@ class CalibrationMatrixTests(unittest.TestCase):
 
         def worker(command, **kwargs):
             self.assertIn("--fixed-work", command)
+            self.assertEqual(command[command.index("--protagonist-particles") + 1],
+                             "12")
             sid = command[command.index("--scenario") + 1]
             calls.append(sid)
             return subprocess.CompletedProcess(command, 0, json.dumps({
@@ -34,7 +36,8 @@ class CalibrationMatrixTests(unittest.TestCase):
                                           "elapsed_seconds": 1}]}), "")
 
         with TemporaryDirectory() as folder:
-            argv = ["matrix", "--output-dir", folder, "--max-jobs", "1"]
+            argv = ["matrix", "--output-dir", folder, "--max-jobs", "1",
+                    "--protagonist-particles", "12"]
             with (patch.object(matrix, "source_digest", return_value="sources"),
                   patch.object(matrix.subprocess, "run", side_effect=worker),
                   patch("builtins.print")):

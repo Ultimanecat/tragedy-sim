@@ -101,6 +101,8 @@ def main() -> None:
     parser.add_argument("--mastermind-nodes", type=int, default=16)
     parser.add_argument("--mastermind-ms", type=int, default=1000)
     parser.add_argument("--protagonist-nodes", type=int, default=8)
+    parser.add_argument("--protagonist-particles", type=int,
+                        help="sampled worlds per decision, independent of bundle limit")
     parser.add_argument("--protagonist-ms", type=int, default=1000)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--output", type=Path,
@@ -117,6 +119,10 @@ def main() -> None:
     if min(args.games, args.mastermind_nodes, args.mastermind_ms,
            args.protagonist_nodes, args.protagonist_ms) < 1:
         parser.error("games and budgets must be positive")
+    if args.protagonist_particles is not None and args.protagonist_particles < 1:
+        parser.error("protagonist particles must be positive")
+    particles = (args.protagonist_particles if args.protagonist_particles is not None
+                 else max(4, min(24, args.protagonist_nodes // 8)))
     rows: list[dict[str, Any]] = []
     matches: list[dict[str, Any]] = []
     for scenario in args.scenarios or DEFAULT_SCENARIOS:
@@ -159,6 +165,7 @@ def main() -> None:
 
                 play_kwargs = dict(
                     protagonist_nodes=args.protagonist_nodes,
+                    protagonist_particles=particles,
                     time_limit_ms=(None if args.fixed_work
                                    else args.mastermind_ms),
                     protagonist_time_limit_ms=(None if args.fixed_work
@@ -215,6 +222,7 @@ def main() -> None:
                   "mode": "fixed_work" if args.fixed_work else "wall_clock",
                   "mastermind_nodes": args.mastermind_nodes,
                   "protagonist_nodes": args.protagonist_nodes,
+                  "protagonist_particles": particles,
                   "rollout_depth": 8,
                   "mastermind_ms": None if args.fixed_work else args.mastermind_ms,
                   "protagonist_ms": None if args.fixed_work else args.protagonist_ms,

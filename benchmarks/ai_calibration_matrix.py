@@ -51,6 +51,8 @@ def main() -> None:
     parser.add_argument("--games", type=int, default=1)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--protagonist-nodes", type=int, action="append")
+    parser.add_argument("--protagonist-particles", type=int,
+                        help="override worlds independently of candidate budgets")
     parser.add_argument("--mastermind-nodes", type=int, default=2)
     parser.add_argument("--strategy", choices=("fixed", "joint"), default="fixed")
     parser.add_argument("--protagonist-strategy", choices=(
@@ -64,6 +66,7 @@ def main() -> None:
     args = parser.parse_args()
     budgets = sorted(set(args.protagonist_nodes or [2]))
     if (min([args.games, args.mastermind_nodes, *budgets]) < 1
+            or args.protagonist_particles is not None and args.protagonist_particles < 1
             or args.max_jobs is not None and args.max_jobs < 1):
         parser.error("games and budgets must be positive")
     library = ScenarioLibrary()
@@ -73,6 +76,7 @@ def main() -> None:
         "scenarios": {sid: library.get(sid) for sid in scenarios},
         "seeds": list(range(args.seed, args.seed + args.games)),
         "protagonist_nodes": budgets, "mastermind_nodes": args.mastermind_nodes,
+        "protagonist_particles": args.protagonist_particles,
         "strategy": args.strategy, "protagonist_strategy": args.protagonist_strategy,
         "repeat_check": args.repeat_check,
     }
@@ -112,6 +116,9 @@ def main() -> None:
                                "--fixed-work", "--json"]
                     if args.repeat_check:
                         command.append("--repeat-check")
+                    if args.protagonist_particles is not None:
+                        command.extend(["--protagonist-particles",
+                                        str(args.protagonist_particles)])
                     print(f"running {sid} seed={seed} nodes={nodes}", flush=True)
                     try:
                         result = subprocess.run(
