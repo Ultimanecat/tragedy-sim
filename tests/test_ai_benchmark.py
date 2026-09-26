@@ -177,6 +177,7 @@ class AbilityUsageTests(unittest.TestCase):
             self.assertEqual(kwargs["time_limit_ms"], 900)
             self.assertEqual(kwargs["protagonist_time_limit_ms"], 800)
             self.assertEqual(kwargs["joint_reply_model"], "public")
+            self.assertEqual(kwargs['protagonist_particles'], 32)
             return MatchResult(
                 scenario_id=scenario, scenario_title="FS01", module="FS",
                 loops=3, difficulty="standard", mastermind_strategy=strategy,
@@ -186,18 +187,27 @@ class AbilityUsageTests(unittest.TestCase):
                 mastermind_search_seconds=0.4)
 
         output = StringIO()
-        with (patch("sys.argv", ["ai_mastermind_matrix",
+        with (TemporaryDirectory() as folder,
+              patch("sys.argv", ["ai_mastermind_matrix",
                                  "--scenario", "official-fs-01-first-script",
                                  "--games", "1", "--seed", "2",
                                  "--mastermind-ms", "900",
                                  "--mastermind-nodes", "7",
                                  "--protagonist-ms", "800",
                                  "--protagonist-nodes", "4",
+                                 "--protagonist-particles", "32",
+                                 "--output", str(Path(folder) / 'report.json'),
                                  "--depth", "5"]),
               patch.object(ai_mastermind_matrix, "play", side_effect=fake_play)
               as mocked,
               redirect_stdout(output)):
             ai_mastermind_matrix.main()
+            report = json.loads((Path(folder) / 'report.json').read_text(encoding='utf-8'))
+            self.assertEqual(report['schema_version'], 2)
+            self.assertEqual(report['settings']['protagonist_particles'], 32)
+            self.assertEqual(len(report['results']), 2)
+            self.assertEqual(report['results'][0]['recorded_placement_searches'], 0)
+            self.assertEqual(report['results'][0]['play_fallback_reasons'], {})
         self.assertEqual([call.args[4] for call in mocked.call_args_list],
                          ["strategic", "joint"])
         self.assertIn("joint: black wins 1/1", output.getvalue())

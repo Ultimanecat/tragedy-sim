@@ -9,9 +9,12 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import asdict
+from pathlib import Path
 from statistics import mean
 
 from .ai_self_play import play
+from .ai_cutoff_calibration import match_telemetry
+from .ai_calibration_matrix import source_digest, write_report
 
 
 DEFAULT_SCENARIOS = (
@@ -31,6 +34,8 @@ def main() -> None:
     parser.add_argument("--mastermind-nodes", type=int, default=96)
     parser.add_argument("--protagonist-ms", type=int, default=1000)
     parser.add_argument("--protagonist-nodes", type=int, default=24)
+    parser.add_argument('--protagonist-particles', type=int,
+                        help='sampled red worlds, independent of candidate limit')
     parser.add_argument("--depth", type=int, default=8)
     parser.add_argument("--protagonists", choices=("particle_ensemble", "oracle_script"),
                         default="particle_ensemble")
@@ -39,12 +44,16 @@ def main() -> None:
     parser.add_argument("--joint-information-weight", type=float, default=0.02,
                         help="bounded BTX final-guess entropy tiebreak (0 ablates)")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument('--output', type=Path,
+                        help='save complete report including search telemetry')
     parser.add_argument("--trace", action="store_true",
                         help="include mastermind plays and loop-loss reasons")
     args = parser.parse_args()
     if min(args.games, args.mastermind_ms, args.mastermind_nodes,
            args.protagonist_ms, args.protagonist_nodes, args.depth) < 1:
         parser.error("games, budgets and depth must be positive")
+    if args.protagonist_particles is not None and args.protagonist_particles < 1:
+        parser.error('protagonist particles must be positive')
     if not 0 <= args.joint_information_weight <= 0.1:
         parser.error("joint information weight must be between 0 and 0.1")
     scenarios = args.scenarios or DEFAULT_SCENARIOS
@@ -62,9 +71,11 @@ def main() -> None:
                     protagonist_depth=args.depth,
                     time_limit_ms=args.mastermind_ms,
                     protagonist_time_limit_ms=args.protagonist_ms,
+                    protagonist_particles=args.protagonist_particles,
                     joint_reply_model=args.joint_reply_model,
                     joint_information_weight=args.joint_information_weight)
                 row = {
+                    **match_telemetry(match),
                     "scenario": scenario, "seed": seed,
                     "strategy": strategy, "winner": match.winner,
                     "joint_reply_model": args.joint_reply_model,
@@ -82,6 +93,8 @@ def main() -> None:
                     "protagonist_search_seconds": round(
                         match.protagonist_search_seconds, 3),
                     "elapsed_seconds": round(match.elapsed_seconds, 3),
+                    'decision_digest': match.decision_digest,
+                    'final_true_setup_hard_compatible': match.final_true_setup_hard_compatible,
                 }
                 if args.trace:
                     row["mastermind_plays"] = [asdict(item)
@@ -101,9 +114,14 @@ def main() -> None:
                                                     ensure_ascii=False), flush=True)
                         print("  loop_losses=" + json.dumps(
                             row["loop_losses_detail"], ensure_ascii=False), flush=True)
+    report = {'schema_version': 2, 'sources': source_digest(),
+              'settings': {**vars(args), 'output': str(args.output) if args.output else None},
+              'results': results}
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        write_report(args.output, report)
     if args.json:
-        print(json.dumps({"settings": vars(args), "results": results},
-                         ensure_ascii=False, indent=2))
+        print(json.dumps(report, ensure_ascii=False, indent=2))
     else:
         for strategy in ("strategic", "joint"):
             selected = [row for row in results if row["strategy"] == strategy]
