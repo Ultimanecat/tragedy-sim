@@ -127,6 +127,13 @@ test("both sides keep three-card drafts private and submit once in a two-player 
     await expect(hero.locator(".card-plan-editor")).toBeVisible();
     expect(submissions).toHaveLength(1);
     for (let index = 0; index < 3; index += 1) await draftFirst(hero);
+    await hero.evaluate(() => window.scrollTo(0, 0));
+    const dock = hero.getByRole("region", { name: "三牌草稿操作栏" });
+    await expect(dock).toHaveText(/草稿 3\/3/);
+    const dockBounds = await dock.boundingBox();
+    expect(dockBounds!.y).toBeGreaterThanOrEqual(0);
+    expect(dockBounds!.y + dockBounds!.height).toBeLessThanOrEqual(844);
+    await expect(hero.getByRole("button", { name: "确认三张牌并提交" })).toBeInViewport();
     await expect(host.locator(".placement")).toHaveCount(3);
     expect(submissions).toHaveLength(1);
     expect(await hero.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

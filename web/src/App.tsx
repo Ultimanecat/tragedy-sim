@@ -363,6 +363,7 @@ export function Actions({ offers: baseOffers, catalog, game, busy, onAction, car
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [selected, setSelected] = useState<ActionOffer | null>(null);
   const [draggedCard, setDraggedCard] = useState<string | null>(null);
+  const [draftFeedback, setDraftFeedback] = useState("");
   const [guessAssignments, setGuessAssignments] = useState<Record<string, string>>({});
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -396,6 +397,7 @@ export function Actions({ offers: baseOffers, catalog, game, busy, onAction, car
     const updated = drafts.map((play, index) => index === slot
       ? { actor: offer.actor, card: String(offer.parameters.card), target: String(offer.parameters.target) } : play);
     setDrafts(updated);
+    setDraftFeedback(`第 ${slot + 1} 张已加入草稿：${targetName(game, String(offer.parameters.target))}`);
     const next = updated.findIndex(play => play === null);
     selectSlot(next >= 0 ? next : slot);
   };
@@ -413,10 +415,12 @@ export function Actions({ offers: baseOffers, catalog, game, busy, onAction, car
     if (offer && choices.some(choice => choice.id === offer.id)) {
       if (cardPlan) addDraft(offer);
       else window.setTimeout(() => setSelected(offer), 80);
+    } else {
+      setDraftFeedback("未放置：请拖到发亮的角色或地区，也可以先点选手牌再点击目标。");
     }
   };
   return <DndContext sensors={sensors} collisionDetection={smallestPointerTarget}
-    onDragStart={startDrag} onDragEnd={finishDrag} onDragCancel={() => setDraggedCard(null)}>
+    onDragStart={startDrag} onDragEnd={finishDrag} onDragCancel={() => { setDraggedCard(null); setSelectedCard(null); }}>
     <Board game={game} catalog={catalog} targetOffers={choices} selectedOffer={selected}
       abilitySources={sourceCharacters} selectedSource={selectedSource}
       draftPlacements={drafts.filter((play): play is CardPlay => play !== null)}
@@ -425,22 +429,26 @@ export function Actions({ offers: baseOffers, catalog, game, busy, onAction, car
     <header className="action-header"><div><p className="eyebrow">TURN ACTION</p><h2>可执行行动</h2></div>
       {actor && <span className="actor-badge">{game.labels.actors[actor as Seat]}</span>}</header>
     {!offers.length && <p className="muted">当前视角没有可执行行动。</p>}
-    {cardPlan && <div className="card-plan-editor">
-      <p className="step-label">三牌草稿 · 仅自己可见，最终确认前不会发送或生效</p>
+    {cardPlan && <div className="card-plan-editor" role="region" aria-label="三牌草稿操作栏">
+      <div className="draft-heading"><strong>草稿 {drafts.filter(Boolean).length}/3</strong>
+        <span>{busy ? "正在提交，请稍候" : `正在编辑第 ${slot + 1} 张 · ${game.labels.actors[cardPlan.slots[slot].actor]}`}</span></div>
       <div className="draft-slots">{cardPlan.slots.map((entry, index) => <div className={slot === index ? "active-draft" : ""} key={index}>
-        <button className={slot === index ? "selected" : ""} disabled={busy} onClick={() => selectSlot(index)}>
+        <button className={slot === index ? "selected" : ""} aria-pressed={slot === index} disabled={busy} onClick={() => selectSlot(index)}>
           第 {index + 1} 张 · {game.labels.actors[entry.actor]}<br />
           {drafts[index] ? `${itemName(catalog?.cards[entry.actor], drafts[index]!.card)} → ${targetName(game, drafts[index]!.target)}` : "尚未选择"}
         </button>
         {drafts[index] && <button disabled={busy} aria-label={`撤回第 ${index + 1} 张`} onClick={() => {
           setDrafts(current => current.map((play, position) => position === index ? null : play)); selectSlot(index);
+          setDraftFeedback(`第 ${index + 1} 张已撤回`);
         }}>撤回</button>}
       </div>)}</div>
       <div className="draft-controls"><button disabled={busy || drafts.every(play => play === null)} onClick={() => {
         setDrafts([null, null, null]); selectSlot(0);
+        setDraftFeedback("草稿已清空");
       }}>清空草稿</button><button className="primary" disabled={busy || drafts.some(play => play === null)}
         onClick={() => onCardPlan?.(drafts.filter((play): play is CardPlay => play !== null), cardPlan.revision)}>
         {busy ? "正在提交…" : "确认三张牌并提交"}</button></div>
+      <p className="draft-privacy">仅自己可见 · 确认前三张牌均可修改</p>
     </div>}
     {!!unsourcedActions.length && <div className="action-grid">{unsourcedActions.map(offer =>
       <button className={selected?.id === offer.id ? "selected" : ""} disabled={busy} key={offer.id}
@@ -450,7 +458,11 @@ export function Actions({ offers: baseOffers, catalog, game, busy, onAction, car
         <button className={selected?.id === offer.id ? "selected" : ""} disabled={busy} key={offer.id}
           onClick={() => setSelected(offer)}>{offer.label}</button>)}</div>}</>}
     {!!playGroups.size && <>
-      <p className="step-label">选择手牌，然后点击或拖到上方发亮的角色／版图</p><div className="hand">
+      <div className="card-selection-guide"><p className="step-label">{selectedCard
+        ? `已选 ${itemName(actor ? catalog?.cards[actor] : undefined, selectedCard)} · 点击发亮目标放置`
+        : "选择手牌，然后点击或拖到上方发亮的角色／版图"}</p>
+        {selectedCard && <button disabled={busy} onClick={() => { setSelectedCard(null); setSelected(null); setDraftFeedback("已取消选牌"); }}>取消选牌</button>}
+      </div><div className="hand">
         {[...playGroups].map(([card]) => <DraggableActionCard key={card} id={card}
           name={itemName(actor ? catalog?.cards[actor] : undefined, card)}
           imageUrl={actor ? assetUrl("cards", actor as Seat, card) : undefined}
@@ -458,6 +470,7 @@ export function Actions({ offers: baseOffers, catalog, game, busy, onAction, car
           onSelect={() => { setSelectedCard(card); setSelected(null); }} />)}
       </div>
     </>}
+    <p className="draft-feedback" role="status" aria-label="放牌反馈" aria-live="polite">{draftFeedback}</p>
     {batchGuess && <div className="batch-guess">
       <p className="step-label">一次填写所有角色的初始身份，提交后统一判定</p>
       {guessCharacters.map(character => <label key={character}>

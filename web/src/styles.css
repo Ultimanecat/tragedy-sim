@@ -157,7 +157,18 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
 .draft-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
 .draft-slots > div { display: flex; flex-direction: column; gap: .3rem; }
 .draft-slots button { width: 100%; padding: .5rem; font-size: .8rem; }
-.draft-controls { display: flex; flex-wrap: wrap; justify-content: end; gap: .5rem; margin: .6rem 0 1rem; }
+.card-plan-editor { position: fixed; left: 50%; bottom: .6rem; transform: translateX(-50%); z-index: 8; width: min(780px, calc(100% - 1.2rem)); padding: .65rem; border: 1px solid #a16f62; border-radius: .65rem; background: #241b20fa; box-shadow: 0 .5rem 2rem #0009; }
+main:has(.card-plan-editor) { padding-bottom: 280px; }
+html:has(.card-plan-editor) { scroll-padding-bottom: 260px; }
+.draft-heading { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem 1rem; margin-bottom: .4rem; font-size: .85rem; }
+.draft-heading span { color: #e0bea2; }
+.draft-controls { display: flex; flex-wrap: wrap; justify-content: end; gap: .5rem; margin: .4rem 0; }
+.draft-controls button { min-height: 2.75rem; }
+.draft-privacy { margin: 0; font-size: .7rem; color: #c3afb7; }
+.draft-slots button { overflow-wrap: anywhere; }
+.card-selection-guide { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.card-selection-guide button { min-height: 2.75rem; }
+.draft-feedback { color: #e0bea2; font-size: .85rem; }
 .actions-panel.has-actions { border-color: #b7795e; background: linear-gradient(145deg, #342127, #211a1e 62%); box-shadow: 0 .6rem 2rem #0003, inset 3px 0 var(--accent); }
 .action-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .action-header h2 { margin-bottom: 0; }
@@ -251,6 +262,9 @@ h2 { font: 600 1.05rem "SimSun", serif; margin: 0 0 .75rem; }
   .status-strip { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 620px) {
+  .card-plan-editor { bottom: 0; padding-bottom: max(.5rem, env(safe-area-inset-bottom)); border-radius: .65rem .65rem 0 0; }
+  .draft-slots { gap: .3rem; }
+  .draft-slots button { min-height: 2.75rem; font-size: .72rem; }
   main { padding: .65rem .65rem 2rem; }
   .masthead { align-items: stretch; flex-direction: column; }
   .masthead h1 { font-size: 2.35rem; }

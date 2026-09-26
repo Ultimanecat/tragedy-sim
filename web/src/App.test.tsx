@@ -60,17 +60,26 @@ describe("local game components", () => {
       const { container, rerender } = render(<Actions {...props} busy={false} />);
       const final = screen.getByRole("button", { name: "确认三张牌并提交" });
       expect(final).toBeDisabled();
+      expect(screen.getByRole("region", { name: "三牌草稿操作栏" })).toHaveTextContent("草稿 0/3");
+      fireEvent.click(container.querySelector(".hand button")!);
+      expect(container.querySelectorAll(".legal-board-target").length).toBeGreaterThan(0);
+      fireEvent.click(screen.getByRole("button", { name: "取消选牌" }));
+      expect(container.querySelectorAll(".legal-board-target")).toHaveLength(0);
+      expect(submit).not.toHaveBeenCalled();
       for (let index = 0; index < 3; index += 1) {
         fireEvent.click(container.querySelector(".hand button")!);
         fireEvent.click(container.querySelectorAll(".character.legal-board-target")[0]);
         expect(dispatch).not.toHaveBeenCalled();
         expect(submit).not.toHaveBeenCalled();
         expect(container.querySelectorAll(".draft-placement")).toHaveLength(index + 1);
+        expect(screen.getByRole("region", { name: "三牌草稿操作栏" })).toHaveTextContent(`草稿 ${index + 1}/3`);
+        expect(screen.getByRole("status", { name: "放牌反馈" })).toHaveTextContent("已加入草稿");
       }
       expect(final).toBeEnabled();
       fireEvent.click(screen.getByRole("button", { name: "撤回第 2 张" }));
       expect(final).toBeDisabled();
       expect(container.querySelectorAll(".draft-placement")).toHaveLength(2);
+      expect(screen.getByRole("status", { name: "放牌反馈" })).toHaveTextContent("第 2 张已撤回");
       fireEvent.click(container.querySelector(".hand button")!);
       fireEvent.click(container.querySelectorAll(".character.legal-board-target")[0]);
       const draftTexts = container.querySelector(".draft-slots")!.textContent;
