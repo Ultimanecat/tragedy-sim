@@ -417,9 +417,8 @@ class CatalogBeliefSampler:
 class ConstraintBeliefSampler:
     """Generate validator-approved worlds from ruleset role-slot constraints.
 
-    This deliberately does not consult ``ScenarioLibrary``.  It is suitable for
-    standard casts; scripts with character-specific setup fields will be added
-    once those public setup facts are represented in ``PublicEvidence``.
+    This deliberately does not consult ``ScenarioLibrary``.  Public script
+    choices are carried by ``PublicEvidence``.
     """
 
     @staticmethod
@@ -458,10 +457,12 @@ class ConstraintBeliefSampler:
     @staticmethod
     def _cast(evidence: PublicEvidence, slots: Counter[str],
               plots: Sequence[str],
-              rng: random.Random) -> dict[str, str] | None:
+              rng: random.Random,
+              forced: Mapping[str, str] | None = None) -> dict[str, str] | None:
         known = dict(evidence.known_roles)
         remaining = slots.copy()
         assigned: dict[str, str] = {}
+        forced = forced or {}
         if "irregular" in evidence.characters:
             options = list(ConstraintBeliefSampler._irregular_roles(
                 evidence.module, plots))
@@ -469,10 +470,27 @@ class ConstraintBeliefSampler:
             if observed is not None:
                 options = [role for role in options
                            if _observed_role_matches(role, observed, plots)]
+            if "irregular" in forced:
+                options = [role for role in options
+                           if role == forced["irregular"]]
             if not options:
                 return None
             assigned["irregular"] = rng.choice(options)
+        for cid, role in forced.items():
+            if cid not in evidence.characters or (cid in assigned and assigned[cid] != role):
+                return None
+            if cid in assigned:
+                continue
+            if cid in known and not _observed_role_matches(role, known[cid], plots):
+                return None
+            if role != "ordinary":
+                if remaining[role] < 1:
+                    return None
+                remaining[role] -= 1
+            assigned[cid] = role
         for cid, observed in known.items():
+            if cid in assigned:
+                continue
             if cid not in evidence.characters:
                 return None
             options = [observed]
@@ -497,6 +515,75 @@ class ConstraintBeliefSampler:
         return {**assigned, **dict(zip(unassigned, role_bag))}
 
     @staticmethod
+    def _hard_role_bindings(evidence: PublicEvidence, plots: Sequence[str],
+                            slots: Counter[str], witnesses: Sequence[Any],
+                            rng: random.Random) -> dict[str, str] | None:
+        """Construct one realization of hard unary/existential role facts.
+
+        Other hard witnesses are still checked by the matcher; this proposal
+        step only conditions the expensive rare role/plot conjunctions.
+        """
+        from .witness_types import WitnessStrength
+
+        groups: list[list[tuple[str, str]]] = []
+        for witness in witnesses:
+            if witness.strength != WitnessStrength.HARD:
+                continue
+            cid = ("part_timer" if witness.subject == "part_timer_question"
+                   else str(witness.subject))
+            if witness.kind == "role_is":
+                roles = [str(witness.value)]
+                if witness.value == "serial" and "virus" in plots:
+                    roles.append("ordinary")
+                groups.append([(cid, role) for role in roles])
+            elif witness.kind == "role_in":
+                groups.append([(cid, str(role)) for role in witness.value])
+            elif witness.kind == "mandatory_serial_route":
+                alternatives = [(str(actor), "serial")
+                                for actor in witness.value.get("serial", ())]
+                if "virus" in plots:
+                    alternatives.extend((str(actor), "ordinary") for actor in
+                                        witness.value.get("virus_ordinary", ()))
+                groups.append(alternatives)
+        # Constrain the most selective facts first.  Randomize equal choices
+        # without allowing an unlucky first assignment to reject a valid setup.
+        groups.sort(key=len)
+        for group in groups:
+            rng.shuffle(group)
+        known = dict(evidence.known_roles)
+
+        def assign(index: int, chosen: dict[str, str],
+                   remaining: Counter[str]) -> dict[str, str] | None:
+            if index == len(groups):
+                return chosen
+            for cid, role in groups[index]:
+                if cid not in evidence.characters:
+                    continue
+                if cid in chosen:
+                    if chosen[cid] == role:
+                        result = assign(index + 1, chosen, remaining)
+                        if result is not None:
+                            return result
+                    continue
+                if cid in known and not _observed_role_matches(role, known[cid], plots):
+                    continue
+                if cid == "irregular":
+                    if role not in ConstraintBeliefSampler._irregular_roles(
+                            evidence.module, plots):
+                        continue
+                elif role != "ordinary" and remaining[role] < 1:
+                    continue
+                updated = remaining.copy()
+                if role != "ordinary" and cid != "irregular":
+                    updated[role] -= 1
+                result = assign(index + 1, {**chosen, cid: role}, updated)
+                if result is not None:
+                    return result
+            return None
+
+        return assign(0, {}, slots.copy())
+
+    @staticmethod
     def _incidents(evidence: PublicEvidence,
                    rng: random.Random) -> list[dict[str, Any]] | None:
         spec = MODULES[evidence.module]
@@ -515,13 +602,24 @@ class ConstraintBeliefSampler:
         return incidents
 
     def sample(self, evidence: PublicEvidence, count: int, *,
-               rng: random.Random, max_attempts: int | None = None, witnesses=()
+               rng: random.Random, max_attempts: int | None = None, witnesses=(),
+               condition_hard: bool = False
                ) -> tuple[HiddenWorldHypothesis, ...]:
         from .witness import FsbtxWitnessMatcher
+        from .witness_types import WitnessStrength
 
         if type(count) is not int or count < 1:
             raise ValueError("count must be a positive integer")
-        plot_sets = self._plot_sets(evidence)
+        required = {str(w.subject) for w in witnesses
+                    if w.strength == WitnessStrength.HARD
+                    and w.kind == "plot_present"}
+        excluded = {str(w.subject) for w in witnesses
+                    if w.strength == WitnessStrength.HARD
+                    and w.kind == "plot_not_present"}
+        plot_sets = [(main, subplots) for main, subplots in self._plot_sets(evidence)
+                     if not condition_hard or (
+                         required.issubset({main, *subplots})
+                         and not excluded.intersection({main, *subplots}))]
         if not plot_sets:
             return ()
         has_soft = any(getattr(witness, "strength", None) == "soft"
@@ -533,8 +631,14 @@ class ConstraintBeliefSampler:
         for attempt in range(limit):
             main, subplots = rng.choice(plot_sets)
             plots = (main, *subplots)
+            slots = self._role_slots(evidence.module, plots)
+            forced = (self._hard_role_bindings(
+                evidence, plots, slots, witnesses, rng)
+                if condition_hard else {})
+            if forced is None:
+                continue
             cast = self._cast(
-                evidence, self._role_slots(evidence.module, plots), plots, rng)
+                evidence, slots, plots, rng, forced)
             incidents = self._incidents(evidence, rng)
             if cast is None or incidents is None:
                 continue
@@ -674,9 +778,18 @@ class FactorizedBeliefState:
         # Keep a diverse reservoir across decisions, and continue proposing
         # scripts even when the reservoir is full. A witness can then promote
         # a previously unseen role assignment without any history replay.
+        hard_witnesses = tuple(w for w in role_witnesses
+                               if w.strength == "hard")
         proposed = (() if self._exact_roles else self.sampler.sample(
             evidence, min(64, self.capacity), rng=self.rng,
-            witnesses=tuple(w for w in role_witnesses if w.strength == "hard")))
+            witnesses=hard_witnesses, condition_hard=False))
+        if not self._exact_roles and not proposed and hard_witnesses:
+            # Preserve the established posterior whenever rejection sampling
+            # succeeds.  Rare hard conjunctions otherwise exhaust its proposal
+            # budget even when compatible worlds exist.
+            proposed = self.sampler.sample(
+                evidence, min(64, self.capacity), rng=self.rng,
+                witnesses=hard_witnesses, condition_hard=True)
         for world in proposed:
             key = self._key(world)
             if key in self._roles or not matcher.matches(world, role_witnesses):

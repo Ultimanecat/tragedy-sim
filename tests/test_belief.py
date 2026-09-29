@@ -16,7 +16,7 @@ from tragedy_sim.belief import (BeliefParticleFilter, CatalogBeliefSampler,
 from tragedy_sim.catalog import PLOTS
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.scenario_library import ScenarioLibrary
-from tragedy_sim.witness import PublicWitness, WitnessStrength
+from tragedy_sim.witness import FsbtxWitnessMatcher, PublicWitness, WitnessStrength
 from tragedy_sim.witness_rules.common_public import compile_public_reveals
 
 
@@ -289,6 +289,51 @@ class PublicEvidenceTests(unittest.TestCase):
 
 
 class ConstraintBeliefSamplerTests(unittest.TestCase):
+    def test_conditions_rare_btx_hard_role_and_plot_conjunction(self):
+        scenario = ScenarioLibrary().get(
+            "official-btx-04-young-womens-battlefield")
+        evidence = PublicEvidence.from_view(
+            Game(scenario).protagonist_team_view())
+        witnesses = (
+            PublicWitness("plot_present", "love", True, 1, 4,
+                          "day_end", "test"),
+            PublicWitness("role_in", "class_rep", ("loved", "lover"),
+                          1, 4, "day_end", "test"),
+            PublicWitness("role_in", "worker", ("loved", "lover"),
+                          1, 4, "day_end", "test"),
+            PublicWitness("mandatory_serial_route", "girl",
+                          {"serial": ("informer",),
+                           "virus_ordinary": ("informer",)},
+                          1, 4, "day_end", "test"),
+        )
+        matcher = FsbtxWitnessMatcher()
+        self.assertTrue(matcher.matches(
+            HiddenWorldHypothesis.from_scenario(scenario), witnesses))
+        for seed in range(8):
+            with self.subTest(seed=seed):
+                worlds = ConstraintBeliefSampler().sample(
+                    evidence, 8, rng=random.Random(seed),
+                    witnesses=witnesses, condition_hard=True)
+                self.assertEqual(len(worlds), 8)
+                self.assertTrue(all(matcher.matches(world, witnesses)
+                                    for world in worlds))
+        factorized = FactorizedBeliefState(seed=0).sample(
+            evidence, witnesses, 8, rng=random.Random(0))
+        self.assertIsNone(factorized.reason)
+        self.assertEqual(len(factorized.worlds), 8)
+
+    def test_incompatible_hard_role_facts_return_no_worlds(self):
+        evidence = PublicEvidence.from_view(
+            Game(example_scenario("BTX")).protagonist_team_view())
+        witnesses = (
+            PublicWitness("role_is", "girl", "serial", 1, 1,
+                          "day_end", "test"),
+            PublicWitness("role_is", "girl", "key", 1, 1,
+                          "day_end", "test"),
+        )
+        self.assertEqual(ConstraintBeliefSampler().sample(
+            evidence, 4, rng=random.Random(2), witnesses=witnesses), ())
+
     def test_irregular_uses_an_extra_unselected_role_slot(self):
         scenario = ScenarioLibrary().get("official-btx-08-mirror-passcode")
         evidence = PublicEvidence.from_view(
