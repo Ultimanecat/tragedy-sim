@@ -19,7 +19,7 @@ from .ismcts import IsmctsProtagonistAgent, IsmctsTrace, _command, _key
 from .information_value import InformationOpportunityEvaluator
 from .oracle_protagonist import OracleProtagonistAgent
 from .search import SearchBudget
-from .witness import FsbtxWitnessCompiler
+from .witness import FsbtxWitnessCompiler, WitnessStrength
 
 
 class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
@@ -81,6 +81,34 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
         return (0.08 if any(item.get("card") == "fi"
                             and item.get("target") in threatened
                             for item in bundle) else 0.0)
+
+    @staticmethod
+    def _incident_guard_targets(view: Mapping[str, Any],
+                                evidence: PublicEvidence,
+                                witnesses: Sequence[Any]) -> tuple[str, ...]:
+        """Publicly identified culprits whose imminent event needs defense."""
+        day = int(view["round"])
+        if not any(scheduled == day for scheduled, _ in evidence.schedule):
+            return ()
+        pending = {str(item.get("target")) for item in view.get("pending", ())
+                   if item.get("actor") == "m"}
+        candidates = dict.fromkeys(str(witness.value) for witness in witnesses
+                                   if witness.strength == WitnessStrength.HARD
+                                   and witness.kind == "culprit_is"
+                                   and witness.subject == str(day))
+        targets = []
+        for cid in candidates:
+            character = view.get("characters", {}).get(cid, {})
+            paranoia = character.get("paranoia")
+            threshold = character.get("paranoia_limit")
+            if (character.get("alive", False)
+                    and character.get("present", False)
+                    and type(paranoia) is int
+                    and type(threshold) is int
+                    and (paranoia >= threshold
+                         or paranoia == threshold - 1 and cid in pending)):
+                targets.append(cid)
+        return tuple(targets)
 
     @staticmethod
     def _time_traveler_candidates(witnesses: Sequence[Any]) -> tuple[str, ...]:
@@ -358,6 +386,29 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                 max(0, limit - len(guard_proposals))]
             proposals = dict(retained)
             proposals.update(guard_proposals)
+        # A publicly identified incident culprit at the paranoia threshold
+        # deserves one explicit defense.  Oracle proposals from a small world
+        # batch can otherwise omit this legal card entirely.
+        incident_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
+        for cid in self._incident_guard_targets(view, evidence, witnesses):
+            for base in tuple(proposals.values()):
+                for slot in range(len(base)):
+                    anchored = [dict(item) for item in base]
+                    anchored[slot] = {**anchored[slot], "card": "p-1",
+                                      "target": cid}
+                    bundle = tuple(anchored)
+                    if (_key(bundle[0]) not in offers_by_key
+                            or self._apply_bundle(worlds[0], bundle) is None):
+                        continue
+                    signature = _key(bundle)
+                    if signature not in proposals:
+                        incident_proposals[signature] = bundle
+                    break
+                if incident_proposals:
+                    break
+            if incident_proposals:
+                break
+        proposals.update(incident_proposals)
         screening_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
         if proposals and traveler_candidates:
             # A second candidate group is warranted by a *large public
@@ -401,8 +452,9 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                     break
             if len(information_proposals) >= min(2, limit - 1):
                 break
-        if information_proposals or screening_proposals:
+        if information_proposals or screening_proposals or incident_proposals:
             priorities = dict(guard_proposals)
+            priorities.update(incident_proposals)
             priorities.update(screening_proposals)
             priorities.update(information_proposals)
             priorities = dict(list(priorities.items())[:limit])

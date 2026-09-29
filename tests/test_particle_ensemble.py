@@ -1,9 +1,11 @@
 """Public-boundary and cross-particle regression tests for FS/BTX."""
 
+from copy import deepcopy
 import unittest
 
 from benchmarks.ai_self_play import _policy_offer
 from tragedy_sim import Game
+from tragedy_sim.belief import PublicEvidence
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.scenario_library import ScenarioLibrary
@@ -62,6 +64,28 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertEqual(agent._location_guard_bonus(guarded, view), 0.08)
         self.assertEqual(agent._location_guard_bonus(wrong_board, view), 0.0)
         self.assertEqual(agent._location_guard_bonus(unguarded, view), 0.0)
+
+    def test_incident_guard_uses_only_hard_public_culprit_and_threshold(self):
+        view = Game(ScenarioLibrary().get(
+            "official-fs-01-first-script")).protagonist_team_view()
+        evidence = PublicEvidence.from_view(view)
+        view["round"] = 3
+        view["characters"]["girl"]["paranoia"] = 2
+        view["pending"] = [{"actor": "m", "target": "girl"}]
+        hard = PublicWitness("culprit_is", "3", "girl", 1, 3,
+                             "incident", "test", WitnessStrength.HARD)
+        soft = PublicWitness("culprit_is", "3", "girl", 1, 3,
+                             "incident", "test", WitnessStrength.SOFT)
+        targets = ParticleEnsembleProtagonistAgent._incident_guard_targets
+        self.assertEqual(targets(view, evidence, (hard,)), ("girl",))
+        self.assertEqual(targets(view, evidence, (soft,)), ())
+        self.assertEqual(targets(view, evidence, ()), ())
+        unrelated = deepcopy(view)
+        unrelated["pending"][0]["target"] = "doctor"
+        self.assertEqual(targets(unrelated, evidence, (hard,)), ())
+        urgent = deepcopy(unrelated)
+        urgent["characters"]["girl"]["paranoia"] = 3
+        self.assertEqual(targets(urgent, evidence, (hard,)), ("girl",))
 
     def test_time_traveler_screening_uses_witness_intersection(self):
         witnesses = (

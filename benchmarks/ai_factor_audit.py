@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from dataclasses import asdict
 import json
 from pathlib import Path
 from typing import Any
@@ -29,11 +30,22 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
     current: dict[str, int] = {}
     samples: list[dict[str, Any]] = []
     fallbacks: list[dict[str, Any]] = []
+    observations: list[dict[str, Any]] = []
     original_choose = ParticleEnsembleProtagonistAgent.choose_action
     original_sample = FactorizedBeliefState.sample
 
     def observed_choose(self, *, participant, view, offers):
         current.update(loop=int(view['loop']), day=int(view['round']))
+        if not any(row['loop'] == current['loop'] and row['day'] == current['day']
+                   for row in observations):
+            observations.append({**current,
+                                 'characters': {cid: {
+                                     key: character.get(key)
+                                     for key in ('location', 'paranoia',
+                                                 'goodwill', 'intrigue', 'alive')}
+                                     for cid, character in
+                                     view.get('characters', {}).items()},
+                                 'pending': view.get('pending', ())})
         selected = original_choose(self, participant=participant, view=view,
                                    offers=offers)
         trace = self.last_trace
@@ -91,6 +103,18 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
         'truth_hard_conflicts': sum(bool(row['hard_conflicts']) for row in samples),
         'reason_counts': dict(Counter(row['reason'] for row in samples
                                       if row['reason'])),
+        'observations': observations,
+        'protagonist_plays': [asdict(row) for row in match.protagonist_plays],
+        'mastermind_plays': [asdict(row) for row in match.mastermind_plays],
+        'losses': [asdict(row) for row in match.loop_losses],
+        'searches': [{'loop': row.loop, 'day': row.day,
+                      'selected_bundle': row.selected_bundle,
+                      'belief_roles': row.belief_roles,
+                      'candidates': [{key: candidate[key] for key in (
+                          'bundle', 'day_survivals', 'mean_value',
+                          'location_guard_bonus') if key in candidate}
+                          for candidate in row.candidates]}
+                     for row in match.protagonist_searches],
         'elapsed_seconds': round(match.elapsed_seconds, 3),
     }
 
@@ -111,7 +135,9 @@ def main() -> None:
         args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2),
                                encoding='utf-8')
     print(json.dumps({key: value for key, value in report.items()
-                      if key not in {'fallbacks', 'fallback_samples'}},
+                      if key not in {'fallbacks', 'fallback_samples',
+                                     'observations', 'protagonist_plays',
+                                     'mastermind_plays', 'losses', 'searches'}},
                      ensure_ascii=False, indent=2))
 
 
