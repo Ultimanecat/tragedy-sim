@@ -93,6 +93,14 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
         'winner': match.winner,
         'final_guess_correct': sum(row.correct for row in match.final_guesses),
         'final_guess_total': len(match.final_guesses),
+        'final_guesses': [asdict(row) for row in match.final_guesses],
+        'final_role_candidates': match.final_role_candidates,
+        'final_true_setup_hard_compatible': match.final_true_setup_hard_compatible,
+        'known_roles_before_final': match.known_roles_before_final,
+        'final_belief_roles': match.final_belief_roles,
+        'final_belief_setups': match.final_belief_setups,
+        'final_soft_witnesses': match.final_soft_witnesses,
+        'final_public_deaths': match.final_public_deaths,
         'loop_losses': len(match.loop_losses),
         'sample_count': len(samples),
         'fallbacks': fallbacks,
@@ -137,7 +145,10 @@ def main() -> None:
     print(json.dumps({key: value for key, value in report.items()
                       if key not in {'fallbacks', 'fallback_samples',
                                      'observations', 'protagonist_plays',
-                                     'mastermind_plays', 'losses', 'searches'}},
+                                     'mastermind_plays', 'losses', 'searches',
+                                     'final_guesses', 'final_belief_roles',
+                                     'final_belief_setups', 'final_soft_witnesses',
+                                     'final_public_deaths'}},
                      ensure_ascii=False, indent=2))
 
 
