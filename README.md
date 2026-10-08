@@ -1,5 +1,7 @@
 # tragedy-sim
 
+开发会话接续请先读 [Codex 交接文档](docs/codex-handoff.md)，其中整理了当前进度、已知问题、实验陷阱和常用命令。
+
 Python 版《悲剧轮回》本地热座模拟器。FS、BTX、MZ、MC、HSA、WM、AHR、LL 对局现已串通：
 出牌、友好能力、剧作家与身份能力、事件、日终、轮回与胜负。
 

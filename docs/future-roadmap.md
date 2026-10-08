@@ -1,5 +1,7 @@
 # AI 与后续开发路线图（2026-09-26 整理版）
 
+新会话接续先读 [2026-10-08 交接文档](codex-handoff.md)，再按本页未完成项开展工作。
+
 本页维护现状、实施顺序与验收条件。历史实验数字和失败轨迹保留在独立报告，不再将已完成的门槛列为下一步。当前 AI 主线限定已录入的全部 FS/BTX 剧本；新剧本由用户后续提供。
 
 相关资料：[策略现状](ai-current-state.md)、[调优指南](ai-tuning-guide.md)、[对弈结果](ai-benchmark-results.md)、[近期配对与日末校准](ai-cutoff-calibration.md)、[Witness 覆盖审计](witness-coverage-audit.md)、[Witness 组件架构](witness-components.md)。
