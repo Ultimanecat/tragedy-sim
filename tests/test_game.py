@@ -295,6 +295,26 @@ class VictoryTests(unittest.TestCase):
         self.assertEqual(len(result["guesses"]), len(guesses))
         self.assertEqual(game.winner, "mastermind")
 
+    def test_final_guess_excludes_part_timer_internal_replacement(self):
+        from tragedy_sim.scenario_library import ScenarioLibrary
+        basic = ScenarioLibrary().get("official-btx-10-prologue")
+        basic["cast"]["part_timer"] = basic["cast"].pop("doctor")
+        scenarios = [basic]
+        legacy = ScenarioLibrary().get("official-mz-06-singer-of-the-heretic-idol")
+        legacy["cast"]["part_timer"] = legacy["cast"].pop("illusion")
+        for item in legacy["incidents"]:
+            if item["culprit"] == "illusion":
+                item["culprit"] = "part_timer"
+        scenarios.append(legacy)
+        for scenario in scenarios:
+            with self.subTest(module=scenario["module"]):
+                game = Game(scenario)
+                self.assertIn("part_timer_question", game.roles)
+                game._start_final_guess()
+                self.assertEqual(set(game._guess_remaining), set(scenario["cast"]))
+                game.dispatch(game.controller, "guess_all", guesses=dict(scenario["cast"]))
+                self.assertEqual(game.winner, "protagonists")
+
     def test_early_guess_only_btx_between_loops_and_by_leader(self):
         game = make("BTX", kind="hospital")
         with self.assertRaises(RuleError):

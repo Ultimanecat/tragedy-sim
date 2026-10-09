@@ -465,9 +465,9 @@ def _start_final_guess(self):
     self._queue, self._pending, self._request = [], None, None
     self._decision_public_phase = None
     self.state.phase = "final_guess"
-    self._guess_remaining = ([f"{cid}@{side}" for cid in self.roles
+    self._guess_remaining = ([f"{cid}@{side}" for cid in self.scenario["cast"]
                               for side in ("surface", "hidden")]
-                             if self.module == "AHR" else list(self.roles))
+                             if self.module == "AHR" else list(self.scenario["cast"]))
     detail = "；AHR 必须分别猜中每名角色的表、里身份" if self.module == "AHR" else ""
     self._event("final_guess_started", "进入最终猜测：棋盘还原，身份恢复剧本初始分配。"
                 f"领队一次提交所有角色身份，统一公开正确数量；全部正确才获胜{detail}。")

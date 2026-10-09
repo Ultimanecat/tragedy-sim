@@ -133,7 +133,7 @@ class _PublicReplyEvaluator(OracleProtagonistAgent):
                 participant="team", view=view, offers=offers)
             guesses = chosen.get("arguments", {}).get("guesses", {})
             return (1.0 if all(guesses.get(cid) == role
-                               for cid, role in world.roles.items())
+                               for cid, role in world.scenario["cast"].items())
                     else -1.0)
         score = super()._cutoff_value(world, start_day)
         if (self.information_weight <= 0 or self.root_view is None

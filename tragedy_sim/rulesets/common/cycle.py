@@ -189,7 +189,8 @@ def _start_final_guess(self):
     self._queue, self._pending, self._request = ([], None, None)
     self._decision_public_phase = None
     self.state.phase = 'final_guess'
-    self._guess_remaining = list(self.roles)
+    # Replacement identities are engine bookkeeping for the same cast member.
+    self._guess_remaining = list(self.scenario['cast'])
     detail = ''
     self._event('final_guess_started', f'进入最终猜测：棋盘还原，身份恢复剧本初始分配。领队一次提交所有角色身份，统一公开正确数量；全部正确才获胜{detail}。')
 

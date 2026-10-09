@@ -146,6 +146,7 @@ class JointMastermindTests(unittest.TestCase):
             state = SimpleNamespace(phase="final_guess")
             controller = "p1"
             roles = {"girl": "key", "boy": "ordinary"}
+            scenario = {"cast": dict(roles)}
 
             def protagonist_team_view(self):
                 return {"phase": "final_guess", "events": [],
@@ -176,6 +177,17 @@ class JointMastermindTests(unittest.TestCase):
                               "girl": "key", "boy": "killer"}}}):
             self.assertEqual(evaluator._cutoff_value_with_events(
                 FinalWorld(), 1, []), -1.0)
+
+    def test_terminal_reply_scores_initial_cast_not_runtime_replacement(self):
+        scenario = ScenarioLibrary().get("official-btx-10-prologue")
+        scenario["cast"]["part_timer"] = scenario["cast"].pop("doctor")
+        game = Game(scenario)
+        game._start_final_guess()
+        self.assertIn("part_timer_question", game.roles)
+        evaluator = _PublicReplyEvaluator(SearchBudget(node_limit=1), 0)
+        with patch.object(ParticleEnsembleProtagonistAgent, "choose_action",
+                          return_value={"arguments": {"guesses": dict(scenario["cast"])}}):
+            self.assertEqual(evaluator._cutoff_value_with_events(game, 1, []), 1.0)
 
     def test_entropy_tiebreak_favors_keeping_red_uncertain(self):
         world = SimpleNamespace(state=SimpleNamespace(phase="day_end"),
