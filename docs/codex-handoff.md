@@ -7,6 +7,11 @@
 seed 1、8 候选/32 世界的 BTX10 终猜为 1/9→2/9，BTX04 为 5/9→7/9，BTX08 保持 7/9；均仍黑胜。
 `ai_factor_audit` 已保存终猜完整合法观察及真值快照，并支持 `--reanalyze FILE` 离线 source 消融。
 本次全量 549 项测试通过。
+同日后续接续：补充公开历史联合暗牌提议，修复日末／轮回末 Oracle 在末轮失败后用全知终猜误评存活的问题。
+BTX10 seed 1、8 候选/32 世界转为第 4 轮直接红胜；两项各自消融仍黑胜 2/9。
+BTX04/08 seed 1 保持黑胜 7/9，FS01 seed 1 保持红胜。全量 553 项测试通过。
+`ai_factor_audit --capture-action-worlds` 可保存根观察和采样暗牌／身份联合细节，
+`--independent-dark-history` 可关闭新历史提议。仅是离线开发报告，禁止进入玩家界面／公开 replay。
 本文下方摘要表属于加入该组件前的历史基线，最新结果与接续项见 [校准审计](ai-cutoff-calibration.md)和 [路线图](future-roadmap.md)。
 
 ## 先读什么

@@ -4,15 +4,50 @@ from copy import deepcopy
 from dataclasses import asdict
 import json
 import unittest
+from unittest.mock import patch
 
-from benchmarks.ai_factor_audit import reanalyze_final
+from benchmarks.ai_factor_audit import audit_match, reanalyze_final
+from benchmarks.ai_self_play import MatchResult, _policy_offer
 from tragedy_sim import Game
 from tragedy_sim.belief import HiddenWorldHypothesis
 from tragedy_sim.effects.movement import move
 from tragedy_sim.scenario_library import ScenarioLibrary
+from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
+from tragedy_sim.search import SearchBudget
 
 
 class FinalAuditTests(unittest.TestCase):
+    def test_action_world_capture_is_opt_in_and_preserves_decision(self):
+        selected = []
+        def short_play(scenario_id, seed, *args, **kwargs):
+            game = Game(ScenarioLibrary().get(scenario_id))
+            while game.state.phase != "protagonists":
+                game = game.search_transition(game.search_actions(game.controller)[0])
+            agent = ParticleEnsembleProtagonistAgent(
+                SearchBudget(node_limit=2, seed=seed), particle_count=2)
+            offer = agent.choose_action(
+                participant="team", view=game.protagonist_team_view(),
+                offers=[_policy_offer(game, action)
+                        for action in game.action_offers(game.controller)])
+            selected.append(offer)
+            return MatchResult(scenario_id, "fixture", "FS", 1, "standard",
+                               "fixed", "particle_ensemble", seed, "none", 1, 0,
+                               2, 0.0, decision_digest="fixture")
+        with patch("benchmarks.ai_factor_audit.play", short_play):
+            plain = audit_match("official-fs-01-first-script", 1)
+            captured = audit_match("official-fs-01-first-script", 1,
+                                   capture_action_worlds=True)
+        self.assertEqual(selected[0], selected[1])
+        self.assertEqual(plain["action_contexts"], [])
+        contexts = captured["action_contexts"]
+        self.assertEqual(len(contexts), 1)
+        self.assertEqual(len(contexts[0]["worlds"]), 2)
+        self.assertTrue(all(item.get("card") is None
+                            for item in contexts[0]["view"]["pending"]))
+        self.assertTrue(all(item["card"] is not None
+                            for world in contexts[0]["worlds"]
+                            for item in world["pending"]))
+
     def test_json_roundtrip_recompiles_view_and_uses_saved_truth(self):
         game = Game(ScenarioLibrary().get("official-btx-10-prologue"))
         move(game, {"target": "rich", "location": "shrine"})

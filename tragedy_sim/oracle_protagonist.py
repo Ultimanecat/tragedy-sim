@@ -406,6 +406,11 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                          start_loop: int, start_day: int) -> bool:
         if world.winner is not None:
             return True
+        if world.state.phase == "final_guess" and self.rollout_horizon != "match":
+            # Exhausting the last loop is a failed survival rollout. Stop
+            # before the oracle's diagnostic perfect guess can turn it into
+            # a fictitious safe day for a fair particle planner.
+            return True
         if self.rollout_horizon == "day":
             return (world.state.loop, world.state.round) != (start_loop, start_day)
         if self.rollout_horizon == "loop":
@@ -516,8 +521,14 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                 "oracle day rollout stopped before a day boundary: "
                 f"phase={world.state.phase} loop={world.state.loop} "
                 f"day={world.state.round}")
-        loop_lost = self._saw_loop_loss(
-            world, root_events, start_loop) or world.state.loop != start_loop
+        # Search transitions compact the event list. The original cursor is
+        # no longer valid on the final clone; use our accumulated events.
+        loop_lost = (world.state.loop != start_loop or any(
+            event.get("kind") == "loop_lost"
+            and int(event.get("loop", start_loop)) == start_loop
+            for event in rollout_events))
+        if self.rollout_horizon != "match" and world.state.phase == "final_guess":
+            loop_lost = True
         score = self._cutoff_value_with_events(world, start_day, rollout_events)
         if self.rollout_horizon == "day" and world.module == "BTX" \
                 and world.winner is None and not loop_lost \

@@ -225,6 +225,45 @@ class FactorizedBeliefTests(unittest.TestCase):
                            posterior[1]["target_probability"])
         self.assertAlmostEqual(sum(posterior[0]["card_probabilities"].values()), 1.0)
 
+    def test_joint_history_preserves_same_day_attack_and_reserves_cards(self):
+        pending = ({"actor": "m", "target": "maiden", "card": None},
+                   {"actor": "m", "target": "rich", "card": None},
+                   {"actor": "m", "target": "shrine", "card": None})
+        hands = {"m": ["i1", "i2", "v", "fg"]}
+        def reveal(loop, day, card):
+            return {"kind": "cards_revealed", "loop": loop, "round": day,
+                    "cards": ({"actor": "m", "card": card, "target": "maiden"},
+                              {"actor": "m", "card": "v", "target": "rich"})}
+        events = (reveal(1, 1, "i2"), reveal(2, 1, "i2"),
+                  reveal(3, 2, "i1"), reveal(4, 1, "i1"), reveal(5, 1, "i1"))
+        fragment = DarkCardBelief.historical_bundle(
+            pending, hands, events, day=1, loop=4)
+        self.assertEqual(fragment, {0: "i2", 1: "v"})
+        sampled = DarkCardBelief.sample(
+            pending, hands, rng=random.Random(2), historical_cards=fragment)
+        self.assertEqual(sampled[:2], (("m", "i2", "maiden"), ("m", "v", "rich")))
+        self.assertNotIn(sampled[2][1], ("i2", "v"))
+        visible = (*pending[:2], {**pending[2], "card": "v"})
+        self.assertEqual(DarkCardBelief.historical_bundle(
+            visible, hands, events, day=1, loop=4), {})
+        self.assertEqual(DarkCardBelief.historical_bundle(
+            pending, {"m": ["i1", "v", "fg"]}, events[:2], day=1, loop=4), {})
+
+    def test_joint_history_is_soft_and_does_not_mutate_inputs(self):
+        pending = ({"actor": "m", "target": "girl", "card": None},
+                   {"actor": "m", "target": "student", "card": None})
+        hands = {"m": ["i2", "v", "fg"]}
+        events = ({"kind": "cards_revealed", "loop": 1, "round": 1,
+                   "cards": ({"actor": "m", "card": "i2", "target": "girl"},
+                             {"actor": "m", "card": "v", "target": "student"})},)
+        original = deepcopy((pending, hands, events))
+        self.assertEqual(DarkCardBelief.historical_bundle(
+            pending, hands, events, day=1, loop=2), {0: "i2", 1: "v"})
+        samples = [DarkCardBelief.sample(pending, hands, rng=random.Random(seed))
+                   for seed in range(10)]
+        self.assertTrue(any(row[0][1] != "i2" for row in samples))
+        self.assertEqual((pending, hands, events), original)
+
 
 class PublicEvidenceTests(unittest.TestCase):
     def test_public_setup_excludes_copycat_source_and_is_detached(self):

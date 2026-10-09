@@ -19,6 +19,7 @@ from unittest.mock import patch
 from tragedy_sim.belief import (FactorizedBeliefState, HiddenWorldHypothesis,
                                PublicEvidence)
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
+from tragedy_sim.ismcts import PublicStateDeterminizer
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.witness import (FsbtxWitnessCompiler, FsbtxWitnessMatcher,
                                 WitnessStrength, WitnessVerdict)
@@ -28,7 +29,9 @@ from .ai_self_play import play
 
 def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
                 nodes: int = 8, expected_digest: str | None = None,
-                disabled_witness_sources: tuple[str, ...] = ()) -> dict[str, Any]:
+                disabled_witness_sources: tuple[str, ...] = (),
+                capture_action_worlds: bool = False,
+                independent_dark_history: bool = False) -> dict[str, Any]:
     scenario = ScenarioLibrary().get(scenario_id)
     truth = HiddenWorldHypothesis.from_scenario(scenario)
     matcher = FsbtxWitnessMatcher()
@@ -37,10 +40,21 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
     fallbacks: list[dict[str, Any]] = []
     observations: list[dict[str, Any]] = []
     final_context: dict[str, Any] = {}
+    action_contexts: list[dict[str, Any]] = []
+    active_context: dict[str, Any] | None = None
     original_choose = ParticleEnsembleProtagonistAgent.choose_action
     original_sample = FactorizedBeliefState.sample
+    original_determinize = PublicStateDeterminizer.determinize
 
     def observed_choose(self, *, participant, view, offers):
+        nonlocal active_context
+        active_context = None
+        if (capture_action_worlds and view.get('phase') == 'protagonists'
+                and not self._joint_plan):
+            active_context = {**{'loop': int(view['loop']),
+                                 'day': int(view['round'])},
+                              'view': deepcopy(view), 'worlds': []}
+            action_contexts.append(active_context)
         current.update(loop=int(view['loop']), day=int(view['round']))
         if not any(row['loop'] == current['loop'] and row['day'] == current['day']
                    for row in observations):
@@ -67,6 +81,20 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
                               'selected': (selected.get('actor'),
                                            selected.get('parameters'))})
         return selected
+
+    def observed_determinize(self, hypothesis, evidence, view, **kwargs):
+        if independent_dark_history:
+            kwargs['coherent_history'] = False
+        world = original_determinize(self, hypothesis, evidence, view, **kwargs)
+        if active_context is not None:
+            active_context['worlds'].append({
+                'hypothesis': asdict(hypothesis),
+                'force_history': bool(kwargs.get('force_history')),
+                'coherent_history': bool(kwargs.get('coherent_history')),
+                'pending': ([asdict(item) for item in world.state.pending]
+                            if world is not None else None),
+            })
+        return world
 
     def observed_sample(self, evidence, witnesses, count, *, rng):
         result = original_sample(self, evidence, witnesses, count, rng=rng)
@@ -95,7 +123,8 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
 
     with (patch.object(ParticleEnsembleProtagonistAgent, 'choose_action',
                        observed_choose),
-          patch.object(FactorizedBeliefState, 'sample', observed_sample)):
+          patch.object(FactorizedBeliefState, 'sample', observed_sample),
+          patch.object(PublicStateDeterminizer, 'determinize', observed_determinize)):
         match = play(scenario_id, seed, 2, 8, 'fixed', 'particle_ensemble',
                      protagonist_nodes=nodes, protagonist_particles=worlds,
                      disabled_witness_sources=disabled_witness_sources)
@@ -105,6 +134,7 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
         'scenario': scenario_id, 'seed': seed, 'nodes': nodes,
         'truth_setup': asdict(truth),
         'worlds_requested': worlds, 'decision_digest': match.decision_digest,
+        'independent_dark_history': independent_dark_history,
         'disabled_witness_sources': disabled_witness_sources,
         'winner': match.winner,
         'final_guess_correct': sum(row.correct for row in match.final_guesses),
@@ -118,6 +148,8 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
         'final_soft_witnesses': match.final_soft_witnesses,
         'final_public_deaths': match.final_public_deaths,
         'final_context': final_context,
+        # Development-only hidden hypotheses. Never expose in player replay.
+        'action_contexts': action_contexts,
         'loop_losses': len(match.loop_losses),
         'sample_count': len(samples),
         'fallbacks': fallbacks,
@@ -204,6 +236,10 @@ def main() -> None:
     parser.add_argument('--worlds', type=int, default=32)
     parser.add_argument('--nodes', type=int, default=8)
     parser.add_argument('--expected-digest')
+    parser.add_argument('--capture-action-worlds', action='store_true',
+                        help='save authorized roots and sampled hidden hypotheses offline')
+    parser.add_argument('--independent-dark-history', action='store_true',
+                        help='ablate coherent past-reveal proposals')
     parser.add_argument('--disable-witness-source', action='append', default=[])
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
@@ -214,7 +250,9 @@ def main() -> None:
     else:
         report = audit_match(args.scenario, args.seed, worlds=args.worlds,
                              nodes=args.nodes, expected_digest=args.expected_digest,
-                             disabled_witness_sources=disabled)
+                             disabled_witness_sources=disabled,
+                             capture_action_worlds=args.capture_action_worlds,
+                             independent_dark_history=args.independent_dark_history)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2),
@@ -225,7 +263,8 @@ def main() -> None:
                                      'mastermind_plays', 'losses', 'searches',
                                      'final_guesses', 'final_belief_roles',
                                      'final_belief_setups', 'final_soft_witnesses',
-                                     'final_public_deaths', 'final_context', 'truth_setup'}},
+                                     'final_public_deaths', 'final_context', 'truth_setup',
+                                     'action_contexts'}},
                      ensure_ascii=False, indent=2))
 
 

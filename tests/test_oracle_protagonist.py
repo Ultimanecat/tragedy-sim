@@ -22,6 +22,23 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_last_loop_death_is_not_saved_by_an_oracle_final_guess(self):
+        scenario = ScenarioLibrary().get("official-btx-10-prologue")
+        game = Game(scenario)
+        game.state.loop = scenario["loops"]
+        game.state.characters["rich"].location = "shrine"
+        game.state.characters["maiden"].intrigue = 2
+        game._begin_night()
+        original = deepcopy(game.protagonist_team_view())
+        for horizon in ("day", "loop"):
+            with self.subTest(horizon=horizon):
+                agent = FullCardOracleProtagonistAgent(rollout_horizon=horizon)
+                outcome = agent._rollout_score(
+                    game, game.state.loop, 1, mastermind_strategy="key_assassination")
+                self.assertFalse(outcome[1])
+                self.assertFalse(outcome[3])
+        self.assertEqual(game.protagonist_team_view(), original)
+
     def test_rollout_horizon_is_validated(self):
         with self.assertRaises(ValueError):
             FullCardOracleProtagonistAgent(rollout_horizon="week")

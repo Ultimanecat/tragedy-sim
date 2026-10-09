@@ -104,7 +104,8 @@ class PublicStateDeterminizer:
     def determinize(self, hypothesis: Any, evidence: PublicEvidence,
                     view: Mapping[str, Any], *, rng: random.Random,
                     history_prior: bool = False,
-                    force_history: bool = False) -> Game | None:
+                    force_history: bool = False,
+                    coherent_history: bool = False) -> Game | None:
         if view.get("module") not in ("FS", "BTX") or view.get("phase") != "protagonists":
             return None
         try:
@@ -147,7 +148,11 @@ class PublicStateDeterminizer:
                 view.get("events", ()), day=state.round, loop=state.loop,
                 days=int(view.get("days", 4)))
                 if history_prior else None),
-            force_history=force_history)
+            force_history=force_history,
+            historical_cards=(DarkCardBelief.historical_bundle(
+                view.get("pending", ()), state.hands, view.get("events", ()),
+                day=state.round, loop=state.loop)
+                if history_prior and force_history and coherent_history else None))
         if dark_bundle is None:
             return None
         state.pending = [Placement(*item) for item in dark_bundle]

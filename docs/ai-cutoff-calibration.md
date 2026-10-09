@@ -151,6 +151,54 @@ python -m benchmarks.ai_factor_audit --reanalyze references/ai-calibration/2026-
 资料在 `references/ai-calibration/2026-10-09/`。测试与对局曾并行，不用于比较本轮墙钟效率。
 最终全量 549 项测试通过，包含新组件的引擎正反例、来源消融及离线观察 JSON 往返验证。
 
+### 2026-10-09：BTX10 联合暗牌覆盖与最终猜测边界
+
+配置沿用固定黑方（节点 2、深度 8），公平红方 8 个三牌候选、32 个组合世界、日末 horizon、标准难度。
+这是固定工作量诊断，多个任务与测试曾同时运行，耗时不用于等墙钟棋力排名。
+
+BTX10 seed 1 原轨迹第 4 轮第 1 天：21/32 个世界把大小姐视为杀手，
+其中没有一个同时持有「巫女密谋 +2、大小姐纵向移动」。跨日累积的单牌历史偏向密谋 +1，
+不足以覆盖当日杀人阈值。另有独立错误：最后一轮失败后，日末／轮回末模拟继续进入最终猜测，
+调用诊断 Oracle 的全知答案，并把该路径判为存活。搜索克隆压缩事件列表后，旧事件游标也无法可靠识别失败。
+
+修复：
+
+- 保留每五个世界中的一个历史优先提议，优先同日、目标匹配最多且最近的一次公开揭牌，联合保留至少两张合法匹配牌。
+  当前已知牌先保留，历史限次牌已弃用或冲突时跳过；未匹配位置继续原采样，其余世界继续独立先验／随机探索。
+  只读取过去公开的揭牌，属于暗牌维度内的联合提议，不增加身份／当事人关联或硬 witness。
+- 日末／轮回末遇到最终猜测立即停止，并用积累的 rollout 事件判断轮回失败。
+  整局 Oracle 仍可执行全知猜测作诊断。实际游戏的最终猜测规则不变。
+- 离线 audit 新增 `--capture-action-worlds`，保存席位合法根观察与各采样世界的身份、当事人及实际暗牌组合。
+  不消耗 RNG、不改变选择；报告保持在忽略的 `references/`，不进入玩家 replay。
+  `--independent-dark-history` 可关闭联合历史提议作消融。
+
+BTX10 seed 1 的四组对照：
+
+| 联合历史 | 边界修复 | 整局结果 |
+| --- | --- | --- |
+| 关 | 关 | 黑胜，终猜 2/9 |
+| 开 | 关 | 黑胜，终猜 2/9，完整决策摘要不变 |
+| 关 | 开 | 黑胜，终猜 2/9，完整决策摘要不变 |
+| 开 | 开 | 红胜，第 4 轮存活完成全部 7 天，无需终猜 |
+
+两项一起启用时，第 4 轮第 1 天覆盖了 5 个「杀手＋密谋 +2＋纵移」世界；
+原地点防守候选由 32/32 降为 27/32 存活，巫女禁止密谋候选仍为 32/32，并被正确选择。
+前三轮败因仍需后续审查，不据单局推断总体胜率。
+新轨迹摘要：`3c0b92d72ddecda4070490c17e0e50a53658d0af77a1a5b5f30c556987d17a97`。
+关闭根世界捕获后重跑，摘要完全一致。BTX10 seed 2 为第 3 轮直接存活红胜，
+摘要 `a700065edb8e661bea715ac29d640e7f037be6dedf4dfc046ff416be94caa52a`；
+本切片未重跑 seed 2 的旧算法，不将该局单独计为新增胜局。
+
+回归：BTX04 seed 1 仍黑胜 7/9，完整摘要不变；BTX08 seed 1 仍黑胜 7/9，行动轨迹发生变化；
+FS01 seed 1 仍红胜且摘要不变，seed 0 仍黑胜。所有采样无回退、无真值硬约束冲突。
+新增历史联合提议的合法性／信息隔离、审计不改变行动及末轮失败回归测试，全量 553 项通过。
+原始资料为 `references/ai-calibration/2026-10-09/*horizon-fixed*.json` 和 `btx10-action-worlds.json`。
+
+```powershell
+python -m benchmarks.ai_factor_audit --scenario official-btx-10-prologue --seed 1 --nodes 8 --worlds 32 --capture-action-worlds --output references/ai-calibration/2026-10-09/btx10-root-audit.json
+python -m benchmarks.ai_factor_audit --scenario official-btx-10-prologue --seed 1 --nodes 8 --worlds 32 --independent-dark-history --output references/ai-calibration/2026-10-09/btx10-history-off.json
+```
+
 ### 历史：8 候选档与世界覆盖审计
 
 共同种子扩展采用修复后的统一源码，仅标准难度的 13 个 FS/BTX 剧本、seed 1/2；红方固定 8 候选，分别使用 4／32 世界。每一对保持剧本、种子、黑方、horizon 不变，串行采集，保留完整摘要与实际工作量。此次固定黑方仅用于候选／世界覆盖诊断；更强黑方采用 `strategic` 对 `joint --joint-reply-model belief` 的独立等墙钟实验，不能合并为一个胜率。资料目录 `references/ai-calibration/2026-09-26/paired-seeds/`。结果完成后检查新增胜／退化、搜索回退、硬约束真值兼容和最终猜测路径，再决定下一阶段。

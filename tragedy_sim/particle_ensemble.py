@@ -310,7 +310,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                        if (world := self.determinizer.determinize(
                            hypothesis, evidence, view, rng=rng,
                            history_prior=True,
-                           force_history=index % 5 == 0)) is not None)
+                           force_history=index % 5 == 0,
+                           coherent_history=True)) is not None)
         if not worlds:
             return self._fallback(participant, view, offers,
                                   sampled.reason or "no_particles",

@@ -1232,6 +1232,52 @@ class FactorizedBeliefState:
 class DarkCardBelief:
     """Draw only currently hidden card faces, conditional on public hand data."""
 
+    @staticmethod
+    def historical_bundle(pending: Sequence[Mapping[str, Any]],
+                          hands: Mapping[str, list[str]],
+                          events: Sequence[Mapping[str, Any]], *,
+                          day: int, loop: int) -> dict[int, str]:
+        """Retain a legal joint fragment of one past public reveal.
+
+        Prefer the same day of a previous loop, then target coverage and
+        recency. Reserve visible cards first. A historical fragment is a soft
+        proposal, used only in a fraction of worlds, never identity evidence.
+        """
+        remaining = {actor: list(cards) for actor, cards in hands.items()}
+        for item in pending:
+            card = item.get("card")
+            if card is not None:
+                available = remaining[str(item["actor"])]
+                if card not in available:
+                    return {}
+                available.remove(card)
+        best: dict[int, str] = {}
+        best_rank = (False, 0, 0, 0)
+        for event in events:
+            position = (int(event.get("loop", loop)),
+                        int(event.get("round", day)))
+            if event.get("kind") != "cards_revealed" or position >= (loop, day):
+                continue
+            available = {actor: list(cards) for actor, cards in remaining.items()}
+            fragment: dict[int, str] = {}
+            for placement in event.get("cards", ()):
+                if placement.get("actor") != "m":
+                    continue
+                card = placement.get("card")
+                if card not in available.get("m", ()):
+                    continue
+                slot = next((index for index, item in enumerate(pending)
+                             if index not in fragment and item.get("card") is None
+                             and item.get("actor") == "m"
+                             and item.get("target") == placement.get("target")), None)
+                if slot is not None:
+                    fragment[slot] = str(card)
+                    available["m"].remove(card)
+            rank = (position[1] == day, len(fragment), *position)
+            if len(fragment) >= 2 and rank > best_rank:
+                best, best_rank = fragment, rank
+        return best
+
     @classmethod
     def placement_tendencies(cls, events: Sequence[Mapping[str, Any]], *,
                              day: int, loop: int, days: int,
@@ -1297,10 +1343,11 @@ class DarkCardBelief:
                historical_weights: Mapping[tuple[str, str], float] | None = None,
                uniform_fraction: float = 0.25,
                force_history: bool = False,
+               historical_cards: Mapping[int, str] | None = None,
                ) -> tuple[tuple[str, str, str], ...] | None:
         remaining = {actor: list(cards) for actor, cards in hands.items()}
-        for item in pending:
-            card = item.get("card")
+        for index, item in enumerate(pending):
+            card = item.get("card") or (historical_cards or {}).get(index)
             if card is None:
                 continue
             available = remaining[str(item["actor"])]
@@ -1308,9 +1355,9 @@ class DarkCardBelief:
                 return None
             available.remove(card)
         selected = []
-        for item in pending:
+        for index, item in enumerate(pending):
             actor = str(item["actor"])
-            card = item.get("card")
+            card = item.get("card") or (historical_cards or {}).get(index)
             available = remaining[actor]
             if card is None:
                 if not available:
