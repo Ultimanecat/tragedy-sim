@@ -524,6 +524,7 @@ class ConstraintBeliefSampler:
         step only conditions the expensive rare role/plot conjunctions.
         """
         from .witness_types import WitnessStrength
+        from .witness_rules.role_routes import HARD_ROLE_ROUTES, role_route_realizations
 
         groups: list[list[tuple[str, str]]] = []
         for witness in witnesses:
@@ -538,33 +539,37 @@ class ConstraintBeliefSampler:
                 groups.append([(cid, role) for role in roles])
             elif witness.kind == "role_in":
                 groups.append([(cid, str(role)) for role in witness.value])
-            elif witness.kind == "mandatory_serial_route":
-                alternatives = [(str(actor), "serial")
-                                for actor in witness.value.get("serial", ())]
-                if "virus" in plots:
-                    alternatives.extend((str(actor), "ordinary") for actor in
-                                        witness.value.get("virus_ordinary", ()))
-                groups.append(alternatives)
-            elif witness.kind == "loop_end_plot_explanation":
-                from .witness_rules.common_loop_end import loop_end_realizations
-                routes = loop_end_realizations(str(witness.subject), str(plots[0]), witness.value)
+            elif witness.kind in HARD_ROLE_ROUTES:
+                routes = role_route_realizations(witness, plots)
                 if not routes:
                     return None
                 if {} not in routes:
                     groups.append([next(iter(route.items())) for route in routes])
         # Constrain the most selective facts first.  Randomize equal choices
         # without allowing an unlucky first assignment to reject a valid setup.
+        groups = [list(group) for group in dict.fromkeys(
+            tuple(sorted(set(group))) for group in groups)]
         groups.sort(key=len)
         for group in groups:
             rng.shuffle(group)
         known = dict(evidence.known_roles)
+        excluded: dict[str, set[str]] = {}
+        for witness in witnesses:
+            if witness.strength == WitnessStrength.HARD and witness.kind == "role_not_in":
+                cid = ("part_timer" if witness.subject == "part_timer_question"
+                       else str(witness.subject))
+                excluded.setdefault(cid, set()).update(witness.value)
+        failed: set[tuple[int, tuple[tuple[str, str], ...]]] = set()
 
         def assign(index: int, chosen: dict[str, str],
                    remaining: Counter[str]) -> dict[str, str] | None:
             if index == len(groups):
                 return chosen
+            state = (index, tuple(sorted(chosen.items())))
+            if state in failed:
+                return None
             for cid, role in groups[index]:
-                if cid not in evidence.characters:
+                if cid not in evidence.characters or role in excluded.get(cid, ()):
                     continue
                 if cid in chosen:
                     if chosen[cid] == role:
@@ -586,6 +591,7 @@ class ConstraintBeliefSampler:
                 result = assign(index + 1, {**chosen, cid: role}, updated)
                 if result is not None:
                     return result
+            failed.add(state)
             return None
 
         return assign(0, {}, slots.copy())
@@ -958,6 +964,9 @@ class FactorizedBeliefState:
     def _soft_realizations(witness: Any, main: str,
                            plots: Sequence[str]) -> tuple[dict[str, str], ...]:
         """Small constructive alternatives that can satisfy one soft factor."""
+        from .witness_rules.role_routes import HARD_ROLE_ROUTES, role_route_realizations
+        if witness.strength == "hard" and witness.kind in HARD_ROLE_ROUTES:
+            return role_route_realizations(witness, (main, *plots))
         value = witness.value
         if witness.kind == "loop_end_plot_explanation":
             from .witness_rules.common_loop_end import loop_end_realizations
@@ -1131,13 +1140,13 @@ class FactorizedBeliefState:
                 unconstrained_size //= factorial(amount)
             unconstrained_size *= len(irregular_options)
 
+            from .witness_rules.role_routes import HARD_ROLE_ROUTES
             hard_routes = {json.dumps(
                 [witness.kind, witness.subject, witness.value],
                 sort_keys=True, ensure_ascii=False, default=str): witness
                 for witness in role_witnesses
                 if witness.strength == WitnessStrength.HARD
-                and witness.kind in {"mastermind_ability_route",
-                                     "mandatory_serial_route", "loop_end_plot_explanation"}}
+                and witness.kind in HARD_ROLE_ROUTES}
             realization_groups = tuple(
                 self._soft_realizations(witness, main, plots)
                 for witness in (*unique_soft.values(), *hard_routes.values()))

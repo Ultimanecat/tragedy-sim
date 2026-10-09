@@ -3,7 +3,7 @@
 本文是新会话的启动入口，整理截至源码提交 `0ec96eb` 的上下文。本次交接只增加文档。
 开始工作时先执行 `git status --short --branch`、`git log -8 --oneline`，确认是否已有后续提交或其他会话的修改。
 
-2026-10-10 接续：强黑方 BTX08 seed 2 完整报告保存在忽略目录 `references/ai-calibration/2026-10-10/btx08-seed2-replays.json`，含完整 replay 与回退授权视图。strategic 黑胜 7/9，joint 黑胜 8/9；前者第 3 轮第 1 天有两次 `no_compatible_factor` 及一次 `no_legal_bundle`。三个根节点的真值均满足硬证据。轮回末存在条件已补齐构造式解释，专项 101 项测试通过；真实快照仍无法采样，继续查其他硬存在条件。第三张牌的重规划疑似被固定三牌长度拒绝，须独立回归。离线真值只能审计，禁止用于补样。
+2026-10-10 接续：强黑方 BTX08 seed 2 完整报告保存在忽略目录 `references/ai-calibration/2026-10-10/btx08-seed2-replays.json`，含完整 replay 与回退授权视图。strategic 黑胜 7/9，joint 黑胜 8/9；前者第 3 轮第 1 天有两次 `no_compatible_factor` 及一次 `no_legal_bundle`。三个根节点的真值均满足硬证据。轮回末及其他硬存在条件现共享 `role_routes` 构造，专项 102 项测试通过；两个回退快照分别用四个 seed 均恢复 12 个合法世界。第三张牌的重规划疑似被固定三牌长度拒绝，须独立回归；整局重跑尚待完成。离线真值只能审计，禁止用于补样。
 
 2026-10-09 接续更新：已补充 BTX 日末强制窗口无死亡尝试的反证组件，修正 BTX10 大小姐被误推为杀人狂。
 seed 1、8 候选/32 世界的 BTX10 终猜为 1/9→2/9，BTX04 为 5/9→7/9，BTX08 保持 7/9；均仍黑胜。

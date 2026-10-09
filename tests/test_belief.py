@@ -380,6 +380,48 @@ class PublicEvidenceTests(unittest.TestCase):
 
 
 class ConstraintBeliefSamplerTests(unittest.TestCase):
+    def test_constructs_btx08_joint_hard_routes_without_private_truth(self):
+        scenario = ScenarioLibrary().get("official-btx-08-mirror-passcode")
+        evidence = PublicEvidence.from_view(Game(scenario).protagonist_team_view())
+        witnesses = (
+            PublicWitness("role_route_pressure", "immediate_death_loss",
+                          {"key": ("girl",)}, 1, 2, "incident", "test"),
+            PublicWitness("role_pressure", "cultist",
+                          {"candidates": ("informer", "irregular", "journalist", "worker")},
+                          1, 2, "actions", "test"),
+            PublicWitness("mastermind_ability_route", "informer", {
+                "roles": {"conspiracy": ("informer", "journalist", "worker"),
+                          "factor": ("informer", "journalist", "worker")}, "plots": ()},
+                1, 2, "mastermind", "test"),
+            PublicWitness("mastermind_ability_route", "rich", {
+                "roles": {"conspiracy": ("girl", "irregular", "rich", "student"),
+                          "factor": ("girl", "irregular", "rich", "student")}, "plots": ()},
+                1, 2, "mastermind", "test"),
+            PublicWitness("mandatory_serial_route", "irregular", {
+                "serial": ("student",), "virus_ordinary": ("student",)},
+                1, 2, "day_end", "test"),
+            PublicWitness("loop_end_plot_explanation", "BTX", {
+                "location_intrigue": {"city": 2},
+                "character_intrigue": {"girl": 2, "irregular": 2},
+                "initial_locations": {cid: item.location
+                                      for cid, item in Game(scenario).state.characters.items()},
+                "butterfly_happened": False}, 1, 7, "loop_end", "test"),
+        )
+        matcher = FsbtxWitnessMatcher()
+        for seed in range(4):
+            with self.subTest(seed=seed):
+                sampled = FactorizedBeliefState(seed=seed).sample(
+                    evidence, witnesses, 8, rng=random.Random(seed))
+                self.assertEqual(len(sampled.worlds), 8)
+                self.assertTrue(all(matcher.matches(world, witnesses)
+                                    for world in sampled.worlds))
+        # Empty existential routes remain impossible. Never relax a hard fact.
+        impossible = PublicWitness("role_route_pressure", "test", {"key": ()},
+                                   1, 1, "test", "test")
+        self.assertFalse(ConstraintBeliefSampler().sample(
+            evidence, 4, rng=random.Random(0), witnesses=(impossible,),
+            condition_hard=True, max_attempts=10))
+
     def test_conditions_rare_btx_hard_role_and_plot_conjunction(self):
         scenario = ScenarioLibrary().get(
             "official-btx-04-young-womens-battlefield")
