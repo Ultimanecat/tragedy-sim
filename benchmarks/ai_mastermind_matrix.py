@@ -7,6 +7,7 @@ reported overruns expose searches whose indivisible evaluation exceeded it.
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import json
 from dataclasses import asdict
 from pathlib import Path
@@ -48,6 +49,8 @@ def main() -> None:
                         help='save complete report including search telemetry')
     parser.add_argument("--trace", action="store_true",
                         help="include mastermind plays and loop-loss reasons")
+    parser.add_argument('--slow-trace-seconds', type=int,
+                        help='dump diagnostic stacks periodically during each match')
     args = parser.parse_args()
     if min(args.games, args.mastermind_ms, args.mastermind_nodes,
            args.protagonist_ms, args.protagonist_nodes, args.depth) < 1:
@@ -56,6 +59,8 @@ def main() -> None:
         parser.error('protagonist particles must be positive')
     if not 0 <= args.joint_information_weight <= 0.1:
         parser.error("joint information weight must be between 0 and 0.1")
+    if args.slow_trace_seconds is not None and args.slow_trace_seconds < 1:
+        parser.error('slow-trace-seconds must be positive')
     scenarios = args.scenarios or DEFAULT_SCENARIOS
     sources = source_digest()
     results = []
@@ -79,16 +84,22 @@ def main() -> None:
             strategies = (("strategic", "joint") if (seed - args.seed) % 2 == 0
                           else ("joint", "strategic"))
             for strategy in strategies:
-                match = play(
-                    scenario, seed, args.mastermind_nodes, args.depth,
-                    strategy, args.protagonists,
-                    protagonist_nodes=args.protagonist_nodes,
-                    protagonist_depth=args.depth,
-                    time_limit_ms=args.mastermind_ms,
-                    protagonist_time_limit_ms=args.protagonist_ms,
-                    protagonist_particles=args.protagonist_particles,
-                    joint_reply_model=args.joint_reply_model,
-                    joint_information_weight=args.joint_information_weight)
+                if args.slow_trace_seconds is not None:
+                    faulthandler.dump_traceback_later(args.slow_trace_seconds, repeat=True)
+                try:
+                    match = play(
+                        scenario, seed, args.mastermind_nodes, args.depth,
+                        strategy, args.protagonists,
+                        protagonist_nodes=args.protagonist_nodes,
+                        protagonist_depth=args.depth,
+                        time_limit_ms=args.mastermind_ms,
+                        protagonist_time_limit_ms=args.protagonist_ms,
+                        protagonist_particles=args.protagonist_particles,
+                        joint_reply_model=args.joint_reply_model,
+                        joint_information_weight=args.joint_information_weight)
+                finally:
+                    if args.slow_trace_seconds is not None:
+                        faulthandler.cancel_dump_traceback_later()
                 row = {
                     **match_telemetry(match),
                     "scenario": scenario, "seed": seed,

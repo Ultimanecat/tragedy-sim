@@ -269,11 +269,16 @@ class AbilityUsageTests(unittest.TestCase):
         with (TemporaryDirectory() as folder,
               patch("sys.argv", ["ai_mastermind_matrix", "--scenario",
                                  "official-fs-01-first-script", "--games", "1",
+                                 "--slow-trace-seconds", "1",
                                  "--output", str(Path(folder) / "report.json")]),
               patch.object(ai_mastermind_matrix, "play",
                            side_effect=[completed, RuntimeError("interrupted")]),
               patch.object(ai_mastermind_matrix, "source_digest",
                            side_effect=["starting-sources", "later-sources"]) as digest,
+              patch.object(ai_mastermind_matrix.faulthandler,
+                           "dump_traceback_later") as start_dump,
+              patch.object(ai_mastermind_matrix.faulthandler,
+                           "cancel_dump_traceback_later") as stop_dump,
               redirect_stdout(StringIO())):
             with self.assertRaisesRegex(RuntimeError, "interrupted"):
                 ai_mastermind_matrix.main()
@@ -283,6 +288,8 @@ class AbilityUsageTests(unittest.TestCase):
             self.assertEqual(saved["sources"], "starting-sources")
             self.assertEqual(len(saved["results"]), 1)
             self.assertEqual(digest.call_count, 1)
+            self.assertEqual(start_dump.call_count, 2)
+            self.assertEqual(stop_dump.call_count, 2)
 
     def test_discovers_concrete_loop_difficulty_groups(self):
         groups = difficulty_groups(ScenarioLibrary(), "BTX")
