@@ -16,6 +16,26 @@ def compile_mandatory_serial_routes(
     the mandatory batch from a Killer's later optional death.  Part-timer can
     die from its own compulsory ability, so its outcome is not attributed.
     """
+    return _compile_serial_windows(view, absence=False)
+
+
+def compile_mandatory_serial_absence(
+        view: Mapping[str, Any]) -> list[PublicWitness]:
+    """No attempted death in a completed batch excludes lone initial Serials.
+
+    Dynamic casts and unknown starting locations are deliberately left open.
+    Guards and immunity count as an attempted death; optional deaths after the
+    mandatory marker cannot erase the earlier negative evidence.
+    """
+    if set(view.get("characters", ())).intersection({
+            "godly", "transfer_student", "part_timer", "part_timer_question",
+            "servant", "henchman", "boss"}):
+        return []
+    return _compile_serial_windows(view, absence=True)
+
+
+def _compile_serial_windows(view: Mapping[str, Any], *, absence: bool
+                            ) -> list[PublicWitness]:
     if view.get("module") != "BTX":
         return []
     characters = view.get("characters", {})
@@ -95,6 +115,20 @@ def compile_mandatory_serial_routes(
         loop, day, snapshot, living, virus_reached = window
         window = None
         if replacement or event.get("round") != day:
+            continue
+        if absence:
+            if (outcomes or event.get("timing") != "day_end"
+                    or any(snapshot.get(cid) is None for cid in living)):
+                continue
+            for cid in sorted(living):
+                if cid == "boss":
+                    continue
+                occupants = {actor for actor in living
+                             if snapshot.get(actor) == snapshot.get(cid)}
+                if len(occupants) == 2:
+                    result.append(PublicWitness(
+                        "role_not_in", cid, ("serial",), loop, day, "day_end",
+                        "public_btx_mandatory_serial_absence"))
             continue
         # Subsequent batches can see characters killed (or converted by a
         # death reaction) in the first batch.  Only the first attempted death

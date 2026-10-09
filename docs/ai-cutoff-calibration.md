@@ -111,6 +111,46 @@ python -m benchmarks.ai_calibration_matrix --output-dir references/ai-calibratio
 
 因此这次不能把 7/9 归为终猜实现错误，也没有依据去提高某个软 witness 的权重。下一阶段应审计信息类能力、剧情公开和黑方沉默对可辨识性的影响，比较已知剧本但暗牌未知的行动基线是否能在相同轮回数下搜集更多决定性证据。终猜 7/9 仍是整套身份猜测失败，逐角色正确数只用于诊断。详细报告位于忽略目录 `references/ai-calibration/2026-09-29/btx08-seed1-final-audit.json`，包含真实身份，不能进入玩家界面或公开 replay。
 
+### BTX10 强制杀人狂的负向证据（2026-10-09）
+
+BTX10 标准版 seed 1、固定黑方 2 节点、红方 8 候选/32 世界、日末固定工作量，复现旧摘要 `7ec4f9f3701c…`。
+四轮均因巫女在日末死亡失败，终猜 1/9；真值硬相容且没有粒子回退。
+多次死亡同伴软证据把大小姐推为杀人狂，实际为杀手。
+日末强制窗口先完成、可选杀手随后才造成死亡，这条公开时序本身提供了反证。
+
+新增独立组件 `btx.mandatory_serial_absence`（source `public_btx_mandatory_serial_absence`）：
+完整日末强制批次没有任何死亡尝试时，开窗时两人单独同处排除双方的初始杀人狂身份。
+护卫消耗、免死和替死都保留不确定性；晚登场、替补和位置复杂角色池暂跳过。
+它与原正向强制路线共用公开日志重建器，独立可关闭，保持原组件顺序。
+
+| 标准剧本 seed 1、8 候选/32 世界 | 加入前终猜 | 加入后终猜 | 加入后完整摘要前缀 |
+| --- | ---: | ---: | --- |
+| BTX10 | 1/9 | 2/9 | `5934a79c46c3…` |
+| BTX04 | 5/9 | 7/9 | `307c7ba8bf20…` |
+| BTX08 | 7/9 | 7/9 | `e67488b71885…` |
+
+三局仍全部黑胜；没有真值硬冲突、空身份/当事人候选或采样回退。
+关闭新来源的 BTX10 完整对局精确复现旧摘要。
+在旧对局同一终猜观察上离线重新编译，新来源也使 1/9→2/9，确认身份修正来自这条反证。
+在新对局同一观察上开关来源同样为 2/9／1/9；约 0.2–0.4 秒完成，优于每次重跑整局的诊断成本。
+大小姐已正确推为杀手，其他身份仍缺足够信息；不能据此宣称总体胜率提升。
+下一步优先检查为何已知巫女危险后仍重复失去她，并扩大共同种子的对照。
+
+离线工具现在保存终猜的席位合法 `view`、`PublicEvidence`、witness 及当局真值诊断快照，全部仅进入忽略的开发报告。
+支持直接重新求解和 source 消融：
+
+```powershell
+python -m benchmarks.ai_factor_audit --scenario official-btx-10-prologue --seed 1 --nodes 8 --worlds 32 --output references/ai-calibration/2026-10-09/btx10.json
+python -m benchmarks.ai_factor_audit --reanalyze references/ai-calibration/2026-10-09/btx10.json --disable-witness-source public_btx_mandatory_serial_absence --output references/ai-calibration/2026-10-09/btx10-final-off.json
+```
+
+`--reanalyze` 从保存的观察重新编译证据，验证当前组件；不使用缓存 witness 代替编译，不改变历史行动。
+新报告的 `truth_setup` 绑定原局秘密；缺少该字段的过渡报告明确标记 `truth_source=current_library`。
+报告包含私密调查答案和真值，不能放进玩家接口或公开 replay。
+`role_domain_configurations` 仍是路线匹配前的计数；前列 MAP 权重不构成完整后验概率。
+资料在 `references/ai-calibration/2026-10-09/`。测试与对局曾并行，不用于比较本轮墙钟效率。
+最终全量 549 项测试通过，包含新组件的引擎正反例、来源消融及离线观察 JSON 往返验证。
+
 ### 历史：8 候选档与世界覆盖审计
 
 共同种子扩展采用修复后的统一源码，仅标准难度的 13 个 FS/BTX 剧本、seed 1/2；红方固定 8 候选，分别使用 4／32 世界。每一对保持剧本、种子、黑方、horizon 不变，串行采集，保留完整摘要与实际工作量。此次固定黑方仅用于候选／世界覆盖诊断；更强黑方采用 `strategic` 对 `joint --joint-reply-model belief` 的独立等墙钟实验，不能合并为一个胜率。资料目录 `references/ai-calibration/2026-09-26/paired-seeds/`。结果完成后检查新增胜／退化、搜索回退、硬约束真值兼容和最终猜测路径，再决定下一阶段。

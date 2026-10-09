@@ -8,22 +8,27 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from copy import deepcopy
 from dataclasses import asdict
 import json
 from pathlib import Path
-from typing import Any
+from time import perf_counter
+from typing import Any, Mapping
 from unittest.mock import patch
 
-from tragedy_sim.belief import FactorizedBeliefState, HiddenWorldHypothesis
+from tragedy_sim.belief import (FactorizedBeliefState, HiddenWorldHypothesis,
+                               PublicEvidence)
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
 from tragedy_sim.scenario_library import ScenarioLibrary
-from tragedy_sim.witness import FsbtxWitnessMatcher, WitnessStrength, WitnessVerdict
+from tragedy_sim.witness import (FsbtxWitnessCompiler, FsbtxWitnessMatcher,
+                                WitnessStrength, WitnessVerdict)
 
 from .ai_self_play import play
 
 
 def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
-                nodes: int = 8, expected_digest: str | None = None) -> dict[str, Any]:
+                nodes: int = 8, expected_digest: str | None = None,
+                disabled_witness_sources: tuple[str, ...] = ()) -> dict[str, Any]:
     scenario = ScenarioLibrary().get(scenario_id)
     truth = HiddenWorldHypothesis.from_scenario(scenario)
     matcher = FsbtxWitnessMatcher()
@@ -31,6 +36,7 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
     samples: list[dict[str, Any]] = []
     fallbacks: list[dict[str, Any]] = []
     observations: list[dict[str, Any]] = []
+    final_context: dict[str, Any] = {}
     original_choose = ParticleEnsembleProtagonistAgent.choose_action
     original_sample = FactorizedBeliefState.sample
 
@@ -48,6 +54,13 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
                                  'pending': view.get('pending', ())})
         selected = original_choose(self, participant=participant, view=view,
                                    offers=offers)
+        if view.get('phase') == 'final_guess':
+            # Seat-authorized input only; this development artifact may contain
+            # private investigation answers and must not be sent to opponents.
+            final_context.update(
+                view=deepcopy(view),
+                evidence=asdict(PublicEvidence.from_view(view)),
+                witnesses=[asdict(w) for w in self.evidence_ledger.witnesses])
         trace = self.last_trace
         if trace is not None and trace.fallback not in (None, 'joint_plan_followup'):
             fallbacks.append({**current, 'reason': trace.fallback,
@@ -84,12 +97,15 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
                        observed_choose),
           patch.object(FactorizedBeliefState, 'sample', observed_sample)):
         match = play(scenario_id, seed, 2, 8, 'fixed', 'particle_ensemble',
-                     protagonist_nodes=nodes, protagonist_particles=worlds)
+                     protagonist_nodes=nodes, protagonist_particles=worlds,
+                     disabled_witness_sources=disabled_witness_sources)
     if expected_digest is not None and match.decision_digest != expected_digest:
         raise AssertionError('audit changed the recorded decision trajectory')
     return {
         'scenario': scenario_id, 'seed': seed, 'nodes': nodes,
+        'truth_setup': asdict(truth),
         'worlds_requested': worlds, 'decision_digest': match.decision_digest,
+        'disabled_witness_sources': disabled_witness_sources,
         'winner': match.winner,
         'final_guess_correct': sum(row.correct for row in match.final_guesses),
         'final_guess_total': len(match.final_guesses),
@@ -101,6 +117,7 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
         'final_belief_setups': match.final_belief_setups,
         'final_soft_witnesses': match.final_soft_witnesses,
         'final_public_deaths': match.final_public_deaths,
+        'final_context': final_context,
         'loop_losses': len(match.loop_losses),
         'sample_count': len(samples),
         'fallbacks': fallbacks,
@@ -127,17 +144,77 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
     }
 
 
+def reanalyze_final(report: Mapping[str, Any], *,
+                    disabled_witness_sources: tuple[str, ...] = ()) -> dict[str, Any]:
+    """Recompile and solve a saved authorized view without replaying a match."""
+    started = perf_counter()
+    view = report.get('final_context', {}).get('view')
+    if not isinstance(view, Mapping):
+        raise ValueError('report has no saved final protagonist view')
+    # New reports bind the hidden diagnostic truth to the original run. Older
+    # context reports can still use the current library, explicitly labelled.
+    saved_truth = report.get('truth_setup')
+    truth = (HiddenWorldHypothesis(
+        saved_truth['scenario_id'], saved_truth['main_plot'],
+        tuple(saved_truth['subplots']),
+        tuple(tuple(item) for item in saved_truth['roles']),
+        tuple(tuple(item) for item in saved_truth['incidents'])) if saved_truth else
+             HiddenWorldHypothesis.from_scenario(
+                 ScenarioLibrary().get(report['scenario'])))
+    evidence = PublicEvidence.from_view(view)
+    witnesses = FsbtxWitnessCompiler(
+        disabled_sources=disabled_witness_sources).compile(view)
+    solver = FactorizedBeliefState()
+    solved = solver.exact_role_map(evidence, witnesses)
+    matcher = FsbtxWitnessMatcher()
+    role_witnesses = solver._role_witnesses(witnesses)
+    selected = (max(solved.ranked, key=lambda pair: (
+        pair[1], tuple(sorted(pair[0].roles)))) if solved.ranked else None)
+    actual = dict(truth.roles)
+    guesses = dict(selected[0].roles) if selected else {}
+    return {
+        'mode': 'final_reanalysis', 'scenario': report['scenario'],
+        'source_decision_digest': report['decision_digest'],
+        'truth_source': 'saved_run' if saved_truth else 'current_library',
+        'disabled_witness_sources': disabled_witness_sources,
+        'correct': sum(guesses.get(cid) == role for cid, role in actual.items()),
+        'total': len(actual), 'guesses': guesses,
+        'selected_setup': asdict(selected[0]) if selected else None,
+        'selected_weight': selected[1] if selected else None,
+        'role_domain_configurations': solved.compatible_count,
+        'truth_hard_compatible': matcher.matches(truth, witnesses),
+        'truth_hard_conflicts': [asdict(w) for w in witnesses
+                                if w.strength == WitnessStrength.HARD and
+                                matcher.verdict(truth, w) == WitnessVerdict.CONTRADICTED],
+        'truth_role_soft_score': matcher.soft_score(truth, role_witnesses),
+        'selected_role_soft_score': (matcher.soft_score(selected[0], role_witnesses)
+                                     if selected else None),
+        'witness_sources': dict(Counter(w.source for w in witnesses)),
+        'elapsed_seconds': round(perf_counter() - started, 3),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--scenario', required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--scenario')
+    mode.add_argument('--reanalyze', type=Path,
+                      help='solve a saved final view; does not rerun the match')
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--worlds', type=int, default=32)
     parser.add_argument('--nodes', type=int, default=8)
     parser.add_argument('--expected-digest')
+    parser.add_argument('--disable-witness-source', action='append', default=[])
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
-    report = audit_match(args.scenario, args.seed, worlds=args.worlds,
-                         nodes=args.nodes, expected_digest=args.expected_digest)
+    disabled = tuple(args.disable_witness_source)
+    if args.reanalyze:
+        report = reanalyze_final(json.loads(args.reanalyze.read_text(encoding='utf-8')),
+                                disabled_witness_sources=disabled)
+    else:
+        report = audit_match(args.scenario, args.seed, worlds=args.worlds,
+                             nodes=args.nodes, expected_digest=args.expected_digest,
+                             disabled_witness_sources=disabled)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2),
@@ -148,7 +225,7 @@ def main() -> None:
                                      'mastermind_plays', 'losses', 'searches',
                                      'final_guesses', 'final_belief_roles',
                                      'final_belief_setups', 'final_soft_witnesses',
-                                     'final_public_deaths'}},
+                                     'final_public_deaths', 'final_context', 'truth_setup'}},
                      ensure_ascii=False, indent=2))
 
 
