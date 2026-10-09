@@ -22,6 +22,27 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_both_oracles_search_remaining_cards_after_partial_submission(self):
+        for placed in (1, 2):
+            for agent_type in (FullCardOracleProtagonistAgent, HiddenCardOracleProtagonistAgent):
+                with self.subTest(placed=placed, agent=agent_type.__name__):
+                    game = protagonist_position()
+                    for _ in range(placed):
+                        game = game.search_transition(game.search_actions(game.controller)[0])
+                    view = deepcopy(game.protagonist_team_view())
+                    agent = agent_type(SearchBudget(node_limit=4, rollout_depth=8, seed=3))
+                    # Use the normal policy-offer representation.
+                    from benchmarks.ai_self_play import _policy_offer
+                    offers = [_policy_offer(game, offer)
+                              for offer in game.action_offers(game.controller)]
+                    chosen = agent.choose_game_action(
+                        participant="team", game=game, public_view=view, offers=offers)
+                    self.assertIn(chosen, offers)
+                    self.assertIsNotNone(agent.last_trace)
+                    self.assertFalse(agent.decision_for_action(chosen).card_plan)
+                    self.assertEqual(len(agent.remaining_card_commands()), 2 - placed)
+                    self.assertEqual(game.protagonist_team_view(), view)
+
     def test_last_loop_death_is_not_saved_by_an_oracle_final_guess(self):
         scenario = ScenarioLibrary().get("official-btx-10-prologue")
         game = Game(scenario)

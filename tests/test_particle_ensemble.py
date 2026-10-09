@@ -21,6 +21,32 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class ParticleEnsembleTests(unittest.TestCase):
+    def test_replans_only_unplayed_seats_after_partial_submission(self):
+        for placed in (1, 2):
+            with self.subTest(placed=placed):
+                game = protagonist_position()
+                for _ in range(placed):
+                    game = game.search_transition(game.search_actions(game.controller)[0])
+                before = deepcopy(game.protagonist_team_view())
+                agent = ParticleEnsembleProtagonistAgent(
+                    SearchBudget(node_limit=4, rollout_depth=8, seed=3),
+                    particle_count=4, rng_seed=3)
+                offers = [_policy_offer(game, action)
+                          for action in game.action_offers(game.controller)]
+                chosen = agent.choose_action(participant="team", view=before, offers=offers)
+                self.assertIn(chosen, offers)
+                self.assertIsNone(agent.last_trace.fallback)
+                self.assertGreater(agent.last_trace.evaluated_pairs, 0)
+                decision = agent.decision_for_action(chosen)
+                self.assertFalse(decision.card_plan)  # Partial plans use the single API.
+                for row in agent.last_trace.root_actions:
+                    bundle = row["bundle"]
+                    self.assertEqual(len(bundle), 3 - placed)
+                    self.assertNotIn(bundle[0]["actor"],
+                                     {item["actor"] for item in before["pending"]})
+                    self.assertIsNotNone(agent._apply_bundle(game, bundle))
+                self.assertEqual(game.protagonist_team_view(), before)
+
     def test_rollout_horizon_is_validated(self):
         with self.assertRaises(ValueError):
             ParticleEnsembleProtagonistAgent(rollout_horizon="match")

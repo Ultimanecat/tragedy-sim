@@ -182,6 +182,13 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
             return -35 if incident_distance is not None or critical else 0
         return 0
 
+    @staticmethod
+    def remaining_placements(view: Mapping[str, Any]) -> int:
+        """Count unplayed seats; an existing placement cannot be replaced."""
+        order = set(view.get("protagonist_order", ("a", "b", "c")))
+        played = {item.get("actor") for item in view.get("pending", ())}
+        return len(order - played)
+
     def _bundle(self, root: Game, view: Mapping[str, Any], index: int
                 ) -> tuple[dict[str, Any], ...]:
         world = root
@@ -622,7 +629,8 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
         for index in range(self.budget.node_limit):
             bundle = self._bundle(root, view, index)
             signature = tuple(_key(command) for command in bundle)
-            if len(bundle) == 3 and signature not in seen and signature[0] in keyed:
+            if (len(bundle) == self.remaining_placements(view) and bundle
+                    and signature not in seen and signature[0] in keyed):
                 candidates.append(bundle)
                 seen.add(signature)
         if not candidates:

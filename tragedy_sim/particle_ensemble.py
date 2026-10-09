@@ -368,7 +368,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                     break
                 index = index_order[(round_index + world_index) % len(index_order)]
                 bundle = self.oracle._bundle(world, view, index)
-                if len(bundle) != 3 or _key(bundle[0]) not in offers_by_key:
+                if (len(bundle) != self.oracle.remaining_placements(view) or not bundle
+                        or _key(bundle[0]) not in offers_by_key):
                     continue
                 proposals.setdefault(_key(bundle), bundle)
                 if len(proposals) >= limit:
