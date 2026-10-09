@@ -29,9 +29,14 @@ class AbilityUsageTests(unittest.TestCase):
                          "particle_ensemble", protagonist_nodes=8, protagonist_particles=4)
             captured = play("official-fs-01-first-script", 0, 2, 8, "fixed",
                             "particle_ensemble", protagonist_nodes=8, protagonist_particles=4,
-                            capture_fallback_contexts=True)
+                            capture_fallback_contexts=True, capture_replay=True)
         self.assertEqual(plain.decision_digest, captured.decision_digest)
         self.assertEqual(plain.protagonist_fallback_contexts, ())
+        self.assertIsNone(plain.replay_text)
+        from tragedy_sim.replay import ReplayArchive
+        archive = ReplayArchive.parse(captured.replay_text)
+        self.assertEqual(archive.winner, captured.winner)
+        self.assertEqual(len(archive.commands), captured.decisions)
         self.assertTrue(captured.protagonist_fallback_contexts)
         for context in captured.protagonist_fallback_contexts:
             self.assertEqual(context["view"]["phase"], "protagonists")

@@ -160,6 +160,7 @@ class MatchResult:
     protagonist_horizon: str = "day"
     decision_digest: str = ""
     protagonist_fallback_contexts: tuple[dict[str, Any], ...] = ()
+    replay_text: str | None = None
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -269,6 +270,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          joint_reply_model: str = "public",
          joint_information_weight: float = 0.02,
          capture_fallback_contexts: bool = False,
+         capture_replay: bool = False,
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     library = ScenarioLibrary()
@@ -500,6 +502,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         decisions += 1
     if game.winner is None:
         raise RuntimeError("match exceeded 1500 decisions")
+    replay_text = None
+    if capture_replay:
+        from tragedy_sim.replay import dumps
+        replay_text = dumps(game)
     return MatchResult(
         scenario_id=scenario_id, scenario_title=scenario["title"],
         module=scenario["module"], loops=scenario["loops"],
@@ -531,6 +537,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         ability_usage=_ability_usage(game.state.events),
         decision_digest=decision_hash.hexdigest(),
         protagonist_fallback_contexts=tuple(protagonist_fallback_contexts),
+        replay_text=replay_text,
         protagonist_horizon=(oracle_horizon if protagonist_strategy in {
             "oracle_cards", "oracle_script", "particle_ensemble"} else "day"))
 

@@ -39,6 +39,20 @@ def finish_neutral_match(module="FS"):
 
 
 class TransitionRecordTests(unittest.TestCase):
+    def test_replay_preserves_cast_order_for_numeric_choice_menus(self):
+        game = finish_neutral_match()
+        order = list(game.scenario["cast"])
+        self.assertNotEqual(order, sorted(order))
+        archive = ReplayArchive.parse(dumps(game))
+        self.assertEqual(list(archive.scenario["cast"]), order)
+
+    def test_invalid_replay_identifies_command_number_and_phase(self):
+        scenario = example_scenario("FS")
+        archive = ReplayArchive(scenario, ({"actor": "m", "action": "guess_all",
+                                           "guesses": dict(scenario["cast"])},), "mastermind")
+        with self.assertRaisesRegex(RuleError, "第 1 条命令.*阶段"):
+            archive.verify()
+
     def test_successful_dispatch_records_typed_transition_and_steps(self):
         game = Game()
         game.dispatch("m", "next")

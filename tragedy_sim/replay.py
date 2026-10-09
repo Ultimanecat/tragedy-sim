@@ -24,7 +24,9 @@ VERSION = 1
 
 
 def _json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    # Cast insertion order contributes to ordered choice menus. Sorting its
+    # keys can redirect a recorded numeric choice to another legal effect.
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
 def _payload(line: str, label: str) -> Any:
@@ -102,11 +104,15 @@ class ReplayArchive:
     def verify(self) -> Game:
         try:
             final = Game(self.scenario)
-            for raw in self.commands:
+            for number, raw in enumerate(self.commands, 1):
                 if not isinstance(raw, dict) or "actor" not in raw or "action" not in raw:
                     raise RuleError("回放包含非法命令")
                 command = dict(raw)
-                final.dispatch(command.pop("actor"), command.pop("action"), **command)
+                try:
+                    final.dispatch(command.pop("actor"), command.pop("action"), **command)
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise RuleError(
+                        f"第 {number} 条命令在{phase_label(final.state.phase, 'zh')}阶段无法执行：{exc}") from exc
         except (KeyError, TypeError, ValueError) as exc:
             raise RuleError(f"无法重演回放：{exc}") from exc
         if final.state.phase != "game_over" or final.winner != self.winner:
