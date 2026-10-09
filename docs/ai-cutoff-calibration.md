@@ -250,6 +250,30 @@ python -m benchmarks.ai_factor_audit --scenario official-fs-01-first-script --se
 python -m benchmarks.ai_factor_audit --scenario official-fs-01-first-script --seed 0 --nodes 8 --worlds 32 --disable-incident-escape --output references/ai-calibration/2026-10-09/fs01-escape-off.json
 ```
 
+### 2026-10-10：强黑方长局的终猜重复枚举
+
+探索组 BTX04 seed 1（黑红各 1 秒、黑节点 24、红 8 候选／12 世界）两种黑方均胜：
+strategic 终猜 7/9，联合 belief 终猜 6/9。该组启动于 `b455820`，BTX08 长局未完成后主动终止；
+过程中进行了测试及其他修复，不用于正式等墙钟排名，也不计为完成两剧本配对。
+旧工具在整组结束前未写 JSON，因此仅保留上述阶段性结论。
+
+新增逐局保存、启动时源码指纹及 `--slow-trace-seconds N` 后，
+BTX08 seed 1 的小预算探针（黑红 500 ms、黑节点 8、红 4 候选／4 世界、深度 4）
+反复显示 `exact_role_map → propose` 在 witness 分支组合中递归。
+叶节点虽对完整角色分配去重，中间相同的「witness 索引＋已固定身份」仍反复展开，造成组合爆炸。
+
+优化为每个剧情配置内记忆这些等价前缀，并按身份可用数量提前排除超额的部分分配。
+不改变最终 witness 打分、硬约束、剧情先验、角色域配置计数或完成赋值顺序。
+同一前缀的后缀集合与最终分数相同，故无需重复枚举；没有截断证据或身份空间来适应行动预算。
+12 组构造反例原有 `3**12` 条分支路径，现在只需完成至多 2 种有效前缀。
+已保存的 BTX08 终猜观察，猜测、剧情、权重、软分、配置计数及真值相容字段与旧报告逐字段一致（仍 7/9）。
+
+新版本小预算探针已完整结束，strategic／joint 均黑胜，终猜均 8/9，整局约 40／46 秒。
+这一探针运行时旧枚举进程尚存在，不能据此算精确加速倍率或棋力排名。
+联合黑方的单步最大 1.58 秒，超过名义 500 ms，仍需在串行正式对照中核查原子回复与证据维护的超时。
+新资料 `references/ai-calibration/2026-10-09/btx08-map-memo-probe.json`、
+`references/ai-calibration/2026-10-10/btx08-map-memo-final.json`；旧探针仅有未完成的 progress，不算完成对局。
+
 ### 历史：8 候选档与世界覆盖审计
 
 共同种子扩展采用修复后的统一源码，仅标准难度的 13 个 FS/BTX 剧本、seed 1/2；红方固定 8 候选，分别使用 4／32 世界。每一对保持剧本、种子、黑方、horizon 不变，串行采集，保留完整摘要与实际工作量。此次固定黑方仅用于候选／世界覆盖诊断；更强黑方采用 `strategic` 对 `joint --joint-reply-model belief` 的独立等墙钟实验，不能合并为一个胜率。资料目录 `references/ai-calibration/2026-09-26/paired-seeds/`。结果完成后检查新增胜／退化、搜索回退、硬约束真值兼容和最终猜测路径，再决定下一阶段。

@@ -1132,8 +1132,16 @@ class FactorizedBeliefState:
                 self._soft_realizations(witness, main, plots)
                 for witness in (*unique_soft.values(), *hard_routes.values()))
             seen_roles: set[tuple[tuple[str, str], ...]] = set()
+            seen_partial: set[tuple[int, tuple[tuple[str, str], ...]]] = set()
 
             def propose(index: int, fixed: dict[str, str]) -> None:
+                # Different witness realization paths can produce the same
+                # partial assignment. The suffix depends only on this state;
+                # scores are recomputed from the final world, not the path.
+                state_key = (index, tuple(sorted(fixed.items())))
+                if state_key in seen_partial:
+                    return
+                seen_partial.add(state_key)
                 if index < len(realization_groups):
                     for addition in realization_groups[index]:
                         merged = dict(fixed)
@@ -1149,7 +1157,10 @@ class FactorizedBeliefState:
                                 compatible = False
                                 break
                             merged[cid] = role
-                        if compatible:
+                        fixed_counts = Counter(role for cid, role in merged.items()
+                                               if cid != "irregular")
+                        if compatible and all(amount <= counts[role]
+                                              for role, amount in fixed_counts.items()):
                             propose(index + 1, merged)
                     return
                 for irregular_role in irregular_options:

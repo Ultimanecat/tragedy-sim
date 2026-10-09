@@ -4,6 +4,7 @@ from copy import deepcopy
 from dataclasses import replace
 import random
 import unittest
+from unittest.mock import patch
 
 from tragedy_sim import Game
 from tragedy_sim.belief import (BeliefParticleFilter, CatalogBeliefSampler,
@@ -21,6 +22,25 @@ from tragedy_sim.witness_rules.common_public import compile_public_reveals
 
 
 class FactorizedBeliefTests(unittest.TestCase):
+    def test_exact_map_merges_equivalent_witness_prefixes_and_role_overcounts(self):
+        game = Game(ScenarioLibrary().get("official-fs-01-first-script"))
+        evidence = replace(PublicEvidence.from_view(game.protagonist_team_view()),
+                           known_plots=("murder_plan", "ripper"))
+        witnesses = tuple(PublicWitness(
+            "role_pressure", "key", {"candidates": ("girl",), "test_tag": index},
+            1, 1, "day_end", "test", WitnessStrength.SOFT) for index in range(12))
+        solver = FactorizedBeliefState()
+        complete = solver._complete_assignment
+        # 3**12 witness paths collapse to two viable partial assignments.
+        groups = ({}, {"girl": "key"}, {"doctor": "brain", "girl": "brain"})
+        with (patch.object(solver, "_soft_realizations", return_value=groups),
+              patch.object(solver, "_complete_assignment", wraps=complete) as calls):
+            solved = solver.exact_role_map(evidence, witnesses)
+        self.assertTrue(solved.ranked)
+        self.assertLessEqual(calls.call_count, 2)
+        self.assertTrue(all(FsbtxWitnessMatcher().matches(world, witnesses)
+                            for world, _ in solved.ranked))
+
     def test_btx11_public_setup_produces_valid_worlds(self):
         from tragedy_sim.ismcts import PublicStateDeterminizer
         scenario = ScenarioLibrary().get('official-btx-11-neverending-happy-sad-story')
