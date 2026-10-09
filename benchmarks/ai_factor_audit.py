@@ -31,7 +31,8 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
                 nodes: int = 8, expected_digest: str | None = None,
                 disabled_witness_sources: tuple[str, ...] = (),
                 capture_action_worlds: bool = False,
-                independent_dark_history: bool = False) -> dict[str, Any]:
+                independent_dark_history: bool = False,
+                disable_incident_escape: bool = False) -> dict[str, Any]:
     scenario = ScenarioLibrary().get(scenario_id)
     truth = HiddenWorldHypothesis.from_scenario(scenario)
     matcher = FsbtxWitnessMatcher()
@@ -45,6 +46,11 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
     original_choose = ParticleEnsembleProtagonistAgent.choose_action
     original_sample = FactorizedBeliefState.sample
     original_determinize = PublicStateDeterminizer.determinize
+    original_escape_targets = ParticleEnsembleProtagonistAgent._incident_escape_targets
+
+    def observed_escape_targets(view, evidence, witnesses):
+        return (() if disable_incident_escape else
+                original_escape_targets(view, evidence, witnesses))
 
     def observed_choose(self, *, participant, view, offers):
         nonlocal active_context
@@ -124,7 +130,9 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
     with (patch.object(ParticleEnsembleProtagonistAgent, 'choose_action',
                        observed_choose),
           patch.object(FactorizedBeliefState, 'sample', observed_sample),
-          patch.object(PublicStateDeterminizer, 'determinize', observed_determinize)):
+          patch.object(PublicStateDeterminizer, 'determinize', observed_determinize),
+          patch.object(ParticleEnsembleProtagonistAgent, '_incident_escape_targets',
+                       staticmethod(observed_escape_targets))):
         match = play(scenario_id, seed, 2, 8, 'fixed', 'particle_ensemble',
                      protagonist_nodes=nodes, protagonist_particles=worlds,
                      disabled_witness_sources=disabled_witness_sources)
@@ -135,6 +143,7 @@ def audit_match(scenario_id: str, seed: int, *, worlds: int = 32,
         'truth_setup': asdict(truth),
         'worlds_requested': worlds, 'decision_digest': match.decision_digest,
         'independent_dark_history': independent_dark_history,
+        'disable_incident_escape': disable_incident_escape,
         'disabled_witness_sources': disabled_witness_sources,
         'winner': match.winner,
         'final_guess_correct': sum(row.correct for row in match.final_guesses),
@@ -240,6 +249,8 @@ def main() -> None:
                         help='save authorized roots and sampled hidden hypotheses offline')
     parser.add_argument('--independent-dark-history', action='store_true',
                         help='ablate coherent past-reveal proposals')
+    parser.add_argument('--disable-incident-escape', action='store_true',
+                        help='ablate hard-evidence Murder victim movement proposals')
     parser.add_argument('--disable-witness-source', action='append', default=[])
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
@@ -252,7 +263,8 @@ def main() -> None:
                              nodes=args.nodes, expected_digest=args.expected_digest,
                              disabled_witness_sources=disabled,
                              capture_action_worlds=args.capture_action_worlds,
-                             independent_dark_history=args.independent_dark_history)
+                             independent_dark_history=args.independent_dark_history,
+                             disable_incident_escape=args.disable_incident_escape)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2),

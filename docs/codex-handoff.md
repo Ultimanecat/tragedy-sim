@@ -12,6 +12,10 @@ BTX10 seed 1、8 候选/32 世界转为第 4 轮直接红胜；两项各自消�
 BTX04/08 seed 1 保持黑胜 7/9，FS01 seed 1 保持红胜。全量 553 项测试通过。
 `ai_factor_audit --capture-action-worlds` 可保存根观察和采样暗牌／身份联合细节，
 `--independent-dark-history` 可关闭新历史提议。仅是离线开发报告，禁止进入玩家界面／公开 replay。
+继续接续：FS01 seed 0 的第二轮谋杀日缺少移动已知关键人物的候选，新增硬证据引导的逃离候选后红胜，
+`--disable-incident-escape` 完整复现旧败局。候选预算保持不变，无额外奖励；555 项测试通过。
+发现 `LoopLossRecord.happened_incidents` 只收集失败命令的新增事件，会漏此前决策已公开的事件。
+完整观察／witness 无此遗漏，下一切片先修正离线报告的每轮汇总，再继续强黑方对照。
 本文下方摘要表属于加入该组件前的历史基线，最新结果与接续项见 [校准审计](ai-cutoff-calibration.md)和 [路线图](future-roadmap.md)。
 
 ## 先读什么

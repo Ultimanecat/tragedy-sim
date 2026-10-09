@@ -87,6 +87,57 @@ class ParticleEnsembleTests(unittest.TestCase):
         urgent["characters"]["girl"]["paranoia"] = 3
         self.assertEqual(targets(urgent, evidence, (hard,)), ("girl",))
 
+    def test_murder_escape_uses_public_schedule_and_hard_critical_role(self):
+        view = Game(ScenarioLibrary().get(
+            "official-fs-01-first-script")).protagonist_team_view()
+        evidence = PublicEvidence.from_view(view)
+        view["round"] = 2
+        hard = PublicWitness("role_is", "girl", "key", 1, 2,
+                             "incident", "test", WitnessStrength.HARD)
+        soft = PublicWitness("role_is", "girl", "key", 1, 2,
+                             "incident", "test", WitnessStrength.SOFT)
+        targets = ParticleEnsembleProtagonistAgent._incident_escape_targets
+        self.assertEqual(targets(view, evidence, (hard,)), ("girl",))
+        self.assertEqual(targets(view, evidence, (soft,)), ())
+        self.assertEqual(targets(view, evidence, ()), ())
+        view["known_roles"] = {"girl": {"role": "key", "loop": 1, "day": 2},
+                               "doctor": {"role": "brain", "loop": 1, "day": 2}}
+        self.assertEqual(targets(view, evidence, ()), ("girl",))
+        view["characters"]["girl"]["action_targetable"] = False
+        self.assertEqual(targets(view, evidence, (hard,)), ())
+        view["characters"]["girl"]["action_targetable"] = True
+        view["characters"]["girl"]["alive"] = False
+        self.assertEqual(targets(view, evidence, (hard,)), ())
+        view["characters"]["girl"]["alive"] = True
+        view["round"] = 3  # Suicide needs culprit-counter defense, not relocation.
+        self.assertEqual(targets(view, evidence, (hard,)), ())
+
+    def test_murder_escape_is_joint_legal_and_within_candidate_budget(self):
+        game = protagonist_position()
+        game.state.round = 2
+        game.state.characters["girl"].location = "city"
+        game.known_roles["girl"] = {"role": "key", "loop": 1, "day": 2}
+        game.known_culprits[2] = "worker"
+        agent = ParticleEnsembleProtagonistAgent(
+            SearchBudget(node_limit=8, seed=0), particle_count=4, rng_seed=0)
+        offers = [_policy_offer(game, action)
+                  for action in game.action_offers(game.controller)]
+        chosen = agent.choose_action(
+            participant="team", view=game.protagonist_team_view(), offers=offers)
+        self.assertIn(chosen, offers)
+        candidates = agent.last_trace.root_actions
+        self.assertLessEqual(len(candidates), 8)
+        escapes = [row["bundle"] for row in candidates
+                   if any(command.get("target") == "girl"
+                          and command.get("card") in ("h", "v", "d")
+                          for command in row["bundle"])]
+        self.assertTrue(escapes)
+        for bundle in escapes:
+            self.assertEqual(len(bundle), 3)
+            self.assertEqual(sum(command["target"] == "girl"
+                                 for command in bundle), 1)
+            self.assertIsNotNone(agent._apply_bundle(game, bundle))
+
     def test_time_traveler_screening_uses_witness_intersection(self):
         witnesses = (
             PublicWitness("role_pressure", "time_traveler",

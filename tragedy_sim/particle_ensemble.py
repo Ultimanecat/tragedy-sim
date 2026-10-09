@@ -111,6 +111,29 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
         return tuple(targets)
 
     @staticmethod
+    def _incident_escape_targets(view: Mapping[str, Any],
+                                 evidence: PublicEvidence,
+                                 witnesses: Sequence[Any]) -> tuple[str, ...]:
+        """Known loss-critical people worth moving on a public Murder day.
+
+        The culprit's paranoia can exceed what one -1 card can repair. Keep
+        victim relocation in the finite proposal pool as a separate defense.
+        This only proposes actions; the common-world simulation ranks them.
+        """
+        if (int(view["round"]), "murder") not in evidence.schedule:
+            return ()
+        roles = {cid: fact.get("role") if isinstance(fact, Mapping) else fact
+                 for cid, fact in view.get("known_roles", {}).items()}
+        roles.update({w.subject: w.value for w in witnesses
+                      if w.strength == WitnessStrength.HARD
+                      and w.kind == "role_is"})
+        return tuple(cid for cid, character in view.get("characters", {}).items()
+                     if roles.get(cid) in {"key", "friend"}
+                     and character.get("alive", False)
+                     and character.get("present", False)
+                     and character.get("action_targetable", True))
+
+    @staticmethod
     def _time_traveler_candidates(witnesses: Sequence[Any]) -> tuple[str, ...]:
         sets = []
         for witness in witnesses:
@@ -410,6 +433,35 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             if incident_proposals:
                 break
         proposals.update(incident_proposals)
+        escape_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
+        for cid in (self._incident_escape_targets(view, evidence, witnesses)
+                    if limit > 1 else ()):
+            for card in ("h", "v", "d"):
+                found = False
+                for base in tuple(proposals.values()):
+                    # Replace an existing placement on this character first;
+                    # adding a second one would violate the daily target rule.
+                    slots = sorted(range(len(base)), key=lambda slot:
+                                   base[slot].get("target") != cid)
+                    for slot in slots:
+                        anchored = [dict(item) for item in base]
+                        anchored[slot] = {**anchored[slot], "card": card,
+                                          "target": cid}
+                        bundle = tuple(anchored)
+                        if (_key(bundle[0]) not in offers_by_key
+                                or self._apply_bundle(worlds[0], bundle) is None):
+                            continue
+                        signature = _key(bundle)
+                        if signature not in proposals:
+                            escape_proposals.setdefault(signature, bundle)
+                        found = True
+                        break
+                    if found:
+                        break
+                if len(escape_proposals) >= min(2, max(0, limit - 1)):
+                    break
+            if len(escape_proposals) >= min(2, max(0, limit - 1)):
+                break
         screening_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
         if proposals and traveler_candidates:
             # A second candidate group is warranted by a *large public
@@ -453,9 +505,11 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
                     break
             if len(information_proposals) >= min(2, limit - 1):
                 break
-        if information_proposals or screening_proposals or incident_proposals:
+        if (information_proposals or screening_proposals or incident_proposals
+                or escape_proposals):
             priorities = dict(guard_proposals)
             priorities.update(incident_proposals)
+            priorities.update(escape_proposals)
             priorities.update(screening_proposals)
             priorities.update(information_proposals)
             priorities = dict(list(priorities.items())[:limit])

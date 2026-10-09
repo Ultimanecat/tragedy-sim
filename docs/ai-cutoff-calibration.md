@@ -199,6 +199,57 @@ python -m benchmarks.ai_factor_audit --scenario official-btx-10-prologue --seed 
 python -m benchmarks.ai_factor_audit --scenario official-btx-10-prologue --seed 1 --nodes 8 --worlds 32 --independent-dark-history --output references/ai-calibration/2026-10-09/btx10-history-off.json
 ```
 
+### 2026-10-09：FS01 已知关键人物的谋杀日逃离候选
+
+FS01 标准版 seed 0、固定黑方、8 候选／32 世界的第二轮第 2 天：
+32/32 世界已认定女学生是关键人物、社员是当天谋杀当事人。
+女学生仍在都市与社员同处；已有 8 个组合没有一个移动她。
+降低社员不安不能可靠压到事件阈值以下，禁止移动女学生也无法让她离开危险区域。
+旧候选最高仅 17/32 世界存活，实际再次因女学生死亡失败。
+这是有限候选覆盖缺口，未发现该处引擎规则错误或硬证据错误。
+
+新增纯候选先验：公开预定事件为当天谋杀、硬 witness／合法已知身份确定某人是关键人物或亲友时，
+保留至多两组移动该角色的完整三牌方案。优先替换该角色的原放置，避免同日重复目标，
+逐组用引擎验证手牌和联合合法性，禁区与移动合成由模拟结算。候选总数仍受原预算限制，单候选档保持旧流程；
+移动方向由合法动作和模拟评分决定，不读取实际隐藏身份／暗牌，也不增加奖励或身份约束。
+该先验不用于自杀日；自杀仍需要防守当事人的不安或阻止事件。
+
+同轨迹关键日新增横移／纵移女学生的候选分别 30/32、29/32 存活，横移被选中。
+前面的第 2 轮第 1 天行动不变，随后完成该轮全部 4 天直接红胜。
+使用 `--disable-incident-escape` 关闭新增候选后，败局完整摘要恢复为
+`05b7e3c10fa511aaa294f47e0bc703e2861bfb347e45405fd3049dcdd32f818d`；
+启用后为 `9e1bce1957ba9176682ee5ea7236d8f56a241e9c5fcbaabe3a3e5de9816064df`，
+不捕获世界细节的重跑摘要完全一致。4 世界档 seed 0／1 均红胜；32 世界 seed 0 无采样回退／真值硬冲突。
+历史 FS01 seed 0 曾存在多次源码调整，该消融只证明当前切片的因果效果，未逐提交二分所有历史胜率差异。
+
+审计注意：`LoopLossRecord.happened_incidents` 当前只统计触发失败那条命令新增的事件，
+可能遗漏前一条决策已公开的事件状态。该局记录为空，但完整合法观察明确含有第 1 轮第 2 天
+`incident_status: murder, happened=true`。证据维护读取完整观察，正确锁定社员为当事人。
+报告的每轮摘要需要后续独立修正，不能用空列表推断本轮没有触发事件。
+
+原始资料位于 `references/ai-calibration/2026-10-09/fs01-*incident-escape*.json`，
+包括新旧消融、完整根世界和重复摘要。全剧本共同 seed 1 的结果另外汇总，不能与该定点消融混合为等时间排名。
+全量 555 项测试通过，新增硬／软证据区分、预定时间点、生死／可操作状态及联合候选合法性／预算测试。
+
+全 FS/BTX 标准版共同 seed 1、8 候选／32 世界矩阵（固定黑方，源配置指纹 `717d83680a5deb3e`）
+完成 13/13：FS 2/2 红胜，BTX 8/11 红胜，总计 10/13，全部为直接存活。
+三局终猜黑胜为 BTX02 4/9、BTX04 7/9、BTX08 7/9；所有行动搜索无回退。
+FS01、BTX04/08/10 的摘要保持上一切片同配置结果，因此新增候选没有改变这些 seed 1 代表局的行动。
+其余剧本缺少上一切片完整配对，不把该覆盖矩阵解释为单项优化的胜率提升。
+随后将公开已知身份的读取规范化为正式的 `{role, loop, day}` 对象格式，补充相应测试；
+最终源码另做全 13 剧本的 4 世界矩阵及 FS01 seed 0 的 32 世界摘要回归。
+4 世界矩阵指纹 `44a0158bc7cc0354`：FS 2/2、BTX 8/11 红胜，同为 10/13；
+终猜败局为 BTX04 5/9、BTX08 7/9、BTX10 2/9。两档败局分布不同，不能只用合计胜场判断世界数的收益。
+32 世界的 BTX10 防守联合威胁更充分，4 世界的 BTX02 则仍可在这一种子直接存活；
+上述两矩阵分开留档，不将字段规范化前后的不同源码视为严格的同源码预算消融。
+资料目录 `references/ai-calibration/2026-10-09/incident-escape-matrix/`。
+这些是一组种子的固定工作量覆盖数据，不能作为总体棋力或等时间排名。
+
+```powershell
+python -m benchmarks.ai_factor_audit --scenario official-fs-01-first-script --seed 0 --nodes 8 --worlds 32 --capture-action-worlds --output references/ai-calibration/2026-10-09/fs01-escape-on.json
+python -m benchmarks.ai_factor_audit --scenario official-fs-01-first-script --seed 0 --nodes 8 --worlds 32 --disable-incident-escape --output references/ai-calibration/2026-10-09/fs01-escape-off.json
+```
+
 ### 历史：8 候选档与世界覆盖审计
 
 共同种子扩展采用修复后的统一源码，仅标准难度的 13 个 FS/BTX 剧本、seed 1/2；红方固定 8 候选，分别使用 4／32 世界。每一对保持剧本、种子、黑方、horizon 不变，串行采集，保留完整摘要与实际工作量。此次固定黑方仅用于候选／世界覆盖诊断；更强黑方采用 `strategic` 对 `joint --joint-reply-model belief` 的独立等墙钟实验，不能合并为一个胜率。资料目录 `references/ai-calibration/2026-09-26/paired-seeds/`。结果完成后检查新增胜／退化、搜索回退、硬约束真值兼容和最终猜测路径，再决定下一阶段。
