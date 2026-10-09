@@ -1175,6 +1175,9 @@ class FactorizedBeliefState:
                             if cid != "irregular" and role not in domains[cid]:
                                 compatible = False
                                 break
+                            if cid == "irregular" and role not in irregular_options:
+                                compatible = False
+                                break
                             merged[cid] = role
                         fixed_counts = Counter(role for cid, role in merged.items()
                                                if cid != "irregular")

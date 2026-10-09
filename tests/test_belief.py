@@ -22,6 +22,33 @@ from tragedy_sim.witness_rules.common_public import compile_public_reveals
 
 
 class FactorizedBeliefTests(unittest.TestCase):
+    def test_map_prunes_unavailable_irregular_roles_before_expanding_suffix(self):
+        game = Game(ScenarioLibrary().get("official-btx-08-mirror-passcode"))
+        evidence = replace(PublicEvidence.from_view(game.protagonist_team_view()),
+                           known_plots=("sign", "unknown", "virus"))
+        witnesses = tuple(PublicWitness(
+            "role_pressure", "key", {"candidates": (cid,)},
+            1, 1, "test", "test", WitnessStrength.SOFT)
+            for cid in evidence.characters if cid != "irregular")
+        expanded = []
+
+        class CountedRoutes(tuple):
+            def __iter__(self):
+                expanded.append(1)
+                return super().__iter__()
+
+        def alternatives(witness, main, plots):
+            cid = witness.value["candidates"][0]
+            # Key is selected by Sign, so Irregular cannot have this role.
+            return CountedRoutes(({"irregular": "key", cid: "ordinary"}, {}))
+
+        with patch.object(FactorizedBeliefState, "_soft_realizations",
+                          side_effect=alternatives):
+            solved = FactorizedBeliefState().exact_role_map(evidence, witnesses)
+        self.assertTrue(solved.ranked)
+        self.assertLessEqual(len(expanded), len(witnesses))
+        self.assertNotEqual(dict(solved.selected.roles)["irregular"], "key")
+
     def test_loop_end_realizations_cover_plot_predicates_and_aliases(self):
         from tragedy_sim.witness_rules.common_loop_end import loop_end_realizations
 
