@@ -96,7 +96,8 @@ def main() -> None:
                         protagonist_time_limit_ms=args.protagonist_ms,
                         protagonist_particles=args.protagonist_particles,
                         joint_reply_model=args.joint_reply_model,
-                        joint_information_weight=args.joint_information_weight)
+                        joint_information_weight=args.joint_information_weight,
+                        capture_fallback_contexts=args.trace)
                 finally:
                     if args.slow_trace_seconds is not None:
                         faulthandler.cancel_dump_traceback_later()
@@ -127,6 +128,10 @@ def main() -> None:
                                                for item in match.mastermind_plays]
                     row["loop_losses_detail"] = [asdict(item)
                                                  for item in match.loop_losses]
+                    row["protagonist_plays"] = [asdict(item) for item in match.protagonist_plays]
+                    row["protagonist_searches"] = [asdict(item) for item in match.protagonist_searches]
+                    row["final_guesses"] = [asdict(item) for item in match.final_guesses]
+                    row["fallback_contexts"] = match.protagonist_fallback_contexts
                 results.append(row)
                 save_progress()
                 if not args.json:

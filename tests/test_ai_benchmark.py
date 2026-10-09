@@ -18,9 +18,29 @@ from benchmarks.ai_self_play import (MatchResult, ProtagonistPlayRecord,
                                     ProtagonistSearchRecord, _ability_usage,
                                     _loop_loss_record, play)
 from tragedy_sim.scenario_library import ScenarioLibrary
+from tragedy_sim.belief import FactorizedBeliefResult, FactorizedBeliefState
 
 
 class AbilityUsageTests(unittest.TestCase):
+    def test_fallback_capture_is_opt_in_authorized_and_does_not_change_actions(self):
+        failed = FactorizedBeliefResult((), 0, (), "no_compatible_factor")
+        with patch.object(FactorizedBeliefState, "sample", return_value=failed):
+            plain = play("official-fs-01-first-script", 0, 2, 8, "fixed",
+                         "particle_ensemble", protagonist_nodes=8, protagonist_particles=4)
+            captured = play("official-fs-01-first-script", 0, 2, 8, "fixed",
+                            "particle_ensemble", protagonist_nodes=8, protagonist_particles=4,
+                            capture_fallback_contexts=True)
+        self.assertEqual(plain.decision_digest, captured.decision_digest)
+        self.assertEqual(plain.protagonist_fallback_contexts, ())
+        self.assertTrue(captured.protagonist_fallback_contexts)
+        for context in captured.protagonist_fallback_contexts:
+            self.assertEqual(context["view"]["phase"], "protagonists")
+            self.assertNotIn("secret", context["view"])
+            self.assertIsNone(context["view"].get("world"))
+            self.assertTrue(all(item.get("card") is None for item in context["view"]["pending"]
+                                if item["actor"] == "m"))
+            self.assertTrue(context["truth_setup"]["roles"])
+
     def test_loop_loss_collects_prior_decisions_without_other_loops_or_future(self):
         loss = {"kind": "loop_lost", "loop": 2, "round": 3}
         events = [

@@ -159,6 +159,7 @@ class MatchResult:
     ability_usage: tuple[AbilityUsageRecord, ...] = ()
     protagonist_horizon: str = "day"
     decision_digest: str = ""
+    protagonist_fallback_contexts: tuple[dict[str, Any], ...] = ()
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -267,6 +268,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          protagonist_particles: int | None = None,
          joint_reply_model: str = "public",
          joint_information_weight: float = 0.02,
+         capture_fallback_contexts: bool = False,
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     library = ScenarioLibrary()
@@ -344,6 +346,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     protagonist_plays: list[ProtagonistPlayRecord] = []
     mastermind_plays: list[MastermindPlayRecord] = []
     protagonist_searches: list[ProtagonistSearchRecord] = []
+    protagonist_fallback_contexts: list[dict[str, Any]] = []
     protagonist_evidence_ms = protagonist_search_ms = 0.0
     started = perf_counter()
     decision_hash = hashlib.sha256()
@@ -400,6 +403,20 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                 command["card"], command["target"]))
         if command.get("action") == "play" and command.get("actor") != "m":
             trace = getattr(protagonists[command["actor"]], "last_trace", None)
+            if (capture_fallback_contexts and trace is not None
+                    and getattr(trace, "fallback", None) in {
+                        "no_compatible_factor", "composition_invalid", "no_particles",
+                        "no_legal_bundle"}):
+                # Offline diagnostics only: authorized input plus original
+                # truth for constraint checks, never a player-facing replay.
+                protagonist_fallback_contexts.append({
+                    "loop": game.state.loop, "day": game.state.round,
+                    "actor": command["actor"], "reason": trace.fallback,
+                    "view": (game.protagonist_team_view() if team_policy
+                             else game.view(command["actor"])),
+                    "truth_setup": asdict(HiddenWorldHypothesis.from_scenario(scenario)),
+                    "trace": asdict(trace),
+                })
             protagonist_evidence_ms += getattr(
                 trace, "evidence_elapsed_ms", 0.0)
             protagonist_search_ms += getattr(trace, "search_elapsed_ms", 0.0)
@@ -513,6 +530,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         protagonist_search_seconds=protagonist_search_ms / 1000,
         ability_usage=_ability_usage(game.state.events),
         decision_digest=decision_hash.hexdigest(),
+        protagonist_fallback_contexts=tuple(protagonist_fallback_contexts),
         protagonist_horizon=(oracle_horizon if protagonist_strategy in {
             "oracle_cards", "oracle_script", "particle_ensemble"} else "day"))
 
