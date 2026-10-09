@@ -262,6 +262,28 @@ class AbilityUsageTests(unittest.TestCase):
              records[0].refused, records[0].no_effect),
             (2, 1, 1, 1))
 
+    def test_mastermind_matrix_preserves_completed_match_when_next_fails(self):
+        completed = MatchResult(
+            "official-fs-01-first-script", "FS01", "FS", 2, "standard",
+            "strategic", "particle_ensemble", 0, "mastermind", 1, 1, 1, 0.1)
+        with (TemporaryDirectory() as folder,
+              patch("sys.argv", ["ai_mastermind_matrix", "--scenario",
+                                 "official-fs-01-first-script", "--games", "1",
+                                 "--output", str(Path(folder) / "report.json")]),
+              patch.object(ai_mastermind_matrix, "play",
+                           side_effect=[completed, RuntimeError("interrupted")]),
+              patch.object(ai_mastermind_matrix, "source_digest",
+                           side_effect=["starting-sources", "later-sources"]) as digest,
+              redirect_stdout(StringIO())):
+            with self.assertRaisesRegex(RuntimeError, "interrupted"):
+                ai_mastermind_matrix.main()
+            saved = json.loads((Path(folder) / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(saved["progress"],
+                             {"completed": 1, "planned": 2, "complete": False})
+            self.assertEqual(saved["sources"], "starting-sources")
+            self.assertEqual(len(saved["results"]), 1)
+            self.assertEqual(digest.call_count, 1)
+
     def test_discovers_concrete_loop_difficulty_groups(self):
         groups = difficulty_groups(ScenarioLibrary(), "BTX")
         mirror = next(item for item in groups

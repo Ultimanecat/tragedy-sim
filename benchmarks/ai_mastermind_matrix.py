@@ -57,7 +57,22 @@ def main() -> None:
     if not 0 <= args.joint_information_weight <= 0.1:
         parser.error("joint information weight must be between 0 and 0.1")
     scenarios = args.scenarios or DEFAULT_SCENARIOS
+    sources = source_digest()
     results = []
+    def report_snapshot():
+        planned = len(scenarios) * args.games * 2
+        return {'schema_version': 2, 'sources': sources,
+                'settings': {**vars(args), 'output': str(args.output) if args.output else None},
+                'progress': {'completed': len(results), 'planned': planned,
+                             'complete': len(results) == planned},
+                'results': results}
+
+    def save_progress():
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            write_report(args.output, report_snapshot())
+
+    save_progress()
     for scenario in scenarios:
         for seed in range(args.seed, args.seed + args.games):
             # Alternating execution order reduces systematic warm-cache bias.
@@ -102,6 +117,7 @@ def main() -> None:
                     row["loop_losses_detail"] = [asdict(item)
                                                  for item in match.loop_losses]
                 results.append(row)
+                save_progress()
                 if not args.json:
                     print(f"{scenario} seed={seed} {strategy}: {match.winner}, "
                           f"guess={row['final_correct']}/{row['final_total']}, "
@@ -114,12 +130,7 @@ def main() -> None:
                                                     ensure_ascii=False), flush=True)
                         print("  loop_losses=" + json.dumps(
                             row["loop_losses_detail"], ensure_ascii=False), flush=True)
-    report = {'schema_version': 2, 'sources': source_digest(),
-              'settings': {**vars(args), 'output': str(args.output) if args.output else None},
-              'results': results}
-    if args.output:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        write_report(args.output, report)
+    report = report_snapshot()
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
     else:
