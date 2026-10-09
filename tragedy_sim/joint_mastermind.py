@@ -320,6 +320,11 @@ class JointPlanMastermindAgent(JointCardDecisionProvider, StrategicMctsMastermin
                 initial_view = self._red_reply_view(
                     game, game, game.protagonist_team_view().get("events", ()))
                 evaluator._root_entropy = evaluator._role_entropy(initial_view)
+            if deadline is not None:
+                # Public-history/entropy preprocessing has already consumed
+                # wall time. Do not grant the reply the stale earlier cap.
+                remaining_ms = max(1, int((deadline - perf_counter()) * 1000))
+                reply_limit = min(reply_limit, max(1, remaining_ms // 150))
             policy = (ParticleEnsembleProtagonistAgent(
                 SearchBudget(node_limit=min(reply_limit, 8), rollout_depth=6,
                              time_limit_ms=remaining_ms, seed=seed),

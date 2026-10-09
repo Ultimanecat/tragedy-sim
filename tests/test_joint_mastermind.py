@@ -130,6 +130,32 @@ class JointMastermindTests(unittest.TestCase):
         self.assertIsInstance(score, float)
         self.assertEqual(len(seen_views), 3)
 
+    def test_belief_reply_refreshes_shared_deadline_after_entropy_work(self):
+        game = Game(ScenarioLibrary().get("official-btx-04-young-womens-battlefield"))
+        game = game.search_transition(game.search_actions("m")[0])
+        agent = JointPlanMastermindAgent(SearchBudget(node_limit=4), reply_model="belief")
+        bundle = agent._candidate(game, 0, random.Random(0))
+        clock = [100.0]
+        budgets = []
+
+        def entropy(evaluator, view):
+            clock[0] = 100.8
+            return 0.5
+
+        def policy(budget, **kwargs):
+            budgets.append(budget)
+            return SimpleNamespace(choose_action=lambda **call: call["offers"][0])
+
+        with (patch("tragedy_sim.joint_mastermind.perf_counter", side_effect=lambda: clock[0]),
+              patch.object(_PublicReplyEvaluator, "_role_entropy", new=entropy),
+              patch("tragedy_sim.joint_mastermind.ParticleEnsembleProtagonistAgent",
+                    side_effect=policy),
+              patch.object(_PublicReplyEvaluator, "_day_score", return_value=(0.0, True))):
+            agent._evaluate(game, bundle, 0, deadline=101.0)
+        self.assertEqual(len(budgets), 1)
+        self.assertLessEqual(budgets[0].time_limit_ms, 201)
+        self.assertLessEqual(budgets[0].node_limit, 1)
+
     def test_public_reply_stops_before_final_guess_without_script_peek(self):
         evaluator = _PublicReplyEvaluator(SearchBudget(), 0)
         self.assertFalse(evaluator.script_aware_rollout)
