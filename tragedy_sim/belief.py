@@ -545,6 +545,13 @@ class ConstraintBeliefSampler:
                     alternatives.extend((str(actor), "ordinary") for actor in
                                         witness.value.get("virus_ordinary", ()))
                 groups.append(alternatives)
+            elif witness.kind == "loop_end_plot_explanation":
+                from .witness_rules.common_loop_end import loop_end_realizations
+                routes = loop_end_realizations(str(witness.subject), str(plots[0]), witness.value)
+                if not routes:
+                    return None
+                if {} not in routes:
+                    groups.append([next(iter(route.items())) for route in routes])
         # Constrain the most selective facts first.  Randomize equal choices
         # without allowing an unlucky first assignment to reject a valid setup.
         groups.sort(key=len)
@@ -952,6 +959,9 @@ class FactorizedBeliefState:
                            plots: Sequence[str]) -> tuple[dict[str, str], ...]:
         """Small constructive alternatives that can satisfy one soft factor."""
         value = witness.value
+        if witness.kind == "loop_end_plot_explanation":
+            from .witness_rules.common_loop_end import loop_end_realizations
+            return loop_end_realizations(str(witness.subject), main, value)
         if witness.kind == "mastermind_ability_route":
             if set(value.get("plots", ())) & {main, *plots}:
                 return ({},)
@@ -1127,7 +1137,7 @@ class FactorizedBeliefState:
                 for witness in role_witnesses
                 if witness.strength == WitnessStrength.HARD
                 and witness.kind in {"mastermind_ability_route",
-                                     "mandatory_serial_route"}}
+                                     "mandatory_serial_route", "loop_end_plot_explanation"}}
             realization_groups = tuple(
                 self._soft_realizations(witness, main, plots)
                 for witness in (*unique_soft.values(), *hard_routes.values()))

@@ -7,6 +7,31 @@ from typing import Any, Mapping
 from ..witness_types import PublicWitness, WitnessStrength
 
 
+def loop_end_realizations(module: str, main: str,
+                          value: Mapping[str, Any]) -> tuple[dict[str, str], ...]:
+    """Construct the role assignments that explain a normal loop-end loss."""
+    boards = value.get("location_intrigue", {})
+    if module == "FS" and main == "protect":
+        return ({},) if boards.get("school", 0) >= 2 else ()
+    if module == "BTX" and main == "sealed":
+        return ({},) if boards.get("shrine", 0) >= 2 else ()
+    if module == "BTX" and main == "change":
+        return ({},) if value.get("butterfly_happened") else ()
+    if module == "BTX" and main == "sign":
+        candidates = [cid for cid, amount in value.get("character_intrigue", {}).items()
+                      if amount >= 2]
+        role = "key"
+    elif (module == "FS" and main == "avenger"
+          or module == "BTX" and main == "bomb"):
+        candidates = [cid for cid, board in value.get("initial_locations", {}).items()
+                      if boards.get(board, 0) >= 2]
+        role = "brain" if main == "avenger" else "witch"
+    else:
+        return ()
+    return tuple({"part_timer" if cid == "part_timer_question" else str(cid): role}
+                 for cid in candidates)
+
+
 def compile_loop_end_clues(view: Mapping[str, Any]) -> list[PublicWitness]:
     """A normal loss needs a plot explanation; ambiguous clues stay soft."""
     module = view.get("module")

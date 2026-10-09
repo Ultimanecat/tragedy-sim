@@ -190,37 +190,13 @@ class FsbtxWitnessMatcher:
                 return WitnessVerdict.SATISFIED
             return WitnessVerdict.CONTRADICTED
         if witness.kind == "loop_end_plot_explanation":
-            value = witness.value
-            boards = value.get("location_intrigue", {})
-            characters = value.get("character_intrigue", {})
-            initial = value.get("initial_locations", {})
-
-            def role_of(cid: str) -> str | None:
-                return roles.get("part_timer" if cid == "part_timer_question"
-                                 else cid)
-
-            main = hypothesis.main_plot
-            if witness.subject == "FS":
-                explained = (
-                    main == "protect" and boards.get("school", 0) >= 2
-                    or main == "avenger" and any(
-                        role_of(str(cid)) == "brain"
-                        and boards.get(location, 0) >= 2
-                        for cid, location in initial.items()))
-            elif witness.subject == "BTX":
-                explained = (
-                    main == "sealed" and boards.get("shrine", 0) >= 2
-                    or main == "sign" and any(
-                        role_of(str(cid)) == "key" and intrigue >= 2
-                        for cid, intrigue in characters.items())
-                    or main == "change" and bool(
-                        value.get("butterfly_happened"))
-                    or main == "bomb" and any(
-                        role_of(str(cid)) == "witch"
-                        and boards.get(location, 0) >= 2
-                        for cid, location in initial.items()))
-            else:
+            if witness.subject not in {"FS", "BTX"}:
                 return WitnessVerdict.UNKNOWN
+            from .witness_rules.common_loop_end import loop_end_realizations
+            routes = loop_end_realizations(witness.subject, hypothesis.main_plot,
+                                           witness.value)
+            explained = any(all(roles.get(cid) == role for cid, role in route.items())
+                            for route in routes)
             return (WitnessVerdict.SATISFIED if explained
                     else WitnessVerdict.CONTRADICTED)
         if witness.kind == "incident_not_happened":

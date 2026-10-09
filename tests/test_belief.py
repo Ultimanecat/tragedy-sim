@@ -22,6 +22,38 @@ from tragedy_sim.witness_rules.common_public import compile_public_reveals
 
 
 class FactorizedBeliefTests(unittest.TestCase):
+    def test_loop_end_realizations_cover_plot_predicates_and_aliases(self):
+        from tragedy_sim.witness_rules.common_loop_end import loop_end_realizations
+
+        value = {"location_intrigue": {"school": 2, "shrine": 1},
+                 "initial_locations": {"girl": "school", "doctor": "hospital"},
+                 "character_intrigue": {"part_timer_question": 2, "girl": 1},
+                 "butterfly_happened": True}
+        cases = (("FS", "protect", ({},)),
+                 ("FS", "avenger", ({"girl": "brain"},)),
+                 ("BTX", "sealed", ()),
+                 ("BTX", "sign", ({"part_timer": "key"},)),
+                 ("BTX", "bomb", ({"girl": "witch"},)),
+                 ("BTX", "change", ({},)),
+                 ("BTX", "murder_plan", ()))
+        for module, main, expected in cases:
+            with self.subTest(module=module, main=main):
+                self.assertEqual(loop_end_realizations(module, main, value), expected)
+
+    def test_exact_map_constructs_a_hard_loop_end_sign_explanation(self):
+        game = Game(ScenarioLibrary().get("official-btx-08-mirror-passcode"))
+        evidence = replace(PublicEvidence.from_view(game.protagonist_team_view()),
+                           known_plots=("sign", "unknown", "virus"))
+        witness = PublicWitness("loop_end_plot_explanation", "BTX", {
+            "location_intrigue": {}, "character_intrigue": {"girl": 2},
+            "initial_locations": {}, "butterfly_happened": False,
+        }, 1, 7, "loop_end", "test")
+        self.assertTrue(FsbtxWitnessMatcher().matches(
+            HiddenWorldHypothesis.from_scenario(game.scenario), (witness,)))
+        solved = FactorizedBeliefState().exact_role_map(evidence, (witness,))
+        self.assertTrue(solved.ranked)
+        self.assertEqual(dict(solved.selected.roles)["girl"], "key")
+
     def test_exact_map_merges_equivalent_witness_prefixes_and_role_overcounts(self):
         game = Game(ScenarioLibrary().get("official-fs-01-first-script"))
         evidence = replace(PublicEvidence.from_view(game.protagonist_team_view()),
