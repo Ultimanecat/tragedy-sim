@@ -45,6 +45,25 @@ class LoopLossRecord:
     happened_incidents: tuple[tuple[int, str], ...]
 
 
+def _loop_loss_record(events, lost, reasons) -> LoopLossRecord:
+    """Summarize this whole loop up to its loss, across decision boundaries."""
+    loop = int(lost["loop"])
+    observed = []
+    for event in events:
+        if int(event.get("loop", -1)) == loop:
+            observed.append(event)
+        if event is lost:
+            break
+    deaths = tuple(dict.fromkeys(
+        str(event["target"]) for event in observed
+        if event.get("kind") == "character_died" and "target" in event))
+    incidents = tuple(
+        (int(event["round"]), str(event["incident"]))
+        for event in observed
+        if event.get("kind") == "incident_status" and event.get("happened"))
+    return LoopLossRecord(loop, tuple(reasons), deaths, incidents)
+
+
 @dataclass(frozen=True)
 class FinalGuessRecord:
     character: str
@@ -460,15 +479,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         if lost is not None:
             reasons = tuple(game.loss_reasons[reason_cursor:])
             reason_cursor = len(game.loss_reasons)
-            deaths = tuple(dict.fromkeys(
-                str(event["target"]) for event in new_loop_events
-                if event.get("kind") == "character_died" and "target" in event))
-            incidents = tuple(
-                (int(event["round"]), str(event["incident"]))
-                for event in new_loop_events
-                if event.get("kind") == "incident_status" and event.get("happened"))
-            loop_losses.append(LoopLossRecord(
-                int(lost["loop"]), reasons, deaths, incidents))
+            loop_losses.append(_loop_loss_record(game.state.events, lost, reasons))
         decisions += 1
     if game.winner is None:
         raise RuntimeError("match exceeded 1500 decisions")

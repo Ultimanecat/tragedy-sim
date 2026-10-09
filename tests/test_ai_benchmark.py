@@ -15,11 +15,44 @@ from benchmarks.ai_path_calibration import cross_validated_paths
 from benchmarks.ai_difficulty_matrix import (difficulty_groups, paired_outcomes,
                                              summarize, wilson_interval)
 from benchmarks.ai_self_play import (MatchResult, ProtagonistPlayRecord,
-                                    ProtagonistSearchRecord, _ability_usage, play)
+                                    ProtagonistSearchRecord, _ability_usage,
+                                    _loop_loss_record, play)
 from tragedy_sim.scenario_library import ScenarioLibrary
 
 
 class AbilityUsageTests(unittest.TestCase):
+    def test_loop_loss_collects_prior_decisions_without_other_loops_or_future(self):
+        loss = {"kind": "loop_lost", "loop": 2, "round": 3}
+        events = [
+            {"kind": "character_died", "loop": 1, "target": "old"},
+            {"kind": "incident_status", "loop": 1, "round": 2,
+             "incident": "murder", "happened": True},
+            {"kind": "incident_status", "loop": 2, "round": 2,
+             "incident": "murder", "happened": True},
+            {"kind": "character_died", "loop": 2, "target": "doctor"},
+            {"kind": "incident_status", "loop": 2, "round": 3,
+             "incident": "suicide", "happened": False},
+            {"kind": "character_died", "loop": 2, "target": "girl"},
+            {"kind": "character_died", "loop": 2, "target": "doctor"},
+            loss,
+            {"kind": "character_died", "loop": 2, "target": "later"},
+        ]
+        record = _loop_loss_record(events, loss, ("key died",))
+        self.assertEqual(record.loop, 2)
+        self.assertEqual(record.reasons, ("key died",))
+        self.assertEqual(record.deaths, ("doctor", "girl"))
+        self.assertEqual(record.happened_incidents, ((2, "murder"),))
+
+    def test_real_fs_loss_reports_murder_from_an_earlier_command(self):
+        result = play("official-fs-01-first-script", 0, 2, 8, "fixed",
+                      "particle_ensemble", protagonist_nodes=8,
+                      protagonist_particles=4)
+        self.assertTrue(result.loop_losses)
+        self.assertEqual(result.loop_losses[0].happened_incidents, ((2, "murder"),))
+        self.assertIn("girl", result.loop_losses[0].deaths)
+        self.assertEqual(result.decision_digest,
+                         "e002cfd2383d2cf2a4c96e7c449ff26163e8f72055a061bc943ddc7acfe6543c")
+
     def test_calibration_records_actual_world_counts_and_placement_work(self):
         result = MatchResult(
             scenario_id="test", scenario_title="test", module="BTX", loops=3,
