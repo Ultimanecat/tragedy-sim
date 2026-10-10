@@ -277,16 +277,18 @@ class RoomServiceTests(unittest.TestCase):
         self.assertEqual(updated["room"]["seats"]["a"]["nickname"],
                          "公开信息防守主人公 AI")
 
-    def test_risk_aware_protagonist_ai_is_selectable(self):
+    def test_retired_room_ai_returns_explicit_error(self):
         rooms = RoomService()
-        created = rooms.create({"module": "BTX", "nickname": "Host", "seat": "m"})
-        updated = rooms.set_ai(created["room"]["code"], {
-            "seat": "a", "enabled": True, "strategy": "risk_aware_protagonist",
-        }, token=created["credential"]["admin_token"])
-        self.assertEqual(updated["room"]["seats"]["a"]["ai_type"],
-                         "risk_aware_protagonist")
-        self.assertEqual(updated["room"]["seats"]["a"]["nickname"],
-                         "历史风险主人公 AI")
+        created = rooms.create({"module": "BTX", "nickname": "Host", "seat": "m",
+                                "protagonist_count": 1})
+        for strategy in ("risk_aware_protagonist", "ismcts_protagonist",
+                         "survival_ismcts_protagonist", "ismcts_legacy_protagonist"):
+            with self.subTest(strategy=strategy), self.assertRaises(ServiceError) as error:
+                rooms.set_ai(created["room"]["code"], {
+                    "seat": "a", "enabled": True, "strategy": strategy,
+                }, token=created["credential"]["admin_token"])
+            self.assertEqual(error.exception.code, "AI_STRATEGY_RETIRED")
+        self.assertIsNone(rooms._rooms[created["room"]["code"]].seats["a"])
 
     def test_script_oracle_modes_are_fs_btx_team_only(self):
         for module in ("FS", "BTX"):
@@ -314,59 +316,6 @@ class RoomServiceTests(unittest.TestCase):
                 "seat": "a", "enabled": True,
                 "strategy": "oracle_script_protagonist",
             }, token=room["credential"]["admin_token"])
-
-    def test_ismcts_protagonist_ai_is_selectable(self):
-        rooms = RoomService()
-        created = rooms.create({"module": "BTX", "nickname": "Host", "seat": "m",
-                                "protagonist_count": 1})
-        updated = rooms.set_ai(created["room"]["code"], {
-            "seat": "a", "enabled": True, "strategy": "ismcts_protagonist",
-        }, token=created["credential"]["admin_token"])
-        self.assertEqual(updated["room"]["seats"]["a"]["ai_type"],
-                         "ismcts_protagonist")
-
-        self.assertEqual(updated["room"]["seats"]["a"]["nickname"],
-                         "团队 ISMCTS 主人公 AI")
-        policy = rooms._rooms[created["room"]["code"]].seats["a"].ai_policy
-        self.assertTrue(policy.controls_protagonist_team)
-
-        survival = RoomService()
-        survival_room = survival.create({
-            "module": "FS", "nickname": "Host", "seat": "m",
-            "protagonist_count": 1})
-        survival_seat = survival.set_ai(survival_room["room"]["code"], {
-            "seat": "a", "enabled": True,
-            "strategy": "survival_ismcts_protagonist",
-        }, token=survival_room["credential"]["admin_token"])
-        self.assertEqual(survival_seat["room"]["seats"]["a"]["ai_type"],
-                         "survival_ismcts_protagonist")
-        self.assertTrue(survival._rooms[survival_room["room"]["code"]]
-                        .seats["a"].ai_policy.survival_first)
-
-        comparison = RoomService()
-        older = comparison.create({
-            "module": "BTX", "nickname": "Host", "seat": "m",
-            "protagonist_count": 1})
-        legacy = comparison.set_ai(older["room"]["code"], {
-            "seat": "a", "enabled": True,
-            "strategy": "ismcts_legacy_protagonist",
-        }, token=older["credential"]["admin_token"])
-        self.assertEqual(legacy["room"]["seats"]["a"]["ai_type"],
-                         "ismcts_legacy_protagonist")
-        self.assertTrue(comparison._rooms[older["room"]["code"]]
-                        .seats["a"].ai_policy.legacy_joint_search)
-
-        separate = RoomService()
-        three_player = separate.create({
-            "module": "BTX", "nickname": "Host", "seat": "m",
-            "protagonist_count": 3})
-        with self.assertRaises(ServiceError) as invalid:
-            separate.set_ai(three_player["room"]["code"], {
-                "seat": "a", "enabled": True,
-                "strategy": "ismcts_protagonist",
-            }, token=three_player["credential"]["admin_token"])
-        self.assertEqual(invalid.exception.code,
-                         "TEAM_AI_REQUIRES_TWO_PLAYER_MODE")
 
     def test_particle_ensemble_is_fs_btx_team_only(self):
         rooms = RoomService()

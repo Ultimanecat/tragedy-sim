@@ -36,25 +36,43 @@ function GameAsset({ src, className, draggable }: { src?: string; className?: st
     onError={event => { event.currentTarget.hidden = true; }} />;
 }
 
-function AiSeatPicker({ seat, module, protagonistCount, busy, onAssign }: {
+export function AiSeatPicker({ seat, module, protagonistCount, busy, onAssign }: {
   seat: Seat; module: ModuleId; protagonistCount: number; busy: boolean;
   onAssign: (strategy: AiStrategy) => void;
 }) {
   const choices = availableAiChoices(seat, module, protagonistCount);
-  const [selected, setSelected] = useState<AiStrategy>(seat === "m" ? "strategic_mcts_mastermind" : "defensive_protagonist");
+  const [showDevelopment, setShowDevelopment] = useState(false);
+  const [selected, setSelected] = useState<AiStrategy>(seat === "m" ? (module === "FS" || module === "BTX" ? "joint_mastermind" : "fixed_mastermind") : "defensive_protagonist");
   const current = choices.find(choice => choice.id === selected) ?? choices[0];
+  const visibleChoices = choices.filter(choice => choice.id !== "belief_joint_mastermind"
+    && (showDevelopment || choice.group !== "实验与对照"));
+  const joint = current.id === "joint_mastermind" || current.id === "belief_joint_mastermind";
   return <div className="ai-picker">
     <label>填入 AI
       <select aria-label={`${seat === "m" ? "剧作家" : `主人公 ${seat.toUpperCase()}`} AI 策略`}
-        value={current.id} onChange={event => setSelected(event.target.value as AiStrategy)}>
+        value={joint ? "joint_mastermind" : current.id} onChange={event => setSelected(event.target.value as AiStrategy)}>
         {(["推荐试玩", "其他策略", "实验与对照", "开眼测试"] as const).map(group => {
-          const grouped = choices.filter(choice => choice.group === group);
+          const grouped = visibleChoices.filter(choice => choice.group === group);
           return grouped.length ? <optgroup key={group} label={group}>
             {grouped.map(choice => <option key={choice.id} value={choice.id}>{choice.label}</option>)}
           </optgroup> : null;
         })}
       </select>
     </label>
+    {joint && <label>主人公回应模型
+      <select aria-label="主人公回应模型" value={current.id}
+        onChange={event => setSelected(event.target.value as AiStrategy)}>
+        <option value="joint_mastermind">公开信息（轻量）</option>
+        {module === "BTX" && <option value="belief_joint_mastermind">信念采样（较慢）</option>}
+      </select>
+    </label>}
+    {seat === "m" && <label><input type="checkbox" checked={showDevelopment}
+      onChange={event => {
+        setShowDevelopment(event.target.checked);
+        if (!event.target.checked && current.group === "实验与对照" && !joint) {
+          setSelected(module === "FS" || module === "BTX" ? "joint_mastermind" : "fixed_mastermind");
+        }
+      }} />显示开发对照</label>}
     <p>{current.description}</p>
     <button disabled={busy} onClick={() => onAssign(current.id)}>添加 AI</button>
   </div>;

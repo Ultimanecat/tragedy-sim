@@ -3,10 +3,11 @@ import { AI_CHOICES, availableAiChoices, scenarioOptionLabel } from "./lobbyChoi
 
 describe("lobby choices", () => {
   it("documents every AI strategy with a unique label and explanation", () => {
-    expect(AI_CHOICES).toHaveLength(16);
+    expect(AI_CHOICES).toHaveLength(12);
     expect(new Set(AI_CHOICES.map(choice => choice.id)).size).toBe(AI_CHOICES.length);
     expect(AI_CHOICES.every(choice => choice.label && choice.description)).toBe(true);
-    expect(AI_CHOICES.find(choice => choice.id === "risk_aware_protagonist")?.description).toContain("并非最强");
+    expect(AI_CHOICES.some(choice => String(choice.id).includes("ismcts"))).toBe(false);
+    expect(AI_CHOICES.filter(choice => choice.group === "开眼测试").every(choice => choice.label.includes("开眼"))).toBe(true);
   });
 
   it("filters strategies by role, module, and team size", () => {

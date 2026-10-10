@@ -9,19 +9,8 @@ from threading import Condition, RLock
 import time
 from typing import Any
 
-from .ai import (AgentPolicy, BaselineProtagonistAgent, DefensiveProtagonistAgent,
-                 RiskAwareProtagonistAgent,
-                 FixedStrategyMastermindAgent, RandomAgent)
-from .mcts import FullInformationMctsMastermindAgent
-from .optimized_mcts import OptimizedMctsMastermindAgent
-from .strategic_mcts import StrategicMctsMastermindAgent
-from .joint_mastermind import JointPlanMastermindAgent
-from .ismcts import (IsmctsProtagonistAgent, LegacyIsmctsProtagonistAgent,
-                     SurvivalIsmctsProtagonistAgent)
-from .oracle_protagonist import (FullCardOracleProtagonistAgent,
-                                 HiddenCardOracleProtagonistAgent)
-from .particle_ensemble import ParticleEnsembleProtagonistAgent
-from .search import SearchBudget
+from .ai import AgentPolicy, RandomAgent
+from .ai_registry import ROOM_AI, RETIRED_ROOM_AI, build_room_ai
 from .catalog import MODULES
 from .service import GameService, PROTOCOL_VERSION, SEATS, ServiceError
 
@@ -313,124 +302,39 @@ class RoomService:
         if type(request["enabled"]) is not bool:
             raise ServiceError("INVALID_REQUEST", "enabled 必须是布尔值")
         strategy = request.get("strategy", "random")
-        mastermind_strategies = {
-            "fixed_mastermind", "mcts_mastermind", "optimized_mcts_mastermind",
-            "strategic_mcts_mastermind", "joint_mastermind",
-            "belief_joint_mastermind"}
-        protagonist_strategies = {
-            "baseline_protagonist", "defensive_protagonist", "risk_aware_protagonist",
-            "ismcts_protagonist", "ismcts_legacy_protagonist",
-            "survival_ismcts_protagonist", "oracle_cards_protagonist",
-            "oracle_script_protagonist", "particle_ensemble_protagonist"}
-        if strategy not in ("random", *mastermind_strategies, *protagonist_strategies):
-            raise ServiceError(
-                "INVALID_AI_STRATEGY",
-                "未知 AI 策略")
-        if strategy in mastermind_strategies and seat != "m":
+        if isinstance(strategy, str) and strategy in RETIRED_ROOM_AI:
+            raise ServiceError("AI_STRATEGY_RETIRED",
+                               "该实验 AI 已退出房间选择，请使用粒子集成或公开信息防守", status=409)
+        spec = ROOM_AI.get(strategy) if isinstance(strategy, str) else None
+        if spec is None:
+            raise ServiceError("INVALID_AI_STRATEGY", "未知 AI 策略")
+        if spec.role == "mastermind" and seat != "m":
             raise ServiceError("INVALID_AI_STRATEGY", "剧作家策略 AI 只能坐在剧作家席位", status=409)
-        if strategy in protagonist_strategies and seat == "m":
-            raise ServiceError("INVALID_AI_STRATEGY", "基础干扰主人公 AI 只能坐在主人公席位", status=409)
+        if spec.role == "protagonist" and seat == "m":
+            raise ServiceError("INVALID_AI_STRATEGY", "主人公 AI 只能坐在主人公席位", status=409)
         room = self._room(code)
         with room.lock:
             self._require_admin(room, token)
             if room.status != "waiting":
                 raise ServiceError("ROOM_ALREADY_STARTED", "对局开始后不能更改 AI 座位", status=409)
-            if (request["enabled"] and strategy in {"oracle_cards_protagonist",
-                                                     "oracle_script_protagonist",
-                                                     "particle_ensemble_protagonist"}
-                    and room.module not in {"FS", "BTX"}):
-                raise ServiceError("INVALID_AI_STRATEGY", "该主人公 AI 目前只支持 FS/BTX", status=409)
-            if (request["enabled"] and strategy == "joint_mastermind"
-                    and room.module not in {"FS", "BTX"}):
-                raise ServiceError("INVALID_AI_STRATEGY", "三牌联合剧作家 AI 目前只支持 FS/BTX", status=409)
-            if (request["enabled"] and strategy == "belief_joint_mastermind"
-                    and room.module != "BTX"):
-                raise ServiceError("INVALID_AI_STRATEGY", "信念采样剧作家 AI 目前只支持 BTX", status=409)
+            if request["enabled"] and spec.modules is not None and room.module not in spec.modules:
+                raise ServiceError("INVALID_AI_STRATEGY",
+                                   "该 AI 目前只支持 " + "/".join(sorted(spec.modules)), status=409)
             required = ("m", *SEATS[1:1 + room.protagonist_count])
             if seat not in required:
                 raise ServiceError("SEAT_UNAVAILABLE", "该人数模式没有这个参与者席位", status=409)
-            if (request["enabled"] and strategy in {"ismcts_protagonist",
-                                                   "survival_ismcts_protagonist",
-                                                   "ismcts_legacy_protagonist",
-                                                   "oracle_cards_protagonist",
-                                                   "oracle_script_protagonist",
-                                                   "particle_ensemble_protagonist"}
-                    and room.protagonist_count != 1):
-                raise ServiceError(
-                    "TEAM_AI_REQUIRES_TWO_PLAYER_MODE",
-                    "团队 ISMCTS 主人公 AI 需要选择 1 名主人公玩家（两人局）",
-                    status=409)
+            if request["enabled"] and spec.team_only and room.protagonist_count != 1:
+                raise ServiceError("TEAM_AI_REQUIRES_TWO_PLAYER_MODE",
+                                   "团队主人公 AI 需要选择 1 名主人公玩家（两人局）", status=409)
             occupant = room.seats[seat]
             if request["enabled"]:
                 if occupant is not None:
                     raise ServiceError("SEAT_OCCUPIED", "该座位已经有人", status=409)
                 room.seats[seat] = _Occupant(
-                    nickname=("随机 AI" if strategy == "random" else
-                              "基础干扰主人公 AI" if strategy == "baseline_protagonist" else
-                              "公开信息防守主人公 AI" if strategy == "defensive_protagonist" else
-                              "历史风险主人公 AI" if strategy == "risk_aware_protagonist" else
-                              "团队 ISMCTS 主人公 AI" if strategy == "ismcts_protagonist" else
-                              "当日生存优先 ISMCTS 主人公 AI" if strategy == "survival_ismcts_protagonist" else
-                              "旧版团队 ISMCTS 主人公 AI" if strategy == "ismcts_legacy_protagonist" else
-                              "明牌剧本主人公 AI" if strategy == "oracle_cards_protagonist" else
-                              "暗牌剧本主人公 AI" if strategy == "oracle_script_protagonist" else
-                              "粒子集成主人公 AI" if strategy == "particle_ensemble_protagonist" else
-                              "定式剧作家 AI" if strategy == "fixed_mastermind" else
-                              "朴素 MCTS 剧作家 AI" if strategy == "mcts_mastermind"
-                              else "优化 MCTS 剧作家 AI" if strategy == "optimized_mcts_mastermind"
-                              else "三牌联合剧作家 AI" if strategy == "joint_mastermind"
-                              else "信念采样剧作家 AI" if strategy == "belief_joint_mastermind"
-                              else "策略 MCTS 剧作家 AI"),
+                    nickname=spec.nickname,
                     token=secrets.token_urlsafe(24), ready=True,
                     last_seen=self._clock(), ai=True, ai_type=strategy,
-                    ai_policy=(self._ai_agent if strategy == "random" else
-                               BaselineProtagonistAgent()
-                               if strategy == "baseline_protagonist" else
-                               DefensiveProtagonistAgent()
-                               if strategy == "defensive_protagonist" else
-                               RiskAwareProtagonistAgent()
-                               if strategy == "risk_aware_protagonist" else
-                               IsmctsProtagonistAgent(
-                                   SearchBudget(node_limit=384, rollout_depth=24),
-                                   particle_count=64)
-                               if strategy == "ismcts_protagonist" else
-                               SurvivalIsmctsProtagonistAgent(
-                                   SearchBudget(node_limit=384, rollout_depth=24),
-                                   particle_count=64)
-                               if strategy == "survival_ismcts_protagonist" else
-                               LegacyIsmctsProtagonistAgent(
-                                   SearchBudget(node_limit=96, rollout_depth=16),
-                                   particle_count=24)
-                               if strategy == "ismcts_legacy_protagonist" else
-                               FullCardOracleProtagonistAgent(
-                                   SearchBudget(node_limit=48, rollout_depth=24))
-                               if strategy == "oracle_cards_protagonist" else
-                               HiddenCardOracleProtagonistAgent(
-                                   SearchBudget(node_limit=48, rollout_depth=24))
-                               if strategy == "oracle_script_protagonist" else
-                               ParticleEnsembleProtagonistAgent(
-                                   SearchBudget(node_limit=24, rollout_depth=12,
-                                                time_limit_ms=3000),
-                                   particle_count=12)
-                               if strategy == "particle_ensemble_protagonist" else
-                               FixedStrategyMastermindAgent()
-                               if strategy == "fixed_mastermind" else
-                               FullInformationMctsMastermindAgent(
-                                   SearchBudget(node_limit=24, rollout_depth=12))
-                               if strategy == "mcts_mastermind" else
-                               OptimizedMctsMastermindAgent(
-                                   SearchBudget(node_limit=24, rollout_depth=12))
-                               if strategy == "optimized_mcts_mastermind" else
-                               JointPlanMastermindAgent(
-                                   SearchBudget(node_limit=24, rollout_depth=12))
-                               if strategy == "joint_mastermind" else
-                               JointPlanMastermindAgent(
-                                   SearchBudget(node_limit=96, rollout_depth=12,
-                                                time_limit_ms=10000),
-                                   reply_model="belief")
-                               if strategy == "belief_joint_mastermind" else
-                               StrategicMctsMastermindAgent(
-                                   SearchBudget(node_limit=24, rollout_depth=12))),
+                    ai_policy=build_room_ai(strategy, random_agent=self._ai_agent),
                 )
                 self._bump(room)
             elif occupant is not None:

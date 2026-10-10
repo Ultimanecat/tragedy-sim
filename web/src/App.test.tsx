@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Actions, AnimatedCounter, Board, PublicLog } from "./App";
+import { Actions, AiSeatPicker, AnimatedCounter, Board, PublicLog } from "./App";
 import { actionHint, eventPresentation } from "./presentation";
 import { abilityUseName } from "./display";
 import { parseReplayTimeline } from "./replay";
@@ -12,6 +12,29 @@ const catalog = catalogFixture as unknown as CatalogResponse;
 const game = viewFixture.state as unknown as GameView;
 
 describe("local game components", () => {
+  it("configures the joint reply model and keeps development baselines collapsed", () => {
+    const assign = vi.fn();
+    render(<AiSeatPicker seat="m" module="BTX" protagonistCount={1} busy={false} onAssign={assign} />);
+    expect(screen.queryByRole("option", { name: "朴素 MCTS" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("主人公回应模型"), { target: { value: "belief_joint_mastermind" } });
+    fireEvent.click(screen.getByRole("button", { name: "添加 AI" }));
+    expect(assign).toHaveBeenLastCalledWith("belief_joint_mastermind");
+    fireEvent.click(screen.getByLabelText("显示开发对照"));
+    expect(screen.getByRole("option", { name: "朴素 MCTS" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("剧作家 AI 策略"), { target: { value: "mcts_mastermind" } });
+    fireEvent.click(screen.getByLabelText("显示开发对照"));
+    fireEvent.click(screen.getByRole("button", { name: "添加 AI" }));
+    expect(assign).toHaveBeenLastCalledWith("joint_mastermind");
+  });
+
+  it("exposes both explicitly labeled oracle modes and only public replies in FS", () => {
+    const fs = render(<AiSeatPicker seat="m" module="FS" protagonistCount={1} busy={false} onAssign={vi.fn()} />);
+    expect(screen.queryByRole("option", { name: "信念采样（较慢）" })).not.toBeInTheDocument();
+    fs.unmount();
+    render(<AiSeatPicker seat="a" module="FS" protagonistCount={1} busy={false} onAssign={vi.fn()} />);
+    expect(screen.getAllByRole("option", { name: /开眼红方/ })).toHaveLength(2);
+  });
+
   it("shows recent logs across loops and keeps every record accessible through filters", () => {
     const events = Array.from({ length: 15 }, (_, index) => ({
       loop: index < 10 ? 1 : 2, round: 1, phase: "day_end", timing: "day_end",

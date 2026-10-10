@@ -1,6 +1,6 @@
-# AI 模式收敛建议（2026-10-10，待确认）
+# AI 模式收敛（2026-10-10）
 
-本文只提出收敛方案。当前未删除或隐藏 AI，未修改房间策略 ID。后续任务顺序见 [路线图](future-roadmap.md)。
+用户已授权实施。当前已提取公共信念规划层，并收敛大厅／房间入口；历史算法暂留开发基准。下表保留分类理由，实施状态以本段及 [路线图](future-roadmap.md)为准：12 个房间 ID；四个旧实验 ID 返回 `AI_STRATEGY_RETIRED`；三种单步黑方搜索折叠到开发对照；两个联合 ID 由大厅回应模型选项统一配置。
 
 ## 当前入口与建议
 
@@ -20,11 +20,11 @@
 | 优先退出独立入口 | `ismcts_protagonist`、`survival_ismcts_protagonist` | 早期团队／当日生存分支；当前粒子集成覆盖主要发展方向。冻结旧基准后可停止维护独立算法分支。 |
 | 保留内部模型 | `risk_aware_protagonist` | 历史风险仍用于联合黑方的公开回应估计；建议退出大厅独立入口，保留内部用途和必要对照。 |
 
-收敛后日常界面可保留 7 个策略家族，加上两种明确标注的开眼红方，另设开发对照区。朴素／优化基线仍可选择用于对弈比较，具体是否隐藏大厅入口需用户确认。开眼红方保留前端入口已获用户确认，其余收敛方案仍待确认。
+日常保留随机、定式、基础干扰、公开防守、粒子集成、联合黑方，加上两种明确标注的开眼红方。策略／朴素／优化 MCTS 通过“显示开发对照”仍可选择。内部公共组件不占用大厅策略名。
 
 ## 删除前必须处理的依赖
 
-- `ParticleEnsembleProtagonistAgent` 继承 `IsmctsProtagonistAgent`，复用采样、命令执行、联合计划和终猜等能力。移除旧入口可以先做；删旧模块需先提取公共规划／信念组件。
+- `ParticleEnsembleProtagonistAgent` 已解除对 `IsmctsProtagonistAgent` 的继承，公共观察、世界重建、命令执行、trace 与终猜移至 `belief_planner.py`。旧 ISMCTS 也复用该层，仍保留历史基准与回归。
 - `JointPlanMastermindAgent` 继承 `StrategicMctsMastermindAgent`，后者继承 `OptimizedMctsMastermindAgent`。先确认继承能力的实际调用，逐步组合化，避免删掉主线需要的搜索基础。
 - `RiskAwareProtagonistAgent` 继承公开防守，参与联合黑方回应；基础干扰和公开防守也被多个续演／回退路径复用。
 - 两种联合黑方共用类，回复模型适合作为配置。两种 Oracle 的观察权限不同，需保留明确区分。
