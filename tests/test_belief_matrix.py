@@ -41,6 +41,60 @@ class BeliefMatrixTests(unittest.TestCase):
         self.assertEqual(projection.role_exists["key"].hard_status, HardStatus.ALWAYS)
         self.assertIn("unit_test", projection.roles["boy"]["key"].sources)
 
+    def test_incident_snapshot_thresholds_are_shared_with_sampler(self):
+        from tragedy_sim.belief import FactorizedBeliefState, PublicEvidence
+        snapshot = {cid: {"paranoia": 0, "alive": True, "present": True}
+                    for cid in self.view["characters"]}
+        snapshot["girl"]["paranoia"] = 99
+        fact = witness("incident_happened", "2", {"kind": "suicide", "characters": snapshot})
+        projection = BeliefMatrixProjection.from_view(self.view, (fact,))
+        self.assertEqual(projection.culprits["2"]["girl"].hard_status, HardStatus.ALWAYS)
+        self.assertEqual(projection.culprits["2"]["boy"].hard_status, HardStatus.NEVER)
+        self.assertIn("unit_test", projection.culprits["2"]["girl"].sources)
+        evidence = PublicEvidence.from_view({**self.view, "days": 2, "loops": 2})
+        self.assertEqual(FactorizedBeliefState()._culprits(evidence, (fact,)), {2: ("girl",)})
+        # Current counters can change; the recorded triggering snapshot stays authoritative.
+        changed = deepcopy(self.view)
+        changed["characters"]["boy"]["paranoia"] = 99
+        self.assertEqual(BeliefMatrixProjection.from_view(changed, (fact,)).culprits,
+                         projection.culprits)
+
+    def test_ai_threshold_uses_all_counters(self):
+        view = {**self.view, "characters": {"ai": {}, "girl": {}}}
+        fact = witness("incident_happened", "2", {"kind": "suicide", "characters": {
+            "ai": {"paranoia": 0, "goodwill": 99, "intrigue": 0, "guard": 0},
+            "girl": {"paranoia": 0}}})
+        projection = BeliefMatrixProjection.from_view(view, (fact,))
+        self.assertEqual(projection.culprits["2"]["ai"].hard_status, HardStatus.ALWAYS)
+
+    def test_soft_absence_and_missing_snapshot_do_not_exclude(self):
+        for fact in (
+            witness("incident_not_happened", "2", {"kind": "suicide"}, WitnessStrength.SOFT),
+            witness("incident_happened", "2", {"kind": "suicide"})):
+            with self.subTest(fact=fact):
+                projection = BeliefMatrixProjection.from_view(self.view, (fact,))
+                self.assertTrue(all(cell.hard_status == HardStatus.UNKNOWN
+                                    for cell in projection.culprits["2"].values()))
+
+    def test_replacement_culprit_maps_to_initial_cast(self):
+        from tragedy_sim.belief_culprit_constraints import culprit_domains
+        view = {**self.view, "characters": {"part_timer": {}, "part_timer_question": {}, "girl": {}}}
+        facts = (witness("culprit_is", "2", "part_timer_question"),
+                 witness("incident_happened", "2", {"kind": "suicide", "characters": {
+                     "part_timer": {"paranoia": 0, "alive": False},
+                     "part_timer_question": {"paranoia": 99, "present": True},
+                     "girl": {"paranoia": 0}}}))
+        projection = BeliefMatrixProjection.from_view(view, facts)
+        self.assertEqual(projection.culprits["2"]["part_timer"].hard_status, HardStatus.ALWAYS)
+        self.assertEqual(culprit_domains(("girl", "part_timer"), ((2, "suicide"),), {}, facts),
+                         {2: ("part_timer",)})
+
+    def test_impossible_incident_snapshot_is_explicit_contradiction(self):
+        fact = witness("incident_happened", "2", {"kind": "suicide", "characters": {
+            cid: {"paranoia": 0} for cid in self.view["characters"]}})
+        with self.assertRaises(BeliefContradiction):
+            BeliefMatrixProjection.from_view(self.view, (fact,))
+
     def test_disjunction_does_not_become_independent_facts(self):
         fact = witness("role_pressure", "key", {"candidates": ["girl", "boy"]})
         before = deepcopy(fact.value)

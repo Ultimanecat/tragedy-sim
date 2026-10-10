@@ -831,30 +831,10 @@ class FactorizedBeliefState:
 
     def _culprits(self, evidence: PublicEvidence,
                   witnesses: Sequence[Any]) -> dict[int, tuple[str, ...]]:
-        from .witness import FsbtxWitnessMatcher, WitnessVerdict
+        from .belief_culprit_constraints import culprit_domains
 
-        matcher = FsbtxWitnessMatcher()
-        known = dict(evidence.known_culprits)
-        result: dict[int, tuple[str, ...]] = {}
-        for day, public_kind in evidence.schedule:
-            day_witnesses = tuple(w for w in witnesses if w.kind in {
-                "culprit_is", "culprit_in", "incident_happened",
-                "incident_not_happened"}
-                and int(w.subject) == day)
-            candidates = []
-            for cid in evidence.characters:
-                if day in known and known[day] != cid:
-                    continue
-                # The incident matcher reads only the one event tuple here.
-                candidate = HiddenWorldHypothesis(
-                    "belief-culprit", "", (), (),
-                    ((day, public_kind, public_kind, cid),))
-                if all(w.strength != "hard" or matcher.verdict(
-                        candidate, w) != WitnessVerdict.CONTRADICTED
-                       for w in day_witnesses):
-                    candidates.append(cid)
-            result[day] = tuple(candidates)
-        return result
+        return culprit_domains(evidence.characters, evidence.schedule,
+                               dict(evidence.known_culprits), witnesses)
 
     def role_posterior(self, evidence: PublicEvidence,
                        witnesses: Sequence[Any]

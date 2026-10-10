@@ -168,23 +168,21 @@ class BeliefMatrixProjection:
                     sources[cid].append("plot_role_count_constraints")
                 domains[cid].intersection_update(supported)
         roles = _matrix(values, domains, sources, role_counts)
-        culprit_domains = {str(item["day"]): set(domains)
-                           for item in view.get("schedule", ())}
-        culprit_sources = {day: [] for day in culprit_domains}
-        for day, cid in view.get("known_culprits", {}).items():
-            if str(day) in culprit_domains:
-                culprit_domains[str(day)].intersection_update({_subject(cid)})
-                culprit_sources[str(day)].append("public_culprit_reveal")
+        from .belief_culprit_constraints import CULPRIT_WITNESS_KINDS, culprit_domains
+        known = {int(day): _subject(cid) for day, cid in view.get("known_culprits", {}).items()}
+        incident_domains = {str(day): set(candidates) for day, candidates in culprit_domains(
+            tuple(domains), tuple((int(item["day"]), str(item["kind"]))
+                                  for item in view.get("schedule", ())), known, witnesses).items()}
+        culprit_sources = {day: (["public_culprit_reveal"] if int(day) in known else [])
+                           for day in incident_domains}
         for witness in witnesses:
-            if witness.strength == WitnessStrength.HARD and witness.subject in culprit_domains:
-                if witness.kind in {"culprit_is", "culprit_in"}:
-                    allowed = ({witness.value} if witness.kind == "culprit_is" else set(witness.value))
-                    culprit_domains[witness.subject].intersection_update(map(_subject, allowed))
-                    culprit_sources[witness.subject].append(witness.source)
-        for day, domain in culprit_domains.items():
+            if (witness.strength == WitnessStrength.HARD and witness.subject in incident_domains
+                    and witness.kind in CULPRIT_WITNESS_KINDS):
+                culprit_sources[witness.subject].append(witness.source)
+        for day, domain in incident_domains.items():
             if not domain:
                 raise BeliefContradiction(f"Empty culprit domain: {day}")
-        culprits = _matrix(tuple(domains), culprit_domains, culprit_sources,
+        culprits = _matrix(tuple(domains), incident_domains, culprit_sources,
                            culprit_counts, column_key="day")
         disjunctions = []
         for witness in witnesses:

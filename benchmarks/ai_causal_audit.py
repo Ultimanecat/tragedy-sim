@@ -145,6 +145,7 @@ def audit_row(row, *, compare=False, nodes=8, worlds=12, time_limit_ms=1000,
                 trail.record_samples(view, sample.get("belief_roles", ()), options,
                                      sample.get("particles", 0),
                                      culprit_counts=sample.get("belief_culprits", ()),
+                                     witnesses=ledger.witnesses,
                                      dark_counts=sample.get("belief_dark_cards", ()),
                                      placement_tendencies=sample.get("placement_tendencies", ()))
             if game.state.round in probe_days:
