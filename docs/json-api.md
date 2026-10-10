@@ -43,6 +43,9 @@ GET /v1/catalog/{module}?lang=en
 `scenarios` 只返回剧本 ID、标题、规则集、天数、轮回数和来源类型，不返回身份、规则组合或事件当事人。
 卡面有多个轮回数时，服务会返回独立的标准 / Easy / Very Easy 条目；每个 ID 对应唯一轮回数，便于房间、回放和
 AI 基准准确复现难度。
+`source` 当前只区分 `tutorial` 与 `library`；官方／社区、有／无特殊规则的采集标记保存在
+`scenarios/sources/tragic-aiplay/collection-index.json`，可玩社区本的标题带分类文字。
+目录仅发现 `scenarios/` 顶层 JSON；`sources/` 中的资料索引和未支持配置均不加入大厅，也不返回其秘密内容。
 其余目录包含模块能力、地点、计数物、规则、身份、事件、角色和双方行动牌定义，前端不需要导入 Python 目录。
 
 创建教学对局：

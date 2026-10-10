@@ -6,20 +6,44 @@ import unittest
 from tragedy_sim.engine import RuleError
 from tragedy_sim.game import Game
 from tragedy_sim.scenario import example_scenario
-from tragedy_sim.scenario_library import ScenarioLibrary
+from tragedy_sim.scenario_library import DEFAULT_SCENARIO_ROOT, ScenarioLibrary
 
 
 class ScenarioLibraryTests(unittest.TestCase):
-    def test_bundled_official_scripts_all_validate_and_start(self):
+    def test_bundled_scripts_and_every_loop_variant_validate_and_start(self):
         library = ScenarioLibrary()
-        official = [item for item in library.list() if item["source"] == "library"]
-        self.assertEqual(len(official), 40)
-        self.assertEqual({item["module"] for item in official}, {"FS", "BTX", "MZ", "MC"})
-        self.assertTrue(all(item["loops"] in item["loop_options"] for item in official))
-        for item in official:
+        bundled = [item for item in library.list() if item["source"] == "library"]
+        expected = {}
+        for path in DEFAULT_SCENARIO_ROOT.glob("*.json"):
+            raw = json.loads(path.read_text(encoding="utf-8-sig"))
+            for suffix, loops in zip(("", "-easy", "-very-easy"),
+                                     raw.get("loop_options", [raw["loops"]]), strict=False):
+                expected[raw["id"] + suffix] = (raw["module"], loops)
+        self.assertTrue(expected)
+        self.assertCountEqual([item["id"] for item in bundled], expected)
+        for item in bundled:
             with self.subTest(item["id"]):
+                self.assertEqual((item["module"], item["loops"]), expected[item["id"]])
+                self.assertEqual(item["loop_options"], [item["loops"]])
                 game = Game(library.get(item["id"]))
                 self.assertEqual(game.scenario["id"], item["id"])
+
+    def test_nested_source_archives_are_not_discovered(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scenario = example_scenario("FS")
+            scenario.update(id="playable-fs", title="可玩目录测试")
+            (root / "playable.json").write_text(json.dumps(scenario), encoding="utf-8")
+            archive = root / "sources" / "community"
+            archive.mkdir(parents=True)
+            (archive / "unimplemented.json").write_text(
+                json.dumps({"id": "unsupported-source", "loops": "无限", "cast": {"仙人": "自定义身份"}}),
+                encoding="utf-8")
+            library = ScenarioLibrary(root)
+            self.assertEqual([item["id"] for item in library.list()
+                              if item["source"] == "library"], ["playable-fs"])
+            with self.assertRaisesRegex(RuleError, "剧本不存在"):
+                library.get("unsupported-source")
 
     def test_loop_choices_are_distinct_difficulty_entries(self):
         library = ScenarioLibrary()

@@ -8,7 +8,7 @@
     "new_playable_loop_variants": 9,
     "new_variants_completed_legal_action_walk": true,
     "all_library_entries_started": 55,
-    "existing_test_count_assertion": "tests/test_scenario_library.py 仍固定期望 40 个条目，当前为 55；本任务仅修改数据文件，未修改测试代码。"
+    "catalog_test_status": "目录测试已依据顶层剧本文件和 loop_options 校验；分类、归档边界和全部社区难度行动漫步纳入回归测试。"
   },
   "counts": {
     "blocked_special_rules": 53,

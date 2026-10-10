@@ -37,8 +37,7 @@ class ScenarioEvaluationContextTests(unittest.TestCase):
         library = ScenarioLibrary()
         scripts = [library.get(item["id"]) for item in library.list()
                    if item["module"] in {"FS", "BTX"} and item["source"] == "library"]
-        self.assertEqual(sum(item["module"] == "FS" for item in scripts), 4)
-        self.assertEqual(sum(item["module"] == "BTX" for item in scripts), 21)
+        self.assertEqual({item["module"] for item in scripts}, {"FS", "BTX"})
         evaluator = ScenarioConditionedEvaluator()
         for script in scripts:
             with self.subTest(script=script["id"]):

@@ -8,7 +8,7 @@
     "new_playable_loop_variants": 6,
     "new_scenarios_validate_and_start": true,
     "library_entry_count_after_import": 46,
-    "existing_test_count_assertion": "tests/test_scenario_library.py 固定期望 40 个目录条目，新增后实际 46；仅该数量断言失败，其余 5 项通过。按本任务只新增数据的限制未修改测试。",
+    "catalog_test_status": "原有固定 40 条断言已改为依据顶层剧本文件和 loop_options 校验；新增导入数据分类与归档边界回归测试。",
     "excluded_content": "未收录玩家信息、认证信息、评论、结局剧情或剧作家指引。"
   },
   "counts": {

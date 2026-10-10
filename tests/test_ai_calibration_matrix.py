@@ -55,7 +55,8 @@ class CalibrationMatrixTests(unittest.TestCase):
                 with (patch("sys.argv", argv), patch("sys.stderr", StringIO()),
                       self.assertRaises(SystemExit)):
                     matrix.main()
-                checkpoint = next(Path(folder).glob("run-*/official*.json"))
+                checkpoint = next(Path(folder).glob(
+                    f"run-*/{calls[0]}-seed*-nodes*.json"))
                 checkpoint.write_text("{}", encoding="utf-8")
                 with (patch("sys.argv", [*argv, "--resume"]),
                       self.assertRaises(ValueError)):
