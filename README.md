@@ -99,6 +99,8 @@ python -m benchmarks.ai_budget_matrix --budgets small --games 2 --seed 0
 主人公资源，并生成私有贡献明细；公开知识只缩小信念世界和服务最终猜测，不直接增加行动估值。其他规则集暂时显式回退旧通用估值。朴素 MCTS 始终保留旧估值，作为性能和棋力对照。
 当前可复现自对弈结果及其限制见 [AI 基准结果](docs/ai-benchmark-results.md)。
 
+FS/BTX 信念现提供共享矩阵投影：硬状态、经验概率、剧情、身份数量与当天暗牌域分开保存，析取及原始 witness 保留。正常提议耗尽且身份库为空时，可从剧情／数量变体构造合法世界恢复；`--disable-matrix-recovery` 可在 self-play 中消融红方恢复，JSON 记录次数。正常提议和终猜 MAP 路径保持；边界与完整对局对照见 [矩阵验证](docs/belief-matrix-validation.md)。
+
 历史 C3 的 FS/BTX 主人公信息集搜索（下述旧 ISMCTS 模式现仅供开发对照）以 `PublicEvidence` 限制信息边界，并把身份/剧本、逐日事件当事人和当前剧作家暗牌分开采样；硬 witness 排除与公开事实矛盾的身份世界，软 witness 只调整权重。两人局团队 AI 由一个实例控制 A/B/C，生成完整三牌候选并跨相容世界比较，再按引擎顺序提交。`survival_ismcts_protagonist` 另以当天结算和样本存活率为首要评价，按公开历史揭牌调整暗牌抽样；这是实验性风险搜索，不提供“所有暗牌必活”的证明。`ismcts_legacy_protagonist` 保留首张搜索、后两张策略补全及旧持续粒子路径供对照。未重建的能力、事件选择回退公开信息防守策略。更多细节见 [AI 阶段性总结](docs/ai-current-state.md)及 [ISMCTS 与 witness 证据设计](docs/ismcts-witness-design.md)。
 
 FS/BTX 另提供 `oracle_cards` / `oracle_script` 主人公诊断基线：两者故意知道完整剧本，并共用三牌联合搜索；前者还知道当天已经放下的剧作家牌面，后者只能从公开目标、手牌约束和公开历史采样牌面。BTX 版会为时间旅行者等已知阈值生成合法的跨日推进候选，并在最终猜测直接提交已知身份。它们不是公平对战 AI，不能与 ISMCTS 的信息集胜率直接比较；BTX 应比较轮回失败次数与失败原因，不能只看最终胜率。

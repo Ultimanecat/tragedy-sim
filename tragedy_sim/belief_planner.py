@@ -126,13 +126,25 @@ class PublicStateDeterminizer:
                                and not (actor == 'm' and card in game.scenario.get(
                                    'special_rules', {}).get('disabled_mastermind_cards', []))]
                        for actor in ACTORS}
+        from .belief_dark_constraints import dark_card_domains
+        from .belief_matrix import BeliefContradiction
+        try:
+            _, slots, _ = dark_card_domains(view)
+        except BeliefContradiction:
+            return None
+        master_index = 0
+        card_domains = {}
+        for index, placement in enumerate(view.get("pending", ())):
+            if placement.get("actor") == "m":
+                card_domains[index] = slots[str(master_index)]
+                master_index += 1
         dark_bundle = DarkCardBelief.sample(
             view.get("pending", ()), state.hands, rng=rng,
             historical_weights=(DarkCardBelief.historical_weights(
                 view.get("events", ()), day=state.round, loop=state.loop,
                 days=int(view.get("days", 4)))
                 if history_prior else None),
-            force_history=force_history,
+            force_history=force_history, card_domains=card_domains,
             historical_cards=(DarkCardBelief.historical_bundle(
                 view.get("pending", ()), state.hands, view.get("events", ()),
                 day=state.round, loop=state.loop)

@@ -717,8 +717,14 @@ class FactorizedBeliefState:
     cannot be counted twice by repeatedly resampling a particle reservoir.
     """
 
-    def __init__(self, *, capacity: int = 192, seed: int = 0):
+    def __init__(self, *, capacity: int = 192, seed: int = 0,
+                 matrix_recovery: bool = True):
+        if type(matrix_recovery) is not bool:
+            raise ValueError("matrix_recovery must be boolean")
         self.capacity = capacity
+        self.matrix_recovery_enabled = matrix_recovery
+        self.matrix_recovery_attempts = 0
+        self.matrix_recovery_worlds = 0
         self.rng = random.Random(seed)
         self.sampler = ConstraintBeliefSampler()
         self._signature: tuple[Any, ...] | None = None
@@ -803,6 +809,17 @@ class FactorizedBeliefState:
             proposed = self.sampler.sample(
                 evidence, min(64, self.capacity), rng=self.rng,
                 witnesses=hard_witnesses, condition_hard=True)
+        if (self.matrix_recovery_enabled and evidence.module in {"FS", "BTX"}
+                and not proposed and not self._roles):
+            from .belief_matrix_sampler import MatrixWorldSampler
+            self.matrix_recovery_attempts += 1
+            proposed = MatrixWorldSampler().sample(
+                evidence, hard_witnesses, min(16, self.capacity), rng=self.rng)
+            self.matrix_recovery_worlds += len(proposed)
+            if proposed:
+                # Once recovery supplies an incomplete proposal reservoir,
+                # do not label it as the old exhaustive small-cast enumeration.
+                self._exact_roles = False
         for world in proposed:
             key = self._key(world)
             if key in self._roles or not matcher.matches(world, role_witnesses):
@@ -1377,6 +1394,7 @@ class DarkCardBelief:
                uniform_fraction: float = 0.25,
                force_history: bool = False,
                historical_cards: Mapping[int, str] | None = None,
+               card_domains: Mapping[int, set[str]] | None = None,
                ) -> tuple[tuple[str, str, str], ...] | None:
         remaining = {actor: list(cards) for actor, cards in hands.items()}
         for index, item in enumerate(pending):
@@ -1392,6 +1410,11 @@ class DarkCardBelief:
             actor = str(item["actor"])
             card = item.get("card") or (historical_cards or {}).get(index)
             available = remaining[actor]
+            if card_domains is not None and index in card_domains:
+                available = [candidate for candidate in available
+                             if candidate in card_domains[index]]
+                if card is not None and card not in card_domains[index]:
+                    return None
             if card is None:
                 if not available:
                     return None
@@ -1410,7 +1433,7 @@ class DarkCardBelief:
                                  for candidate in available], k=1)[0]
                 else:
                     card = rng.choice(available)
-                available.remove(card)
+                remaining[actor].remove(card)
             selected.append((actor, str(card), str(item["target"])))
         return tuple(selected)
 

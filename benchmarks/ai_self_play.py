@@ -164,6 +164,9 @@ class MatchResult:
     decision_digest: str = ""
     protagonist_fallback_contexts: tuple[dict[str, Any], ...] = ()
     replay_text: str | None = None
+    matrix_recovery_enabled: bool = True
+    protagonist_matrix_recovery_attempts: int = 0
+    protagonist_matrix_recovery_worlds: int = 0
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -274,6 +277,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          joint_information_weight: float = 0.02,
          capture_fallback_contexts: bool = False,
          capture_replay: bool = False,
+         matrix_recovery: bool = True,
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     library = ScenarioLibrary()
@@ -322,6 +326,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             disabled_witness_sources=disabled_witness_sources,
             mastermind_policy_samples=mastermind_policy_samples,
             information_reward_weight=information_reward_weight)
+    if team_ismcts is not None and hasattr(team_ismcts, "factorized_belief"):
+        team_ismcts.factorized_belief.matrix_recovery_enabled = matrix_recovery
     protagonists = {
         seat: (team_ismcts if team_ismcts is not None else
                RiskAwareProtagonistAgent(random.Random(f"hero:{seed}:{seat}"))
@@ -544,6 +550,11 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         decision_digest=decision_hash.hexdigest(),
         protagonist_fallback_contexts=tuple(protagonist_fallback_contexts),
         replay_text=replay_text,
+        matrix_recovery_enabled=matrix_recovery,
+        protagonist_matrix_recovery_attempts=getattr(
+            getattr(team_ismcts, "factorized_belief", None), "matrix_recovery_attempts", 0),
+        protagonist_matrix_recovery_worlds=getattr(
+            getattr(team_ismcts, "factorized_belief", None), "matrix_recovery_worlds", 0),
         protagonist_horizon=(oracle_horizon if protagonist_strategy in {
             "oracle_cards", "oracle_script", "particle_ensemble"} else "day"))
 
@@ -612,6 +623,8 @@ def main() -> None:
                         help="print one progress line after each completed match")
     parser.add_argument("--disable-joint-witness", action="store_true",
                         help="ablate BTX plot-role soft correlation witnesses")
+    parser.add_argument("--disable-matrix-recovery", action="store_true",
+                        help="ablate protagonist matrix recovery after legacy proposals are empty")
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
@@ -651,6 +664,7 @@ def main() -> None:
                               time_limit_ms=args.time_limit_ms,
                               protagonist_time_limit_ms=args.protagonist_time_limit_ms,
                               joint_witness=not args.disable_joint_witness,
+                              matrix_recovery=not args.disable_matrix_recovery,
                               disabled_witness_sources=tuple(
                                   args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,

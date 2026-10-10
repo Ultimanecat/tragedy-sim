@@ -22,6 +22,16 @@ from tragedy_sim.belief import FactorizedBeliefResult, FactorizedBeliefState
 
 
 class AbilityUsageTests(unittest.TestCase):
+    def test_matrix_recovery_ablation_is_recorded_without_changing_normal_match(self):
+        results = [play("official-fs-01-first-script", 0, 2, 8, "fixed", "particle_ensemble",
+                        protagonist_nodes=2, protagonist_particles=4, matrix_recovery=enabled)
+                   for enabled in (False, True)]
+        self.assertEqual(results[0].decision_digest, results[1].decision_digest)
+        self.assertFalse(results[0].matrix_recovery_enabled)
+        self.assertTrue(results[1].matrix_recovery_enabled)
+        self.assertEqual(results[0].protagonist_matrix_recovery_attempts, 0)
+        self.assertEqual(results[1].protagonist_matrix_recovery_worlds, 0)
+
     def test_fallback_capture_is_opt_in_authorized_and_does_not_change_actions(self):
         failed = FactorizedBeliefResult((), 0, (), "no_compatible_factor")
         with patch.object(FactorizedBeliefState, "sample", return_value=failed):
