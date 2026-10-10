@@ -14,7 +14,8 @@ from typing import Any, Sequence
 
 from .ai import RiskAwareProtagonistAgent
 from .ai_decisions import JointCardDecisionProvider
-from .catalog import MODULES, PLOTS
+from .catalog import MODULES
+from .belief_matrix import role_domains
 from .optimized_mcts import _command_key
 from .particle_ensemble import ParticleEnsembleProtagonistAgent
 from .oracle_protagonist import (OracleProtagonistAgent,
@@ -23,7 +24,6 @@ from .oracle_protagonist import (OracleProtagonistAgent,
 from .search import RootActionStats, SearchBudget, SearchGame, SearchTrace
 from .strategic_mcts import StrategicMctsMastermindAgent
 from .witness import FsbtxWitnessCompiler
-from .witness_types import WitnessStrength
 
 
 def _certain_red_knowledge(events: Sequence[dict[str, Any]],
@@ -85,36 +85,10 @@ class _PublicReplyEvaluator(OracleProtagonistAgent):
         module = view.get("module")
         if module not in MODULES:
             return 0.0
-        roles = {"ordinary", *(role for plot in MODULES[module].plots
-                               for role in PLOTS[plot][2])}
+        role_values, domains, _ = role_domains(view, self._compiler.compile(view))
+        roles = set(role_values)
         if len(roles) < 2:
             return 0.0
-        domains = {str(cid): set(roles) for cid in view.get("characters", ())}
-        for cid, fact in view.get("known_roles", {}).items():
-            if cid in domains and isinstance(fact, dict):
-                role = fact.get("role")
-                if role in roles:
-                    domains[cid].intersection_update({role})
-        for cid, role in view.get("protagonist_knowledge", {}).get(
-                "roles", {}).items():
-            if cid in domains and role in roles:
-                domains[cid].intersection_update({role})
-        for witness in self._compiler.compile(view):
-            if witness.strength != WitnessStrength.HARD:
-                continue
-            cid = ("part_timer" if witness.subject == "part_timer_question"
-                   else witness.subject)
-            if cid not in domains:
-                continue
-            if witness.kind == "role_is":
-                allowed = {str(witness.value)}
-                if witness.value == "serial" and module == "BTX":
-                    allowed.add("ordinary")  # Virus may convert Ordinary.
-                domains[cid].intersection_update(allowed)
-            elif witness.kind == "role_in":
-                domains[cid].intersection_update(map(str, witness.value))
-            elif witness.kind == "role_not_in":
-                domains[cid].difference_update(map(str, witness.value))
         if not domains:
             return 0.0
         return sum(math.log(max(1, len(domain))) for domain in domains.values()

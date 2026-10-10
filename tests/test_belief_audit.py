@@ -1,6 +1,7 @@
 """Developer belief logs are optional, stable and separate from inference."""
 from copy import deepcopy
 from dataclasses import replace
+from unittest.mock import patch
 import unittest
 
 from benchmarks.ai_self_play import _policy_offer
@@ -12,6 +13,15 @@ from tests.test_particle_ensemble import protagonist_position
 
 
 class BeliefAuditTests(unittest.TestCase):
+    def test_projection_error_is_diagnostic_not_an_action_failure(self):
+        trail = BeliefAuditTrail()
+        view = {**self.view, "characters": {"girl": {}}, "schedule": []}
+        with patch("tragedy_sim.belief_matrix.BeliefMatrixProjection.from_view",
+                   side_effect=ValueError("conflicting evidence")):
+            trail.record_samples(view, (), {}, 0)
+        self.assertIn("conflicting evidence", trail.to_text())
+        self.assertEqual(trail.entries[-1]["belief_matrix_error"], "conflicting evidence")
+
     def setUp(self):
         self.view = {"module": "BTX", "loop": 1, "round": 6,
                      "phase": "loop_end", "timing": "loop_end", "events": []}
@@ -72,6 +82,8 @@ class BeliefAuditTests(unittest.TestCase):
         self.assertEqual(len(samples), 1)
         self.assertTrue(samples[0]["sampled_dark_cards"])
         self.assertTrue(samples[0]["sampled_culprits"])
+        self.assertIn("roles", samples[0]["belief_matrix"])
+        self.assertIn("信念矩阵", agent.evidence_ledger.audit.to_text())
         self.assertIsNone(PublicEvidenceLedger().audit)
 
 

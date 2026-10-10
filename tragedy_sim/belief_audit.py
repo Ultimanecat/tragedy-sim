@@ -108,7 +108,8 @@ class BeliefAuditTrail:
         self._module, self._counts, self._facts = module, counts, deepcopy(facts)
 
     def record_samples(self, view, role_counts, culprit_options, world_count, *,
-                       culprit_counts=(), dark_counts=(), placement_tendencies=()):
+                       culprit_counts=(), dark_counts=(), placement_tendencies=(),
+                       witnesses=(), role_assignments=()):
         self.entries.append({"module": str(view.get("module", "")),
                              "loop": view.get("loop", 1), "day": view.get("round", 1),
                              "phase": view.get("phase"), "timing": view.get("timing", "unknown"),
@@ -120,6 +121,20 @@ class BeliefAuditTrail:
                              "sampled_dark_cards": deepcopy(dark_counts),
                              "placement_tendencies": deepcopy(placement_tendencies),
                              "world_count": world_count})
+        if view.get("characters") and view.get("module") in {"FS", "BTX"}:
+            from .belief_matrix import BeliefMatrixProjection
+            try:
+                projection = BeliefMatrixProjection.from_view(
+                    view, witnesses, role_counts=role_counts,
+                    culprit_counts=culprit_counts, dark_counts=dark_counts,
+                    role_assignments=role_assignments)
+            except ValueError as error:
+                # Telemetry must not alter a completed AI decision. Record
+                # projection failures without loosening inference constraints.
+                self.entries[-1]["belief_matrix_error"] = str(error)
+                return
+            self.entries[-1]["belief_matrix"] = projection.to_dict()
+            self.entries[-1]["belief_matrix_text"] = projection.to_text()
 
     def to_text(self):
         lines = ["AI 信念证据变化（开发日志）", "硬＝确定约束；软＝支持线索，不等于确定身份。"]
@@ -153,4 +168,8 @@ class BeliefAuditTrail:
                     values = "、".join(f"{label('cards', card)} {weight:.1%}" for card, weight in
                                       row["card_probabilities"].items())
                     lines.append(f"    历史出牌模型→{label('characters', row['target'])}：{values}")
+                if "belief_matrix_text" in entry:
+                    lines.append(entry["belief_matrix_text"])
+                if "belief_matrix_error" in entry:
+                    lines.append("信念矩阵投影错误：" + entry["belief_matrix_error"])
         return "\n".join(lines) + "\n"

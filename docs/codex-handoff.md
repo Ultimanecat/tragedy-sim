@@ -3,7 +3,7 @@
 本文是新会话的启动入口，整理截至源码提交 `0ec96eb` 的上下文。本次交接只增加文档。
 开始工作时先执行 `git status --short --branch`、`git log -8 --oneline`，确认是否已有后续提交或其他会话的修改。
 
-2026-10-10 计划整理：当前任务顺序以精简后的 [路线图](future-roadmap.md)为准，新增优先项是矩阵化信念（硬状态 always／never／unknown、独立近似概率和显式析取约束）。该表示及 [AI 模式收敛](ai-strategy-consolidation.md)均只完成方案，尚未实现；AI 入口调整待用户确认。下方接续记录属于历史上下文，不代表最新实施顺序。
+2026-10-10 重构接续：当前顺序以精简后的 [路线图](future-roadmap.md)为准。共享 `PublicBeliefPlanner` 已提取，粒子红方不再继承旧 ISMCTS；房间注册表与大厅收敛完成，旧四个实验 ID 显式停用。开眼保留直接可选，联合黑方用回应模型选项配置。矩阵首切片见 [表示与复用](belief-matrix.md)，当前为观察投影／开发日志并共用黑方身份域，未替换完整采样器。下方接续记录属于历史上下文，不代表最新实施顺序。
 
 最新接续：`69c290b` 加入可选 `BeliefAuditTrail` 与 `benchmarks.ai_causal_audit`，最终 578 项测试通过；用法见 [信念日志](belief-audit.md)。开发日志默认关闭，记录证据增减、再次观察、原始时间点、来源、身份／当事人／暗牌样本及历史出牌模型，不能送入玩家界面。原始 BTX04 日志已保存 `references/ai-calibration/2026-10-10/btx04-belief-changes.txt`。
 
