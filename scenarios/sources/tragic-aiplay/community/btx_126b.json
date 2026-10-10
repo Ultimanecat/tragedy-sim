@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_126b",
+  "source_code": "BTX-126B",
+  "source_filename": "BTX-126B 一夜惨剧 不安扩散篇·改.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-126B",
+    "name": "BTX-126B 一夜惨剧 不安扩散篇·改 作者：L＇art de la fille",
+    "module": "BTX",
+    "loops": 5,
+    "days_per_loop": 1,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      }
+    }
+  },
+  "source_setup_text": "一夜惨剧 不安扩散篇·改 作者：L＇art de la fille\n\n规则Y 谋杀计划\n规则X1 潜伏的杀人狂\n规则X2 好友圈\n\n住院患者 关键人物\n学者 杀手\n幻想 主谋\n上位存在 亲友\n御神木 亲友\n大人物 杀人狂 神社\n大小姐 传谣人\n转校生 1 平民\n小女孩 平民\n\n1 不安扩散 大小姐",
+  "source_configuration_sections": [
+    {
+      "heading": "剧作家出牌",
+      "text": "住院患者密谋1 学者密谋2 御神木友好禁止"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "潜伏的杀人狂",
+      "好友圈"
+    ],
+    "cast": [
+      {
+        "character": "住院患者",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "学者",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "幻想",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "上位存在",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "御神木",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "杀人狂",
+        "notes": "神社"
+      },
+      {
+        "character": "大小姐",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "平民",
+        "notes": "1"
+      },
+      {
+        "character": "小女孩",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-126b",
+    "title": "[社区·有特殊规则] BTX-126B 一夜惨剧 不安扩散篇·改 作者：L＇art de la fille",
+    "module": "BTX",
+    "days": 1,
+    "loops": 5,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "lurking",
+      "friends"
+    ],
+    "cast": {
+      "patient": "key",
+      "scholar": "killer",
+      "illusion": "brain",
+      "higher_being": "friend",
+      "sacred_tree": "friend",
+      "boss": "serial",
+      "rich": "conspiracy",
+      "transfer_student": "ordinary",
+      "young_girl": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "unease",
+        "culprit": "rich"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "boss": {
+        "territory": "shrine"
+      },
+      "transfer_student": {
+        "entry_day": 1
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": true,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+  ]
+}

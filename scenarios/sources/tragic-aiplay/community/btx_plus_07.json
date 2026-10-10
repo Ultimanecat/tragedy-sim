@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_plus_07",
+  "source_code": "BTX+-07",
+  "source_filename": "BTX+-07 女神挑战-摇波 作者：Zillash.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX+-07",
+    "name": "BTX+-07 女神挑战-摇波 作者：Zillash",
+    "module": "BTX+",
+    "loops": 3,
+    "days_per_loop": 4,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出一张行动牌，允许剧作家在出牌阶段打出少于3张行动牌",
+      "2 没有最终决战",
+      "3 决死~若主人公手牌中的每轮限一次行动牌数量合计为3张或以下，则计算某种指示物的数量时，所有角色和尸体上视为额外有1枚友好，额外少1枚不安，若角色身上没有希望，则视为额外少1枚密谋，所有版图上视为额外少1枚密谋。指示物的数量不会少于0。【希望+1】不计入此处的‘每轮限一次行动牌’数量。"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "3": {
+        "source_id": "missing",
+        "name": "失踪"
+      },
+      "4": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      }
+    }
+  },
+  "source_setup_text": "女神挑战-摇波 作者：Zillash\n\n规则Y 巨大定时炸弹X\n规则X1 妄想扩大病毒\n规则X2 恋爱风景线\n\n住院患者 平民\n幻想 因果残片\n班长 魔女\n大小姐 求爱者\n小女孩 平民\n大人物 传谣人 医院\n手下 心上人 医院\n\n1 自杀 手下\n2 自杀 小女孩\n3 失踪 大小姐\n4 不安扩散 住院患者",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "第一天\n手下不安+1，大小姐密谋+1，小女孩不安+1\n第二天\n手下不安+1，大小姐密谋+1，小女孩不安+1\n第三天\n住院患者禁止不安，大小姐密谋+1，手下不安+1\n第四天\n住院患者禁止不安，大小姐密谋+1，学校密谋+2\n\n备注\n\n如果主人公没玩过BTX+-04（绝望的樵夫），你可以使用B版本让他们更加坐牢"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "巨大定时炸弹X",
+      "妄想扩大病毒",
+      "恋爱风景线"
+    ],
+    "cast": [
+      {
+        "character": "住院患者",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "班长",
+        "role": "魔女",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "求爱者",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "传谣人",
+        "notes": "医院"
+      },
+      {
+        "character": "手下",
+        "role": "心上人",
+        "notes": "医院"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-plus-07",
+    "title": "[社区·有特殊规则] BTX+-07 女神挑战-摇波 作者：Zillash",
+    "module": "BTX+",
+    "days": 4,
+    "loops": 3,
+    "main_plot": "bomb",
+    "subplots": [
+      "virus",
+      "love_hsa"
+    ],
+    "cast": {
+      "patient": "ordinary",
+      "class_rep": "witch",
+      "rich": "lover",
+      "young_girl": "ordinary",
+      "boss": "conspiracy",
+      "henchman": "loved"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "suicide",
+        "culprit": "henchman"
+      },
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 3,
+        "kind": "missing",
+        "culprit": "rich"
+      },
+      {
+        "day": 4,
+        "kind": "unease",
+        "culprit": "patient"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "boss": {
+        "territory": "hospital"
+      },
+      "henchman": {
+        "initial_location": "hospital"
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+  ]
+}

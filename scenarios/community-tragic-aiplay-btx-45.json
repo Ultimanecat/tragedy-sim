@@ -1,0 +1,44 @@
+{
+  "id": "community-tragic-aiplay-btx-45",
+  "title": "[社区·无特殊规则] BTX-45 推新本 作者：zillash",
+  "module": "BTX",
+  "days": 3,
+  "loops": 4,
+  "main_plot": "sealed",
+  "subplots": [
+    "love",
+    "lurking"
+  ],
+  "cast": {
+    "student": "friend",
+    "rich": "ordinary",
+    "girl": "brain",
+    "maiden": "cultist",
+    "outsider": "ordinary",
+    "patient": "loved",
+    "worker": "serial",
+    "informer": "lover"
+  },
+  "incidents": [
+    {
+      "day": 1,
+      "kind": "foul_play",
+      "culprit": "rich"
+    },
+    {
+      "day": 2,
+      "kind": "butterfly",
+      "culprit": "patient"
+    },
+    {
+      "day": 3,
+      "kind": "hospital",
+      "culprit": "student"
+    }
+  ],
+  "table_talk": true,
+  "loop_options": [
+    3,
+    4
+  ]
+}

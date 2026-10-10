@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_97",
+  "source_code": "BTX-97",
+  "source_filename": "BTX-97 四柱神的守望 作者：respeak.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-97",
+    "name": "BTX-97 四柱神的守望 作者：respeak",
+    "module": "BTX",
+    "loops": 4,
+    "days_per_loop": 5,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定按顺序在固定位置放置公开或盖伏的行动牌，并且公开的行动牌每轮轮回均不变，如果将公开打出的牌中出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出一张行动牌，允许剧作家在出牌阶段打出少于3张行动牌，盖伏的行动牌在打出时可以选择剧作家剩余的任意牌打出，规定中记录为以幻想为对象的牌在幻想所在版图打出",
+      "2 禁止友好同时具备禁止移动效果。",
+      "3 没有最终决战。"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "3": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "4": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      },
+      "5": {
+        "source_id": "suicide",
+        "name": "自杀"
+      }
+    }
+  },
+  "source_setup_text": "四柱神的守望 作者：respeak\n\n规则Y 谋杀计划 \n规则X1 好友圈 \n规则X2 流言四起 \n \n幻想 传谣人\n御神木 平民\n住院患者 亲友\n鉴别员 平民\n模仿犯 邪教徒\nA.I. 亲友\n转校生 杀手 4\n大小姐 主谋\n局外人 邪教徒\n小女孩 关键人物\n \n1 自杀 御神木 \n2 自杀 小女孩 \n3 自杀 住院患者 \n4 远距离杀人 幻想 \n5 自杀 A.I.",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "——固定出牌和固定行动（未标明暗牌的需公开出牌）——\n第1天：住院患者不安+1，AI密谋+2，小女孩不安+1\n\n第2天：住院患者不安+1，AI密谋+1，小女孩不安+1\n\n第3天：住院患者不安+1，鉴别员友好禁止，小女孩密谋+1\n\n第4天：转校生登场；幻想友好禁止(说清楚是固定打给幻想所在的版图)，AI密谋+1，大小姐暗牌(斜向移动或横向移动自选)\n转校生若能杀小女孩（关键人物带2密谋）则杀\n\n第5天：AI密谋+1，转校生暗牌(尽量使得转校生向2密谋小女孩靠近)，大小姐暗牌(尽量使得大小姐向AI靠近)"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "好友圈",
+      "流言四起"
+    ],
+    "cast": [
+      {
+        "character": "幻想",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "御神木",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "鉴别员",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "A.I.",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "杀手",
+        "notes": "4"
+      },
+      {
+        "character": "大小姐",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "关键人物",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-97",
+    "title": "[社区·有特殊规则] BTX-97 四柱神的守望 作者：respeak",
+    "module": "BTX",
+    "days": 5,
+    "loops": 4,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "friends",
+      "rumor"
+    ],
+    "cast": {
+      "illusion": "conspiracy",
+      "sacred_tree": "ordinary",
+      "patient": "friend",
+      "forensic": "ordinary",
+      "copycat": "cultist",
+      "ai": "friend",
+      "transfer_student": "killer",
+      "rich": "brain",
+      "irregular": "cultist",
+      "young_girl": "key"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "suicide",
+        "culprit": "sacred_tree"
+      },
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 3,
+        "kind": "suicide",
+        "culprit": "patient"
+      },
+      {
+        "day": 4,
+        "kind": "faraway",
+        "culprit": "illusion"
+      },
+      {
+        "day": 5,
+        "kind": "suicide",
+        "culprit": "ai"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "transfer_student": {
+        "entry_day": 4
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": true,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+  ]
+}

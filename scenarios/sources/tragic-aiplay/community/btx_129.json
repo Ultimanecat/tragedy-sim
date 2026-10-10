@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": false,
+  "special_rules_label": "无特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_129",
+  "source_code": "BTX-129",
+  "source_filename": "BTX-129 穿梭时间的猫咪 作者：电狼.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-129",
+    "name": "BTX-129 穿梭时间的猫咪 作者：电狼",
+    "module": "BTX",
+    "loops": "4-5",
+    "days_per_loop": 6,
+    "special_rules": [],
+    "incidents": {
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "3": {
+        "source_id": "missing",
+        "name": "失踪"
+      },
+      "4": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      },
+      "5": {
+        "source_id": "butterfly_effect",
+        "name": "蝴蝶效应"
+      },
+      "6": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      }
+    }
+  },
+  "source_setup_text": "穿梭时间的猫咪 作者：电狼\n\n4-5轮6天\n\n规则Y 改变未来\n规则X1 恋爱风景线\n规则X2 潜伏的杀人狂\n\n医生 邪教徒\n住院患者 平民\n军人 心上人\n黑猫 时间旅人\n神明 杀人狂 2\nAI 求爱者\n大人物 亲友 领地为医院\n媒体人 平民\n\n2 自杀 黑猫\n3 失踪 医生\n4 医院事故 媒体人\n5 蝴蝶效应 AI\n6 远距离杀人 军人",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "改变未来",
+      "恋爱风景线",
+      "潜伏的杀人狂"
+    ],
+    "cast": [
+      {
+        "character": "医生",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "军人",
+        "role": "心上人",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "时间旅人",
+        "notes": ""
+      },
+      {
+        "character": "神明",
+        "role": "杀人狂",
+        "notes": "2"
+      },
+      {
+        "character": "AI",
+        "role": "求爱者",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "亲友",
+        "notes": "领地为医院"
+      },
+      {
+        "character": "媒体人",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-129",
+    "title": "[社区·无特殊规则] BTX-129 穿梭时间的猫咪 作者：电狼",
+    "module": "BTX",
+    "days": 6,
+    "loops": 5,
+    "main_plot": "change",
+    "subplots": [
+      "love",
+      "lurking"
+    ],
+    "cast": {
+      "doctor": "cultist",
+      "patient": "ordinary",
+      "soldier": "loved",
+      "black_cat": "time_traveler",
+      "godly": "serial",
+      "ai": "lover",
+      "boss": "friend",
+      "journalist": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "black_cat"
+      },
+      {
+        "day": 3,
+        "kind": "missing",
+        "culprit": "doctor"
+      },
+      {
+        "day": 4,
+        "kind": "hospital",
+        "culprit": "journalist"
+      },
+      {
+        "day": 5,
+        "kind": "butterfly",
+        "culprit": "ai"
+      },
+      {
+        "day": 6,
+        "kind": "faraway",
+        "culprit": "soldier"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      4,
+      5
+    ],
+    "character_options": {
+      "godly": {
+        "entry_loop": 2
+      },
+      "boss": {
+        "territory": "hospital"
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": true,
+  "status": "imported",
+  "playable_file": "scenarios/community-tragic-aiplay-btx-129.json",
+  "issues": []
+}

@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": false,
+  "special_rules_label": "无特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_105",
+  "source_code": "BTX-105",
+  "source_filename": "BTX-105 只有我不在的城市  作者： L＇art de la fille.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-105",
+    "name": "BTX-105 只有我不在的城市 作者：L＇art de la fille",
+    "module": "BTX",
+    "loops": 5,
+    "days_per_loop": 4,
+    "special_rules": [],
+    "incidents": {
+      "1": {
+        "source_id": "butterfly_effect",
+        "name": "蝴蝶效应"
+      },
+      "2": {
+        "source_id": "murder",
+        "name": "谋杀"
+      },
+      "3": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      },
+      "4": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      }
+    }
+  },
+  "source_setup_text": "5轮4天\n\n谋杀计划\n好友圈\n因果线\n\n局外人 时间旅者\n小女孩 关键人物\n教师 主谋\n男学生 亲友\n大小姐 传谣人\n巫女 平民\n职员 杀手\n刑警 平民\n情报商 亲友\n手下 平民 建议初始区域学校\n\nD1：蝴蝶效应 小女孩\nD2：谋杀 局外人\nD3：远距离杀人 教师\nD4：不安扩散 职员",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "好友圈",
+      "因果线"
+    ],
+    "cast": [
+      {
+        "character": "局外人",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "教师",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "男学生",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "巫女",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "职员",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "刑警",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "情报商",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "手下",
+        "role": "平民",
+        "notes": "建议初始区域学校"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-105",
+    "title": "[社区·无特殊规则] BTX-105 只有我不在的城市 作者：L＇art de la fille",
+    "module": "BTX",
+    "days": 4,
+    "loops": 5,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "friends",
+      "threads"
+    ],
+    "cast": {
+      "irregular": "time_traveler",
+      "young_girl": "key",
+      "teacher": "brain",
+      "student": "friend",
+      "rich": "conspiracy",
+      "maiden": "ordinary",
+      "worker": "killer",
+      "police": "ordinary",
+      "informer": "friend",
+      "henchman": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "butterfly",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 2,
+        "kind": "murder",
+        "culprit": "irregular"
+      },
+      {
+        "day": 3,
+        "kind": "faraway",
+        "culprit": "teacher"
+      },
+      {
+        "day": 4,
+        "kind": "unease",
+        "culprit": "worker"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "henchman": {
+        "initial_location": "school"
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_incompatible_setup",
+  "playable_file": null,
+  "issues": [
+    "剧本包含未知角色或无效身份"
+  ]
+}

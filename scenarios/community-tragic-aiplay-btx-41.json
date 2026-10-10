@@ -1,0 +1,56 @@
+{
+  "id": "community-tragic-aiplay-btx-41",
+  "title": "[社区·无特殊规则] BTX-41 妒忌之神 作者：minimipool",
+  "module": "BTX",
+  "days": 4,
+  "loops": 5,
+  "main_plot": "murder_plan",
+  "subplots": [
+    "love",
+    "lurking"
+  ],
+  "cast": {
+    "godly": "brain",
+    "black_cat": "ordinary",
+    "maiden": "lover",
+    "patient": "loved",
+    "soldier": "serial",
+    "police": "key",
+    "worker": "killer",
+    "informer": "ordinary",
+    "young_girl": "ordinary",
+    "irregular": "conspiracy",
+    "transfer_student": "friend"
+  },
+  "incidents": [
+    {
+      "day": 1,
+      "kind": "unease",
+      "culprit": "young_girl"
+    },
+    {
+      "day": 2,
+      "kind": "suicide",
+      "culprit": "patient"
+    },
+    {
+      "day": 3,
+      "kind": "missing",
+      "culprit": "maiden"
+    },
+    {
+      "day": 4,
+      "kind": "hospital",
+      "culprit": "godly"
+    }
+  ],
+  "table_talk": true,
+  "character_options": {
+    "godly": {
+      "entry_loop": 3
+    },
+    "transfer_student": {
+      "entry_day": 3
+    }
+  }
+}

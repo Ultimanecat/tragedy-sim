@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mz_32",
+  "source_code": "MZ-32",
+  "source_filename": "MZ-32 愿者上钩 作者：水龙吟.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "MZ-32",
+    "name": "MZ-32 愿者上钩 作者：水龙吟",
+    "module": "MZ",
+    "loops": "无限",
+    "days_per_loop": 1,
+    "special_rules": [
+      "愿者上钩：如果神社有1枚或以上密谋，主人公死亡",
+      "被钓上来的主人公可以蛄蛹一下，主人公死亡时，队长可以让一名角色死亡",
+      "剧作家按照剧本规定打出行动牌和使用剧作家能力"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "public_incident_1",
+        "name": "愿者上钩"
+      }
+    }
+  },
+  "source_setup_text": "MZ\n无限轮 1天\n\n被封印的邪灵\n诸神之骰\n魔女的茶会\n\n御神木 主谋\n黑猫 魔女\n神灵 1 亲友\n仙人 神社 强迫症 9999不安限度\n住院患者 杀人狂\n局外人 魔术师\nAI 魔女\n鉴别员 传谣人\n班长 邪教徒\n医生 平民\n模仿犯 平民\n\n1 伪造事件(愿者上钩) 仙人",
+  "source_configuration_sections": [
+    {
+      "heading": "特规",
+      "text": "1 愿者上钩：如果神社有1枚或以上密谋，主人公死亡\n2 被钓上来的主人公可以蛄蛹一下，主人公死亡时，队长可以让一名角色死亡\n3 剧作家按照剧本规定打出行动牌和使用剧作家能力\n\n医生友尽 黑猫左右 局外人斜\n\n能力的使用没有规定"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "被封印的邪灵",
+      "诸神之骰",
+      "魔女的茶会"
+    ],
+    "cast": [
+      {
+        "character": "御神木",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "魔女",
+        "notes": ""
+      },
+      {
+        "character": "神灵",
+        "role": "亲友",
+        "notes": "1"
+      },
+      {
+        "character": "仙人",
+        "role": "强迫症",
+        "notes": "神社 9999不安限度"
+      },
+      {
+        "character": "住院患者",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "魔术师",
+        "notes": ""
+      },
+      {
+        "character": "AI",
+        "role": "魔女",
+        "notes": ""
+      },
+      {
+        "character": "鉴别员",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "班长",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "医生",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-mz-32",
+    "title": "[社区·有特殊规则] MZ-32 愿者上钩 作者：水龙吟",
+    "module": "MZ",
+    "days": 1,
+    "loops": "无限",
+    "main_plot": "sealed",
+    "subplots": [
+      "mz_gods_dice",
+      "mz_witch_tea"
+    ],
+    "cast": {
+      "sacred_tree": "brain",
+      "black_cat": "witch",
+      "godly": "friend",
+      "仙人": "obsessive",
+      "patient": "serial",
+      "irregular": "magician",
+      "ai": "witch",
+      "forensic": "conspiracy",
+      "class_rep": "cultist",
+      "doctor": "ordinary",
+      "copycat": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "fake_incident",
+        "culprit": "仙人",
+        "public_kind": "愿者上钩"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "godly": {
+        "entry_loop": 1
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：仙人",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

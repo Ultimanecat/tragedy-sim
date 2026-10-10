@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": false,
+  "special_rules_label": "无特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_41",
+  "source_code": "BTX-41",
+  "source_filename": "BTX-41 妒忌之神 作者：minimipool.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-41",
+    "name": "BTX-41 妒忌之神 作者：minimipool",
+    "module": "BTX",
+    "loops": 5,
+    "days_per_loop": 4,
+    "special_rules": [],
+    "incidents": {
+      "1": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "3": {
+        "source_id": "missing",
+        "name": "失踪"
+      },
+      "4": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      }
+    }
+  },
+  "source_setup_text": "妒忌之神 作者：minimipool\n\n规则Y 谋杀计划\n规则X1 恋爱风景线\n规则X2 潜伏的杀人狂\n\n神灵 主谋 3\n黑猫 平民\n巫女 求爱者\n住院患者 心上人\n军人 杀人狂\n刑警 关键人物\n职员 杀手\n情报商 平民\n小女孩 平民\n局外人 传谣人\n转校生 亲友 3\n\n1 不安扩散 小女孩\n2 自杀 住院患者\n3 失踪 巫女\n4 医院事故 神灵",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "恋爱风景线",
+      "潜伏的杀人狂"
+    ],
+    "cast": [
+      {
+        "character": "神灵",
+        "role": "主谋",
+        "notes": "3"
+      },
+      {
+        "character": "黑猫",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "巫女",
+        "role": "求爱者",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "心上人",
+        "notes": ""
+      },
+      {
+        "character": "军人",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "刑警",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "职员",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "情报商",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "亲友",
+        "notes": "3"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-41",
+    "title": "[社区·无特殊规则] BTX-41 妒忌之神 作者：minimipool",
+    "module": "BTX",
+    "days": 4,
+    "loops": 5,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "love",
+      "lurking"
+    ],
+    "cast": {
+      "godly": "brain",
+      "black_cat": "ordinary",
+      "maiden": "lover",
+      "patient": "loved",
+      "soldier": "serial",
+      "police": "key",
+      "worker": "killer",
+      "informer": "ordinary",
+      "young_girl": "ordinary",
+      "irregular": "conspiracy",
+      "transfer_student": "friend"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "unease",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "patient"
+      },
+      {
+        "day": 3,
+        "kind": "missing",
+        "culprit": "maiden"
+      },
+      {
+        "day": 4,
+        "kind": "hospital",
+        "culprit": "godly"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "godly": {
+        "entry_loop": 3
+      },
+      "transfer_student": {
+        "entry_day": 3
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": true,
+  "status": "imported",
+  "playable_file": "scenarios/community-tragic-aiplay-btx-41.json",
+  "issues": []
+}

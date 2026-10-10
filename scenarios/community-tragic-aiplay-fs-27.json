@@ -1,0 +1,45 @@
+{
+  "id": "community-tragic-aiplay-fs-27",
+  "title": "[社区·无特殊规则] FS-27 拉普拉斯的魔女 作者：残蝶",
+  "module": "FS",
+  "days": 8,
+  "loops": 6,
+  "main_plot": "murder_plan",
+  "subplots": [
+    "rumor"
+  ],
+  "cast": {
+    "girl": "key",
+    "informer": "killer",
+    "black_cat": "brain",
+    "patient": "conspiracy"
+  },
+  "incidents": [
+    {
+      "day": 5,
+      "kind": "spreading",
+      "culprit": "black_cat"
+    },
+    {
+      "day": 6,
+      "kind": "spreading",
+      "culprit": "patient"
+    },
+    {
+      "day": 7,
+      "kind": "spreading",
+      "culprit": "informer"
+    },
+    {
+      "day": 8,
+      "kind": "spreading",
+      "culprit": "girl"
+    }
+  ],
+  "table_talk": true,
+  "loop_options": [
+    4,
+    5,
+    6
+  ]
+}

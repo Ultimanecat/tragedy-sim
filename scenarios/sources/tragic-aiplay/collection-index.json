@@ -1,0 +1,1242 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "classification": {
+    "origin": "编号含 G 记为 official（官方），其余记为 community（社区），沿用用户提供的分类约定。",
+    "has_special_rules": "网站公开信息表 special_rules 中是否存在非空规则。兼容性由 status 单独记录。",
+    "runtime": "引擎加载 scenarios 顶层的可玩 JSON；sources 下的档案与索引只用于资料保存。"
+  },
+  "groups": [
+    {
+      "origin": "official",
+      "has_special_rules": false,
+      "count": 8
+    },
+    {
+      "origin": "official",
+      "has_special_rules": true,
+      "count": 3
+    },
+    {
+      "origin": "community",
+      "has_special_rules": false,
+      "count": 11
+    },
+    {
+      "origin": "community",
+      "has_special_rules": true,
+      "count": 53
+    }
+  ],
+  "counts": {
+    "total": 75,
+    "official": 11,
+    "community": 64
+  },
+  "scripts": [
+    {
+      "source_code": "BTX-01G",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_01g.json",
+      "playable_file": "scenarios/official-tragic-aiplay-btx-01g.json",
+      "issues": [],
+      "origin": "official",
+      "origin_label": "官方",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "module": "BTX",
+      "title": "BTX-01G 魔法少女万能论"
+    },
+    {
+      "source_code": "BTX-02G",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_02g.json",
+      "playable_file": "scenarios/official-tragic-aiplay-btx-02g.json",
+      "issues": [],
+      "origin": "official",
+      "origin_label": "官方",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "module": "BTX",
+      "title": "BTX-02G 猫箱"
+    },
+    {
+      "source_code": "BTX-03G",
+      "status": "already_present",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_03g.json",
+      "playable_file": "scenarios/official-btx-03-future-assassin.json",
+      "issues": [],
+      "origin": "official",
+      "origin_label": "官方",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "module": "BTX",
+      "title": "BTX-03G 来自未来的刺客"
+    },
+    {
+      "source_code": "BTX-07G",
+      "status": "existing_data_conflict",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_07g.json",
+      "playable_file": "scenarios/official-btx-10-prologue.json",
+      "issues": [
+        "同名同局数同事件的现有 Prologue 将男学生设为求爱者、女学生设为心上人；网站源文将两者反置。保留原文配置，等待人工核对。"
+      ],
+      "origin": "official",
+      "origin_label": "官方",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "module": "BTX",
+      "title": "BTX-07G 序文"
+    },
+    {
+      "source_code": "BTX-27G",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_27g.json",
+      "playable_file": null,
+      "issues": [
+        "原始特殊规则需要额外引擎支持；未作为可玩剧本导入。",
+        "天数、轮回数必须在 1–8 之间"
+      ],
+      "origin": "official",
+      "origin_label": "官方",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "module": "BTX",
+      "title": "BTX-27G 一夜惨劇（BTX医院事故篇）作者：おみ (HOM)"
+    },
+    {
+      "source_code": "BTX-28G",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_28g.json",
+      "playable_file": null,
+      "issues": [
+        "原始特殊规则需要额外引擎支持；未作为可玩剧本导入。",
+        "天数、轮回数必须在 1–8 之间"
+      ],
+      "origin": "official",
+      "origin_label": "官方",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "module": "BTX",
+      "title": "BTX-28G 一夜惨劇（BTX失踪篇）作者：おみ (HOM)"
+    },
+    {
+      "source_code": "BTX-34G",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_34g.json",
+      "playable_file": null,
+      "issues": [
+        "原始特殊规则需要额外引擎支持；未作为可玩剧本导入。",
+        "剧本包含未知角色或无效身份"
+      ],
+      "origin": "official",
+      "origin_label": "官方",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "module": "BTX",
+      "title": "BTX-34G The Balance of Power 作者：Michael Schrag"
+    },
+    {
+      "source_code": "FS-01G",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/fs_01g.json",
+      "playable_file": "scenarios/official-tragic-aiplay-fs-01g.json",
+      "issues": [],
+      "origin": "official",
+      "origin_label": "官方",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "module": "FS",
+      "title": "FS-01G 初学者剧本（中日）作者：BakaFire"
+    },
+    {
+      "source_code": "FS-02G",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/fs_02g.json",
+      "playable_file": "scenarios/official-tragic-aiplay-fs-02g.json",
+      "issues": [],
+      "origin": "official",
+      "origin_label": "官方",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "module": "FS",
+      "title": "FS-02G 没有神灵的神宫 作者：がいじん"
+    },
+    {
+      "source_code": "MC-01G",
+      "status": "already_present",
+      "data_file": "scenarios/sources/tragic-aiplay/mc_01g.json",
+      "playable_file": "scenarios/official-mc-08-obsession-detection.json",
+      "issues": [],
+      "origin": "official",
+      "origin_label": "官方",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "module": "MC",
+      "title": "MC-01G 妄念探测 作者：BakaFire"
+    },
+    {
+      "source_code": "MZ-01G",
+      "status": "already_present",
+      "data_file": "scenarios/sources/tragic-aiplay/mz_01g.json",
+      "playable_file": "scenarios/official-mz-04-romance-antithesis.json",
+      "issues": [],
+      "origin": "official",
+      "origin_label": "官方",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "module": "MZ",
+      "title": "MZ-01G 爱与友情的对立面 作者：BakaFire"
+    },
+    {
+      "source_code": "BTX-02",
+      "module": "BTX",
+      "title": "BTX-02 危险童话 作者：Chocount",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_02.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+      ]
+    },
+    {
+      "source_code": "BTX-08",
+      "module": "BTX",
+      "title": "BTX-08 凶刃所向无敌 作者：ペンスキー（gitti）",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_08.json",
+      "playable_file": "scenarios/community-tragic-aiplay-btx-08.json",
+      "issues": []
+    },
+    {
+      "source_code": "BTX-100",
+      "module": "BTX",
+      "title": "BTX-100 我也要死吗？ 作者：萌新宝宝",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_100.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+      ]
+    },
+    {
+      "source_code": "BTX-102",
+      "module": "BTX",
+      "title": "BTX-102 无限三选一 作者：水龙吟",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_102.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：仙人",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "BTX-105",
+      "module": "BTX",
+      "title": "BTX-105 只有我不在的城市 作者：L＇art de la fille",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "status": "blocked_incompatible_setup",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_105.json",
+      "playable_file": null,
+      "issues": [
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "BTX-113",
+      "module": "BTX",
+      "title": "BTX-113 偏差认知 作者：不虚此行",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_113.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：仙人",
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "BTX-117",
+      "module": "BTX",
+      "title": "BTX-117 当贝斯手想要结束这个乐队 作者：桶子",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_117.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：UP主",
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "BTX-122",
+      "module": "BTX",
+      "title": "BTX-122 轮回悲恋 作者：小虎李子",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_122.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "公开事件与私有事件当事人数量不一致",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "BTX-124",
+      "module": "BTX",
+      "title": "BTX-124 机械降神 作者：小黑",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_124.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+      ]
+    },
+    {
+      "source_code": "BTX-125",
+      "module": "BTX",
+      "title": "BTX-125 冰冷的她醒来之前 作者：不虚此行",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_125.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "BTX-126",
+      "module": "BTX",
+      "title": "BTX-126 一夜惨剧 不安扩散篇 作者：L'art de la fille",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_126.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "BTX-126B",
+      "module": "BTX",
+      "title": "BTX-126B 一夜惨剧 不安扩散篇·改 作者：L＇art de la fille",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_126b.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+      ]
+    },
+    {
+      "source_code": "BTX-127",
+      "module": "BTX",
+      "title": "BTX-127 一夜惨剧 散播篇 作者：α聆弦",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_127.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "BTX-128",
+      "module": "BTX",
+      "title": "BTX-128 广义不安限度 作者：奥伯伦",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_128.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：仙人",
+        "公开事件与私有事件当事人数量不一致",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "BTX-129",
+      "module": "BTX",
+      "title": "BTX-129 穿梭时间的猫咪 作者：电狼",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_129.json",
+      "playable_file": "scenarios/community-tragic-aiplay-btx-129.json",
+      "issues": []
+    },
+    {
+      "source_code": "BTX-130",
+      "module": "BTX",
+      "title": "BTX-130 千朵玫瑰带来的黎明",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_130.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "BTX-131",
+      "module": "BTX",
+      "title": "BTX-131 我心里危险的东西 作者：三上真希",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_131.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：转学生",
+        "规则 X/Y 类型错误或重复"
+      ]
+    },
+    {
+      "source_code": "BTX-134",
+      "module": "BTX",
+      "title": "BTX-134 一夜惨剧 自杀篇 作者：Zillash",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_134.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+      ]
+    },
+    {
+      "source_code": "BTX-135",
+      "module": "BTX",
+      "title": "BTX-135 格林与四魔姬 作者：萌新宝宝",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_135.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：失忆者",
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "BTX-28",
+      "module": "BTX",
+      "title": "BTX-28 一夜惨剧 鞋弃乌冉篇 作者：水龙吟",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_28.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+      ]
+    },
+    {
+      "source_code": "BTX-29",
+      "module": "BTX",
+      "title": "BTX-29 黑粉清除计划 作者：海天一色",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_29.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "规则 X/Y 数量或名称无法完整映射",
+        "BTX 需要2个规则 X"
+      ]
+    },
+    {
+      "source_code": "BTX-30",
+      "module": "BTX",
+      "title": "BTX-30 X的悲剧 作者：清尘",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_30.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+      ]
+    },
+    {
+      "source_code": "BTX-39",
+      "module": "BTX",
+      "title": "BTX-39 寒蝉鸣泣之时.改 作者：Choconut",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_39.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：UP主",
+        "学者初始标记的剧本指定值尚无数据字段：学者 关键人物 密谋",
+        "角色未支持：仙人",
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "BTX-41",
+      "module": "BTX",
+      "title": "BTX-41 妒忌之神 作者：minimipool",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_41.json",
+      "playable_file": "scenarios/community-tragic-aiplay-btx-41.json",
+      "issues": []
+    },
+    {
+      "source_code": "BTX-42",
+      "module": "BTX",
+      "title": "BTX-42 个迫真的、医院危机、、 作者：海天一色",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "status": "blocked_incompatible_setup",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_42.json",
+      "playable_file": null,
+      "issues": [
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "BTX-45",
+      "module": "BTX",
+      "title": "BTX-45 推新本 作者：zillash",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_45.json",
+      "playable_file": "scenarios/community-tragic-aiplay-btx-45.json",
+      "issues": []
+    },
+    {
+      "source_code": "BTX-46",
+      "module": "BTX",
+      "title": "BTX-46 准备万端 作者：Choconut",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_46.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "学者初始标记的剧本指定值尚无数据字段：学者 邪教徒 友好/不安"
+      ]
+    },
+    {
+      "source_code": "BTX-47",
+      "module": "BTX",
+      "title": "BTX-47 跨越10年的那个约定 作者：桶子",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_47.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：【模仿犯A→",
+        "角色未支持：【小女孩",
+        "角色未支持：【异界人",
+        "角色未支持：【大小姐",
+        "角色未支持：【仙人A→模仿犯B】",
+        "角色未支持：【临时工→",
+        "角色未支持：【大人物→",
+        "角色未支持：【住院患者->职员】",
+        "公开事件与私有事件当事人数量不一致",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "BTX-48",
+      "module": "BTX",
+      "title": "BTX-48 倩女幽魂 作者：超级大米",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_48.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：up主",
+        "角色未支持：仙人",
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "BTX-88",
+      "module": "BTX",
+      "title": "BTX-88 最尊敬刑警的一集 作者：α聆弦",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_88.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：仙人",
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "BTX-97",
+      "module": "BTX",
+      "title": "BTX-97 四柱神的守望 作者：respeak",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_97.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+      ]
+    },
+    {
+      "source_code": "BTX-98",
+      "module": "BTX",
+      "title": "BTX-98 不收费的医生 作者：奥伯伦",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_98.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：仙人",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "BTX-99",
+      "module": "BTX",
+      "title": "BTX-99 鲁班锁 作者：奥伯伦",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_99.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "BTX-99B",
+      "module": "BTX",
+      "title": "BTX-99B 真·鲁班锁 作者：三上真希",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_99b.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "缺少明确登场时间：转校生 平民",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "BTX+-03",
+      "module": "BTX+",
+      "title": "BTX+-03 大海捞针 作者：太阳&水龙吟",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_03.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：除上述选定6人以外的所有官方现行角色",
+        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+      ]
+    },
+    {
+      "source_code": "BTX+-04",
+      "module": "BTX+",
+      "title": "BTX+-04 绝望的樵夫 作者：Choconut",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_04.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "学者初始标记的剧本指定值尚无数据字段：学者 不安定因子 友好/密谋",
+        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+      ]
+    },
+    {
+      "source_code": "BTX+-07",
+      "module": "BTX+",
+      "title": "BTX+-07 女神挑战-摇波 作者：Zillash",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_07.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+      ]
+    },
+    {
+      "source_code": "BTX+-08",
+      "module": "BTX+",
+      "title": "BTX+-08 苦命鸳鸯 作者：萌新宝宝",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_08.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：患者",
+        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+      ]
+    },
+    {
+      "source_code": "BTX+-09",
+      "module": "BTX+",
+      "title": "BTX+-09 死去活来 作者：残蝶未陨",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_09.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：仙人",
+        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+      ]
+    },
+    {
+      "source_code": "BTX+-11",
+      "module": "BTX+",
+      "title": "BTX+-11 吉良吉影想过平静的生活（剧情2.0版） 作者：残蝶未陨",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_11.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+      ]
+    },
+    {
+      "source_code": "BTX+-13",
+      "module": "BTX+",
+      "title": "BTX+-13 一夜惨剧（BTX+篇） 作者：清尘",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_13.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+      ]
+    },
+    {
+      "source_code": "BTX+-14",
+      "module": "BTX+",
+      "title": "BTX+-14 一夜惨剧 超高校级的绝望篇 作者：不虚此行",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_14.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+      ]
+    },
+    {
+      "source_code": "BTX+-15",
+      "module": "BTX+",
+      "title": "BTX+-15 被冷暴力的艾玛 作者：呆唯刺月",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_15.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "规则名未映射：规则X1 未知因子",
+        "角色未支持：希罗",
+        "角色未支持：艾玛",
+        "角色未支持：梅露露",
+        "规则 X/Y 数量或名称无法完整映射",
+        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+      ]
+    },
+    {
+      "source_code": "FS-08",
+      "module": "FS",
+      "title": "FS-08 赛博惨剧2077 作者：清尘",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/fs_08.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：仙人",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "FS-26",
+      "module": "FS",
+      "title": "FS-26 西行妖 作者：Frelia_ASM",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/fs_26.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "FS-27",
+      "module": "FS",
+      "title": "FS-27 拉普拉斯的魔女 作者：残蝶",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/community/fs_27.json",
+      "playable_file": "scenarios/community-tragic-aiplay-fs-27.json",
+      "issues": []
+    },
+    {
+      "source_code": "HSA-01",
+      "module": "HSA",
+      "title": "HSA-01 神不在的那一天 作者：水龙吟",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/hsa_01.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "HSA-03",
+      "module": "HSA",
+      "title": "HSA-03 法医的周末 作者：Choconut",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/hsa_03.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：UP主",
+        "角色未支持：仙人",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "HSA-31",
+      "module": "HSA",
+      "title": "HSA-31 五芒星阵 作者：Zillash",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "status": "blocked_incompatible_setup",
+      "data_file": "scenarios/sources/tragic-aiplay/community/hsa_31.json",
+      "playable_file": null,
+      "issues": [
+        "学者初始标记的剧本指定值尚无数据字段：学者 平民 密谋"
+      ]
+    },
+    {
+      "source_code": "MC-27",
+      "module": "MC",
+      "title": "MC-27 为时已晚 作者：zillash",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "status": "blocked_incompatible_setup",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mc_27.json",
+      "playable_file": null,
+      "issues": [
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "MC-33",
+      "module": "MC",
+      "title": "MC-33 二段跳 作者：minimipool",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mc_33.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "MC-59",
+      "module": "MC",
+      "title": "MC-59 跨越15年的那个谎言 作者：桶子",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mc_59.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "公开事件与私有事件当事人数量不一致",
+        "剧本需要至少三名已支持角色"
+      ]
+    },
+    {
+      "source_code": "MC-63",
+      "module": "MC",
+      "title": "MC-63 神禁之恋 作者：Aery",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "status": "blocked_incompatible_setup",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mc_63.json",
+      "playable_file": null,
+      "issues": [
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "MC-64",
+      "module": "MC",
+      "title": "MC-64 三日惊奇 作者：laining",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mc_64.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：仙人",
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "MC-66",
+      "module": "MC",
+      "title": "MC-66 我们不可能成为恋人！绝对不行。 (※似乎已行？) 作者：L＇art de la fille",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": false,
+      "special_rules_label": "无特殊规则",
+      "status": "blocked_incompatible_setup",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mc_66.json",
+      "playable_file": null,
+      "issues": [
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "MZ-18",
+      "module": "MZ",
+      "title": "MZ-18 神与魔的对弈 作者：清尘",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mz_18.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "缺少明确登场时间：神灵 预言家",
+        "学者初始标记的剧本指定值尚无数据字段：学者 平民 友好/密谋",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "MZ-29",
+      "module": "MZ",
+      "title": "MZ-29 三枪拍案惊奇 作者：水龙吟",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mz_29.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：仙人",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "MZ-30",
+      "module": "MZ",
+      "title": "MZ-30 帮我喊到 作者：水龙吟",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mz_30.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：UP",
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "MZ-32",
+      "module": "MZ",
+      "title": "MZ-32 愿者上钩 作者：水龙吟",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mz_32.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：仙人",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "MZ-39",
+      "module": "MZ",
+      "title": "MZ-39 熙熙攘攘、我们的城市 作者：Choconut",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mz_39.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "MZ-58",
+      "module": "MZ",
+      "title": "MZ-58 魔女之夜—绝望的少女 作者：萌新宝宝",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mz_58.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：UP主",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "MZ+-05B",
+      "module": "MZ+",
+      "title": "MZ+-05B 跨越10年的那个约定【第二部】 作者：桶子",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/mz_plus_05b.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：仙人",
+        "角色未支持：学者->媒体人",
+        "角色未支持：住院患者->媒体人",
+        "角色未支持：手下->鉴别员",
+        "角色未支持：大树",
+        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+      ]
+    },
+    {
+      "source_code": "WM-02",
+      "module": "WM",
+      "title": "WM-02 不容玷污的血脉 作者：Choconut",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/wm_02.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "祭品必须担任剧本中第一起事件的当事人"
+      ]
+    },
+    {
+      "source_code": "WM-25",
+      "module": "WM",
+      "title": "WM-25 黑幕与撕开世界的伪装 作者：萌新宝宝",
+      "origin": "community",
+      "origin_label": "社区",
+      "has_special_rules": true,
+      "special_rules_label": "有特殊规则",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/community/wm_25.json",
+      "playable_file": null,
+      "issues": [
+        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "角色未支持：失忆者",
+        "角色未支持：逆命师",
+        "角色未支持：修女",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    }
+  ]
+}

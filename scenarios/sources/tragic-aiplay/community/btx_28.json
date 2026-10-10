@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_28",
+  "source_code": "BTX-28",
+  "source_filename": "BTX-28 一夜惨剧 鞋弃乌冉篇 作者：水龙吟.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-28",
+    "name": "BTX-28 一夜惨剧 鞋弃乌冉篇 作者：水龙吟",
+    "module": "BTX",
+    "loops": 5,
+    "days_per_loop": 1,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "evil_pollution",
+        "name": "邪气污染"
+      }
+    }
+  },
+  "source_setup_text": "一夜惨剧 鞋弃乌冉篇 作者：水龙吟\n\n规则Y 改变未来\n规则X1 潜伏的杀人狂\n规则X2 未知因子KAI\n\n军人 时间旅者\n媒体人 杀人狂\nAI 邪教徒\n刑警 不安定因子\n班长 平民\n小女孩 平民\n黑猫 平民\n教主 亲友\n幻想 平民\n\n1 邪气污染 黑猫",
+  "source_configuration_sections": [
+    {
+      "heading": "剧作家出牌",
+      "text": "神社密谋1 AI密谋2 刑警左右"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "改变未来",
+      "潜伏的杀人狂",
+      "未知因子KAI"
+    ],
+    "cast": [
+      {
+        "character": "军人",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "媒体人",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "AI",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "刑警",
+        "role": "不安定因子",
+        "notes": ""
+      },
+      {
+        "character": "班长",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "教主",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "幻想",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-28",
+    "title": "[社区·有特殊规则] BTX-28 一夜惨剧 鞋弃乌冉篇 作者：水龙吟",
+    "module": "BTX",
+    "days": 1,
+    "loops": 5,
+    "main_plot": "change",
+    "subplots": [
+      "lurking",
+      "unknown"
+    ],
+    "cast": {
+      "soldier": "time_traveler",
+      "journalist": "serial",
+      "ai": "cultist",
+      "police": "factor",
+      "class_rep": "ordinary",
+      "young_girl": "ordinary",
+      "black_cat": "ordinary",
+      "guru": "friend",
+      "illusion": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "foul_play",
+        "culprit": "black_cat"
+      }
+    ],
+    "table_talk": true
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": true,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+  ]
+}

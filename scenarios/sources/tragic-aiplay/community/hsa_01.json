@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "hsa_01",
+  "source_code": "HSA-01",
+  "source_filename": "HSA-01神不在的那一天 作者：新手之二.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "HSA-01",
+    "name": "HSA-01 神不在的那一天 作者：水龙吟",
+    "module": "HSA",
+    "loops": 65535,
+    "days_per_loop": 1,
+    "special_rules": [
+      "剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变",
+      "所有角色都不是平民"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "hsa_mad_night",
+        "name": "疯狂之夜"
+      }
+    }
+  },
+  "source_setup_text": "神不在的那一天 作者：水龙吟\n\n规则Y 高贵的血统\n规则X1 恐慌与妄想\n规则X2 不听劝的人\n\n神灵 关键人物  65535\n巫女 吸血鬼\n模仿犯 吸血鬼\n妹妹 传谣人\n班长 魔女\n士兵 纸老虎\n猫 杀人狂\nAI 胆小鬼\n医生 胆小鬼\n局外人 梦魇\n\n65535轮 1天\n1 疯狂之夜 神社群众",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "都市密谋2 神社密谋1 妹妹不安1"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "高贵的血统",
+      "恐慌与妄想",
+      "不听劝的人"
+    ],
+    "cast": [
+      {
+        "character": "神灵",
+        "role": "关键人物",
+        "notes": "65535"
+      },
+      {
+        "character": "巫女",
+        "role": "吸血鬼",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "吸血鬼",
+        "notes": ""
+      },
+      {
+        "character": "妹妹",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "班长",
+        "role": "魔女",
+        "notes": ""
+      },
+      {
+        "character": "士兵",
+        "role": "纸老虎",
+        "notes": ""
+      },
+      {
+        "character": "猫",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "AI",
+        "role": "胆小鬼",
+        "notes": ""
+      },
+      {
+        "character": "医生",
+        "role": "胆小鬼",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "梦魇",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-hsa-01",
+    "title": "[社区·有特殊规则] HSA-01 神不在的那一天 作者：水龙吟",
+    "module": "HSA",
+    "days": 1,
+    "loops": 65535,
+    "main_plot": "hsa_noble",
+    "subplots": [
+      "hsa_fear_delusion",
+      "hsa_unlistening"
+    ],
+    "cast": {
+      "godly": "key",
+      "maiden": "vampire",
+      "copycat": "vampire",
+      "little_sister": "conspiracy",
+      "class_rep": "witch",
+      "soldier": "paper_tiger",
+      "black_cat": "serial",
+      "ai": "chicken",
+      "doctor": "chicken",
+      "irregular": "nightmare"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "frenzied_night",
+        "culprit": "shrine"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "godly": {
+        "entry_loop": 65535
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

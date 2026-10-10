@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_plus_14",
+  "source_code": "BTX+-14",
+  "source_filename": "BTX+-14 一夜惨剧 超高校级的绝望篇.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX+-14",
+    "name": "BTX+-14 一夜惨剧 超高校级的绝望篇 作者：不虚此行",
+    "module": "BTX+",
+    "loops": 15,
+    "days_per_loop": 1,
+    "special_rules": [
+      "1如果触发了主人公失败/主人公死亡效果或在胜负判定时结果为主人公失败，则改为主人公获得游戏胜利，如果轮回中没有触发上述效果，且胜负判定时为主人公胜利，则改为主人公失败，游戏继续",
+      "2 没有最终决战",
+      "3 在行动阶段以外，剧作家将自由决定任何操作时，改为告知主人公需要进行的操作和选项，并让队长选择之后处理。只有必定无视友好会拒绝使用友好能力。",
+      "4 绝望+1行动卡当作密谋+1行动卡处理",
+      "5 上位存在获得绝望指示物后，将那些绝望指示物移除",
+      "6 剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出1张行动牌，允许剧作家在出牌阶段打出少于3张行动牌。"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      }
+    }
+  },
+  "source_setup_text": "《一夜惨剧 超高校级的绝望篇》 作者：不虚此行\n\n规则Y 被封印的邪灵\n规则X1 潜伏的杀人狂\n规则X2 未知因子X\n\n上位存在 亲友\n御神木 不安定因子\n教主 邪教徒\n神灵 因果残片\n大小姐 平民\n局外人 求爱者\n媒体人 杀人狂\n手下 主谋\n住院患者 平民\n\n1 远距离杀人 上位存在",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "D1 上位存在 不安+1，住院患者 密谋+1，学校 绝望+1"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "被封印的邪灵",
+      "潜伏的杀人狂",
+      "未知因子X"
+    ],
+    "cast": [
+      {
+        "character": "上位存在",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "御神木",
+        "role": "不安定因子",
+        "notes": ""
+      },
+      {
+        "character": "教主",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "求爱者",
+        "notes": ""
+      },
+      {
+        "character": "媒体人",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "手下",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-plus-14",
+    "title": "[社区·有特殊规则] BTX+-14 一夜惨剧 超高校级的绝望篇 作者：不虚此行",
+    "module": "BTX+",
+    "days": 1,
+    "loops": 15,
+    "main_plot": "sealed",
+    "subplots": [
+      "lurking",
+      "unknown"
+    ],
+    "cast": {
+      "higher_being": "friend",
+      "sacred_tree": "factor",
+      "guru": "cultist",
+      "rich": "ordinary",
+      "irregular": "lover",
+      "journalist": "serial",
+      "henchman": "brain",
+      "patient": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "faraway",
+        "culprit": "higher_being"
+      }
+    ],
+    "table_talk": true
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+  ]
+}

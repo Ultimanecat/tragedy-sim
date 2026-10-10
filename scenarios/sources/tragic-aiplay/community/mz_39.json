@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mz_39",
+  "source_code": "MZ-39",
+  "source_filename": "MZ-39 熙熙攘攘、我们的城市 作者：Choconut.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "MZ-39",
+    "name": "MZ-39 熙熙攘攘、我们的城市 作者：Choconut",
+    "module": "MZ",
+    "loops": "无限",
+    "days_per_loop": 6,
+    "special_rules": [
+      "1 所有角色卡牌（无论死活）不对主人公展示，包括其上放置的指示物和行动牌也不对主人公展示，如果角色牌或版图没有对主人公展示，主人公不能指定它们为行动牌的放置目标和友好能力的目标，也不能尝试声明没有展示的角色的友好能力和特性，但他们依然存在，并且如果需要进行声明时，剧作家会正常声明（例如傀儡无视，亲友，封锁等），剧作家正规声明中提及的所有角色卡牌会改为在整局游戏中展示给主人公",
+      "2 结算一名角色友好能力后，主人公可以让剧作家公开该角色在剧本中设定的剧情文本（可能包含选项分支）。剧情内容与游戏进程相互独立，但剧情文本中提及的角色卡牌会改为在整局游戏中展示给主人公\n\n剧情文本：游戏过程中根据特殊规则公开的一些文本，除特殊规则规定的部分外，剧情文本不会对于游戏造成任何影响，也不保证其中任何信息的准确性，在一般情况下，固定的触发条件会触发相同的剧情文本，不会因为其他游戏过程中的变化而发生变化。每轮每个角色的剧情文本只能触发1次\n\n选项分支：剧情文本中会出现的让主人公进行选择的部分，不同的选择可能会继续公开不同的剧情文本，除特殊规则规定的部分外，这些选择不会对正常的游戏过程造成影响",
+      "3  剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出一张行动牌，允许剧作家在出牌阶段打出少于3张行动牌",
+      "4 最终决战时未展示的角色也需要进行猜测，此时需要额外猜测角色名和其对应身份，如果猜错，主人公最终决战失败"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "confession",
+        "name": "自白"
+      },
+      "2": {
+        "source_id": "missing",
+        "name": "失踪"
+      },
+      "3": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      },
+      "4": {
+        "source_id": "continuous_murder",
+        "name": "连续杀人"
+      },
+      "5": {
+        "source_id": "plotting_activity",
+        "name": "阴谋活动"
+      },
+      "6": {
+        "source_id": "public_incident_6",
+        "name": "空空如也、我们的城市"
+      }
+    }
+  },
+  "source_setup_text": "熙熙攘攘、我们的城市 作者：Choconut\n\n规则Y 魔爪渐近\n规则X1 爱与恨的螺旋\n规则X2 心无灵犀\n \n小女孩 平民\n教师 平民\n刑警 平民\n大小姐 邪教徒\n妹妹 亲友\n幻想 平民\n临时工 忍者\n模仿犯 忍者\n从者 传谣人 都市 \nAI 魔术师\n局外人 主谋\n情报商 关键人物\n医生 强迫症\n住院患者 平民\n手下 平民 神社 \n黑猫 平民\n\n1 自白 小女孩 \n2 失踪 临时工 \n3 医院事故 医生 \n4 连续杀人 手下  \n5 阴谋活动 住院患者 \n6 伪造事件（空空如也、我们的城市） 从者",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "第一天：密谋+1（都市），不安+1（临时工），不安+1（小女孩）\n第二天：密谋+1（都市），左右移动（黑猫），不安+1（临时工）\n第三天：密谋+1（医院），左右移动（从者），密谋+2（住院患者）\n第四天：不安+1（手下），左右移动（临时工?），上下移动（模仿犯）\n第五天：密谋+1（都市），左右移动（大小姐），上下移动（黑猫）\n第六天：密谋+1（都市），左右移动（黑猫），友好禁止（住院患者）"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "魔爪渐近",
+      "爱与恨的螺旋",
+      "心无灵犀"
+    ],
+    "cast": [
+      {
+        "character": "小女孩",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "教师",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "刑警",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "妹妹",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "幻想",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "临时工",
+        "role": "忍者",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "忍者",
+        "notes": ""
+      },
+      {
+        "character": "从者",
+        "role": "传谣人",
+        "notes": "都市"
+      },
+      {
+        "character": "AI",
+        "role": "魔术师",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "情报商",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "医生",
+        "role": "强迫症",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "手下",
+        "role": "平民",
+        "notes": "神社"
+      },
+      {
+        "character": "黑猫",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-mz-39",
+    "title": "[社区·有特殊规则] MZ-39 熙熙攘攘、我们的城市 作者：Choconut",
+    "module": "MZ",
+    "days": 6,
+    "loops": "无限",
+    "main_plot": "mz_approaching",
+    "subplots": [
+      "mz_love_hate",
+      "mz_clear_mind"
+    ],
+    "cast": {
+      "young_girl": "ordinary",
+      "teacher": "ordinary",
+      "police": "ordinary",
+      "rich": "cultist",
+      "little_sister": "friend",
+      "illusion": "ordinary",
+      "part_timer": "ninja",
+      "copycat": "ninja",
+      "servant": "conspiracy",
+      "ai": "magician",
+      "irregular": "brain",
+      "informer": "key",
+      "doctor": "obsessive",
+      "patient": "ordinary",
+      "henchman": "ordinary",
+      "black_cat": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "confession",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 2,
+        "kind": "missing",
+        "culprit": "part_timer"
+      },
+      {
+        "day": 3,
+        "kind": "hospital",
+        "culprit": "doctor"
+      },
+      {
+        "day": 4,
+        "kind": "serial_murder",
+        "culprit": "henchman"
+      },
+      {
+        "day": 5,
+        "kind": "covert_activity",
+        "culprit": "patient"
+      },
+      {
+        "day": 6,
+        "kind": "fake_incident",
+        "culprit": "servant",
+        "public_kind": "空空如也、我们的城市"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "servant": {
+        "initial_location": "city"
+      },
+      "henchman": {
+        "initial_location": "shrine"
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

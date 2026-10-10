@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_122",
+  "source_code": "BTX-122",
+  "source_filename": "BTX-122 轮回悲恋 作者：小虎李子.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-122",
+    "name": "BTX-122 轮回悲恋 作者：小虎李子",
+    "module": "BTX",
+    "loops": "7-9",
+    "days_per_loop": 4,
+    "special_rules": [
+      "1 剧作家无法使用移动牌和不安-1。",
+      "2 剧作家有部分固定行动牌严格按照剧本规定按顺序在固定位置公开放置，并且每轮轮回均不变，其余行动牌按规则正常打出，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出一张行动牌，允许剧作家在出牌阶段打出少于3张行动牌",
+      "3 不安扩散放置不安和密谋的角色由剧本规定，并且每轮轮回均不变",
+      "4 刑警获得时间旅者的能力（不死除外，身份不变）",
+      "5 第4天的事件当事人死亡时，将第4天的事件替换为自杀，其当事人变更为由剧本规定的另一名角色，并且那名角色获得等同于其不安限度数量的不安指示物",
+      "6 没有最终决战",
+      "7 剧本允许讨论",
+      "8 主人公可以主动要求提高难度，使转校生的能力只移除密谋指示物，不放置友好指示物"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "2": {
+        "source_id": "murder",
+        "name": "谋杀"
+      },
+      "3": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      },
+      "4": {
+        "source_id": "butterfly_effect",
+        "name": "蝴蝶效应"
+      }
+    }
+  },
+  "source_setup_text": "轮回悲恋 作者：小虎李子\n\n规则Y 改变未来\n规则X1 恋爱风景线\n规则X2 好友圈\n\n媒体人 求爱者\n大小姐 心上人\n大人物 传谣者  学校 \nAI 邪教徒\n转校生 时间旅者 2\n小女孩 亲友\n军人 亲友\n刑警 平民\n班长 平民\n御神木 平民\n\n1 不安扩散 小女孩 \n2 谋杀  班长 \n3 远距离杀人 媒体人 \n4 蝴蝶效应 大小姐/自杀 军人\n\n出牌和事件结算方法方法\n\n从第一天到第四天固定牌数量为3、2、2、1：\n\n第一天：媒体人密谋+1，大小姐不安+1，班长不安+1\n蝴蝶效应固定为媒体人不安+2，军人密谋+1\n\n第二天：军人密谋+1，小女孩密谋+2\n\n第三天：军人密谋+1，转校生友好禁止\n\n回合结束时若大小姐死亡，则事件蝴蝶效应变更为自杀，当事人为军人，军人获得3点不安（不安上限点）\n\n第四天：班长密谋+1",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "改变未来",
+      "恋爱风景线",
+      "好友圈"
+    ],
+    "cast": [
+      {
+        "character": "媒体人",
+        "role": "求爱者",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "心上人",
+        "notes": ""
+      },
+      {
+        "character": "AI",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "时间旅者",
+        "notes": "2"
+      },
+      {
+        "character": "小女孩",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "军人",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "刑警",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "班长",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "御神木",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-122",
+    "title": "[社区·有特殊规则] BTX-122 轮回悲恋 作者：小虎李子",
+    "module": "BTX",
+    "days": 4,
+    "loops": 9,
+    "main_plot": "change",
+    "subplots": [
+      "love",
+      "friends"
+    ],
+    "cast": {
+      "journalist": "lover",
+      "rich": "loved",
+      "ai": "cultist",
+      "transfer_student": "time_traveler",
+      "young_girl": "friend",
+      "soldier": "friend",
+      "police": "ordinary",
+      "class_rep": "ordinary",
+      "sacred_tree": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "unease",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 2,
+        "kind": "murder",
+        "culprit": "class_rep"
+      },
+      {
+        "day": 3,
+        "kind": "faraway",
+        "culprit": "journalist"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      7,
+      8,
+      9
+    ],
+    "character_options": {
+      "transfer_student": {
+        "entry_day": 2
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "公开事件与私有事件当事人数量不一致",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

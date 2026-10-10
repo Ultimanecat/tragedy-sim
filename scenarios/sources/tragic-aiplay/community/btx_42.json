@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": false,
+  "special_rules_label": "无特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_42",
+  "source_code": "BTX-42",
+  "source_filename": "BTX-42 个迫真的、医院危机、、作者：海天一色.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-42",
+    "name": "BTX-42 个迫真的、医院危机、、 作者：海天一色",
+    "module": "BTX",
+    "loops": 5,
+    "days_per_loop": 4,
+    "special_rules": [],
+    "incidents": {
+      "1": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "2": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      },
+      "3": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      },
+      "4": {
+        "source_id": "evil_pollution",
+        "name": "邪气污染"
+      }
+    }
+  },
+  "source_setup_text": "5轮4天\n\n谋杀计划\n恋爱风景线\n因果线\n\n大小姐 关键人物\n男学生 平民\n偶像 杀手\n职员 求爱者\n异界人 心上人\n黑猫 平民\n住院患者 主谋\n手下 平民\n\n1 自杀 住院患者\n2 医院事故 职员\n3 医院事故 大小姐\n4 邪气污染 黑猫",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "恋爱风景线",
+      "因果线"
+    ],
+    "cast": [
+      {
+        "character": "大小姐",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "男学生",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "偶像",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "职员",
+        "role": "求爱者",
+        "notes": ""
+      },
+      {
+        "character": "异界人",
+        "role": "心上人",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "手下",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-42",
+    "title": "[社区·无特殊规则] BTX-42 个迫真的、医院危机、、 作者：海天一色",
+    "module": "BTX",
+    "days": 4,
+    "loops": 5,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "love",
+      "threads"
+    ],
+    "cast": {
+      "rich": "key",
+      "student": "ordinary",
+      "idol": "killer",
+      "worker": "lover",
+      "outsider": "loved",
+      "black_cat": "ordinary",
+      "patient": "brain",
+      "henchman": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "suicide",
+        "culprit": "patient"
+      },
+      {
+        "day": 2,
+        "kind": "hospital",
+        "culprit": "worker"
+      },
+      {
+        "day": 3,
+        "kind": "hospital",
+        "culprit": "rich"
+      },
+      {
+        "day": 4,
+        "kind": "foul_play",
+        "culprit": "black_cat"
+      }
+    ],
+    "table_talk": true
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_incompatible_setup",
+  "playable_file": null,
+  "issues": [
+    "剧本包含未知角色或无效身份"
+  ]
+}

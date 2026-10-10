@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mc_59",
+  "source_code": "MC-59",
+  "source_filename": "MC-59 《跨越15年的那个谎言》 作者：桶子.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "MC-59",
+    "name": "MC-59 跨越15年的那个谎言 作者：桶子",
+    "module": "MC",
+    "loops": "4-5",
+    "days_per_loop": 5,
+    "special_rules": [
+      "1. 有三名角色在轮回开始时不登场，并且为3人各指定一名角色（由剧本规定），回合开始阶段，如果指定的那名角色为死亡状态，对应的角色在其初始区域登场",
+      "2. 小女孩的初始区域改为医院，医生不能移动。"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      },
+      "2": {
+        "source_id": "suspicious_letter",
+        "name": "可疑信件"
+      },
+      "3": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "4": {
+        "source_id": "continuous_murder",
+        "name": "连续杀人"
+      },
+      "5": {
+        "source_id": "continuous_murder",
+        "name": "连续杀人"
+      }
+    }
+  },
+  "source_setup_text": "MC\n4-5轮5天\n谋杀计划  \n我是名侦探 \n双子的诡计",
+  "source_configuration_sections": [
+    {
+      "heading": "特殊规则里的不直接登场人物:",
+      "text": "大小姐  双胞胎  （小女孩死亡后下一天回合开始登场）\n模仿犯 双胞胎  （医生死亡后下一天回合开始登场）\n神灵 杀手  （上位存在死亡后下一天回合开始登场）\n\n初始登场人物:\n医生 主谋 \n小女孩  偏执狂 \n偶像 亲友 \n手下  关键人物  \n局外人  杀人狂  \n教师 平民  \n上位存在 传谣人 \n转校生  侦探  第四天登场\n黑猫  平民  \n女学生  平民 \n\n1 医院事故  小女孩 \n2 可疑信件 手下  \n3 不安扩散  大小姐  \n4 连续杀人  模仿犯\n5 连续杀人  模仿犯"
+    },
+    {
+      "heading": "特殊规则",
+      "text": "1.   有三名角色在轮回开始时不登场，并且为3人各指定一名角色（由剧本规定），回合开始阶段，如果指定的那名角色为死亡状态，对应的角色在其初始区域登场\n  2.    小女孩的初始区域改为医院，医生不能移动。\n………………………"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "我是名侦探",
+      "双子的诡计"
+    ],
+    "cast": []
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-mc-59",
+    "title": "[社区·有特殊规则] MC-59 跨越15年的那个谎言 作者：桶子",
+    "module": "MC",
+    "days": 5,
+    "loops": 5,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "mc_detective",
+      "mc_twins"
+    ],
+    "cast": {},
+    "incidents": [],
+    "table_talk": true,
+    "loop_options": [
+      4,
+      5
+    ]
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "公开事件与私有事件当事人数量不一致",
+    "剧本需要至少三名已支持角色"
+  ]
+}

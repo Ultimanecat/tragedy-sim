@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_117",
+  "source_code": "BTX-117",
+  "source_filename": "BTX-117 当贝斯手想要结束这个乐队 作者：桶子.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-117",
+    "name": "BTX-117 当贝斯手想要结束这个乐队 作者：桶子",
+    "module": "BTX",
+    "loops": 4,
+    "days_per_loop": 3,
+    "special_rules": [
+      "剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变",
+      "主人公的友好+2失去每轮限一次的限制",
+      "剧本使用了非官方角色UP主\nUP主\n【初始区域】远方\n【禁行区域】无\n【不安限度】2\n【属性】 男性·学生\n【特性】在每轮轮回第一次事件发生当天的回合结束阶段，往1名少年或少女身上设置1张Ex牌。在使用该角色的能力（包括友好能力）时，可以将放置有Ex牌的角色所在区域视为该角色所在区域。\n【友好能力】（友好3）往同一区域另外一名角色身上放置1枚友好指示物，并移除1枚不安指示物。随后，可以將那名角色身上的Ex牌转移到与那名角色位于同一区域、且非UP主的1名角色身上。",
+      "剧本使用了远方规则\n远方是独立于场上的四个版图代表的区域之外的一额外的没有版图的新区域\n位于远方的角色位于同一区域，在远方角色身上的移动牌在结算时没有效果\n可以通过某些效果或规则让角色位于远方（比如UP主的初始区域和仙人的能力，但手下的初始区域不能选择远方）\n因为没有版图，所有指定版图的效果不能指定远方（比如失踪等），但没有指定同一区域的效果可以指定远方的角色（比如媒体人的第一个友好能力）\n远方没有相邻版图，顺时针版图和对角线版图\n远方与幻想移除之后的所在区域或部分未进场的角色的所在区域不是同一个区域"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "missing",
+        "name": "失踪"
+      },
+      "2": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "3": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      }
+    }
+  },
+  "source_setup_text": "当贝斯手想要结束这个乐队 作者：tongzi\n\n规则Y 改变未来\n规则X1 因果线\n规则X2 流言四起\n\nUP主 平民\n转校生 时间旅者 3\n神灵 邪教徒 4\n巫女 传谣人\n\n1 失踪  UP主\n2 不安扩散 巫女\n3 医院事故 转校生",
+  "source_configuration_sections": [
+    {
+      "heading": "剧作家固定出牌",
+      "text": "1 巫女友好禁止 UP主不安禁止 神社密谋+1\n2 巫女不安禁止 UP主友好禁止 医院密谋+1\n3 转校生不安+1 UP主友好禁止 都市密谋+2"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "改变未来",
+      "因果线",
+      "流言四起"
+    ],
+    "cast": [
+      {
+        "character": "UP主",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "时间旅者",
+        "notes": "3"
+      },
+      {
+        "character": "神灵",
+        "role": "邪教徒",
+        "notes": "4"
+      },
+      {
+        "character": "巫女",
+        "role": "传谣人",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-117",
+    "title": "[社区·有特殊规则] BTX-117 当贝斯手想要结束这个乐队 作者：桶子",
+    "module": "BTX",
+    "days": 3,
+    "loops": 4,
+    "main_plot": "change",
+    "subplots": [
+      "threads",
+      "rumor"
+    ],
+    "cast": {
+      "UP主": "ordinary",
+      "transfer_student": "time_traveler",
+      "godly": "cultist",
+      "maiden": "conspiracy"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "missing",
+        "culprit": "UP主"
+      },
+      {
+        "day": 2,
+        "kind": "unease",
+        "culprit": "maiden"
+      },
+      {
+        "day": 3,
+        "kind": "hospital",
+        "culprit": "transfer_student"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "transfer_student": {
+        "entry_day": 3
+      },
+      "godly": {
+        "entry_loop": 4
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：UP主",
+    "剧本包含未知角色或无效身份"
+  ]
+}

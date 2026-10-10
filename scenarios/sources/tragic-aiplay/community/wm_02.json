@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "wm_02",
+  "source_code": "WM-02",
+  "source_filename": "WM-02 不容玷污的血脉 作者：Choconut.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "WM-02",
+    "name": "WM-02 不容玷污的血脉 作者：Choconut",
+    "module": "WM",
+    "loops": "4-5",
+    "days_per_loop": 3,
+    "special_rules": [
+      "剧作家只能对剧本规定的某个角色使用友好禁止"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "2": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "3": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      }
+    }
+  },
+  "source_setup_text": "不容玷污的血脉 作者：Choconut\n\n规则Y 黄衣之王\n规则X1 无貌之神\n规则X2 伊斯之伟大种族\n\n军人 巫师\n黑猫 时间旅者\n大人物 杀人狂 学校  可打禁止\n从者 平民 都市 \n情报商 邪教徒\n小女孩 无面者\n班长 祭品\n\n1 不安扩散 小女孩 \n2 不安扩散 从者 \n3 不安扩散 班长",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "黄衣之王",
+      "无貌之神",
+      "伊斯之伟大种族"
+    ],
+    "cast": [
+      {
+        "character": "军人",
+        "role": "巫师",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "杀人狂",
+        "notes": "学校 可打禁止"
+      },
+      {
+        "character": "从者",
+        "role": "平民",
+        "notes": "都市"
+      },
+      {
+        "character": "情报商",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "无面者",
+        "notes": ""
+      },
+      {
+        "character": "班长",
+        "role": "祭品",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-wm-02",
+    "title": "[社区·有特殊规则] WM-02 不容玷污的血脉 作者：Choconut",
+    "module": "WM",
+    "days": 3,
+    "loops": 5,
+    "main_plot": "wm_yellow_king",
+    "subplots": [
+      "wm_faceless_god",
+      "wm_great_race"
+    ],
+    "cast": {
+      "soldier": "wizard",
+      "black_cat": "time_traveler",
+      "boss": "serial",
+      "servant": "ordinary",
+      "informer": "cultist",
+      "young_girl": "faceless",
+      "class_rep": "sacrifice"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "unease",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 2,
+        "kind": "unease",
+        "culprit": "servant"
+      },
+      {
+        "day": 3,
+        "kind": "unease",
+        "culprit": "class_rep"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      4,
+      5
+    ],
+    "character_options": {
+      "boss": {
+        "territory": "school"
+      },
+      "servant": {
+        "initial_location": "city"
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "祭品必须担任剧本中第一起事件的当事人"
+  ]
+}

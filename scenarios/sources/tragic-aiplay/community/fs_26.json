@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "fs_26",
+  "source_code": "FS-26",
+  "source_filename": "FS-26 西行妖.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "FS-26",
+    "name": "FS-26 西行妖 作者：Frelia_ASM",
+    "module": "FS",
+    "loops": "无限轮",
+    "days_per_loop": 1,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变",
+      "2 剧作家每天可以额外打出一张行动牌，主人公额外获得一套主人公行动牌，在行动阶段队长打出通常行动牌后，可以额外打出一张行动牌，此时需要从额外获得的行动牌中选择行动牌打出（额外的行动牌遵守行动牌的放置和结算规则）"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "missing",
+        "name": "失踪"
+      }
+    }
+  },
+  "source_setup_text": "西行妖 作者：Frelia_ASM\n\n规则Y 复仇的火种\n规则X 最黑暗的剧本\n\n大小姐 传谣人\n局外人 杀人狂\n巫女 暴徒\n御神木 主谋\n异界人 亲友\n\n1 失踪 大小姐",
+  "source_configuration_sections": [
+    {
+      "heading": "剧作家固定出牌",
+      "text": "局外人 斜向移动\n大小姐 不安+1\n学校 密谋+2\n神社 密谋+1"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "复仇的火种",
+      "最黑暗的剧本"
+    ],
+    "cast": [
+      {
+        "character": "大小姐",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "巫女",
+        "role": "暴徒",
+        "notes": ""
+      },
+      {
+        "character": "御神木",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "异界人",
+        "role": "亲友",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-fs-26",
+    "title": "[社区·有特殊规则] FS-26 西行妖 作者：Frelia_ASM",
+    "module": "FS",
+    "days": 1,
+    "loops": "无限轮",
+    "main_plot": "avenger",
+    "subplots": [
+      "hideous"
+    ],
+    "cast": {
+      "rich": "conspiracy",
+      "irregular": "serial",
+      "maiden": "curmudgeon",
+      "sacred_tree": "brain",
+      "outsider": "friend"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "missing",
+        "culprit": "rich"
+      }
+    ],
+    "table_talk": true
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_134",
+  "source_code": "BTX-134",
+  "source_filename": "BTX-134 一夜惨剧 自杀篇.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-134",
+    "name": "BTX-134 一夜惨剧 自杀篇 作者：Zillash",
+    "module": "BTX",
+    "loops": 4,
+    "days_per_loop": 1,
+    "special_rules": [
+      "1 没有最终决战",
+      "2 轮回开始时，从者获得4枚友好指示物"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "suicide",
+        "name": "自杀"
+      }
+    }
+  },
+  "source_setup_text": "从者教学本 作者：Zillash\n\n规则Y 谋杀计划\n规则X1 流言四起\n规则X2 潜伏的杀人狂\n\n从者 关键人物 学校\n大小姐 传谣人\n小女孩 亲友\n大人物 杀人狂 都市\n学者 杀手 \n住院患者 主谋\n\n1 自杀 大小姐",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "流言四起",
+      "潜伏的杀人狂"
+    ],
+    "cast": [
+      {
+        "character": "从者",
+        "role": "关键人物",
+        "notes": "学校"
+      },
+      {
+        "character": "大小姐",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "杀人狂",
+        "notes": "都市"
+      },
+      {
+        "character": "学者",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "主谋",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-134",
+    "title": "[社区·有特殊规则] BTX-134 一夜惨剧 自杀篇 作者：Zillash",
+    "module": "BTX",
+    "days": 1,
+    "loops": 4,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "rumor",
+      "lurking"
+    ],
+    "cast": {
+      "servant": "key",
+      "rich": "conspiracy",
+      "young_girl": "friend",
+      "boss": "serial",
+      "scholar": "killer",
+      "patient": "brain"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "suicide",
+        "culprit": "rich"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "servant": {
+        "initial_location": "school"
+      },
+      "boss": {
+        "territory": "city"
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": true,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+  ]
+}

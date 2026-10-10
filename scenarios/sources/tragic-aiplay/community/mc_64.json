@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mc_64",
+  "source_code": "MC-64",
+  "source_filename": "MC-64 三日惊奇.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "MC-64",
+    "name": "MC-64 三日惊奇 作者：laining",
+    "module": "MC",
+    "loops": "3-5",
+    "days_per_loop": 3,
+    "special_rules": [
+      "1 如果上轮轮回结束时EX槽为下列数值或以上，则本轮轮回适用对应效果\n1+：在第一天的回合开始阶段，队长可以选择任意1名角色，并在该角色身上放置2枚友好指示物\n2+：轮回结束时，可以得知规则X1的规则名\n3+：同时放置2张或以上[禁止密谋]时，不会无效化\n4+：回合结束阶段时，主人公死亡。\n轮回结束时，失去所有剩余轮回，直接进入最终决战",
+      "2 所有身份失去分配上限",
+      "3 剧本使用了非官方角色仙人\n\n仙人\n【初始区域】神社/医院（由剧本规定）\n【禁行区域】无\n【不安限度】X(见特性)\n【属性】 成人·男性\n【特性】X为剧本规定的数值。在事件判定之外需要参照該角色的不安限度时，该角色的不安限度视为0。\n【特性】结算该角色担任当事人的事件时，该角色可以视为位于本來所在位置顺时针相邻的版图。\n【友好能力】（友好5 1L1）将该角色移动至任意版图或远方。随后，复活同一区域任意1具尸体，並在那张卡牌上放置X枚友好指示物。",
+      "4 剧本使用了远方规则\n\n远方是独立于场上的四个版图代表的区域之外的一额外的没有版图的新区域\n位于远方的角色位于同一区域，在远方角色身上的移动牌在结算时没有效果\n可以通过某些效果或规则让角色位于远方（比如UP主的初始区域和仙人的能力，但手下的初始区域不能选择远方）\n因为没有版图，所有指定版图的效果不能指定远方（比如失踪等），但没有指定同一区域的效果可以指定远方的角色（比如媒体人的第一个友好能力）\n远方没有相邻版图，顺时针版图和对角线版图\n远方与幻想移除之后的所在区域或部分未进场的角色的所在区域不是同一个区域"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "continuous_murder",
+        "name": "连续杀人"
+      },
+      "2": {
+        "source_id": "terror_attack",
+        "name": "恐怖袭击"
+      },
+      "3": {
+        "source_id": "silver_bullet",
+        "name": "银色子弹"
+      }
+    }
+  },
+  "source_setup_text": "三日惊奇 作者：laining\n\n规则Y 事件交织的罗网\n规则X1 我是名侦探\n规则X2 双子的诡计\n\nA.I. 亲友\n住院患者 双胞胎\n黑猫 愚者\n大人物 侦探 医院\n媒体人 传谣人\n仙人 传谣人 医院 不安限度0\n转校生 偏执狂 第2天登场\n\n1 连续杀人 住院患者\n2 恐怖袭击 仙人\n3 银色子弹 黑猫",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "事件交织的罗网",
+      "我是名侦探",
+      "双子的诡计"
+    ],
+    "cast": [
+      {
+        "character": "A.I.",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "双胞胎",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "愚者",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "侦探",
+        "notes": "医院"
+      },
+      {
+        "character": "媒体人",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "仙人",
+        "role": "传谣人",
+        "notes": "医院 不安限度0"
+      },
+      {
+        "character": "转校生",
+        "role": "偏执狂",
+        "notes": "第2天登场"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-mc-64",
+    "title": "[社区·有特殊规则] MC-64 三日惊奇 作者：laining",
+    "module": "MC",
+    "days": 3,
+    "loops": 5,
+    "main_plot": "mc_event_web",
+    "subplots": [
+      "mc_detective",
+      "mc_twins"
+    ],
+    "cast": {
+      "ai": "friend",
+      "patient": "twin",
+      "black_cat": "fool",
+      "boss": "detective",
+      "journalist": "conspiracy",
+      "仙人": "conspiracy",
+      "transfer_student": "paranoid"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "serial_murder",
+        "culprit": "patient"
+      },
+      {
+        "day": 2,
+        "kind": "terror_attack",
+        "culprit": "仙人"
+      },
+      {
+        "day": 3,
+        "kind": "silver_bullet",
+        "culprit": "black_cat"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      3,
+      4,
+      5
+    ],
+    "character_options": {
+      "boss": {
+        "territory": "hospital"
+      },
+      "transfer_student": {
+        "entry_day": 2
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：仙人",
+    "剧本包含未知角色或无效身份"
+  ]
+}

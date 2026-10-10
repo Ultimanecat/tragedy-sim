@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "wm_25",
+  "source_code": "WM-25",
+  "source_filename": "WM-25 黑幕与撕开世界的伪装 作者：萌新宝宝.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "WM-25",
+    "name": "WM-25 黑幕与撕开世界的伪装 作者：萌新宝宝",
+    "module": "WM",
+    "loops": 9,
+    "days_per_loop": 4,
+    "special_rules": [
+      "1 原本卡名为修女和护士的角色是信仰者，并且她们不能移动。",
+      "2 黑雾\n剧作家能力阶段，剧作家可以选择1名角色，放置1枚密谋或不安指示物，每天限1次。\n每轮轮回的前两天，与信仰者位于同一区域的角色不受该效果影响。",
+      "3 剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则在打出所有按规定能打出的行动牌后，剩余的行动改为自由出牌",
+      "4 主人公无法使用【移动禁止】和【密谋禁止】，没有最终决战。",
+      "5 剧本使用了非官方角色修女、逆命师、失忆者。\n\n修女\n【初始区域】神社\n【禁行区域】无\n【不安限度】4\n【属性】成人·女性\n【友好能力】（友好3）使同一区域任意1名角色死亡，当前轮回立即结束，主人公失败。\n\n逆命师\n【初始区域】神社\n【禁行区域】学校\n【不安限度】4\n【属性】妹妹·女性\n【友好能力】（友好2）移除该角色的2枚友好指示物，该角色的另一个友好能力在本轮轮回可以突破每轮限1次的限制，并且剩余可使用次数+1。\n【友好能力】（友好3 1L1）直到轮回结束时，将场上一张角色卡的卡名和不安限度变更为与场上另一张角色卡的卡名和不安限度相同。\n\n失忆者\n【初始区域】医院\n【禁行区域】无\n【不安限度】2\n【属性】成人·男性\n【特性】仅限于有1名角色与该角色位于同一区域的前提下，该角色的身份变为与那名角色相同（如果不满足条件则变回原本的身份）\n【友好能力】（友好5 1L1）公开该角色的身份。"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "wm_mad_murder",
+        "name": "疯狂杀人"
+      },
+      "2": {
+        "source_id": "wm_funeral",
+        "name": "送葬"
+      },
+      "3": {
+        "source_id": "wm_mass_suicide",
+        "name": "集体自杀"
+      },
+      "4": {
+        "source_id": "wm_mad_murder",
+        "name": "疯狂杀人"
+      }
+    }
+  },
+  "source_setup_text": "黑幕与撕开世界的伪装 作者：萌新宝宝\n\n规则Y 外神合唱曲\n规则X1 伊斯之伟大种族\n规则X2 深渊之都的私语\n\n妹妹 关键人物\n黑猫 永生者\n幻想 祭品\n失忆者 杀人狂\n逆命师 时间旅者\n情报商 偏执狂\n神灵 深潜者 第9轮登场\n大小姐 平民\n教师 平民\n小女孩 平民\n从者 平民 初始区域都市\n护士 平民\n女学生 平民\n修女 平民\n\n1 疯狂杀人 护士\n2 送葬 失忆者\n3 集体自杀 幻想\n4 疯狂杀人 情报商",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "第一天 神社密谋+1，修女密谋+2，大小姐禁止友好\n第二天 逆命师密谋+1，情报商禁止友好，失忆者上下移动\n第三天 黑猫密谋+1，情报商禁止友好，大小姐左右移动\n第四天 妹妹密谋+1，情报商禁止友好，黑猫左右移动"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "外神合唱曲",
+      "伊斯之伟大种族",
+      "深渊之都的私语"
+    ],
+    "cast": [
+      {
+        "character": "妹妹",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "永生者",
+        "notes": ""
+      },
+      {
+        "character": "幻想",
+        "role": "祭品",
+        "notes": ""
+      },
+      {
+        "character": "失忆者",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "逆命师",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "情报商",
+        "role": "偏执狂",
+        "notes": ""
+      },
+      {
+        "character": "神灵",
+        "role": "深潜者",
+        "notes": "第9轮登场"
+      },
+      {
+        "character": "大小姐",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "教师",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "从者",
+        "role": "平民",
+        "notes": "初始区域都市"
+      },
+      {
+        "character": "护士",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "女学生",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "修女",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-wm-25",
+    "title": "[社区·有特殊规则] WM-25 黑幕与撕开世界的伪装 作者：萌新宝宝",
+    "module": "WM",
+    "days": 4,
+    "loops": 9,
+    "main_plot": "wm_outer_chorus",
+    "subplots": [
+      "wm_great_race",
+      "wm_deep_whisper"
+    ],
+    "cast": {
+      "little_sister": "key",
+      "black_cat": "immortal",
+      "illusion": "sacrifice",
+      "失忆者": "serial",
+      "逆命师": "time_traveler",
+      "informer": "paranoid",
+      "godly": "deep_one",
+      "rich": "ordinary",
+      "teacher": "ordinary",
+      "young_girl": "ordinary",
+      "servant": "ordinary",
+      "nurse": "ordinary",
+      "girl": "ordinary",
+      "修女": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "frenzied_murder",
+        "culprit": "nurse"
+      },
+      {
+        "day": 2,
+        "kind": "funeral",
+        "culprit": "失忆者"
+      },
+      {
+        "day": 3,
+        "kind": "mass_suicide",
+        "culprit": "illusion"
+      },
+      {
+        "day": 4,
+        "kind": "frenzied_murder",
+        "culprit": "informer"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "godly": {
+        "entry_loop": 9
+      },
+      "servant": {
+        "initial_location": "city"
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：失忆者",
+    "角色未支持：逆命师",
+    "角色未支持：修女",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": false,
+  "special_rules_label": "无特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mc_66",
+  "source_code": "MC-66",
+  "source_filename": "MC-66  我们不可能成为恋人！绝对不行。 (※似乎已行？).txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "MC-66",
+    "name": "MC-66 我们不可能成为恋人！绝对不行。 (※似乎已行？) 作者：L＇art de la fille",
+    "module": "MC",
+    "loops": 4,
+    "days_per_loop": 5,
+    "special_rules": [],
+    "incidents": {
+      "1": {
+        "source_id": "suspicious_letter",
+        "name": "可疑信件"
+      },
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "3": {
+        "source_id": "blockade",
+        "name": "封锁"
+      },
+      "4": {
+        "source_id": "freak_murder",
+        "name": "猎奇杀人"
+      },
+      "5": {
+        "source_id": "terror_attack",
+        "name": "恐怖袭击"
+      }
+    }
+  },
+  "source_setup_text": "我们不可能成为恋人！绝对不行。 (※似乎已行？)  作者： L＇art de la fille\n\n规则Y 命悬一线的计划\n规则X1 绝对意志\n规则X2 我是名侦探\n\n局外人 关键人物 甘织玲奈子\n大小姐 亲友 王冢真唯\n护士 主谋 濑名紫阳花\n情报商 杀手 琴纱月\n偶像 传谣人 小柳香穗\n妹妹 侦探 甘织遥奈\n从者 都市 强迫症 花取单衣\n军人 平民 鬼瓦星来\n巫女 平民 梨地湊\n大人物 平民 都市 王冢露奈\n职员 平民 纱月的妈妈\n\n1 可疑信件 局外人\n2 自杀 大小姐\n3 封锁 巫女\n4 猎奇杀人 从者\n5 恐怖袭击 情报商",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "命悬一线的计划",
+      "绝对意志",
+      "我是名侦探"
+    ],
+    "cast": [
+      {
+        "character": "局外人",
+        "role": "关键人物",
+        "notes": "甘织玲奈子"
+      },
+      {
+        "character": "大小姐",
+        "role": "亲友",
+        "notes": "王冢真唯"
+      },
+      {
+        "character": "护士",
+        "role": "主谋",
+        "notes": "濑名紫阳花"
+      },
+      {
+        "character": "情报商",
+        "role": "杀手",
+        "notes": "琴纱月"
+      },
+      {
+        "character": "偶像",
+        "role": "传谣人",
+        "notes": "小柳香穗"
+      },
+      {
+        "character": "妹妹",
+        "role": "侦探",
+        "notes": "甘织遥奈"
+      },
+      {
+        "character": "从者",
+        "role": "强迫症",
+        "notes": "都市 花取单衣"
+      },
+      {
+        "character": "军人",
+        "role": "平民",
+        "notes": "鬼瓦星来"
+      },
+      {
+        "character": "巫女",
+        "role": "平民",
+        "notes": "梨地湊"
+      },
+      {
+        "character": "大人物",
+        "role": "平民",
+        "notes": "都市 王冢露奈"
+      },
+      {
+        "character": "职员",
+        "role": "平民",
+        "notes": "纱月的妈妈"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-mc-66",
+    "title": "[社区·无特殊规则] MC-66 我们不可能成为恋人！绝对不行。 (※似乎已行？) 作者：L＇art de la fille",
+    "module": "MC",
+    "days": 5,
+    "loops": 4,
+    "main_plot": "mc_tightrope",
+    "subplots": [
+      "mc_absolute",
+      "mc_detective"
+    ],
+    "cast": {
+      "irregular": "key",
+      "rich": "friend",
+      "nurse": "brain",
+      "informer": "killer",
+      "idol": "conspiracy",
+      "little_sister": "detective",
+      "servant": "obsessive",
+      "soldier": "ordinary",
+      "maiden": "ordinary",
+      "boss": "ordinary",
+      "worker": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "suspicious_letter",
+        "culprit": "irregular"
+      },
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "rich"
+      },
+      {
+        "day": 3,
+        "kind": "lockdown",
+        "culprit": "maiden"
+      },
+      {
+        "day": 4,
+        "kind": "bizarre_murder",
+        "culprit": "servant"
+      },
+      {
+        "day": 5,
+        "kind": "terror_attack",
+        "culprit": "informer"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "servant": {
+        "initial_location": "city"
+      },
+      "boss": {
+        "territory": "city"
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_incompatible_setup",
+  "playable_file": null,
+  "issues": [
+    "剧本包含未知角色或无效身份"
+  ]
+}

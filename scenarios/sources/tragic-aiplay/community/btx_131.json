@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_131",
+  "source_code": "BTX-131",
+  "source_filename": "BTX-131 《我心里危险的东西》.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-131",
+    "name": "BTX-131 我心里危险的东西 作者：三上真希",
+    "module": "BTX",
+    "loops": 4,
+    "days_per_loop": 5,
+    "special_rules": [
+      "1 第一天回合开始阶段开始时，将局外人身上的不安指示物数量补充到7",
+      "2 剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变，剧作家每天放置的卡牌和位置均相同",
+      "3 没有最终决战",
+      "4 主人公无法使用【移动↑↓】",
+      "5 剧本改为有2条规则Y和一条规则X"
+    ],
+    "incidents": {
+      "5": {
+        "source_id": "butterfly_effect",
+        "name": "蝴蝶效应"
+      }
+    }
+  },
+  "source_setup_text": "《我心里危险的东西》 作者：三上真希\n\n规则Y1 谋杀计划\n规则Y2 改变未来\n规则X 流言四起\n\n大人物 主谋 学校\n女学生 关键人物\n局外人 求爱者\n小女孩 杀手\n班长 传谣人\n偶像 平民\n模仿犯 传谣人\n转学生 平民 3\n职员 时间旅者\n黑猫 邪教徒\n\n5 蝴蝶效应 局外人",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "每天 局外人不安+1，女学生禁止友好，模仿犯左右移动"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "改变未来",
+      "流言四起"
+    ],
+    "cast": [
+      {
+        "character": "大人物",
+        "role": "主谋",
+        "notes": "学校"
+      },
+      {
+        "character": "女学生",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "求爱者",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "班长",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "偶像",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "转学生",
+        "role": "平民",
+        "notes": "3"
+      },
+      {
+        "character": "职员",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "邪教徒",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-131",
+    "title": "[社区·有特殊规则] BTX-131 我心里危险的东西 作者：三上真希",
+    "module": "BTX",
+    "days": 5,
+    "loops": 4,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "change",
+      "rumor"
+    ],
+    "cast": {
+      "boss": "brain",
+      "girl": "key",
+      "irregular": "lover",
+      "young_girl": "killer",
+      "class_rep": "conspiracy",
+      "idol": "ordinary",
+      "copycat": "conspiracy",
+      "转学生": "ordinary",
+      "worker": "time_traveler",
+      "black_cat": "cultist"
+    },
+    "incidents": [
+      {
+        "day": 5,
+        "kind": "butterfly",
+        "culprit": "irregular"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "boss": {
+        "territory": "school"
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：转学生",
+    "规则 X/Y 类型错误或重复"
+  ]
+}

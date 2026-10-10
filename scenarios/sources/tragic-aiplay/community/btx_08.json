@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": false,
+  "special_rules_label": "无特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_08",
+  "source_code": "BTX-08",
+  "source_filename": "BTX-08 凶刃所向无敌 作者： ペンスキー（gitti）.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-08",
+    "name": "BTX-08 凶刃所向无敌 作者：ペンスキー（gitti）",
+    "module": "BTX",
+    "loops": 4,
+    "days_per_loop": 3,
+    "special_rules": [],
+    "incidents": {
+      "1": {
+        "source_id": "murder",
+        "name": "谋杀"
+      },
+      "2": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "3": {
+        "source_id": "missing",
+        "name": "失踪"
+      }
+    }
+  },
+  "source_setup_text": "凶刃所向无敌 作者： ペンスキー（gitti）\n\n规则Y 谋杀计划\n规则X1 好友圈\n规则X2 因果线\n\n黑猫 平民\n住院患者 平民\n军人 主谋\n职员 亲友\n偶像 杀手\n情报商 关键人物\n男学生 传谣人\n教师 亲友\n\n1 谋杀 职员\n2 不安扩散 男学生\n3 失踪 偶像",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "好友圈",
+      "因果线"
+    ],
+    "cast": [
+      {
+        "character": "黑猫",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "军人",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "职员",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "偶像",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "情报商",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "男学生",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "教师",
+        "role": "亲友",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-08",
+    "title": "[社区·无特殊规则] BTX-08 凶刃所向无敌 作者：ペンスキー（gitti）",
+    "module": "BTX",
+    "days": 3,
+    "loops": 4,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "friends",
+      "threads"
+    ],
+    "cast": {
+      "black_cat": "ordinary",
+      "patient": "ordinary",
+      "soldier": "brain",
+      "worker": "friend",
+      "idol": "killer",
+      "informer": "key",
+      "student": "conspiracy",
+      "teacher": "friend"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "murder",
+        "culprit": "worker"
+      },
+      {
+        "day": 2,
+        "kind": "unease",
+        "culprit": "student"
+      },
+      {
+        "day": 3,
+        "kind": "missing",
+        "culprit": "idol"
+      }
+    ],
+    "table_talk": true
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": true,
+  "status": "imported",
+  "playable_file": "scenarios/community-tragic-aiplay-btx-08.json",
+  "issues": []
+}

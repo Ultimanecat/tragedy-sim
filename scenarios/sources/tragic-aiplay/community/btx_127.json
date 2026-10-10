@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_127",
+  "source_code": "BTX-127",
+  "source_filename": "BTX-127 一夜惨剧 散播篇 作者：α聆弦.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-127",
+    "name": "BTX-127 一夜惨剧 散播篇 作者：α聆弦",
+    "module": "BTX",
+    "loops": 11,
+    "days_per_loop": 1,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定在固定位置放置固定的行动牌，且每轮轮回均不变。"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "spreading",
+        "name": "散播"
+      }
+    }
+  },
+  "source_setup_text": "一夜惨剧 散播篇 作者：α聆弦\n\n规则Y 改变未来\n规则X1 好友圈\n规则X2 妄想扩大病毒\n \n媒体人 平民\n御神木 邪教徒\n神灵 平民 3\n大小姐 亲友\n男学生 时间旅者\n局外人 杀人狂\n学者 传谣人\n住院患者 亲友​\n \n1散播 学者",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "学者不安+1  大小姐不安+1 学校密谋+2"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "改变未来",
+      "好友圈",
+      "妄想扩大病毒"
+    ],
+    "cast": [
+      {
+        "character": "媒体人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "御神木",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "神灵",
+        "role": "平民",
+        "notes": "3"
+      },
+      {
+        "character": "大小姐",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "男学生",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "学者",
+        "role": "传谣人",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-127",
+    "title": "[社区·有特殊规则] BTX-127 一夜惨剧 散播篇 作者：α聆弦",
+    "module": "BTX",
+    "days": 1,
+    "loops": 11,
+    "main_plot": "change",
+    "subplots": [
+      "friends",
+      "virus"
+    ],
+    "cast": {
+      "journalist": "ordinary",
+      "sacred_tree": "cultist",
+      "godly": "ordinary",
+      "rich": "friend",
+      "student": "time_traveler",
+      "irregular": "serial",
+      "scholar": "conspiracy"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "spreading",
+        "culprit": "scholar"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "godly": {
+        "entry_loop": 3
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

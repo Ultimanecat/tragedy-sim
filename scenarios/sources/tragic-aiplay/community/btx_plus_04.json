@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_plus_04",
+  "source_code": "BTX+-04",
+  "source_filename": "BTX+-04 绝望的樵夫 作者：Choconut.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX+-04",
+    "name": "BTX+-04 绝望的樵夫 作者：Choconut",
+    "module": "BTX+",
+    "loops": 10,
+    "days_per_loop": 3,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出一张行动牌，允许剧作家在出牌阶段打出少于3张行动牌"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "murder",
+        "name": "谋杀"
+      },
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "3": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      }
+    }
+  },
+  "source_setup_text": "绝望的樵夫 作者：Choconut\n\n规则Y 被封印的邪灵\n规则X1 好友圈\n规则X2 未知因子KAI\n\n住院患者 因果残片\n御神木 主谋\nA.I 邪教徒\n小女孩 亲友\n刑警 亲友\n神灵 传谣人 2\n学者 不安定因子 友好/密谋 \n鉴别员 平民\n转校生 平民 3\n局外人 时间旅者\n\n1 谋杀 学者 \n2 自杀 神灵 \n3 远距离杀人 转校生 \n\n出牌规则\n\n第一天：神灵不安+1，局外人友好禁止，学者绝望+1\n第二天：神灵不安+1，神社密谋+1，刑警密谋+2\n第三天：神灵上下移动，鉴别员友好禁止，住院患者密谋+2",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "被封印的邪灵",
+      "好友圈",
+      "未知因子KAI"
+    ],
+    "cast": [
+      {
+        "character": "御神木",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "A.I",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "刑警",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "神灵",
+        "role": "传谣人",
+        "notes": "2"
+      },
+      {
+        "character": "学者",
+        "role": "不安定因子",
+        "notes": "友好/密谋"
+      },
+      {
+        "character": "鉴别员",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "平民",
+        "notes": "3"
+      },
+      {
+        "character": "局外人",
+        "role": "时间旅者",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-plus-04",
+    "title": "[社区·有特殊规则] BTX+-04 绝望的樵夫 作者：Choconut",
+    "module": "BTX+",
+    "days": 3,
+    "loops": 10,
+    "main_plot": "sealed",
+    "subplots": [
+      "friends",
+      "unknown"
+    ],
+    "cast": {
+      "sacred_tree": "brain",
+      "ai": "cultist",
+      "young_girl": "friend",
+      "police": "friend",
+      "godly": "conspiracy",
+      "scholar": "factor",
+      "forensic": "ordinary",
+      "transfer_student": "ordinary",
+      "irregular": "time_traveler"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "murder",
+        "culprit": "scholar"
+      },
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "godly"
+      },
+      {
+        "day": 3,
+        "kind": "faraway",
+        "culprit": "transfer_student"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "godly": {
+        "entry_loop": 2
+      },
+      "transfer_student": {
+        "entry_day": 3
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "学者初始标记的剧本指定值尚无数据字段：学者 不安定因子 友好/密谋",
+    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+  ]
+}

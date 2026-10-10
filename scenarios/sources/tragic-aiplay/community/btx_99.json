@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_99",
+  "source_code": "BTX-99",
+  "source_filename": "BTX-99 鲁班锁 作者：奥伯伦.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-99",
+    "name": "BTX-99 鲁班锁 作者：奥伯伦",
+    "module": "BTX",
+    "loops": "无限",
+    "days_per_loop": 3,
+    "special_rules": [
+      "剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出一张行动牌，允许剧作家在出牌阶段打出少于3张行动牌",
+      "没有最终决战",
+      "手下无法对自己使用能力",
+      "手下和学者的特性改为由主人公决定"
+    ],
+    "incidents": {
+      "2": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      },
+      "3": {
+        "source_id": "evil_pollution",
+        "name": "邪气污染"
+      }
+    }
+  },
+  "source_setup_text": "鲁班锁 作者：奥伯伦\n\n规则Y 被封印的邪灵\n规则X1 未知因子X\n规则X2 好友圈\n\n学者 不安定因子\n住院患者 传谣人\n幻想 平民\n巫女 亲友\n小女孩 邪教徒\n局外人 时间旅人\n大小姐 亲友\n转校生 平民 1\n鉴别员 平民\n手下 主谋\n\n2 远距离杀人 小女孩\n3 邪气污染 学者",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "第一天 鉴别员禁止友好 都市密谋+1 学校密谋加2\n第二天 学者不安加一 都市密谋加一 小女孩不安加一\n第三天 学者不安加一 巫女禁止友好 神社不安禁止"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "被封印的邪灵",
+      "未知因子X",
+      "好友圈"
+    ],
+    "cast": [
+      {
+        "character": "学者",
+        "role": "不安定因子",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "幻想",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "巫女",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "时间旅人",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "平民",
+        "notes": "1"
+      },
+      {
+        "character": "鉴别员",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "手下",
+        "role": "主谋",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-99",
+    "title": "[社区·有特殊规则] BTX-99 鲁班锁 作者：奥伯伦",
+    "module": "BTX",
+    "days": 3,
+    "loops": "无限",
+    "main_plot": "sealed",
+    "subplots": [
+      "unknown",
+      "friends"
+    ],
+    "cast": {
+      "scholar": "factor",
+      "patient": "conspiracy",
+      "illusion": "ordinary",
+      "maiden": "friend",
+      "young_girl": "cultist",
+      "irregular": "time_traveler",
+      "rich": "friend",
+      "transfer_student": "ordinary",
+      "forensic": "ordinary",
+      "henchman": "brain"
+    },
+    "incidents": [
+      {
+        "day": 2,
+        "kind": "faraway",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 3,
+        "kind": "foul_play",
+        "culprit": "scholar"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "transfer_student": {
+        "entry_day": 1
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

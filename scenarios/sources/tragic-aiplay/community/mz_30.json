@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mz_30",
+  "source_code": "MZ-30",
+  "source_filename": "MZ-30 帮我喊到 作者：水龙吟.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "MZ-30",
+    "name": "MZ-30 帮我喊到 作者：水龙吟",
+    "module": "MZ",
+    "loops": 7,
+    "days_per_loop": 2,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变",
+      "2 剧本使用了非官方角色UP主\n\nUP主\n【初始区域】远方\n【禁行区域】无\n【不安限度】2\n【属性】 男性·学生\n【特性】在每轮轮回第一次事件发生当天的回合结束阶段，往1名少年或少女身上设置1张Ex牌。在使用该角色的能力（包括友好能力）时，可以将放置有Ex牌的角色所在区域视为该角色所在区域。\n【友好能力】（友好3）往同一区域另外一名角色身上放置1枚友好指示物，并移除1枚不安指示物。随后，可以將那名角色身上的Ex牌转移到与那名角色位于同一区域、且非UP主的1名角色身上。",
+      "3 剧本使用了远方规则\n\n远方是独立于场上的四个版图代表的区域之外的一额外的没有版图的新区域\n位于远方的角色位于同一区域，在远方角色身上的移动牌在结算时没有效果\n可以通过某些效果或规则让角色位于远方（比如UP主的初始区域和仙人的能力，但手下的初始区域不能选择远方）\n因为没有版图，所有指定版图的效果不能指定远方（比如失踪等），但没有指定同一区域的效果可以指定远方的角色（比如媒体人的第一个友好能力）\n远方没有相邻版图，顺时针版图和对角线版图\n远方与幻想移除之后的所在区域或部分未进场的角色的所在区域不是同一个区域"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "2": {
+        "source_id": "public_incident_2",
+        "name": "医院事故"
+      }
+    }
+  },
+  "source_setup_text": "帮我喊到 作者：水龙吟\n\n规则Y 魔爪渐进\n规则X1 死亡真人秀\n规则X2 爱与恨的螺旋\n\n小女孩 强迫症\n教师 关键人物\n转校生 忍者 2\nAI 永生者\n幻想 平民\n住院患者 平民\n职员 魔术师\n黑猫 平民\nUP 亲友\n大人物 学校 邪教徒\n教主 平民\n\n1 自杀 黑猫 \n2 伪造事件（医院事故） 小女孩",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "D1 学校密谋2 医院密谋1 UP主友好禁止\nD2 转校生友好禁止  医院密谋1 UP主不安-1"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "魔爪渐进",
+      "死亡真人秀",
+      "爱与恨的螺旋"
+    ],
+    "cast": [
+      {
+        "character": "小女孩",
+        "role": "强迫症",
+        "notes": ""
+      },
+      {
+        "character": "教师",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "忍者",
+        "notes": "2"
+      },
+      {
+        "character": "AI",
+        "role": "永生者",
+        "notes": ""
+      },
+      {
+        "character": "幻想",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "职员",
+        "role": "魔术师",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "UP",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "邪教徒",
+        "notes": "学校"
+      },
+      {
+        "character": "教主",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-mz-30",
+    "title": "[社区·有特殊规则] MZ-30 帮我喊到 作者：水龙吟",
+    "module": "MZ",
+    "days": 2,
+    "loops": 7,
+    "main_plot": "mz_approaching",
+    "subplots": [
+      "mz_death_show",
+      "mz_love_hate"
+    ],
+    "cast": {
+      "young_girl": "obsessive",
+      "teacher": "key",
+      "transfer_student": "ninja",
+      "ai": "immortal",
+      "illusion": "ordinary",
+      "patient": "ordinary",
+      "worker": "magician",
+      "black_cat": "ordinary",
+      "UP": "friend",
+      "boss": "cultist",
+      "guru": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "suicide",
+        "culprit": "black_cat"
+      },
+      {
+        "day": 2,
+        "kind": "fake_incident",
+        "culprit": "young_girl",
+        "public_kind": "hospital"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "transfer_student": {
+        "entry_day": 2
+      },
+      "boss": {
+        "territory": "school"
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：UP",
+    "剧本包含未知角色或无效身份"
+  ]
+}

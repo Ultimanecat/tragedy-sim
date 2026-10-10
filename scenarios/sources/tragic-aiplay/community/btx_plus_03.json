@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_plus_03",
+  "source_code": "BTX+-03",
+  "source_filename": "BTX+-03 大海捞针 作者：太阳&水龙吟.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX+-03",
+    "name": "BTX+-03 大海捞针 作者：太阳&水龙吟",
+    "module": "BTX+",
+    "loops": 7,
+    "days_per_loop": 1,
+    "special_rules": [
+      "1 剧作家不出牌",
+      "2 主人公每天的出牌数量改为最多无限张，且每张主人公行动牌均有无限张（仍然需要受到不能打出给同一个位置的正常规则限制）"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "butterfly_effect",
+        "name": "蝴蝶效应"
+      }
+    }
+  },
+  "source_setup_text": "大海捞针 作者：太阳&水龙吟\n\n规则Y 改变未来\n规则X1 因果线\n规则X2 妄想扩大病毒\n\n邪教徒 情报商\n传谣人 AI\n医生 时间旅者\n局外人 杀人狂\n模仿犯 杀人狂\n因果残片 转校生 1 /临时工\n除上述选定6人以外的所有官方现行角色 平民\n\n1 蝴蝶效应 黑猫",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "改变未来",
+      "因果线",
+      "妄想扩大病毒"
+    ],
+    "cast": [
+      {
+        "character": "医生",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "除上述选定6人以外的所有官方现行角色",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-plus-03",
+    "title": "[社区·有特殊规则] BTX+-03 大海捞针 作者：太阳&水龙吟",
+    "module": "BTX+",
+    "days": 1,
+    "loops": 7,
+    "main_plot": "change",
+    "subplots": [
+      "threads",
+      "virus"
+    ],
+    "cast": {
+      "doctor": "time_traveler",
+      "irregular": "serial",
+      "copycat": "serial",
+      "除上述选定6人以外的所有官方现行角色": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "butterfly",
+        "culprit": "black_cat"
+      }
+    ],
+    "table_talk": true
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：除上述选定6人以外的所有官方现行角色",
+    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+  ]
+}

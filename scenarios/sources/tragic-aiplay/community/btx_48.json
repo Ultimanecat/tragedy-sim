@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_48",
+  "source_code": "BTX-48",
+  "source_filename": "BTX-48 倩女幽魂 作者：超级大米.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-48",
+    "name": "BTX-48 倩女幽魂 作者：超级大米",
+    "module": "BTX",
+    "loops": 6,
+    "days_per_loop": 3,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出一张行动牌，允许剧作家在出牌阶段打出少于3张行动牌",
+      "2 没有最终决战。",
+      "3 一名角色获得超级杀手能力\n\n超级杀手：【任意能力：剧作家能力阶段】同一区域的另 1 名角色身上有 2 枚或以上 [ 密謀 ] →那名角色死亡。",
+      "4 巫女无法移动，每个回合开始阶段开始时，巫女获得1枚友好指示物",
+      "5 有数条不影响胜负，仅影响故事结局的特殊规则，在特定情况下公开",
+      "6 剧本使用了非官方角色仙人和UP主\n\n仙人\n【初始区域】神社/医院（由剧本规定）\n【禁行区域】无\n【不安限度】X(见特性)\n【属性】 成人·男性\n【特性】X为剧本规定的数值。在事件判定之外需要参照該角色的不安限度时，该角色的不安限度视为0。\n【特性】结算该角色担任当事人的事件时，该角色可以视为位于本來所在位置顺时针相邻的版图。\n【友好能力】（友好5 1L1）将该角色移动至任意版图或远方。随后，复活同一区域任意1具尸体，並在那张卡牌上放置X枚友好指示物。\n\nUP主\n【初始区域】远方\n【禁行区域】无\n【不安限度】2\n【属性】 男性·学生\n【特性】在每轮轮回第一次事件发生当天的回合结束阶段，往1名少年或少女身上设置1张Ex牌。在使用该角色的能力（包括友好能力）时，可以将放置有Ex牌的角色所在区域视为该角色所在区域。\n【友好能力】（友好3）往同一区域另外一名角色身上放置1枚友好指示物，并移除1枚不安指示物。随后，可以將那名角色身上的Ex牌转移到与那名角色位于同一区域、且非UP主的1名角色身上。",
+      "7 剧本使用了远方规则\n\n远方是独立于场上的四个版图代表的区域之外的一额外的没有版图的新区域\n位于远方的角色位于同一区域，在远方角色身上的移动牌在结算时没有效果\n可以通过某些效果或规则让角色位于远方（比如UP主的初始区域和仙人的能力，但手下的初始区域不能选择远方）\n因为没有版图，所有指定版图的效果不能指定远方（比如失踪等），但没有指定同一区域的效果可以指定远方的角色（比如媒体人的第一个友好能力）\n远方没有相邻版图，顺时针版图和对角线版图\n远方与幻想移除之后的所在区域或部分未进场的角色的所在区域不是同一个区域"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "2": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      },
+      "3": {
+        "source_id": "butterfly_effect",
+        "name": "蝴蝶效应"
+      }
+    }
+  },
+  "source_setup_text": "倩女幽魂 作者：超级大米\n\n规则Y 被封印的邪灵\n规则X1 好友圈\n规则X2 恋爱风景线\n\t\t\t\t\t\n御神木 邪教徒 超级杀手\t\t\t\n异界人 亲友\t\t\t\t\n巫女 亲友\t\t\t\t\t\n医生 平民\t\t\t\t\nup主 主谋\t\t\t\t\t\n仙人 求爱者 3 神社\t\t\t\t\n大小姐 心上人\t\t\t\t\n小女孩 平民\t\t\t\t\n大人物 传谣人 学校\t\t\t\t\n鉴别员 平民\t\t\t\t\n情报商  平民\t\t\t\n \n1 自杀 大小姐\t\t\t\t\n2 远距离杀人 仙人\t\t\t\t\n3 蝴蝶效应  巫女",
+  "source_configuration_sections": [
+    {
+      "heading": "剧作家出牌",
+      "text": "第一天：\t神木  \t密谋+2\t异界人\t密谋+1\t大小姐 \t不安+1\n第二天：\t神木  \t密谋+1\t异界人\t斜向移动\t巫女\t不安+1\n第三天：\t神木  \t密谋+1\t医生\t禁止友好\t巫女\t不安+"
+    },
+    {
+      "heading": "隐藏特殊规则",
+      "text": "游戏结束后会额外进行一次剧作家能力阶段，仅会对故事结局有影响\t\t\n\n如果触发了情报商能力，会公布隐藏的规则4：情报商觉得这个情报对你用处不大，额外附赠了你一条情报：虽然主人公胜利后会离开剧本，但是剧本中的故事仍在进行\n\t\t\t\t\t\n隐藏不完美结局：最后如果异界人没杀死神木，3.5天的最后0.5天触发，宣告：进入第3.5天，神木直接杀死巫女。达成不完美结局"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "被封印的邪灵",
+      "好友圈",
+      "恋爱风景线"
+    ],
+    "cast": [
+      {
+        "character": "御神木",
+        "role": "邪教徒",
+        "notes": "超级杀手"
+      },
+      {
+        "character": "异界人",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "巫女",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "医生",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "up主",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "仙人",
+        "role": "求爱者",
+        "notes": "3 神社"
+      },
+      {
+        "character": "大小姐",
+        "role": "心上人",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "传谣人",
+        "notes": "学校"
+      },
+      {
+        "character": "鉴别员",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "情报商",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-48",
+    "title": "[社区·有特殊规则] BTX-48 倩女幽魂 作者：超级大米",
+    "module": "BTX",
+    "days": 3,
+    "loops": 6,
+    "main_plot": "sealed",
+    "subplots": [
+      "friends",
+      "love"
+    ],
+    "cast": {
+      "sacred_tree": "cultist",
+      "outsider": "friend",
+      "maiden": "friend",
+      "doctor": "ordinary",
+      "up主": "brain",
+      "仙人": "lover",
+      "rich": "loved",
+      "young_girl": "ordinary",
+      "boss": "conspiracy",
+      "forensic": "ordinary",
+      "informer": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "suicide",
+        "culprit": "rich"
+      },
+      {
+        "day": 2,
+        "kind": "faraway",
+        "culprit": "仙人"
+      },
+      {
+        "day": 3,
+        "kind": "butterfly",
+        "culprit": "maiden"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "boss": {
+        "territory": "school"
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：up主",
+    "角色未支持：仙人",
+    "剧本包含未知角色或无效身份"
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_100",
+  "source_code": "BTX-100",
+  "source_filename": "BTX-100 我也要死吗？ 作者：萌新宝宝.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-100",
+    "name": "BTX-100 我也要死吗？ 作者：萌新宝宝",
+    "module": "BTX",
+    "loops": "7",
+    "days_per_loop": 4,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变，在放置所有可放置行动牌之后，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌等情况导致放置的行动牌少于三张，则由剧作家继续自由出牌直到打出3张行动牌为止",
+      "2 第1天事件效果选择的对象由剧本规定，并且每轮轮回均不变",
+      "3 在计算友好能力能否发动时，计入【密谋】的数量",
+      "4 剧本增加【强制前】时点。临时工因为3指示物死亡的特性仅会在【强制前】【强制】【任意能力】各判定一次",
+      "所有的无视友好变为必定无视友好"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "2": {
+        "source_id": "evil_pollution",
+        "name": "邪气污染"
+      },
+      "4": {
+        "source_id": "butterfly_effect",
+        "name": "蝴蝶效应"
+      }
+    }
+  },
+  "source_setup_text": "我也要死吗（完整剧情版） 作者：萌新宝宝\n\n规则Y 改变未来\n规则X1 好友圈 \n规则X2 妄想扩大病毒\n\n刑警 时间旅者\n临时工 邪教徒 \n大小姐 亲友\n小女孩 传谣人\nai 亲友\n模仿犯 邪教徒\n\n1 不安扩散 小女孩\n2 邪气污染 临时工\n4 蝴蝶效应 大小姐",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法和第一天的事件结算方法",
+      "text": "D1 学校密谋2 大小姐不安1 小女孩不安1\nD2 大小姐不安1 临时工左右 刑警密谋1\nD3 临时工密谋1 大小姐不安1 AI友好禁止\nD4 临时工？友禁 大小姐密谋2 AI密谋1\n不安扩散给临时工2不安，大小姐1密谋"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "改变未来",
+      "好友圈",
+      "妄想扩大病毒"
+    ],
+    "cast": [
+      {
+        "character": "刑警",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "临时工",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "ai",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "邪教徒",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-100",
+    "title": "[社区·有特殊规则] BTX-100 我也要死吗？ 作者：萌新宝宝",
+    "module": "BTX",
+    "days": 4,
+    "loops": 7,
+    "main_plot": "change",
+    "subplots": [
+      "friends",
+      "virus"
+    ],
+    "cast": {
+      "police": "time_traveler",
+      "part_timer": "cultist",
+      "rich": "friend",
+      "young_girl": "conspiracy",
+      "ai": "friend",
+      "copycat": "cultist"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "unease",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 2,
+        "kind": "foul_play",
+        "culprit": "part_timer"
+      },
+      {
+        "day": 4,
+        "kind": "butterfly",
+        "culprit": "rich"
+      }
+    ],
+    "table_talk": true
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": true,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+  ]
+}

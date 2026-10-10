@@ -1,0 +1,62 @@
+{
+  "id": "community-tragic-aiplay-btx-129",
+  "title": "[社区·无特殊规则] BTX-129 穿梭时间的猫咪 作者：电狼",
+  "module": "BTX",
+  "days": 6,
+  "loops": 5,
+  "main_plot": "change",
+  "subplots": [
+    "love",
+    "lurking"
+  ],
+  "cast": {
+    "doctor": "cultist",
+    "patient": "ordinary",
+    "soldier": "loved",
+    "black_cat": "time_traveler",
+    "godly": "serial",
+    "ai": "lover",
+    "boss": "friend",
+    "journalist": "ordinary"
+  },
+  "incidents": [
+    {
+      "day": 2,
+      "kind": "suicide",
+      "culprit": "black_cat"
+    },
+    {
+      "day": 3,
+      "kind": "missing",
+      "culprit": "doctor"
+    },
+    {
+      "day": 4,
+      "kind": "hospital",
+      "culprit": "journalist"
+    },
+    {
+      "day": 5,
+      "kind": "butterfly",
+      "culprit": "ai"
+    },
+    {
+      "day": 6,
+      "kind": "faraway",
+      "culprit": "soldier"
+    }
+  ],
+  "table_talk": true,
+  "loop_options": [
+    4,
+    5
+  ],
+  "character_options": {
+    "godly": {
+      "entry_loop": 2
+    },
+    "boss": {
+      "territory": "hospital"
+    }
+  }
+}

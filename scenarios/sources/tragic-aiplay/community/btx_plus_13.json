@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_plus_13",
+  "source_code": "BTX+-13",
+  "source_filename": "BTX+-13 一夜惨剧（BTX+篇）.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX+-13",
+    "name": "BTX+-13 一夜惨剧（BTX+篇） 作者：清尘",
+    "module": "BTX+",
+    "loops": "无限",
+    "days_per_loop": 1,
+    "special_rules": [
+      "1 AI的友好能力除了公开信息表记录的事件外，还可选择希望之光或绝望之暗",
+      "2 剧作家按剧本规定固定出牌和发动能力",
+      "3 没有最终决战"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      }
+    }
+  },
+  "source_setup_text": "一夜惨剧（BTX+篇） 作者：清尘\n\n规则Y 被封印的邪灵\n规则X 好友圈\n规则X 未知因子X\n\n神灵 主谋 1\n御神木 邪教徒\n巫女 不安定因子\nAI 亲友\n鉴别员 平民\n转校生 因果残片\n小女孩 亲友\n手下 传谣人\n局外人 杀人狂\n\n1 远距离杀人 手下",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌和使用能力方法",
+      "text": "神社密谋+2，AI密谋+1，局外人上下\n御神木必定发动邪教徒能力无效禁止密谋，剧作家能力阶段，主谋能力往所在版图放置1枚密谋，传谣人能力给手下1枚不安"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "被封印的邪灵",
+      "好友圈",
+      "未知因子X"
+    ],
+    "cast": [
+      {
+        "character": "神灵",
+        "role": "主谋",
+        "notes": "1"
+      },
+      {
+        "character": "御神木",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "巫女",
+        "role": "不安定因子",
+        "notes": ""
+      },
+      {
+        "character": "AI",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "鉴别员",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "手下",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "杀人狂",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-plus-13",
+    "title": "[社区·有特殊规则] BTX+-13 一夜惨剧（BTX+篇） 作者：清尘",
+    "module": "BTX+",
+    "days": 1,
+    "loops": "无限",
+    "main_plot": "sealed",
+    "subplots": [
+      "friends",
+      "unknown"
+    ],
+    "cast": {
+      "godly": "brain",
+      "sacred_tree": "cultist",
+      "maiden": "factor",
+      "ai": "friend",
+      "forensic": "ordinary",
+      "young_girl": "friend",
+      "henchman": "conspiracy",
+      "irregular": "serial"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "faraway",
+        "culprit": "henchman"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "godly": {
+        "entry_loop": 1
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+  ]
+}

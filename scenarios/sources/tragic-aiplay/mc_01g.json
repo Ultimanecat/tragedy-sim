@@ -1,5 +1,9 @@
 {
   "schema_version": 1,
+  "origin": "official",
+  "origin_label": "官方",
+  "has_special_rules": false,
+  "special_rules_label": "无特殊规则",
   "source_url": "https://tragic-aiplay.cn/played_scripts.html",
   "retrieved_on": "2026-10-10",
   "source_id": "mc_01g",

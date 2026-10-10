@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_29",
+  "source_code": "BTX-29",
+  "source_filename": "BTX-29 黑粉清除计划 作者：海天一色.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-29",
+    "name": "BTX-29 黑粉清除计划 作者：海天一色",
+    "module": "BTX",
+    "loops": 4,
+    "days_per_loop": 4,
+    "special_rules": [
+      "1 剧本采用FS特殊规则（规则X只有1条，没有最终决战）",
+      "2 剧作家不出牌",
+      "3 所有角色不安限度变为0"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "2": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      },
+      "3": {
+        "source_id": "evil_pollution",
+        "name": "邪气污染"
+      },
+      "4": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      }
+    }
+  },
+  "source_setup_text": "黑粉清除计划 作者：海天一色\n\n规则Y 和我签订契约吧！\n规则X1 潜伏的杀人狂\n\n男学生 平民\n偶像 关键人物\n模仿犯 杀人狂\n媒体人 平民\n住院患者 杀人狂\n医生 平民\n军人 平民\n幻想 亲友\n异界人 平民\n\n1 不安扩散 男学生\n2 远距离杀人 媒体人\n3 邪气污染 幻想\n4 不安扩散 偶像",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "和我签订契约吧！",
+      "潜伏的杀人狂"
+    ],
+    "cast": [
+      {
+        "character": "男学生",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "偶像",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "媒体人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "医生",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "军人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "幻想",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "异界人",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-29",
+    "title": "[社区·有特殊规则] BTX-29 黑粉清除计划 作者：海天一色",
+    "module": "BTX",
+    "days": 4,
+    "loops": 4,
+    "main_plot": "sign",
+    "subplots": [
+      "lurking"
+    ],
+    "cast": {
+      "student": "ordinary",
+      "idol": "key",
+      "copycat": "serial",
+      "journalist": "ordinary",
+      "patient": "serial",
+      "doctor": "ordinary",
+      "soldier": "ordinary",
+      "illusion": "friend",
+      "outsider": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "unease",
+        "culprit": "student"
+      },
+      {
+        "day": 2,
+        "kind": "faraway",
+        "culprit": "journalist"
+      },
+      {
+        "day": 3,
+        "kind": "foul_play",
+        "culprit": "illusion"
+      },
+      {
+        "day": 4,
+        "kind": "unease",
+        "culprit": "idol"
+      }
+    ],
+    "table_talk": true
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "规则 X/Y 数量或名称无法完整映射",
+    "BTX 需要2个规则 X"
+  ]
+}

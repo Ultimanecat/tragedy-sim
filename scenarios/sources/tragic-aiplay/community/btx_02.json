@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_02",
+  "source_code": "BTX-02",
+  "source_filename": "BTX-02 迫真教学本 作者：Chocount.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-02",
+    "name": "BTX-02 危险童话 作者：Chocount",
+    "module": "BTX",
+    "loops": "5-6",
+    "days_per_loop": 2,
+    "special_rules": [
+      "主人公行动阶段，队长放置行动牌后，可以翻开1张已放置在场上的剧作家行动牌（每轮限1次）"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "butterfly_effect",
+        "name": "蝴蝶效应"
+      },
+      "2": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      }
+    }
+  },
+  "source_setup_text": "危险童话 作者：Chocount\n\n规则Y 巨大定时炸弹X\n规则X1 好友圈\n规则X2 恋爱风景线\n\n幻想 亲友\n巫女 求爱者\n职员 魔女\n刑警 心上人\n小女孩 传谣人\n班长 亲友\n大小姐 平民\n\n1 蝴蝶效应 小女孩 \n2 远距离杀人 大小姐",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "巨大定时炸弹X",
+      "好友圈",
+      "恋爱风景线"
+    ],
+    "cast": [
+      {
+        "character": "幻想",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "巫女",
+        "role": "求爱者",
+        "notes": ""
+      },
+      {
+        "character": "职员",
+        "role": "魔女",
+        "notes": ""
+      },
+      {
+        "character": "刑警",
+        "role": "心上人",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "班长",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-02",
+    "title": "[社区·有特殊规则] BTX-02 危险童话 作者：Chocount",
+    "module": "BTX",
+    "days": 2,
+    "loops": 6,
+    "main_plot": "bomb",
+    "subplots": [
+      "friends",
+      "love"
+    ],
+    "cast": {
+      "illusion": "friend",
+      "maiden": "lover",
+      "worker": "witch",
+      "police": "loved",
+      "young_girl": "conspiracy",
+      "class_rep": "friend",
+      "rich": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "butterfly",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 2,
+        "kind": "faraway",
+        "culprit": "rich"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      5,
+      6
+    ]
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": true,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+  ]
+}

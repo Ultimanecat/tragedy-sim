@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mz_58",
+  "source_code": "MZ-58",
+  "source_filename": "MZ-58 魔女之夜—绝望的少女-萌新宝宝.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "MZ-58",
+    "name": "MZ-58 魔女之夜—绝望的少女 作者：萌新宝宝",
+    "module": "MZ",
+    "loops": "7-21",
+    "days_per_loop": 4,
+    "special_rules": [
+      "1 新增事件定义——在梦中相遇：<当事人存活则必定发生>自事件发生日起算，3天内无法通过移动进入或离开医院版图。",
+      "2 第一天事件发生的那个事件阶段结束时，公开事件当事人，主人公按剧本规定的顺序获知1条谏言",
+      "3 部分角色获得主谋的能力（身份不变）",
+      "4 当EX槽到达指定数值时，执行以下效果，EX槽在轮回开始时变为0\nEX=3时，当前轮回数+1（不能超过最大轮回数）\nEX=4时，在之后的轮回开始时，EX槽在轮回开始时变为1，如果是第二次或以上触发，当前轮回数+3（不能超过最大轮回数）\nEX=5时 主人公失去所有剩余轮回",
+      "5 剧作家行动阶段，剧作家不打出行动牌，改为公开放置各种固定的卡牌到剧本规定的固定位置，这些卡牌均无视原本的游戏中原本的上限，在行动结算阶段，若放置的牌是可结算的行动牌，则视为剧作家打出的行动牌并正常结算，若是不可结算的行动牌则移除，其他牌则留在那个位置继续游戏",
+      "6 轮回数大于7时，失去最终决战，一名角色？会在之后的某个轮回登场，在指定轮回之前不登场",
+      "7 有3条隐藏的特殊规则，可能会在主人公达到某个进度时揭示，这些特殊规则不会限制双方玩家的行动",
+      "8 剧本使用了非官方角色UP主\n\nUP主\n【初始区域】远方\n【禁行区域】无\n【不安限度】2\n【属性】 男性·学生\n【特性】在每轮轮回第一次事件发生当天的回合结束阶段，往1名少年或少女身上设置1张Ex牌。在使用该角色的能力（包括友好能力）时，可以将放置有Ex牌的角色所在区域视为该角色所在区域。\n【友好能力】（友好3）往同一区域另外一名角色身上放置1枚友好指示物，并移除1枚不安指示物。随后，可以將那名角色身上的Ex牌转移到与那名角色位于同一区域、且非UP主的1名角色身上。",
+      "剧本使用了远方规则\n\n远方是独立于场上的四个版图代表的区域之外的一额外的没有版图的新区域\n位于远方的角色位于同一区域，在远方角色身上的移动牌在结算时没有效果\n可以通过某些效果或规则让角色位于远方（比如UP主的初始区域和仙人的能力，但手下的初始区域不能选择远方）\n因为没有版图，所有指定版图的效果不能指定远方（比如失踪等），但没有指定同一区域的效果可以指定远方的角色（比如媒体人的第一个友好能力）\n远方没有相邻版图，顺时针版图和对角线版图\n远方与幻想移除之后的所在区域或部分未进场的角色的所在区域不是同一个区域"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "public_incident_1",
+        "name": "在梦中相遇"
+      },
+      "2": {
+        "source_id": "public_incident_2",
+        "name": "阴谋活动"
+      },
+      "3": {
+        "source_id": "fake_suicide",
+        "name": "伪装自杀"
+      },
+      "4": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      }
+    }
+  },
+  "source_setup_text": "魔女之夜-绝望的少女 作者：萌新宝宝\n\n规则Y 魔爪渐进\n规则X1 魔女们的茶会\n规则X2 诸神之骰\n\n（#代表拥有主谋能力）\n\n住院患者 强迫症 恭介\n异界人 平民 杏子\n黑猫 邪教徒 QB  #\n媒体人 传谣人 普通市民\n偶像 杀人狂 巴麻美\n职员 魔女 魔女 #\n刑警 魔女 魔女 #\n小女孩 亲友 小圆\n大小姐 平民 纱耶香\n转校生 关键人物 3 晓美焰\nUP主 忍者 孵化者\n\n1 伪造事件（在梦中相遇） 住院患者\n2 阴谋活动 小女孩\n3 伪装自杀 黑猫\n4 医院事故 转校生",
+  "source_configuration_sections": [
+    {
+      "heading": "放置卡牌的方法",
+      "text": "DAY1 黑猫上下 偶像 禁止移动 UP主 友好禁止\nDAY2 异界人 EX牌 大小姐 绝望+1 UP主 友好禁止\nDAY3 小女孩 EX牌 异界人 密谋+1 偶像 绝望+1\nDAY4 小女孩 密谋+2 异界人 绝望+1"
+    },
+    {
+      "heading": "隐藏特规1：第一轮开始时公开",
+      "text": "游戏附加【失败条件：轮回结束时】场上存在原本拥有必定无视友好特性且为存活状态的角色"
+    },
+    {
+      "heading": "隐藏特规3：轮回数为21时，临时工？（魔女之夜）登场",
+      "text": "临时工？可由剧作家设置任何能力和特性，目的是让主人公绝望地失败\n参考1（mxbb版本）： 登场时，全部角色死亡，主人公死亡。\n参考2（桶子自助版本，为了配合自助版演出，通过此特性，可达成所有魔法少女齐心协力打败魔女之夜，但小圆仅仅差一张牌就能被小焰救下的真失败结局）：\n1. 轮回开始时，身上增加2枚已生效的护卫指示物，当该角色死亡时，移除一枚护卫指示物替代死亡，多个替代死亡效果自选顺序结算而不是同时发动\n2. 【强制前】回合结束阶段，杀死同区域的所有非少女角色。\n3. 【剧作家能力阶段】按照剧本规定，移动到剧本规定角色所在区域，并给该角色增加2枚密谋指示物，如果对应角色已死亡则顺位选择下一位。偶像 -> 大小姐 -> 异界人 -> 小女孩 -> 转校生（这个顺序对主人公公开）\n4. 【最终日回合结束阶段】如果临时工？存活，杀死所有其他角色，主人公死亡"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "魔爪渐进",
+      "魔女们的茶会",
+      "诸神之骰"
+    ],
+    "cast": [
+      {
+        "character": "住院患者",
+        "role": "强迫症",
+        "notes": "恭介"
+      },
+      {
+        "character": "异界人",
+        "role": "平民",
+        "notes": "杏子"
+      },
+      {
+        "character": "黑猫",
+        "role": "邪教徒",
+        "notes": "QB #"
+      },
+      {
+        "character": "媒体人",
+        "role": "传谣人",
+        "notes": "普通市民"
+      },
+      {
+        "character": "偶像",
+        "role": "杀人狂",
+        "notes": "巴麻美"
+      },
+      {
+        "character": "小女孩",
+        "role": "亲友",
+        "notes": "小圆"
+      },
+      {
+        "character": "大小姐",
+        "role": "平民",
+        "notes": "纱耶香"
+      },
+      {
+        "character": "转校生",
+        "role": "关键人物",
+        "notes": "3 晓美焰"
+      },
+      {
+        "character": "UP主",
+        "role": "忍者",
+        "notes": "孵化者"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-mz-58",
+    "title": "[社区·有特殊规则] MZ-58 魔女之夜—绝望的少女 作者：萌新宝宝",
+    "module": "MZ",
+    "days": 4,
+    "loops": 21,
+    "main_plot": "mz_approaching",
+    "subplots": [
+      "mz_witch_tea",
+      "mz_gods_dice"
+    ],
+    "cast": {
+      "patient": "obsessive",
+      "outsider": "ordinary",
+      "black_cat": "cultist",
+      "journalist": "conspiracy",
+      "idol": "serial",
+      "young_girl": "friend",
+      "rich": "ordinary",
+      "transfer_student": "key",
+      "UP主": "ninja"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "fake_incident",
+        "culprit": "patient",
+        "public_kind": "在梦中相遇"
+      },
+      {
+        "day": 2,
+        "kind": "covert_activity",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 3,
+        "kind": "fake_suicide",
+        "culprit": "black_cat"
+      },
+      {
+        "day": 4,
+        "kind": "hospital",
+        "culprit": "transfer_student"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21
+    ],
+    "character_options": {
+      "transfer_student": {
+        "entry_day": 3
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：UP主",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

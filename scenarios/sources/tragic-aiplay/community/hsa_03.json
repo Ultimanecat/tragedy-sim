@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "hsa_03",
+  "source_code": "HSA-03",
+  "source_filename": "HSA-03  法医的周末 作者：Choconut.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "HSA-03",
+    "name": "HSA-03 法医的周末 作者：Choconut",
+    "module": "HSA",
+    "loops": "无限",
+    "days_per_loop": 2,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出一张行动牌，允许剧作家在出牌阶段打出少于3张行动牌",
+      "2 剧作家初始手牌拥有2张友好禁止",
+      "3 主人公能力阶段，可以移动1张版图上的EX牌到相邻版图，这个效果只能在可以发动友好能力的时间点才可以声明发动",
+      "4 剧本使用了非官方角色仙人和UP主\n\n仙人\n【初始区域】神社/医院（由剧本规定）\n【禁行区域】无\n【不安限度】X(见特性)\n【属性】 成人·男性\n【特性】X为剧本规定的数值。在事件判定之外需要参照該角色的不安限度时，该角色的不安限度视为0。\n【特性】结算该角色担任当事人的事件时，该角色可以视为位于本來所在位置顺时针相邻的版图。\n【友好能力】（友好5 1L1）将该角色移动至任意版图或远方。随后，复活同一区域任意1具尸体，並在那张卡牌上放置X枚友好指示物。\n\nUP主\n【初始区域】远方\n【禁行区域】无\n【不安限度】2\n【属性】 男性·学生\n【特性】在每轮轮回第一次事件发生当天的回合结束阶段，往1名少年或少女身上设置1张Ex牌。在使用该角色的能力（包括友好能力）时，可以将放置有Ex牌的角色所在区域视为该角色所在区域。\n【友好能力】（友好3）往同一区域另外一名角色身上放置1枚友好指示物，并移除1枚不安指示物。随后，可以將那名角色身上的Ex牌转移到与那名角色位于同一区域、且非UP主的1名角色身上。",
+      "5 剧本使用了远方规则\n\n远方是独立于场上的四个版图代表的区域之外的一额外的没有版图的新区域\n位于远方的角色位于同一区域，在远方角色身上的移动牌在结算时没有效果\n可以通过某些效果或规则让角色位于远方（比如UP主的初始区域和仙人的能力，但手下的初始区域不能选择远方）\n因为没有版图，所有指定版图的效果不能指定远方（比如失踪等），但没有指定同一区域的效果可以指定远方的角色（比如媒体人的第一个友好能力）\n远方没有相邻版图，顺时针版图和对角线版图\n远方与幻想移除之后的所在区域或部分未进场的角色的所在区域不是同一个区域"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "hsa_curse_word",
+        "name": "言灵诅咒"
+      },
+      "2": {
+        "source_id": "hsa_mad_night",
+        "name": "疯狂之夜"
+      }
+    }
+  },
+  "source_setup_text": "法医的周末 作者：Choconut\n\n规则Y 古墓活尸\n规则X1 心慌派对\n规则X2 不听劝的人\n\nUP主 杀人狂\n仙人 纸老虎 医院 X＝3 \n住院患者 鬼魂\n鉴别员 平民\n媒体人 平民\nAI 胆小鬼\n局外人 狼人\n大小姐 求爱者\n从者  传谣人 学校\n\n1 言灵诅咒 大小姐 \n2 疯狂之夜 都市群众",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "每天 大小姐不安+1，UP主友好禁止，AI友好禁止"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "古墓活尸",
+      "心慌派对",
+      "不听劝的人"
+    ],
+    "cast": [
+      {
+        "character": "UP主",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "仙人",
+        "role": "纸老虎",
+        "notes": "医院 X＝3"
+      },
+      {
+        "character": "住院患者",
+        "role": "鬼魂",
+        "notes": ""
+      },
+      {
+        "character": "鉴别员",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "媒体人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "AI",
+        "role": "胆小鬼",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "狼人",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "求爱者",
+        "notes": ""
+      },
+      {
+        "character": "从者",
+        "role": "传谣人",
+        "notes": "学校"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-hsa-03",
+    "title": "[社区·有特殊规则] HSA-03 法医的周末 作者：Choconut",
+    "module": "HSA",
+    "days": 2,
+    "loops": "无限",
+    "main_plot": "hsa_ancient_dead",
+    "subplots": [
+      "hsa_panic_party",
+      "hsa_unlistening"
+    ],
+    "cast": {
+      "UP主": "serial",
+      "仙人": "paper_tiger",
+      "patient": "ghost",
+      "forensic": "ordinary",
+      "journalist": "ordinary",
+      "ai": "chicken",
+      "irregular": "werewolf",
+      "rich": "lover",
+      "servant": "conspiracy"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "curse_declaration",
+        "culprit": "rich"
+      },
+      {
+        "day": 2,
+        "kind": "frenzied_night",
+        "culprit": "city"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "servant": {
+        "initial_location": "school"
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：UP主",
+    "角色未支持：仙人",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

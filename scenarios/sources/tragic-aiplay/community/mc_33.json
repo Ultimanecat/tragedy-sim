@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mc_33",
+  "source_code": "MC-33",
+  "source_filename": "MC-33 二段跳.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "MC-33",
+    "name": "MC-33 二段跳 作者：minimipool",
+    "module": "MC",
+    "loops": "无限",
+    "days_per_loop": 5,
+    "special_rules": [
+      "1 剧作家不能出牌"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "freak_murder",
+        "name": "猎奇杀人"
+      },
+      "2": {
+        "source_id": "silver_bullet",
+        "name": "银色子弹"
+      },
+      "3": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "4": {
+        "source_id": "terror_attack",
+        "name": "恐怖袭击"
+      },
+      "5": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      }
+    }
+  },
+  "source_setup_text": "二段跳 作者：minimipool\n\n规则Y 命悬一线的计划\n规则X1 我是名侦探\n规则X2 绝对意志\n\n住院患者 侦探\n情报商 杀手\n御神木 强迫症\n转校生 主谋 4\nAI 传谣人\n偶像 平民\n女学生 平民\n幻想 平民\n小女孩 亲友\n神灵 平民 2\n\n1 猎奇杀人 小女孩\n2 银色子弹 御神木\n3 自杀 偶像\n4 恐怖袭击 转校生\n5 医院事故 AI",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "命悬一线的计划",
+      "我是名侦探",
+      "绝对意志"
+    ],
+    "cast": [
+      {
+        "character": "住院患者",
+        "role": "侦探",
+        "notes": ""
+      },
+      {
+        "character": "情报商",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "御神木",
+        "role": "强迫症",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "主谋",
+        "notes": "4"
+      },
+      {
+        "character": "AI",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "偶像",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "女学生",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "幻想",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "神灵",
+        "role": "平民",
+        "notes": "2"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-mc-33",
+    "title": "[社区·有特殊规则] MC-33 二段跳 作者：minimipool",
+    "module": "MC",
+    "days": 5,
+    "loops": "无限",
+    "main_plot": "mc_tightrope",
+    "subplots": [
+      "mc_detective",
+      "mc_absolute"
+    ],
+    "cast": {
+      "patient": "detective",
+      "informer": "killer",
+      "sacred_tree": "obsessive",
+      "transfer_student": "brain",
+      "ai": "conspiracy",
+      "idol": "ordinary",
+      "girl": "ordinary",
+      "illusion": "ordinary",
+      "young_girl": "friend",
+      "godly": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "bizarre_murder",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 2,
+        "kind": "silver_bullet",
+        "culprit": "sacred_tree"
+      },
+      {
+        "day": 3,
+        "kind": "suicide",
+        "culprit": "idol"
+      },
+      {
+        "day": 4,
+        "kind": "terror_attack",
+        "culprit": "transfer_student"
+      },
+      {
+        "day": 5,
+        "kind": "hospital",
+        "culprit": "ai"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "transfer_student": {
+        "entry_day": 4
+      },
+      "godly": {
+        "entry_loop": 2
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

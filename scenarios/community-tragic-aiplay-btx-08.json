@@ -1,0 +1,40 @@
+{
+  "id": "community-tragic-aiplay-btx-08",
+  "title": "[社区·无特殊规则] BTX-08 凶刃所向无敌 作者：ペンスキー（gitti）",
+  "module": "BTX",
+  "days": 3,
+  "loops": 4,
+  "main_plot": "murder_plan",
+  "subplots": [
+    "friends",
+    "threads"
+  ],
+  "cast": {
+    "black_cat": "ordinary",
+    "patient": "ordinary",
+    "soldier": "brain",
+    "worker": "friend",
+    "idol": "killer",
+    "informer": "key",
+    "student": "conspiracy",
+    "teacher": "friend"
+  },
+  "incidents": [
+    {
+      "day": 1,
+      "kind": "murder",
+      "culprit": "worker"
+    },
+    {
+      "day": 2,
+      "kind": "unease",
+      "culprit": "student"
+    },
+    {
+      "day": 3,
+      "kind": "missing",
+      "culprit": "idol"
+    }
+  ],
+  "table_talk": true
+}

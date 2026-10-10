@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_30",
+  "source_code": "BTX-30",
+  "source_filename": "BTX-30 X的悲剧 作者：清尘.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-30",
+    "name": "BTX-30 X的悲剧 作者：清尘",
+    "module": "BTX",
+    "loops": "5-8",
+    "days_per_loop": 3,
+    "special_rules": [
+      "1 剧作家第一天严格按照剧本规定在固定位置正面向上放置固定的行动牌，并且每轮轮回均不变",
+      "2 第二轮回开始之后，剧作家无法使用【斜向移动】，且剧作家每天至多只能打出1张移动牌",
+      "3 没有最终决战"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      },
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "3": {
+        "source_id": "butterfly_effect",
+        "name": "蝴蝶效应"
+      }
+    }
+  },
+  "source_setup_text": "X的悲剧 作者：清尘\n\n规则Y 改变未来\n规则X1 因果线\n规则X2 未知因子X\n\n女学生 不安定因子\n媒体人 时间旅者\n局外人 传谣人\n大人物 邪教徒 学校 \n大小姐 平民\n鉴别员 平民\n住院患者 平民\n军人 平民\n幻想 平民\n黑猫 平民\n\n1 远距离杀人 媒体人 \n2 自杀  女学生 \n3 蝴蝶效应 大小姐  \n\n出牌规则\n\n第一天：学校密谋+2，媒体人友好禁止，大小姐不安+1\n（记得正面向上）",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "改变未来",
+      "因果线",
+      "未知因子X"
+    ],
+    "cast": [
+      {
+        "character": "女学生",
+        "role": "不安定因子",
+        "notes": ""
+      },
+      {
+        "character": "媒体人",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "邪教徒",
+        "notes": "学校"
+      },
+      {
+        "character": "大小姐",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "鉴别员",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "军人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "幻想",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-30",
+    "title": "[社区·有特殊规则] BTX-30 X的悲剧 作者：清尘",
+    "module": "BTX",
+    "days": 3,
+    "loops": 8,
+    "main_plot": "change",
+    "subplots": [
+      "threads",
+      "unknown"
+    ],
+    "cast": {
+      "girl": "factor",
+      "journalist": "time_traveler",
+      "irregular": "conspiracy",
+      "boss": "cultist",
+      "rich": "ordinary",
+      "forensic": "ordinary",
+      "patient": "ordinary",
+      "soldier": "ordinary",
+      "illusion": "ordinary",
+      "black_cat": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "faraway",
+        "culprit": "journalist"
+      },
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "girl"
+      },
+      {
+        "day": 3,
+        "kind": "butterfly",
+        "culprit": "rich"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "character_options": {
+      "boss": {
+        "territory": "school"
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": true,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+  ]
+}

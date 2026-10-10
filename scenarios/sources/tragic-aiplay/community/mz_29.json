@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mz_29",
+  "source_code": "MZ-29",
+  "source_filename": "MZ-29 三枪拍案惊奇 作者：水龙吟.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "MZ-29",
+    "name": "MZ-29 三枪拍案惊奇 作者：水龙吟",
+    "module": "MZ",
+    "loops": "无限",
+    "days_per_loop": 2,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变",
+      "2 需要公开身份时，如果将公开的并非是拥有已死亡标志的角色的身份，则改为跳过这个公开声明",
+      "3 轮回开始时，如果场上有5个已死亡标志，主人公失败，轮回立即结束，跳过所有剩余轮回，进入最终决战",
+      "4 剧本使用了非官方角色仙人\n\n仙人\n\n【初始区域】神社/医院（由剧本规定）\n\n【禁行区域】无\n\n【不安限度】X(见特性)\n\n【属性】 成人·男性\n\n【特性】X为剧本规定的数值。在事件判定之外需要参照該角色的不安限度时，该角色的不安限度视为0。\n\n【特性】结算该角色担任当事人的事件时，该角色可以视为位于本來所在位置顺时针相邻的版图。\n\n【友好能力】（友好5 1L1）将该角色移动至任意版图或远方。随后，复活同一区域任意1具尸体，並在那张卡牌上放置X枚友好指示物。",
+      "5 剧本使用了远方规则\n\n远方是独立于场上的四个版图代表的区域之外的一额外的没有版图的新区域\n位于远方的角色位于同一区域，在远方角色身上的移动牌在结算时没有效果\n可以通过某些效果或规则让角色位于远方（比如UP主的初始区域和仙人的能力，但手下的初始区域不能选择远方）\n因为没有版图，所有指定版图的效果不能指定远方（比如失踪等），但没有指定同一区域的效果可以指定远方的角色（比如媒体人的第一个友好能力）\n远方没有相邻版图，顺时针版图和对角线版图\n远方与幻想移除之后的所在区域或部分未进场的角色的所在区域不是同一个区域"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      }
+    }
+  },
+  "source_setup_text": "三枪拍案惊奇 作者：水龙吟\n\n规则Y 绝密报告\n规则X1 KAI异因子\n规则X2 魔女们的茶会\n\n职员 关键人物\n黑猫 魔女\n媒体人 平民\n模仿犯 主谋\n大小姐 亲友\n小女孩 传谣人\n树 主谋\n仙人 不安定因子  0 医院 \n异界人 平民\n住院患者 魔女\n局外人 邪教徒\n\n1 自杀 仙人\n2 自杀 大小姐",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "D1 大小姐 不安1 仙人 密谋2 神社 密谋1\nD2 大小姐 不安1 神社 密谋1 小女孩 友尽"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "绝密报告",
+      "KAI异因子",
+      "魔女们的茶会"
+    ],
+    "cast": [
+      {
+        "character": "职员",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "魔女",
+        "notes": ""
+      },
+      {
+        "character": "媒体人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "树",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "仙人",
+        "role": "不安定因子",
+        "notes": "0 医院"
+      },
+      {
+        "character": "异界人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "魔女",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "邪教徒",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-mz-29",
+    "title": "[社区·有特殊规则] MZ-29 三枪拍案惊奇 作者：水龙吟",
+    "module": "MZ",
+    "days": 2,
+    "loops": "无限",
+    "main_plot": "mz_secret_record",
+    "subplots": [
+      "mz_factor",
+      "mz_witch_tea"
+    ],
+    "cast": {
+      "worker": "key",
+      "black_cat": "witch",
+      "journalist": "ordinary",
+      "copycat": "brain",
+      "rich": "friend",
+      "young_girl": "conspiracy",
+      "sacred_tree": "brain",
+      "仙人": "factor",
+      "outsider": "ordinary",
+      "patient": "witch",
+      "irregular": "cultist"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "suicide",
+        "culprit": "仙人"
+      },
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "rich"
+      }
+    ],
+    "table_talk": true
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：仙人",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

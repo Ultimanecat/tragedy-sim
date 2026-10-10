@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_plus_09",
+  "source_code": "BTX+-09",
+  "source_filename": "BTX+-09 死去活来 作者：残蝶未陨.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX+-09",
+    "name": "BTX+-09 死去活来 作者：残蝶未陨",
+    "module": "BTX+",
+    "loops": "10",
+    "days_per_loop": 5,
+    "special_rules": [
+      "1 没有最终决战",
+      "2 剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出一张行动牌，允许剧作家在出牌阶段打出少于3张行动牌\n\n剧作家被要求放置的牌为对应日期有方式或可能性存在于剧作家手牌中的牌，目标为对应日期有方式或可能性存在的出牌对象",
+      "3 局外人于医院登场且无法离开医院",
+      "4 每张轮限行动牌在轮回中首次使用完毕后，将其加入剧作家手牌，因此加入手牌的主人公行动牌可以在行动阶段作为剧作家的行动牌打出（并视为剧作家的行动牌），直到本轮轮回结束",
+      "5 剧本使用了非官方角色仙人\n\n仙人\n【初始区域】神社/医院（由剧本规定）\n【禁行区域】无\n【不安限度】X(见特性)\n【属性】 成人·男性\n【特性】X为剧本规定的数值。在事件判定之外需要参照該角色的不安限度时，该角色的不安限度视为0。\n【特性】结算该角色担任当事人的事件时，该角色可以视为位于本來所在位置顺时针相邻的版图。\n【友好能力】（友好5 1L1）将该角色移动至任意版图或远方。随后，复活同一区域任意1具尸体，並在那张卡牌上放置X枚友好指示物。",
+      "6 剧本使用了远方规则\n\n远方是独立于场上的四个版图代表的区域之外的一额外的没有版图的新区域\n位于远方的角色位于同一区域，在远方角色身上的移动牌在结算时没有效果\n可以通过某些效果或规则让角色位于远方（比如UP主的初始区域和仙人的能力，但手下的初始区域不能选择远方）\n因为没有版图，所有指定版图的效果不能指定远方（比如失踪等），但没有指定同一区域的效果可以指定远方的角色（比如媒体人的第一个友好能力）\n远方没有相邻版图，顺时针版图和对角线版图\n远方与幻想移除之后的所在区域或部分未进场的角色的所在区域不是同一个区域"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "murder",
+        "name": "谋杀"
+      },
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "3": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "4": {
+        "source_id": "spreading",
+        "name": "散播"
+      },
+      "5": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      }
+    }
+  },
+  "source_setup_text": "死去活来 作者：残蝶未陨\n\n规则Y 被封印的邪灵\n规则X1 恋爱风景线 \n规则X2 妄想扩大病毒\n\n仙人 求爱者 医院 X=25\n局外人 时间旅者\n住院患者 因果残片\n御神木 邪教徒\n神灵 主谋 2\n异界人 传谣人\nAI 心上人\n模仿犯 心上人\n转校生 平民 2\n\n1 谋杀 神灵\n2 自杀 御神木\n3 不安扩散 患者 \n4 散播 局外人\n5 医院事故 仙人\n\n出牌规则：\nDay1 异界人斜向，御神木绝望+1，住院患者不安+1\nDay2 神社密谋+2，局外人不安+1，住院患者不安+1，\nDay3 异界人←→，模仿犯密谋+2，住院患者不安+1\nDay4 AI密谋+2，仙人友好+2，神社密谋+1\nDay5 医院密谋+2，仙人友好+2，异界人↑↓\n\n剧作家可以在TTS中叠放卡牌，将此牌卡背改为剧作家行动牌",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "被封印的邪灵",
+      "恋爱风景线",
+      "妄想扩大病毒"
+    ],
+    "cast": [
+      {
+        "character": "仙人",
+        "role": "求爱者",
+        "notes": "医院 X=25"
+      },
+      {
+        "character": "局外人",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "御神木",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "神灵",
+        "role": "主谋",
+        "notes": "2"
+      },
+      {
+        "character": "异界人",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "AI",
+        "role": "心上人",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "心上人",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "平民",
+        "notes": "2"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-plus-09",
+    "title": "[社区·有特殊规则] BTX+-09 死去活来 作者：残蝶未陨",
+    "module": "BTX+",
+    "days": 5,
+    "loops": 10,
+    "main_plot": "sealed",
+    "subplots": [
+      "love_hsa",
+      "virus"
+    ],
+    "cast": {
+      "仙人": "lover",
+      "irregular": "time_traveler",
+      "sacred_tree": "cultist",
+      "godly": "brain",
+      "outsider": "conspiracy",
+      "ai": "loved",
+      "copycat": "loved",
+      "transfer_student": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "murder",
+        "culprit": "godly"
+      },
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "sacred_tree"
+      },
+      {
+        "day": 3,
+        "kind": "unease",
+        "culprit": "患者"
+      },
+      {
+        "day": 4,
+        "kind": "spreading",
+        "culprit": "irregular"
+      },
+      {
+        "day": 5,
+        "kind": "hospital",
+        "culprit": "仙人"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "godly": {
+        "entry_loop": 2
+      },
+      "transfer_student": {
+        "entry_day": 2
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：仙人",
+    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+  ]
+}

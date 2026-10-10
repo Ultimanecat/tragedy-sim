@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_plus_08",
+  "source_code": "BTX+-08",
+  "source_filename": "BTX+-08 苦命鸳鸯 作者 萌新宝宝.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX+-08",
+    "name": "BTX+-08 苦命鸳鸯 作者：萌新宝宝",
+    "module": "BTX+",
+    "loops": 6,
+    "days_per_loop": 3,
+    "special_rules": [
+      "剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出一张行动牌，允许剧作家在出牌阶段打出少于3张行动牌",
+      "剧本制作时，将一位平民身份变更为牛头人\n牛头人：无上限\n【强制：常驻】主人公与剧作家的胜负条件互换，最终决战时不生效。\n【强制：该角色友好能力结算后】若该能力指定了角色，互换其与能力对象的身份（若存在多个能力对象，由剧作家选择与哪个角色交换）\n胜负条件互换：如果触发了主人公失败/主人公死亡效果或在胜负判定时结果为主人公失败，则改为主人公获得游戏胜利，如果轮回中没有触发上述效果，且胜负判定时为主人公胜利，则改为主人公失败，游戏继续",
+      "剧本制作时，选择两名角色组成共命之翼。组成共命之翼的两人，当一方死亡时，另一方获得1枚绝望指示物（强制）"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "3": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      }
+    }
+  },
+  "source_setup_text": "苦命鸳鸯 作者 萌新宝宝\n\n规则Y 改变未来\n规则X1 好友圈\n规则X2 恋爱风景线\n\n教主 邪教徒\n职员 时间旅者\n手下 心上人  医院 共命之翼\n大人物 求爱者 医院 共命之翼\n教师 传谣人\n偶像 亲友\n鉴别员 亲友\n黑猫 平民\n患者 平民\n大小姐 平民\n男学生 因果残片\n转校生 牛头人 3\n\n1 自杀 患者 \n2 自杀 男学生\n3 远距离杀人 手下",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "第一天 患者不安1 手下不安1 大人物友禁\n第二天 患者绝望1 大人物友禁 神社密谋2\n第三天 手下密谋1 大人物绝望1 偶像左右"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "改变未来",
+      "好友圈",
+      "恋爱风景线"
+    ],
+    "cast": [
+      {
+        "character": "教主",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "职员",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "手下",
+        "role": "心上人",
+        "notes": "医院 共命之翼"
+      },
+      {
+        "character": "大人物",
+        "role": "求爱者",
+        "notes": "医院 共命之翼"
+      },
+      {
+        "character": "教师",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "偶像",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "鉴别员",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "患者",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-plus-08",
+    "title": "[社区·有特殊规则] BTX+-08 苦命鸳鸯 作者：萌新宝宝",
+    "module": "BTX+",
+    "days": 3,
+    "loops": 6,
+    "main_plot": "change",
+    "subplots": [
+      "friends",
+      "love_hsa"
+    ],
+    "cast": {
+      "guru": "cultist",
+      "worker": "time_traveler",
+      "henchman": "loved",
+      "boss": "lover",
+      "teacher": "conspiracy",
+      "idol": "friend",
+      "forensic": "friend",
+      "black_cat": "ordinary",
+      "患者": "ordinary",
+      "rich": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "suicide",
+        "culprit": "患者"
+      },
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "student"
+      },
+      {
+        "day": 3,
+        "kind": "faraway",
+        "culprit": "henchman"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "henchman": {
+        "initial_location": "hospital"
+      },
+      "boss": {
+        "territory": "hospital"
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：患者",
+    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+  ]
+}

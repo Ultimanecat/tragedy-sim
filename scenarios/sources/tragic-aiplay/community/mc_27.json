@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": false,
+  "special_rules_label": "无特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mc_27",
+  "source_code": "MC-27",
+  "source_filename": "MC-27 为时已晚 作者：zillash .txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "MC-27",
+    "name": "MC-27 为时已晚 作者：zillash",
+    "module": "MC",
+    "loops": 1,
+    "days_per_loop": 1,
+    "special_rules": [],
+    "incidents": {}
+  },
+  "source_setup_text": "为时已晚 作者：zillash\n\n规则Y 黑暗学园\n规则X1 潜伏的杀人狂\n规则X2 火药的味道\n \n男学生 主谋\n女学生 杀人狂\n住院患者 杀人狂\n军人 亲友",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "黑暗学园",
+      "潜伏的杀人狂",
+      "火药的味道"
+    ],
+    "cast": [
+      {
+        "character": "男学生",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "女学生",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "军人",
+        "role": "亲友",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-mc-27",
+    "title": "[社区·无特殊规则] MC-27 为时已晚 作者：zillash",
+    "module": "MC",
+    "days": 1,
+    "loops": 1,
+    "main_plot": "mc_dark_school",
+    "subplots": [
+      "lurking",
+      "mc_gunpowder"
+    ],
+    "cast": {
+      "student": "brain",
+      "girl": "serial",
+      "patient": "serial",
+      "soldier": "friend"
+    },
+    "incidents": [],
+    "table_talk": true
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_incompatible_setup",
+  "playable_file": null,
+  "issues": [
+    "剧本包含未知角色或无效身份"
+  ]
+}

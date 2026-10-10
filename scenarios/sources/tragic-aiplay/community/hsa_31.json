@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": false,
+  "special_rules_label": "无特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "hsa_31",
+  "source_code": "HSA-31",
+  "source_filename": "HSA-31 五芒星阵.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "HSA-31",
+    "name": "HSA-31 五芒星阵 作者：Zillash",
+    "module": "HSA",
+    "loops": 1,
+    "days_per_loop": 1,
+    "special_rules": [],
+    "incidents": {
+      "1": {
+        "source_id": "hsa_curse_activation",
+        "name": "诅咒活化"
+      }
+    }
+  },
+  "source_setup_text": "五芒星阵 作者：Zillash\n\n规则Y 古墓活尸\n规则X1 少女大危机\n规则X2 怪物们的阴谋\n\n职员 平民\n班长 关键人物\n军人 传谣人\n学者 平民 密谋\n\n1 诅咒活化 学校群众",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "古墓活尸",
+      "少女大危机",
+      "怪物们的阴谋"
+    ],
+    "cast": [
+      {
+        "character": "职员",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "班长",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "军人",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "学者",
+        "role": "平民",
+        "notes": "密谋"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-hsa-31",
+    "title": "[社区·无特殊规则] HSA-31 五芒星阵 作者：Zillash",
+    "module": "HSA",
+    "days": 1,
+    "loops": 1,
+    "main_plot": "hsa_ancient_dead",
+    "subplots": [
+      "hsa_girl_crisis",
+      "hsa_monster_plot"
+    ],
+    "cast": {
+      "worker": "ordinary",
+      "class_rep": "key",
+      "soldier": "conspiracy",
+      "scholar": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "curse_awakening",
+        "culprit": "school"
+      }
+    ],
+    "table_talk": true
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": true,
+  "status": "blocked_incompatible_setup",
+  "playable_file": null,
+  "issues": [
+    "学者初始标记的剧本指定值尚无数据字段：学者 平民 密谋"
+  ]
+}

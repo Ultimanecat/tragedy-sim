@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_113",
+  "source_code": "BTX-113",
+  "source_filename": "BTX-113 偏差认知.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-113",
+    "name": "BTX-113 偏差认知 作者：不虚此行",
+    "module": "BTX",
+    "loops": 3,
+    "days_per_loop": 2,
+    "special_rules": [
+      "剧作家严格按照剧本规定在固定位置公开放置固定的行动牌，并且每轮轮回均不变。主人公队长不放置行动牌，因此主人公每天只放置2张行动牌。",
+      "第1轮第1天回合开始阶段将公开一条剧本规定的信息。"
+    ],
+    "incidents": {
+      "2": {
+        "source_id": "missing",
+        "name": "失踪"
+      }
+    }
+  },
+  "source_setup_text": "偏差认知 作者：不虚此行\t\t\t\n\n规则Y 谋杀计划\n规则X1 因果线\n规则X2 未知因子X\n\n巫女 关键人物\n御神木 主谋\n仙人 杀手 0  神社      \n神灵 平民 3\n转校生 不安定因子 1\n住院患者 平民\n\n2 失踪 仙人",
+  "source_configuration_sections": [
+    {
+      "heading": "信息",
+      "text": "已知御神木和仙人的身份具有无视友好特性\n（注意不是额外附加上去的无视友好，未知是否必定）"
+    },
+    {
+      "heading": "出牌方法",
+      "text": "D1 巫女 密谋+2，御神木 密谋+1，仙人 不安+1\nD2 患者 不安+1，转校生 斜向移动，仙人 不安+1"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "因果线",
+      "未知因子X"
+    ],
+    "cast": [
+      {
+        "character": "巫女",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "御神木",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "仙人",
+        "role": "杀手",
+        "notes": "0 神社"
+      },
+      {
+        "character": "神灵",
+        "role": "平民",
+        "notes": "3"
+      },
+      {
+        "character": "转校生",
+        "role": "不安定因子",
+        "notes": "1"
+      },
+      {
+        "character": "住院患者",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-113",
+    "title": "[社区·有特殊规则] BTX-113 偏差认知 作者：不虚此行",
+    "module": "BTX",
+    "days": 2,
+    "loops": 3,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "threads",
+      "unknown"
+    ],
+    "cast": {
+      "maiden": "key",
+      "sacred_tree": "brain",
+      "仙人": "killer",
+      "godly": "ordinary",
+      "transfer_student": "factor",
+      "patient": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 2,
+        "kind": "missing",
+        "culprit": "仙人"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "godly": {
+        "entry_loop": 3
+      },
+      "transfer_student": {
+        "entry_day": 1
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：仙人",
+    "剧本包含未知角色或无效身份"
+  ]
+}

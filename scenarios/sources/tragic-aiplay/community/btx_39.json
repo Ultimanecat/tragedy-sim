@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_39",
+  "source_code": "BTX-39",
+  "source_filename": "BTX-39 寒蝉鸣泣之时.改 作者：Choconut.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-39",
+    "name": "BTX-39 寒蝉鸣泣之时.改 作者：Choconut",
+    "module": "BTX",
+    "loops": "6-8",
+    "days_per_loop": 4,
+    "special_rules": [
+      "1 剧作家不出牌",
+      "2 没有最终决战",
+      "3 刑警无法通过移动离开都市",
+      "4 剧本使用了非官方角色UP主和仙人\n\n仙人\n【初始区域】神社/医院（由剧本规定）\n【禁行区域】无\n【不安限度】X(见特性)\n【属性】 成人·男性\n【特性】X为剧本规定的数值。在事件判定之外需要参照該角色的不安限度时，该角色的不安限度视为0。\n【特性】结算该角色担任当事人的事件时，该角色可以视为位于本來所在位置顺时针相邻的版图。\n【友好能力】（友好5 1L1）将该角色移动至任意版图或远方。随后，复活同一区域任意1具尸体，並在那张卡牌上放置X枚友好指示物。\n\nUP主\n【初始区域】远方\n【禁行区域】无\n【不安限度】2\n【属性】 男性·学生\n【特性】在每轮轮回第一次事件发生当天的回合结束阶段，往1名少年或少女身上设置1张Ex牌。在使用该角色的能力（包括友好能力）时，可以将放置有Ex牌的角色所在区域视为该角色所在区域。\n【友好能力】（友好3）往同一区域另外一名角色身上放置1枚友好指示物，并移除1枚不安指示物。随后，可以將那名角色身上的Ex牌转移到与那名角色位于同一区域、且非UP主的1名角色身上。",
+      "5 剧本使用了远方规则\n\n远方是独立于场上的四个版图代表的区域之外的一额外的没有版图的新区域\n位于远方的角色位于同一区域，在远方角色身上的移动牌在结算时没有效果\n可以通过某些效果或规则让角色位于远方（比如UP主的初始区域和仙人的能力，但手下的初始区域不能选择远方）\n因为没有版图，所有指定版图的效果不能指定远方（比如失踪等），但没有指定同一区域的效果可以指定远方的角色（比如媒体人的第一个友好能力）\n远方没有相邻版图，顺时针版图和对角线版图\n远方与幻想移除之后的所在区域或部分未进场的角色的所在区域不是同一个区域"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "2": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      },
+      "3": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      },
+      "4": {
+        "source_id": "missing",
+        "name": "失踪"
+      }
+    }
+  },
+  "source_setup_text": "寒蝉鸣泣之时.改 作者：Choconut\n\n规则Y 谋杀计划\n规则X1 好友圈\n规则X2 因果线\n\nUP主 主谋\n住院患者 杀手\n学者 关键人物 密谋 \n仙人 亲友 神社，X＝0 \n巫女 平民\n黑猫 平民\n手下 平民 神社 \n刑警 传谣人\n模仿犯 传谣人\n小女孩 亲友\n大小姐 平民\n局外人 杀人狂\n\n1 不安扩散 仙人 \n2 远距离杀人 大小姐 \n3 医院事故 小女孩 \n4 失踪 模仿犯",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "好友圈",
+      "因果线"
+    ],
+    "cast": [
+      {
+        "character": "UP主",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "学者",
+        "role": "关键人物",
+        "notes": "密谋"
+      },
+      {
+        "character": "仙人",
+        "role": "亲友",
+        "notes": "神社，X＝0"
+      },
+      {
+        "character": "巫女",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "手下",
+        "role": "平民",
+        "notes": "神社"
+      },
+      {
+        "character": "刑警",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "杀人狂",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-39",
+    "title": "[社区·有特殊规则] BTX-39 寒蝉鸣泣之时.改 作者：Choconut",
+    "module": "BTX",
+    "days": 4,
+    "loops": 8,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "friends",
+      "threads"
+    ],
+    "cast": {
+      "UP主": "brain",
+      "patient": "killer",
+      "scholar": "key",
+      "仙人": "friend",
+      "maiden": "ordinary",
+      "black_cat": "ordinary",
+      "henchman": "ordinary",
+      "police": "conspiracy",
+      "copycat": "conspiracy",
+      "young_girl": "friend",
+      "rich": "ordinary",
+      "irregular": "serial"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "unease",
+        "culprit": "仙人"
+      },
+      {
+        "day": 2,
+        "kind": "faraway",
+        "culprit": "rich"
+      },
+      {
+        "day": 3,
+        "kind": "hospital",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 4,
+        "kind": "missing",
+        "culprit": "copycat"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      6,
+      7,
+      8
+    ],
+    "character_options": {
+      "henchman": {
+        "initial_location": "shrine"
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：UP主",
+    "学者初始标记的剧本指定值尚无数据字段：学者 关键人物 密谋",
+    "角色未支持：仙人",
+    "剧本包含未知角色或无效身份"
+  ]
+}

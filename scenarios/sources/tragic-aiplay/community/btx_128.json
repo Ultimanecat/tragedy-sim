@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_128",
+  "source_code": "BTX-128",
+  "source_filename": "BTX-128 广义不安限度.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-128",
+    "name": "BTX-128 广义不安限度 作者：奥伯伦",
+    "module": "BTX",
+    "loops": "12-20",
+    "days_per_loop": 3,
+    "special_rules": [
+      "1 只有4枚不安X3指示物和9枚不安指示物，在需要同时放置任意数量的不安指示物时，如果指示物数量不够放置或无法正常分配，则改为那些不安全部不放置（在分配时，X3指示物可以自由替换同一个角色身上或剩余指示物的中的3枚普通不安指示物）",
+      "2 没有最终决战",
+      "3 剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出一张行动牌，允许剧作家在出牌阶段打出少于3张行动牌",
+      "4 剧本使用了非官方角色仙人\n\n仙人\n【初始区域】神社/医院（由剧本规定）\n【禁行区域】无\n【不安限度】X(见特性)\n【属性】 成人·男性\n【特性】X为剧本规定的数值。在事件判定之外需要参照該角色的不安限度时，该角色的不安限度视为0。\n【特性】结算该角色担任当事人的事件时，该角色可以视为位于本來所在位置顺时针相邻的版图。\n【友好能力】（友好5 1L1）将该角色移动至任意版图或远方。随后，复活同一区域任意1具尸体，並在那张卡牌上放置X枚友好指示物。",
+      "5 剧本使用了远方规则\n\n远方是独立于场上的四个版图代表的区域之外的一额外的没有版图的新区域\n位于远方的角色位于同一区域，在远方角色身上的移动牌在结算时没有效果\n可以通过某些效果或规则让角色位于远方（比如UP主的初始区域和仙人的能力，但手下的初始区域不能选择远方）\n因为没有版图，所有指定版图的效果不能指定远方（比如失踪等），但没有指定同一区域的效果可以指定远方的角色（比如媒体人的第一个友好能力）\n远方没有相邻版图，顺时针版图和对角线版图\n远方与幻想移除之后的所在区域或部分未进场的角色的所在区域不是同一个区域"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "2": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "3": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      }
+    }
+  },
+  "source_setup_text": "广义不安限度 作者：奥伯伦\n3天12轮\n规则Y 谋杀计划\n规则X1 恋爱风景线\n规则X2 流言四起\n\n班长 关键人物\n住院患者 杀手\n大人物 主谋 医院\n小女孩 求爱者\n模仿犯 心上人\n媒体人 心上人\n黑猫 传谣人\n军人 平民 \n仙人 平民 X=0 神社\n异界人 平民 \n转校生 平民 3\n局外人 邪教徒\n\n1 小女孩 自杀\n2 仙人 不安扩散\n3 班长 医院事故",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "第一天  学校密谋加一 异界人禁止友好 班长左右\n第二天  学校密谋加一 军人禁止友好   大人物上下\n第三天  医院密谋加2  班长禁止不安 黑猫斜向移动"
+    },
+    {
+      "heading": "特规的作用：",
+      "text": "不安扩散发生时，若只剩1/0枚不安+1指示物，且班长身上没有不安，则无法给班长触发不安扩散。\n\n主人公需要在最后一天通过军人和媒体人的技能控制班长的不安数量，从而获取医院事故的控制权。（媒体人给5不安的人+1不安，能用一个不安+3指示物换掉两个不安+1指示物，军人就可以开技能了）\n第一天媒体人友好二，军人上下，患者不安+1\n第二天媒体人和模仿犯不安-1（本解密本的核心，1张不安减一的作用相当于两张不安+1），患者不安+1\n第三天军人友二，媒体人上下，医院禁止密谋"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "恋爱风景线",
+      "流言四起"
+    ],
+    "cast": [
+      {
+        "character": "班长",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "主谋",
+        "notes": "医院"
+      },
+      {
+        "character": "小女孩",
+        "role": "求爱者",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "心上人",
+        "notes": ""
+      },
+      {
+        "character": "媒体人",
+        "role": "心上人",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "军人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "仙人",
+        "role": "平民",
+        "notes": "X=0 神社"
+      },
+      {
+        "character": "异界人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "平民",
+        "notes": "3"
+      },
+      {
+        "character": "局外人",
+        "role": "邪教徒",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-128",
+    "title": "[社区·有特殊规则] BTX-128 广义不安限度 作者：奥伯伦",
+    "module": "BTX",
+    "days": 3,
+    "loops": 20,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "love",
+      "rumor"
+    ],
+    "cast": {
+      "class_rep": "key",
+      "patient": "killer",
+      "boss": "brain",
+      "young_girl": "lover",
+      "copycat": "loved",
+      "journalist": "loved",
+      "black_cat": "conspiracy",
+      "soldier": "ordinary",
+      "仙人": "ordinary",
+      "outsider": "ordinary",
+      "transfer_student": "ordinary",
+      "irregular": "cultist"
+    },
+    "incidents": [],
+    "table_talk": true,
+    "loop_options": [
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "character_options": {
+      "boss": {
+        "territory": "hospital"
+      },
+      "transfer_student": {
+        "entry_day": 3
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：仙人",
+    "公开事件与私有事件当事人数量不一致",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

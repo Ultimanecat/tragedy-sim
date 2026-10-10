@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_125",
+  "source_code": "BTX-125",
+  "source_filename": "BTX-125  冰冷的她醒来之前.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-125",
+    "name": "BTX-125 冰冷的她醒来之前 作者：不虚此行",
+    "module": "BTX",
+    "loops": "5-6",
+    "days_per_loop": 3,
+    "special_rules": [
+      "1 所有角色的不安限度改为0。",
+      "2 剧作家只在每轮第1天出牌，其他天数不出牌",
+      "3 剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变",
+      "4 在【回合结束阶段】，剧作家若有可用的【任意能力】则必须使用。",
+      "5 有一条隐藏的特殊规则，将在满足特定条件时公开"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      },
+      "2": {
+        "source_id": "butterfly_effect",
+        "name": "蝴蝶效应"
+      },
+      "3": {
+        "source_id": "spreading",
+        "name": "散播"
+      }
+    }
+  },
+  "source_setup_text": "冰冷的她醒来之前 作者：不虚此行\t\n\n5轮3天\t\t\n\n规则Y 被封印的邪灵\n规则X1 恋爱风景线\n规则X2 潜伏的杀人狂\n\n黑猫 平民\n手下 亲友\n妹妹 心上人\n异界人 杀人狂\n转校生 3 求爱者\n住院患者 平民\n大人物 邪教徒 神社\n媒体人 平民\n临时工 主谋\n\n1 远距离杀人 大人物\n2 蝴蝶效应 住院患者\n3 散播 异界人",
+  "source_configuration_sections": [
+    {
+      "heading": "隐藏特殊规则",
+      "text": "临时工？登场时公开：该角色额外获得不死特性"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "被封印的邪灵",
+      "恋爱风景线",
+      "潜伏的杀人狂"
+    ],
+    "cast": [
+      {
+        "character": "黑猫",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "手下",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "妹妹",
+        "role": "心上人",
+        "notes": ""
+      },
+      {
+        "character": "异界人",
+        "role": "杀人狂",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "求爱者",
+        "notes": "3"
+      },
+      {
+        "character": "住院患者",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "邪教徒",
+        "notes": "神社"
+      },
+      {
+        "character": "媒体人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "临时工",
+        "role": "主谋",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-125",
+    "title": "[社区·有特殊规则] BTX-125 冰冷的她醒来之前 作者：不虚此行",
+    "module": "BTX",
+    "days": 3,
+    "loops": 6,
+    "main_plot": "sealed",
+    "subplots": [
+      "love",
+      "lurking"
+    ],
+    "cast": {
+      "black_cat": "ordinary",
+      "henchman": "friend",
+      "little_sister": "loved",
+      "outsider": "serial",
+      "transfer_student": "lover",
+      "patient": "ordinary",
+      "boss": "cultist",
+      "journalist": "ordinary",
+      "part_timer": "brain"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "faraway",
+        "culprit": "boss"
+      },
+      {
+        "day": 2,
+        "kind": "butterfly",
+        "culprit": "patient"
+      },
+      {
+        "day": 3,
+        "kind": "spreading",
+        "culprit": "outsider"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      5,
+      6
+    ],
+    "character_options": {
+      "transfer_student": {
+        "entry_day": 3
+      },
+      "boss": {
+        "territory": "shrine"
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "剧本包含未知角色或无效身份"
+  ]
+}

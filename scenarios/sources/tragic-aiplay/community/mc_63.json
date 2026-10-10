@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": false,
+  "special_rules_label": "无特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mc_63",
+  "source_code": "MC-63",
+  "source_filename": "MC-63 神禁之恋（非公开信息表＋详细剧作家操作指南）",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "MC-63",
+    "name": "MC-63 神禁之恋 作者：Aery",
+    "module": "MC",
+    "loops": 5,
+    "days_per_loop": 3,
+    "special_rules": [],
+    "incidents": {
+      "1": {
+        "source_id": "freak_murder",
+        "name": "猎奇杀人"
+      },
+      "2": {
+        "source_id": "continuous_murder",
+        "name": "连续杀人"
+      },
+      "3": {
+        "source_id": "continuous_murder",
+        "name": "连续杀人"
+      }
+    }
+  },
+  "source_setup_text": "神禁之恋 作者：Aery\n\n规则Y 士的宁毒液\n规则X1 愚者之舞\n规则X2 绝对意志\n\n男学生 平民\n女学生 亲友\n大小姐 愚者\n巫女 关键人物\n神灵 投毒者 2\n偶像 平民\n大人物 平民 神社\n军人 平民\n手下 强迫症\n \n1 猎奇杀人 手下\n2 连续杀人 大小姐\n3 连续杀人 大小姐",
+  "source_configuration_sections": [
+    {
+      "heading": "固定出牌对象：",
+      "text": "巫女\n    男学生\n    大小姐\n\n\n本策略只在情况2的第二天使用一次。"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "士的宁毒液",
+      "愚者之舞",
+      "绝对意志"
+    ],
+    "cast": [
+      {
+        "character": "男学生",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "女学生",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "愚者",
+        "notes": ""
+      },
+      {
+        "character": "巫女",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "神灵",
+        "role": "投毒者",
+        "notes": "2"
+      },
+      {
+        "character": "偶像",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "平民",
+        "notes": "神社"
+      },
+      {
+        "character": "军人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "手下",
+        "role": "强迫症",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-mc-63",
+    "title": "[社区·无特殊规则] MC-63 神禁之恋 作者：Aery",
+    "module": "MC",
+    "days": 3,
+    "loops": 5,
+    "main_plot": "mc_strychnine",
+    "subplots": [
+      "mc_fool_dance",
+      "mc_absolute"
+    ],
+    "cast": {
+      "student": "ordinary",
+      "girl": "friend",
+      "rich": "fool",
+      "maiden": "key",
+      "godly": "poisoner",
+      "idol": "ordinary",
+      "boss": "ordinary",
+      "soldier": "ordinary",
+      "henchman": "obsessive"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "bizarre_murder",
+        "culprit": "henchman"
+      },
+      {
+        "day": 2,
+        "kind": "serial_murder",
+        "culprit": "rich"
+      },
+      {
+        "day": 3,
+        "kind": "serial_murder",
+        "culprit": "rich"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "godly": {
+        "entry_loop": 2
+      },
+      "boss": {
+        "territory": "shrine"
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_incompatible_setup",
+  "playable_file": null,
+  "issues": [
+    "剧本包含未知角色或无效身份"
+  ]
+}

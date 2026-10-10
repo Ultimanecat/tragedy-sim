@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": false,
+  "special_rules_label": "无特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "fs_27",
+  "source_code": "FS-27",
+  "source_filename": "FS-27 拉普拉斯的魔女 作者：残蝶.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "FS-27",
+    "name": "FS-27 拉普拉斯的魔女 作者：残蝶",
+    "module": "FS",
+    "loops": "4-6",
+    "days_per_loop": 8,
+    "special_rules": [],
+    "incidents": {
+      "5": {
+        "source_id": "spreading",
+        "name": "散播"
+      },
+      "6": {
+        "source_id": "spreading",
+        "name": "散播"
+      },
+      "7": {
+        "source_id": "spreading",
+        "name": "散播"
+      },
+      "8": {
+        "source_id": "spreading",
+        "name": "散播"
+      }
+    }
+  },
+  "source_setup_text": "《拉普拉斯的魔女》 作者：残蝶\n\n规则Y 谋杀计划\n规则X 流言四起\n\n女学生 关键人物\n情报商 杀手\n黑猫 主谋\n住院患者 传谣人\n\n事件与当事人（非公开）\n5 散播 黑猫\n6 散播 住院患者\n7 散播 情报商\n8 散播 女学生\n\n事件结算效果（剧作家选择）\n5 散播：黑猫是当事人，事件没有任何现象。\n6 散播：从住院患者身上移除至多2枚友好，女学生获得2枚友好。\n7 散播：从情报商身上移除至多2枚友好，女学生获得2枚友好。\n8 散播：从黑猫身上移除至多2枚友好，女学生获得2枚友好。",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "流言四起"
+    ],
+    "cast": [
+      {
+        "character": "女学生",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "情报商",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "黑猫",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "传谣人",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-fs-27",
+    "title": "[社区·无特殊规则] FS-27 拉普拉斯的魔女 作者：残蝶",
+    "module": "FS",
+    "days": 8,
+    "loops": 6,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "rumor"
+    ],
+    "cast": {
+      "girl": "key",
+      "informer": "killer",
+      "black_cat": "brain",
+      "patient": "conspiracy"
+    },
+    "incidents": [
+      {
+        "day": 5,
+        "kind": "spreading",
+        "culprit": "black_cat"
+      },
+      {
+        "day": 6,
+        "kind": "spreading",
+        "culprit": "patient"
+      },
+      {
+        "day": 7,
+        "kind": "spreading",
+        "culprit": "informer"
+      },
+      {
+        "day": 8,
+        "kind": "spreading",
+        "culprit": "girl"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      4,
+      5,
+      6
+    ]
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": true,
+  "status": "imported",
+  "playable_file": "scenarios/community-tragic-aiplay-fs-27.json",
+  "issues": []
+}

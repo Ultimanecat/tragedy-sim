@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "fs_08",
+  "source_code": "FS-08",
+  "source_filename": "FS-08 赛博惨剧2077 5天 作者：清尘.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "FS-08",
+    "name": "FS-08 赛博惨剧2077 作者：清尘",
+    "module": "FS",
+    "loops": "无限轮",
+    "days_per_loop": 5,
+    "special_rules": [
+      "1 剧作家每天只出一张牌，无法使用【不安-1】和【不安禁止】，且【友好禁止】只能给局外人放置",
+      "2 手下的初始区域固定为医院，有最终决战",
+      "3 小惨把只有前两条特规的本用AI进行了无限次模拟对战，每次一亿轮且主人公AI会穷举不同的出牌方式，最后的结果是所有游戏中主人公AI都无法得知手下和AI的身份（不代表它得知了其它角色身份），剧作家AI则说如果不告诉主人公手下是传谣人，则主人公没有任何方法能打破轮回，也不能不凭借运气猜测出所有角色的身份",
+      "4 AI严格按照轮回中暴露身份信息最少的打法进行操作，假如在已经必胜的情况下，剧作家不会主动杀死关键人物、亲友、暴露主谋。即使主动暴露某些角色能够让主人公混淆规则，降低在决战中猜对其他身份的概率，剧作家也不会这么做，因为这对于他来说就算是暴露了多余的身份信息。\n\n现在请你结合以上信息以及某一次一亿零一轮轮回开始时的盘面进行最终决战",
+      "5 剧本使用了非官方角色仙人\n\n仙人\n【初始区域】神社/医院（由剧本规定）\n【禁行区域】无\n【不安限度】X(见特性)\n【属性】 成人·男性\n【特性】X为剧本规定的数值。在事件判定之外需要参照該角色的不安限度时，该角色的不安限度视为0。\n【特性】结算该角色担任当事人的事件时，该角色可以视为位于本來所在位置顺时针相邻的版图。\n【友好能力】（友好5 1L1）将该角色移动至任意版图或远方。随后，复活同一区域任意1具尸体，並在那张卡牌上放置X枚友好指示物。",
+      "6 剧本使用了远方规则\n\n远方是独立于场上的四个版图代表的区域之外的一额外的没有版图的新区域\n位于远方的角色位于同一区域，在远方角色身上的移动牌在结算时没有效果\n可以通过某些效果或规则让角色位于远方（比如UP主的初始区域和仙人的能力，但手下的初始区域不能选择远方）\n因为没有版图，所有指定版图的效果不能指定远方（比如失踪等），但没有指定同一区域的效果可以指定远方的角色（比如媒体人的第一个友好能力）\n远方没有相邻版图，顺时针版图和对角线版图\n远方与幻想移除之后的所在区域或部分未进场的角色的所在区域不是同一个区域",
+      "7 剧本作者对本剧本拥有最终解释权"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "murder",
+        "name": "谋杀"
+      },
+      "5": {
+        "source_id": "spreading",
+        "name": "散播"
+      }
+    }
+  },
+  "source_setup_text": "赛博惨剧2077 作者：清尘\n\n规则Y 谋杀计划\n规则X1 开膛者的魔影\n\n御神木  关键人物\n局外人  亲友\nAI 主谋\n住院患者  杀手\n模仿犯  关键人物\n仙人  杀人狂  X=0 神社 \n手下  传谣人 医院 \n教主  平民\n\n1 谋杀  仙人\n5 散播  御神木",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "开膛者的魔影"
+    ],
+    "cast": [
+      {
+        "character": "御神木",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "AI",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "仙人",
+        "role": "杀人狂",
+        "notes": "X=0 神社"
+      },
+      {
+        "character": "手下",
+        "role": "传谣人",
+        "notes": "医院"
+      },
+      {
+        "character": "教主",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-fs-08",
+    "title": "[社区·有特殊规则] FS-08 赛博惨剧2077 作者：清尘",
+    "module": "FS",
+    "days": 5,
+    "loops": "无限轮",
+    "main_plot": "murder_plan",
+    "subplots": [
+      "ripper"
+    ],
+    "cast": {
+      "sacred_tree": "key",
+      "irregular": "friend",
+      "ai": "brain",
+      "patient": "killer",
+      "copycat": "key",
+      "仙人": "serial",
+      "henchman": "conspiracy",
+      "guru": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "murder",
+        "culprit": "仙人"
+      },
+      {
+        "day": 5,
+        "kind": "spreading",
+        "culprit": "sacred_tree"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "henchman": {
+        "initial_location": "hospital"
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：仙人",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

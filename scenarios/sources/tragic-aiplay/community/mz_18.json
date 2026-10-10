@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mz_18",
+  "source_code": "MZ-18",
+  "source_filename": "MZ-18 神与魔的对弈 作者：清尘（网站投稿版）.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "MZ-18",
+    "name": "MZ-18 神与魔的对弈 作者：清尘",
+    "module": "MZ",
+    "loops": "8-12",
+    "days_per_loop": 2,
+    "special_rules": [
+      "1 剧作家第二天无法使用友好禁止和不安-1",
+      "2 每轮轮回第一天，剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变",
+      "3 主人公无法使用上下移动、左右移动、禁止移动和禁止密谋",
+      "4 从第二轮回开始，每轮轮回开始前，主人公指定一个登场角色和本模组中的一个事件\n仅限本轮轮回第一天的主人公能力阶段结束时，如果角色身上的不安指示物数量满足其印刷的不安限度，主人公可以声明使用一个额外的特殊友好能力，处理指定事件的效果，处理时，当事人默认为指定的角色，且一切需要剧作家决定的内容由主人公队长决定（事件本身不视作已发生），这个特殊友好能力可以正常按规则被友好拒绝，如果未被拒绝则正常结算声明的效果，然后主人公能力阶段结束",
+      "5 没有最终决战\n※ 网页版限定特殊规则：触发特定对话后，主人公的下一轮为最终轮回，如果当前是最终轮回，最大轮回数+1（特定对话仅会触发一次）"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      },
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      }
+    }
+  },
+  "source_setup_text": "神与魔的对弈 作者：清尘\n\n规则Y  因果之绊\n规则X1 爱与恨的螺旋\n规则X2 灭亡讴歌\n\n神灵 预言家\n军人 强迫症\n幻想 亲友\n小女孩 亲友\n局外人 主谋\n大小姐 传谣人\n大人物 杀人狂 学校 \n御神木 平民\n学者 平民 友好/密谋 \n\n1 医院事故 军人 \n2 自杀  小女孩",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "第一天：医院密谋+2 局外人斜向 御神木友好禁止\n\n※网页版专属特殊规则\n\n特定对话将在小女孩获得EX牌之后自杀时触发"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "因果之绊",
+      "爱与恨的螺旋",
+      "灭亡讴歌"
+    ],
+    "cast": [
+      {
+        "character": "神灵",
+        "role": "预言家",
+        "notes": ""
+      },
+      {
+        "character": "军人",
+        "role": "强迫症",
+        "notes": ""
+      },
+      {
+        "character": "幻想",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "小女孩",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "杀人狂",
+        "notes": "学校"
+      },
+      {
+        "character": "御神木",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "学者",
+        "role": "平民",
+        "notes": "友好/密谋"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-mz-18",
+    "title": "[社区·有特殊规则] MZ-18 神与魔的对弈 作者：清尘",
+    "module": "MZ",
+    "days": 2,
+    "loops": 12,
+    "main_plot": "mz_causal",
+    "subplots": [
+      "mz_love_hate",
+      "mz_doom_song"
+    ],
+    "cast": {
+      "godly": "prophet",
+      "soldier": "obsessive",
+      "illusion": "friend",
+      "young_girl": "friend",
+      "irregular": "brain",
+      "rich": "conspiracy",
+      "boss": "serial",
+      "sacred_tree": "ordinary",
+      "scholar": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "hospital",
+        "culprit": "soldier"
+      },
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "young_girl"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "character_options": {
+      "boss": {
+        "territory": "school"
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "缺少明确登场时间：神灵 预言家",
+    "学者初始标记的剧本指定值尚无数据字段：学者 平民 友好/密谋",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

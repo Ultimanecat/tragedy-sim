@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_130",
+  "source_code": "BTX-130",
+  "source_filename": "BTX-130 千朵玫瑰带来的黎明.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-130",
+    "name": "BTX-130 千朵玫瑰带来的黎明",
+    "module": "BTX",
+    "loops": "无限",
+    "days_per_loop": 1,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变",
+      "2 没有最终决战",
+      "3 每个轮回开始时，往剧本规定的角色身上各放置X枚剧本指定的指示物，X为当前轮回数-1，指示物的种类每轮轮回均不变"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "suicide",
+        "name": "自杀"
+      }
+    }
+  },
+  "source_setup_text": "BTX-130 千朵玫瑰带来的黎明    作者：桶子\n\n规则Y 改变未来\n规则X1 妄想扩大病毒\n规则X2 好友圈\n\nA.I. 传谣人\n局外人 杀手\n大人物 邪教徒 学校\n偶像 时间旅者\n上位存在 平民\n大小姐 亲友\n转校生 亲友 1\n女学生 平民\n神灵 平民 10\n\n1 自杀 A.I.",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "偶像密谋+1          局外人密谋+2          上位存在上下移动"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "改变未来",
+      "妄想扩大病毒",
+      "好友圈"
+    ],
+    "cast": [
+      {
+        "character": "A.I.",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "邪教徒",
+        "notes": "学校"
+      },
+      {
+        "character": "偶像",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "上位存在",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "亲友",
+        "notes": "1"
+      },
+      {
+        "character": "女学生",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "神灵",
+        "role": "平民",
+        "notes": "10"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-130",
+    "title": "[社区·有特殊规则] BTX-130 千朵玫瑰带来的黎明",
+    "module": "BTX",
+    "days": 1,
+    "loops": "无限",
+    "main_plot": "change",
+    "subplots": [
+      "virus",
+      "friends"
+    ],
+    "cast": {
+      "ai": "conspiracy",
+      "irregular": "killer",
+      "boss": "cultist",
+      "idol": "time_traveler",
+      "higher_being": "ordinary",
+      "rich": "friend",
+      "transfer_student": "friend",
+      "girl": "ordinary",
+      "godly": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "suicide",
+        "culprit": "ai"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "boss": {
+        "territory": "school"
+      },
+      "transfer_student": {
+        "entry_day": 1
+      },
+      "godly": {
+        "entry_loop": 10
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

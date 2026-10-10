@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_46",
+  "source_code": "BTX-46",
+  "source_filename": "BTX-46 准备万端 作者：Choconut.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-46",
+    "name": "BTX-46 准备万端 作者：Choconut",
+    "module": "BTX",
+    "loops": 7,
+    "days_per_loop": 2,
+    "special_rules": [
+      "1 主人公必须拼尽全力，充分思考，在做出万无一失的准备后才能出牌",
+      "2 剧作家不出牌"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "spreading",
+        "name": "散播"
+      },
+      "2": {
+        "source_id": "missing",
+        "name": "失踪"
+      }
+    }
+  },
+  "source_setup_text": "准备万端 作者：Choconut\n\n规则Y 改变未来\n规则X1 因果线\n规则X2 未知因子X\n\n军人 平民\n学者 邪教徒 友好/不安\n鉴别员 不安定因子\n职员 平民\n媒体人 平民\n班长 平民\n转校生 时间旅者 1\n局外人 主谋\n幻想 平民\n妹妹 平民\n\n1 散播 学者\n2 失踪 局外人",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "改变未来",
+      "因果线",
+      "未知因子X"
+    ],
+    "cast": [
+      {
+        "character": "军人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "学者",
+        "role": "邪教徒",
+        "notes": "友好/不安"
+      },
+      {
+        "character": "鉴别员",
+        "role": "不安定因子",
+        "notes": ""
+      },
+      {
+        "character": "职员",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "媒体人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "班长",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "时间旅者",
+        "notes": "1"
+      },
+      {
+        "character": "局外人",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "幻想",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "妹妹",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-46",
+    "title": "[社区·有特殊规则] BTX-46 准备万端 作者：Choconut",
+    "module": "BTX",
+    "days": 2,
+    "loops": 7,
+    "main_plot": "change",
+    "subplots": [
+      "threads",
+      "unknown"
+    ],
+    "cast": {
+      "soldier": "ordinary",
+      "scholar": "cultist",
+      "forensic": "factor",
+      "worker": "ordinary",
+      "journalist": "ordinary",
+      "class_rep": "ordinary",
+      "transfer_student": "time_traveler",
+      "irregular": "brain",
+      "illusion": "ordinary",
+      "little_sister": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "spreading",
+        "culprit": "scholar"
+      },
+      {
+        "day": 2,
+        "kind": "missing",
+        "culprit": "irregular"
+      }
+    ],
+    "table_talk": true,
+    "character_options": {
+      "transfer_student": {
+        "entry_day": 1
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": true,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "学者初始标记的剧本指定值尚无数据字段：学者 邪教徒 友好/不安"
+  ]
+}

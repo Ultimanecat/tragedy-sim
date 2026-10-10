@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_124",
+  "source_code": "BTX-124",
+  "source_filename": "BTX-124 机械降神.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-124",
+    "name": "BTX-124 机械降神 作者：小黑",
+    "module": "BTX",
+    "loops": "6-8",
+    "days_per_loop": 4,
+    "special_rules": [
+      "1 剧作家和主人公失去全部的移动牌",
+      "2 剧作家的禁止友好同时带有禁止不安的效果。",
+      "3 剧作家失去密谋+2",
+      "4 失去最终决战"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "3": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      },
+      "4": {
+        "source_id": "butterfly_effect",
+        "name": "蝴蝶效应"
+      }
+    }
+  },
+  "source_setup_text": "机械降神 作者：小黑\n\n规则Y 改变未来\n规则X 好友圈\n规则X 因果线\n\n大人物 传谣人 医院\nAI 时间旅者\n军人 邪教徒\n女学生 平民\n转校生 亲友 3\n黑猫 亲友\n神灵 平民 4\n大小姐 平民\n\n1 不安扩散 黑猫\n2 自杀 大人物\n3 医院事故 军人\n4 蝴蝶效应 转校生",
+  "source_configuration_sections": [],
+  "source_setup": {
+    "plots": [
+      "改变未来",
+      "好友圈",
+      "因果线"
+    ],
+    "cast": [
+      {
+        "character": "大人物",
+        "role": "传谣人",
+        "notes": "医院"
+      },
+      {
+        "character": "AI",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "军人",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "女学生",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "亲友",
+        "notes": "3"
+      },
+      {
+        "character": "黑猫",
+        "role": "亲友",
+        "notes": ""
+      },
+      {
+        "character": "神灵",
+        "role": "平民",
+        "notes": "4"
+      },
+      {
+        "character": "大小姐",
+        "role": "平民",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-124",
+    "title": "[社区·有特殊规则] BTX-124 机械降神 作者：小黑",
+    "module": "BTX",
+    "days": 4,
+    "loops": 8,
+    "main_plot": "change",
+    "subplots": [
+      "friends",
+      "threads"
+    ],
+    "cast": {
+      "boss": "conspiracy",
+      "ai": "time_traveler",
+      "soldier": "cultist",
+      "girl": "ordinary",
+      "transfer_student": "friend",
+      "black_cat": "friend",
+      "godly": "ordinary",
+      "rich": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "unease",
+        "culprit": "black_cat"
+      },
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "boss"
+      },
+      {
+        "day": 3,
+        "kind": "hospital",
+        "culprit": "soldier"
+      },
+      {
+        "day": 4,
+        "kind": "butterfly",
+        "culprit": "transfer_student"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      6,
+      7,
+      8
+    ],
+    "character_options": {
+      "boss": {
+        "territory": "hospital"
+      },
+      "transfer_student": {
+        "entry_day": 3
+      },
+      "godly": {
+        "entry_loop": 4
+      }
+    }
+  },
+  "normalization_complete": true,
+  "engine_setup_valid": true,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。"
+  ]
+}

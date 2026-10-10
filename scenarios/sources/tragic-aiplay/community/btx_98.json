@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_98",
+  "source_code": "BTX-98",
+  "source_filename": "BTX-98 不收费的医生 作者：奥伯伦.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX-98",
+    "name": "BTX-98 不收费的医生 作者：奥伯伦",
+    "module": "BTX",
+    "loops": "无限",
+    "days_per_loop": 3,
+    "special_rules": [
+      "剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变，如果出现手牌中不存在规定的行动牌，将放置行动牌的目标角色已死亡/不在场/已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌并且本回合剧作家少打出一张行动牌，允许剧作家在出牌阶段打出少于3张行动牌",
+      "有一条隐藏的特殊规则",
+      "剧本使用了非官方角色仙人\n仙人\n【初始区域】神社/医院（由剧本规定）\n【禁行区域】无\n【不安限度】X(见特性)\n【属性】 成人·男性\n【特性】X为剧本规定的数值。在事件判定之外需要参照該角色的不安限度时，该角色的不安限度视为0。\n【特性】结算该角色担任当事人的事件时，该角色可以视为位于本來所在位置顺时针相邻的版图。\n【友好能力】（友好5 1L1）将该角色移动至任意版图或远方。随后，复活同一区域任意1具尸体，並在那张卡牌上放置X枚友好指示物。",
+      "剧本使用了远方规则\n远方是独立于场上的四个版图代表的区域之外的一额外的没有版图的新区域\n位于远方的角色位于同一区域，在远方角色身上的移动牌在结算时没有效果\n可以通过某些效果或规则让角色位于远方（比如UP主的初始区域和仙人的能力，但手下的初始区域不能选择远方）\n因为没有版图，所有指定版图的效果不能指定远方（比如失踪等），但没有指定同一区域的效果可以指定远方的角色（比如媒体人的第一个友好能力）\n远方没有相邻版图，顺时针版图和对角线版图\n远方与幻想移除之后的所在区域或部分未进场的角色的所在区域不是同一个区域"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "2": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "3": {
+        "source_id": "suicide",
+        "name": "自杀"
+      }
+    }
+  },
+  "source_setup_text": "不收费的医生 作者：奥伯伦\n\n规则Y 谋杀计划\n规则X1 好友圈\n规则X2 未知因子X\n\n仙人 亲友 X=1 医院\n学者 杀手\n军人 主谋\n医生 传谣人\n异界人 平民\n刑警 不安定因子\n模仿犯 传谣\n大小姐 关键人物\n手下 亲友\n\n1 自杀 手下\n2 自杀 大小姐\n3 自杀 仙人",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "第一天 手下不安+1 大小姐不安加一  刑警禁止友好\n第二天 大小姐不安加一 仙人不安加一 医生禁止友好\n第三天 仙人不安加一  \t学者禁止友好 学校密谋加2"
+    },
+    {
+      "heading": "隐藏特殊规则",
+      "text": "手下的初始区域不能为医院"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "好友圈",
+      "未知因子X"
+    ],
+    "cast": [
+      {
+        "character": "仙人",
+        "role": "亲友",
+        "notes": "X=1 医院"
+      },
+      {
+        "character": "学者",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "军人",
+        "role": "主谋",
+        "notes": ""
+      },
+      {
+        "character": "医生",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "异界人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "刑警",
+        "role": "不安定因子",
+        "notes": ""
+      },
+      {
+        "character": "模仿犯",
+        "role": "传谣",
+        "notes": ""
+      },
+      {
+        "character": "大小姐",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "手下",
+        "role": "亲友",
+        "notes": ""
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-98",
+    "title": "[社区·有特殊规则] BTX-98 不收费的医生 作者：奥伯伦",
+    "module": "BTX",
+    "days": 3,
+    "loops": "无限",
+    "main_plot": "murder_plan",
+    "subplots": [
+      "friends",
+      "unknown"
+    ],
+    "cast": {
+      "仙人": "friend",
+      "scholar": "killer",
+      "soldier": "brain",
+      "doctor": "conspiracy",
+      "outsider": "ordinary",
+      "police": "factor",
+      "copycat": "conspiracy",
+      "rich": "key",
+      "henchman": "friend"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "suicide",
+        "culprit": "henchman"
+      },
+      {
+        "day": 2,
+        "kind": "suicide",
+        "culprit": "rich"
+      },
+      {
+        "day": 3,
+        "kind": "suicide",
+        "culprit": "仙人"
+      }
+    ],
+    "table_talk": true
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "角色未支持：仙人",
+    "天数、轮回数必须在 1–8 之间"
+  ]
+}

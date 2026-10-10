@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "origin": "community",
+  "origin_label": "社区",
+  "has_special_rules": true,
+  "special_rules_label": "有特殊规则",
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_plus_15",
+  "source_code": "BTX+-15",
+  "source_filename": "BTX+-15 被冷暴力的艾玛 作者：呆唯刺月.txt",
+  "classification_basis": "剧本编号不含 G；特殊规则标记依据网站公开信息表。",
+  "public_setup": {
+    "code": "BTX+-15",
+    "name": "BTX+-15 被冷暴力的艾玛 作者：呆唯刺月",
+    "module": "BTX+",
+    "loops": "6-7",
+    "days_per_loop": 3,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定按顺序在固定位置放置固定的行动牌，并且每轮轮回均不变。如果出现手牌中不存在规定的行动牌、将放置行动牌的目标角色已死亡或不在场、目标已经放置过剧作家行动牌，以及指定了按规则禁止放置行动牌的对象等按照通用出牌规则无法放置对应行动牌的情况，则改为不打出那张行动牌，并且本回合剧作家少打出1张行动牌，允许剧作家在出牌阶段打出少于3张行动牌。",
+      "2 剧本使用了非官方角色希罗。\n\n希罗\n\n【初始区域】学校\n\n【禁行区域】无\n\n【不安限度】2\n\n【属性】 学生·少女\n\n【特性】如果本局游戏中该角色的友好能力结算过，该角色不会死亡\n\n【特性】该角色为当事人的事件判定是否发生时，本轮每有一个非该角色作为当事人的事件发生过，该角色的不安限度-1\n\n【友好能力】（友好5 1L1）剩余轮回数+1或-1，主人公失败，当前轮回立即结束，该友好能力每局游戏只能成功结算一次",
+      "3 剧本使用了非官方角色艾玛。\n\n艾玛\n\n【初始区域】学校\n\n【禁行区域】无\n\n【不安限度】3\n\n【属性】 学生·少女\n\n【特性】同一区域的其他角色在以不安数量为基准判定事件是否发生时，也计入该角色身上的不安指示物数量\n\n【友好能力】（友好2）选同一区域另一名角色的一个友好能力，那名角色身上的友好指示物数量需要正好比指定友好能力需要的数量少1，往那名角色身上放置1枚友好指示物\n\n【友好能力】（友好3 1L1）将相邻版图的1名角色移动到该角色所在版图",
+      "4 剧本使用了非官方角色梅露露。\n\n梅露露\n\n【初始区域】医院\n\n【禁行区域】无\n\n【不安限度】3\n\n【属性】学生·少女\n\n【友好能力】（友好3）将同一区域另外1名角色身上的1枚不安指示物移动至该角色身上。如果该角色有无视友好特性，并且身上已经放置3枚或以上友好指示物，则剧作家可以在剧作家能力阶段使用该能力。\n\n【友好能力】（友好5）复活同一区域任意1具尸体，该角色死亡。",
+      "5 羁绊束缚\n如果希罗与艾玛为均存活状态，二人不能因移动而分处不同区域。\n如果艾玛和希罗位于同一区域，其中一名角色移动时，另一名角色需跟随移动，如果两名角色同时移动，由主人公选择其中之一取消移动并跟随另一名角色"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "2": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "3": {
+        "source_id": "suicide",
+        "name": "自杀"
+      }
+    }
+  },
+  "source_setup_text": "被冷暴力的艾玛 作者：呆唯刺月\n\n规则Y 谋杀计划  \n规则X1 未知因子\n规则X2 流言四起\n\n希罗 关键人物\n艾玛 不安定因子\n梅露露 杀手\n黑猫 因果残片\n幻想 平民\n大人物  主谋 都市 \n小女孩 传谣人\n职员 平民\n局外人 时间旅者\n媒体人 平民 \n住院患者 平民 \n手下 平民 都市 \n\n1 不安扩散 小女孩\n2 不安扩散 希罗 \n3 自杀 艾玛",
+  "source_configuration_sections": [
+    {
+      "heading": "出牌方法",
+      "text": "第一天   都市密谋+1 神社 密谋+2\n艾玛 不安+1\n第二天 友好禁止 希罗  艾玛 不安+1  神社密谋+1  \n 第三天 大人物友好禁止   神社密谋+1  \n绝望+1希罗"
+    }
+  ],
+  "source_setup": {
+    "plots": [
+      "谋杀计划",
+      "未知因子",
+      "流言四起"
+    ],
+    "cast": [
+      {
+        "character": "希罗",
+        "role": "关键人物",
+        "notes": ""
+      },
+      {
+        "character": "艾玛",
+        "role": "不安定因子",
+        "notes": ""
+      },
+      {
+        "character": "梅露露",
+        "role": "杀手",
+        "notes": ""
+      },
+      {
+        "character": "幻想",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "大人物",
+        "role": "主谋",
+        "notes": "都市"
+      },
+      {
+        "character": "小女孩",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
+        "character": "职员",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "局外人",
+        "role": "时间旅者",
+        "notes": ""
+      },
+      {
+        "character": "媒体人",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "住院患者",
+        "role": "平民",
+        "notes": ""
+      },
+      {
+        "character": "手下",
+        "role": "平民",
+        "notes": "都市"
+      }
+    ]
+  },
+  "normalized_setup": {
+    "id": "community-tragic-aiplay-btx-plus-15",
+    "title": "[社区·有特殊规则] BTX+-15 被冷暴力的艾玛 作者：呆唯刺月",
+    "module": "BTX+",
+    "days": 3,
+    "loops": 7,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "wm_rumor"
+    ],
+    "cast": {
+      "希罗": "key",
+      "艾玛": "factor",
+      "梅露露": "killer",
+      "illusion": "ordinary",
+      "boss": "brain",
+      "young_girl": "conspiracy",
+      "worker": "ordinary",
+      "irregular": "time_traveler",
+      "journalist": "ordinary",
+      "patient": "ordinary",
+      "henchman": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "unease",
+        "culprit": "young_girl"
+      },
+      {
+        "day": 2,
+        "kind": "unease",
+        "culprit": "希罗"
+      },
+      {
+        "day": 3,
+        "kind": "suicide",
+        "culprit": "艾玛"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      6,
+      7
+    ],
+    "character_options": {
+      "boss": {
+        "territory": "city"
+      },
+      "henchman": {
+        "initial_location": "city"
+      }
+    }
+  },
+  "normalization_complete": false,
+  "engine_setup_valid": false,
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "规则名未映射：规则X1 未知因子",
+    "角色未支持：希罗",
+    "角色未支持：艾玛",
+    "角色未支持：梅露露",
+    "规则 X/Y 数量或名称无法完整映射",
+    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
+  ]
+}
