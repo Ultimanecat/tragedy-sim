@@ -651,4 +651,8 @@ class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
             mastermind_policy_samples=self.mastermind_policy_samples,
             mastermind_policy_aggregation="per_world_worst",
             information_reward_weight=self.information_reward_weight)
+        if self.evidence_ledger.audit is not None:
+            self.evidence_ledger.audit.record_samples(
+                view, roles, self.factorized_belief._culprits(evidence, witnesses), len(worlds),
+                culprit_counts=culprits, dark_counts=dark, placement_tendencies=tendencies)
         return chosen

@@ -107,6 +107,9 @@ class ProtagonistSearchRecord:
     evidence_ms: float = 0.0
     search_ms: float = 0.0
     evaluated_pairs: int = 0
+    belief_culprits: tuple[dict[str, Any], ...] = ()
+    belief_dark_cards: tuple[dict[str, Any], ...] = ()
+    placement_tendencies: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -438,7 +441,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                     (dict(command), *trace.planned_commands),
                     trace.root_actions,
                     trace.evidence_elapsed_ms, trace.search_elapsed_ms,
-                    getattr(trace, "evaluated_pairs", 0)))
+                    getattr(trace, "evaluated_pairs", 0),
+                    getattr(trace, "belief_culprits", ()),
+                    getattr(trace, "belief_dark_cards", ()),
+                    getattr(trace, "placement_tendencies", ())))
         # This is the real match trajectory, not a tree rollout.  Real dispatch
         # preserves the complete public journal and per-seat observation
         # checkpoints used by persistent protagonist beliefs.

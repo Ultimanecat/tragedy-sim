@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Sequence
 
 from .catalog import CHARACTERS
+from .belief_audit import BeliefAuditTrail
 from .witness_components import components_for
 from .witness_types import (PublicWitness, WitnessEvaluation,
                             WitnessStrength, WitnessVerdict)
@@ -22,10 +23,13 @@ class PublicEvidenceLedger:
     module: str = ""
     witnesses: tuple[PublicWitness, ...] = ()
     updates: int = 0
+    audit: BeliefAuditTrail | None = None
 
     def update(self, view: Mapping[str, Any],
                compiler: "FsbtxWitnessCompiler") -> tuple[PublicWitness, ...]:
         compiled = compiler.compile(view)
+        if self.audit is not None:
+            self.audit.observe(view, compiled)
         module = str(view.get("module", ""))
         module_changed = self.module != module
         if module_changed:
