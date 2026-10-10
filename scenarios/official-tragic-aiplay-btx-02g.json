@@ -1,0 +1,44 @@
+{
+  "id": "official-tragic-aiplay-btx-02g",
+  "title": "BTX-02G 猫箱",
+  "module": "BTX",
+  "days": 5,
+  "loops": 4,
+  "main_plot": "bomb",
+  "subplots": [
+    "unknown",
+    "love"
+  ],
+  "cast": {
+    "rich": "ordinary",
+    "irregular": "conspiracy",
+    "outsider": "loved",
+    "black_cat": "factor",
+    "worker": "lover",
+    "idol": "ordinary",
+    "nurse": "witch",
+    "soldier": "ordinary"
+  },
+  "incidents": [
+    {
+      "day": 1,
+      "kind": "suicide",
+      "culprit": "rich"
+    },
+    {
+      "day": 4,
+      "kind": "missing",
+      "culprit": "worker"
+    },
+    {
+      "day": 5,
+      "kind": "missing",
+      "culprit": "outsider"
+    }
+  ],
+  "table_talk": true,
+  "loop_options": [
+    3,
+    4
+  ]
+}

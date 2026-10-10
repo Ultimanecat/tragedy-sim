@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_03g",
+  "source_code": "BTX-03G",
+  "source_filename": "BTX-03G 来自未来的刺客 作者：unun.txt",
+  "classification": "official_by_user_G_code_convention",
+  "public_setup": {
+    "code": "BTX-03G",
+    "name": "BTX-03G 来自未来的刺客",
+    "module": "BTX",
+    "loops": "4-5",
+    "days_per_loop": 5,
+    "special_rules": [],
+    "incidents": {
+      "2": {
+        "source_id": "butterfly_effect",
+        "name": "蝴蝶效应"
+      },
+      "4": {
+        "source_id": "distant_murder",
+        "name": "远距离杀人"
+      },
+      "5": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      }
+    }
+  },
+  "source_setup_text": "规则Y 改变未来\n规则X1 潜伏的杀人狂\n规则X2 好友圈\n女学生 平民\n班长 亲友\n巫女 亲友\n异界人 平民\n情报商 传谣人\n偶像 邪教徒\n媒体人 平民\n医生 杀人狂\n住院患者 时间旅者\n2 蝴蝶效应 班长\n4 远距离杀人 医生\n5 医院事故 情报商",
+  "normalized_setup": {
+    "id": "official-tragic-aiplay-btx-03g",
+    "title": "BTX-03G 来自未来的刺客",
+    "module": "BTX",
+    "days": 5,
+    "loops": 5,
+    "main_plot": "change",
+    "subplots": [
+      "lurking",
+      "friends"
+    ],
+    "cast": {
+      "girl": "ordinary",
+      "class_rep": "friend",
+      "maiden": "friend",
+      "outsider": "ordinary",
+      "informer": "conspiracy",
+      "idol": "cultist",
+      "journalist": "ordinary",
+      "doctor": "serial",
+      "patient": "time_traveler"
+    },
+    "incidents": [
+      {
+        "day": 2,
+        "kind": "butterfly",
+        "culprit": "class_rep"
+      },
+      {
+        "day": 4,
+        "kind": "faraway",
+        "culprit": "doctor"
+      },
+      {
+        "day": 5,
+        "kind": "hospital",
+        "culprit": "informer"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      4,
+      5
+    ]
+  },
+  "status": "already_present",
+  "playable_file": "scenarios/official-btx-03-future-assassin.json",
+  "issues": []
+}

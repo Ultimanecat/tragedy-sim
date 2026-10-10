@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_34g",
+  "source_code": "BTX-34G",
+  "source_filename": "BTX-34G The Balance of Power 作者：Michael Schrag.txt",
+  "classification": "official_by_user_G_code_convention",
+  "public_setup": {
+    "code": "BTX-34G",
+    "name": "BTX-34G The Balance of Power 作者：Michael Schrag",
+    "module": "BTX",
+    "loops": "5-6",
+    "days_per_loop": 3,
+    "special_rules": [
+      "手下的初始区域不能与前一轮轮回的初始区域相同。"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      },
+      "2": {
+        "source_id": "murder",
+        "name": "谋杀"
+      },
+      "3": {
+        "source_id": "spreading",
+        "name": "散播"
+      }
+    }
+  },
+  "source_setup_text": "规则Y 被封印的邪灵\n规则X1 好友圈\n规则X2 未知因子KAI\n局外人 时间旅者\n巫女 不安定因子\n神灵 邪教徒 4\n偶像 亲友\n大人物 都市 亲友\n住院患者 主谋\n手下 传谣人\n1 医院事故 偶像\n2 谋杀 手下\n3 散播 大人物",
+  "normalized_setup": {
+    "id": "official-tragic-aiplay-btx-34g",
+    "title": "BTX-34G The Balance of Power 作者：Michael Schrag",
+    "module": "BTX",
+    "days": 3,
+    "loops": 6,
+    "main_plot": "sealed",
+    "subplots": [
+      "friends",
+      "unknown"
+    ],
+    "cast": {
+      "irregular": "time_traveler",
+      "maiden": "factor",
+      "godly": "cultist",
+      "idol": "friend",
+      "boss": "friend",
+      "patient": "brain",
+      "henchman": "conspiracy"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "hospital",
+        "culprit": "idol"
+      },
+      {
+        "day": 2,
+        "kind": "murder",
+        "culprit": "henchman"
+      },
+      {
+        "day": 3,
+        "kind": "spreading",
+        "culprit": "boss"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      5,
+      6
+    ],
+    "character_options": {
+      "godly": {
+        "entry_loop": 4
+      },
+      "boss": {
+        "territory": "city"
+      }
+    }
+  },
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "原始特殊规则需要额外引擎支持；未作为可玩剧本导入。",
+    "剧本包含未知角色或无效身份"
+  ]
+}

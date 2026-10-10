@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_28g",
+  "source_code": "BTX-28G",
+  "source_filename": "BTX-28G 一夜惨劇（BTX失踪篇）作者：おみ (HOM) .txt",
+  "classification": "official_by_user_G_code_convention",
+  "public_setup": {
+    "code": "BTX-28G",
+    "name": "BTX-28G 一夜惨劇（BTX失踪篇）作者：おみ (HOM)",
+    "module": "BTX",
+    "loops": "无限",
+    "days_per_loop": 1,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变。",
+      "2 剧作家无法使用「密謀 +2」。"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "missing",
+        "name": "失踪"
+      }
+    }
+  },
+  "source_setup_text": "规则Y 被封印的邪灵\n规则X1 好友圈\n规则X2 潜伏的杀人狂\n大小姐 平民\n局外人 关键人物\n巫女 亲友\n幻想 主谋\n媒体人 亲友\n医生 邪教徒\n住院患者 传谣人\n学者 杀人狂\n军人 平民\n1 失踪 学者",
+  "normalized_setup": {
+    "id": "official-tragic-aiplay-btx-28g",
+    "title": "BTX-28G 一夜惨劇（BTX失踪篇）作者：おみ (HOM)",
+    "module": "BTX",
+    "days": 1,
+    "loops": "无限",
+    "main_plot": "sealed",
+    "subplots": [
+      "friends",
+      "lurking"
+    ],
+    "cast": {
+      "rich": "ordinary",
+      "irregular": "key",
+      "maiden": "friend",
+      "illusion": "brain",
+      "journalist": "friend",
+      "doctor": "cultist",
+      "patient": "conspiracy",
+      "scholar": "serial",
+      "soldier": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "missing",
+        "culprit": "scholar"
+      }
+    ],
+    "table_talk": true
+  },
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "原始特殊规则需要额外引擎支持；未作为可玩剧本导入。",
+    "天数、轮回数必须在 1–8 之间"
+  ],
+  "fixed_actions_source": "每輪輪迴均按照下列行動進行操作。給學者放置不安指示物。學者「不安 +1」，神社「密謀+1」，大小姐「移動↑↓」。"
+}

@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mz_01g",
+  "source_code": "MZ-01G",
+  "source_filename": "MZ-01G 爱与友情的对立面 作者：BakaFire.txt",
+  "classification": "official_by_user_G_code_convention",
+  "public_setup": {
+    "code": "MZ-01G",
+    "name": "MZ-01G 爱与友情的对立面 作者：BakaFire",
+    "module": "MZ",
+    "loops": "3-4",
+    "days_per_loop": 5,
+    "special_rules": [],
+    "incidents": {
+      "2": {
+        "source_id": "confession",
+        "name": "自白"
+      },
+      "3": {
+        "source_id": "confession",
+        "name": "自白"
+      },
+      "4": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      }
+    }
+  },
+  "source_setup_text": "男子汉的战争\nkai异因子\n爱与恨的螺旋\n男学生 平民\n女学生 强迫症\n大小姐 亲友\n巫女 平民\n异界人 不安定因子\n刑警 平民\n职员 忍者\n2 自白  大小姐\n3 自白  职员\n4 不安扩散  女学生",
+  "normalized_setup": {
+    "id": "official-tragic-aiplay-mz-01g",
+    "title": "MZ-01G 爱与友情的对立面 作者：BakaFire",
+    "module": "MZ",
+    "days": 5,
+    "loops": 4,
+    "main_plot": "mz_battle",
+    "subplots": [
+      "mz_factor",
+      "mz_love_hate"
+    ],
+    "cast": {
+      "student": "ordinary",
+      "girl": "obsessive",
+      "rich": "friend",
+      "maiden": "ordinary",
+      "outsider": "factor",
+      "police": "ordinary",
+      "worker": "ninja"
+    },
+    "incidents": [
+      {
+        "day": 2,
+        "kind": "confession",
+        "culprit": "rich"
+      },
+      {
+        "day": 3,
+        "kind": "confession",
+        "culprit": "worker"
+      },
+      {
+        "day": 4,
+        "kind": "unease",
+        "culprit": "girl"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      3,
+      4
+    ]
+  },
+  "status": "already_present",
+  "playable_file": "scenarios/official-mz-04-romance-antithesis.json",
+  "issues": []
+}

@@ -1,0 +1,27 @@
+{
+  "id": "official-tragic-aiplay-fs-01g",
+  "title": "FS-01G 初学者剧本（中日）作者：BakaFire",
+  "module": "FS",
+  "days": 3,
+  "loops": 3,
+  "main_plot": "murder_plan",
+  "subplots": [
+    "ripper"
+  ],
+  "cast": {
+    "student": "ordinary",
+    "girl": "key",
+    "maiden": "serial",
+    "worker": "killer",
+    "idol": "conspiracy",
+    "doctor": "brain"
+  },
+  "incidents": [
+    {
+      "day": 3,
+      "kind": "suicide",
+      "culprit": "girl"
+    }
+  ],
+  "table_talk": true
+}

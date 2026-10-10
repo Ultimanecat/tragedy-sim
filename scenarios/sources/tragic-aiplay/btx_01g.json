@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_01g",
+  "source_code": "BTX-01G",
+  "source_filename": "BTX-01G 魔法少女万能论 作者：M·Hydromel.txt",
+  "classification": "official_by_user_G_code_convention",
+  "public_setup": {
+    "code": "BTX-01G",
+    "name": "BTX-01G 魔法少女万能论",
+    "module": "BTX",
+    "loops": "3-4",
+    "days_per_loop": 5,
+    "special_rules": [],
+    "incidents": {
+      "2": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "3": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      },
+      "5": {
+        "source_id": "missing",
+        "name": "失踪"
+      }
+    }
+  },
+  "source_setup_text": "和我签订契约吧！\n潜伏的杀人狂\n流言四起\n男学生 杀人狂\n大小姐 平民\n教师 平民\n巫女 亲友\n偶像 关键人物\n医生 传谣人\n住院患者 平民\n2 不安扩散 住院患者\n3 医院事故 巫女\n5 失踪 男学生",
+  "normalized_setup": {
+    "id": "official-tragic-aiplay-btx-01g",
+    "title": "BTX-01G 魔法少女万能论",
+    "module": "BTX",
+    "days": 5,
+    "loops": 4,
+    "main_plot": "sign",
+    "subplots": [
+      "lurking",
+      "rumor"
+    ],
+    "cast": {
+      "student": "serial",
+      "rich": "ordinary",
+      "teacher": "ordinary",
+      "maiden": "friend",
+      "idol": "key",
+      "doctor": "conspiracy",
+      "patient": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 2,
+        "kind": "unease",
+        "culprit": "patient"
+      },
+      {
+        "day": 3,
+        "kind": "hospital",
+        "culprit": "maiden"
+      },
+      {
+        "day": 5,
+        "kind": "missing",
+        "culprit": "student"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      3,
+      4
+    ]
+  },
+  "status": "imported",
+  "playable_file": "scenarios/official-tragic-aiplay-btx-01g.json",
+  "issues": []
+}

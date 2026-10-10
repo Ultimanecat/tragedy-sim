@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "fs_01g",
+  "source_code": "FS-01G",
+  "source_filename": "FS-01G 初学者剧本（中日）作者：BakaFire.txt",
+  "classification": "official_by_user_G_code_convention",
+  "public_setup": {
+    "code": "FS-01G",
+    "name": "FS-01G 初学者剧本（中日）作者：BakaFire",
+    "module": "FS",
+    "loops": 3,
+    "days_per_loop": 3,
+    "special_rules": [],
+    "incidents": {
+      "3": {
+        "source_id": "suicide",
+        "name": "自杀"
+      }
+    }
+  },
+  "source_setup_text": "谋杀计划\n开膛手的魔影\n男学生 平民\n女学生 关键人物\n巫女 杀人狂\n职员 杀手\n偶像 传谣人\n医生 主谋\n3 自杀 女学生",
+  "normalized_setup": {
+    "id": "official-tragic-aiplay-fs-01g",
+    "title": "FS-01G 初学者剧本（中日）作者：BakaFire",
+    "module": "FS",
+    "days": 3,
+    "loops": 3,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "ripper"
+    ],
+    "cast": {
+      "student": "ordinary",
+      "girl": "key",
+      "maiden": "serial",
+      "worker": "killer",
+      "idol": "conspiracy",
+      "doctor": "brain"
+    },
+    "incidents": [
+      {
+        "day": 3,
+        "kind": "suicide",
+        "culprit": "girl"
+      }
+    ],
+    "table_talk": true
+  },
+  "status": "imported",
+  "playable_file": "scenarios/official-tragic-aiplay-fs-01g.json",
+  "issues": []
+}

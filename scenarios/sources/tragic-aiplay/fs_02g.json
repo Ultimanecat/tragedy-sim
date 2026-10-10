@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "fs_02g",
+  "source_code": "FS-02G",
+  "source_filename": "FS-02G 没有神灵的神宫 作者：がいじん.txt",
+  "classification": "official_by_user_G_code_convention",
+  "public_setup": {
+    "code": "FS-02G",
+    "name": "FS-02G 没有神灵的神宫 作者：がいじん",
+    "module": "FS",
+    "loops": 3,
+    "days_per_loop": 4,
+    "special_rules": [],
+    "incidents": {
+      "2": {
+        "source_id": "missing",
+        "name": "失踪"
+      },
+      "3": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      }
+    }
+  },
+  "source_setup_text": "复仇的火种\n最黑暗的剧本\n巫女 平民\n异界人 主谋\n刑警 传谣人\n职员 暴徒\n偶像 平民\n住院患者 亲友\n2失踪 职员\n3医院事故 巫女",
+  "normalized_setup": {
+    "id": "official-tragic-aiplay-fs-02g",
+    "title": "FS-02G 没有神灵的神宫 作者：がいじん",
+    "module": "FS",
+    "days": 4,
+    "loops": 3,
+    "main_plot": "avenger",
+    "subplots": [
+      "hideous"
+    ],
+    "cast": {
+      "maiden": "ordinary",
+      "outsider": "brain",
+      "police": "conspiracy",
+      "worker": "curmudgeon",
+      "idol": "ordinary",
+      "patient": "friend"
+    },
+    "incidents": [
+      {
+        "day": 2,
+        "kind": "missing",
+        "culprit": "worker"
+      },
+      {
+        "day": 3,
+        "kind": "hospital",
+        "culprit": "maiden"
+      }
+    ],
+    "table_talk": true
+  },
+  "status": "imported",
+  "playable_file": "scenarios/official-tragic-aiplay-fs-02g.json",
+  "issues": []
+}

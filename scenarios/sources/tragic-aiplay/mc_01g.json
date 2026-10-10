@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "mc_01g",
+  "source_code": "MC-01G",
+  "source_filename": "MC-01G 妄念探测（非公开信息表＋剧作家指引与剧情）",
+  "classification": "official_by_user_G_code_convention",
+  "public_setup": {
+    "code": "MC-01G",
+    "name": "MC-01G 妄念探测 作者：BakaFire",
+    "module": "MC",
+    "loops": 4,
+    "days_per_loop": 5,
+    "special_rules": [],
+    "incidents": {
+      "1": {
+        "source_id": "omen",
+        "name": "前兆"
+      },
+      "2": {
+        "source_id": "silver_bullet",
+        "name": "银色子弹"
+      },
+      "4": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      },
+      "5": {
+        "source_id": "continuous_murder",
+        "name": "连续杀人"
+      }
+    }
+  },
+  "source_setup_text": "黑暗学院\n双子的诡计\n愚者之舞\n男学生 主谋\n大小姐 愚者\n巫女 平民\n异界人 双胞胎\n刑警 偏执狂\n职员 平民\n媒体人 平民\n住院患者 亲友\n1 前兆 大小姐\n2 银色子弹 刑警\n4 医院事故 巫女\n5 连续杀人 异界人",
+  "normalized_setup": {
+    "id": "official-tragic-aiplay-mc-01g",
+    "title": "MC-01G 妄念探测 作者：BakaFire",
+    "module": "MC",
+    "days": 5,
+    "loops": 4,
+    "main_plot": "mc_dark_school",
+    "subplots": [
+      "mc_twins",
+      "mc_fool_dance"
+    ],
+    "cast": {
+      "student": "brain",
+      "rich": "fool",
+      "maiden": "ordinary",
+      "outsider": "twin",
+      "police": "paranoid",
+      "worker": "ordinary",
+      "journalist": "ordinary",
+      "patient": "friend"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "omen",
+        "culprit": "rich"
+      },
+      {
+        "day": 2,
+        "kind": "silver_bullet",
+        "culprit": "police"
+      },
+      {
+        "day": 4,
+        "kind": "hospital",
+        "culprit": "maiden"
+      },
+      {
+        "day": 5,
+        "kind": "serial_murder",
+        "culprit": "outsider"
+      }
+    ],
+    "table_talk": true
+  },
+  "status": "already_present",
+  "playable_file": "scenarios/official-mc-08-obsession-detection.json",
+  "issues": []
+}

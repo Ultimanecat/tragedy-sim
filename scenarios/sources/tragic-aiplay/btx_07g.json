@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_07g",
+  "source_code": "BTX-07G",
+  "source_filename": "BTX-07G 序文 作者：BakaFire.txt",
+  "classification": "official_by_user_G_code_convention",
+  "public_setup": {
+    "code": "BTX-07G",
+    "name": "BTX-07G 序文",
+    "module": "BTX",
+    "loops": "4-5",
+    "days_per_loop": 7,
+    "special_rules": [],
+    "incidents": {
+      "2": {
+        "source_id": "increasing_unease",
+        "name": "不安扩散"
+      },
+      "4": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "5": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      },
+      "7": {
+        "source_id": "murder",
+        "name": "谋杀"
+      }
+    }
+  },
+  "source_setup_text": "谋杀计划\n好友圈\n恋爱风景线\n男学生 心上人\n女学生 求爱者\n大小姐 杀手\n巫女 关键人物\n刑警 传谣人\n职员 平民\n情报商 亲友\n医生 主谋\n住院患者 亲友\n2 不安扩散 职员\n4 自杀 女学生\n5 医院事故 男学生\n7 谋杀 刑警",
+  "normalized_setup": {
+    "id": "official-tragic-aiplay-btx-07g",
+    "title": "BTX-07G 序文",
+    "module": "BTX",
+    "days": 7,
+    "loops": 5,
+    "main_plot": "murder_plan",
+    "subplots": [
+      "friends",
+      "love"
+    ],
+    "cast": {
+      "student": "loved",
+      "girl": "lover",
+      "rich": "killer",
+      "maiden": "key",
+      "police": "conspiracy",
+      "worker": "ordinary",
+      "informer": "friend",
+      "doctor": "brain",
+      "patient": "friend"
+    },
+    "incidents": [
+      {
+        "day": 2,
+        "kind": "unease",
+        "culprit": "worker"
+      },
+      {
+        "day": 4,
+        "kind": "suicide",
+        "culprit": "girl"
+      },
+      {
+        "day": 5,
+        "kind": "hospital",
+        "culprit": "student"
+      },
+      {
+        "day": 7,
+        "kind": "murder",
+        "culprit": "police"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      4,
+      5
+    ]
+  },
+  "status": "existing_data_conflict",
+  "playable_file": "scenarios/official-btx-10-prologue.json",
+  "issues": [
+    "同名同局数同事件的现有 Prologue 将男学生设为求爱者、女学生设为心上人；网站源文将两者反置。保留原文配置，等待人工核对。"
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "selection": "仅编号带 G 的 11 个剧本；民间本未导入。",
+  "validation_notes": {
+    "new_playable_scenarios": 4,
+    "new_playable_loop_variants": 6,
+    "new_scenarios_validate_and_start": true,
+    "library_entry_count_after_import": 46,
+    "existing_test_count_assertion": "tests/test_scenario_library.py 固定期望 40 个目录条目，新增后实际 46；仅该数量断言失败，其余 5 项通过。按本任务只新增数据的限制未修改测试。",
+    "excluded_content": "未收录玩家信息、认证信息、评论、结局剧情或剧作家指引。"
+  },
+  "counts": {
+    "imported": 4,
+    "already_present": 3,
+    "existing_data_conflict": 1,
+    "blocked_special_rules": 3
+  },
+  "scripts": [
+    {
+      "source_code": "BTX-01G",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_01g.json",
+      "playable_file": "scenarios/official-tragic-aiplay-btx-01g.json",
+      "issues": []
+    },
+    {
+      "source_code": "BTX-02G",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_02g.json",
+      "playable_file": "scenarios/official-tragic-aiplay-btx-02g.json",
+      "issues": []
+    },
+    {
+      "source_code": "BTX-03G",
+      "status": "already_present",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_03g.json",
+      "playable_file": "scenarios/official-btx-03-future-assassin.json",
+      "issues": []
+    },
+    {
+      "source_code": "BTX-07G",
+      "status": "existing_data_conflict",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_07g.json",
+      "playable_file": "scenarios/official-btx-10-prologue.json",
+      "issues": [
+        "同名同局数同事件的现有 Prologue 将男学生设为求爱者、女学生设为心上人；网站源文将两者反置。保留原文配置，等待人工核对。"
+      ]
+    },
+    {
+      "source_code": "BTX-27G",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_27g.json",
+      "playable_file": null,
+      "issues": [
+        "原始特殊规则需要额外引擎支持；未作为可玩剧本导入。",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "BTX-28G",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_28g.json",
+      "playable_file": null,
+      "issues": [
+        "原始特殊规则需要额外引擎支持；未作为可玩剧本导入。",
+        "天数、轮回数必须在 1–8 之间"
+      ]
+    },
+    {
+      "source_code": "BTX-34G",
+      "status": "blocked_special_rules",
+      "data_file": "scenarios/sources/tragic-aiplay/btx_34g.json",
+      "playable_file": null,
+      "issues": [
+        "原始特殊规则需要额外引擎支持；未作为可玩剧本导入。",
+        "剧本包含未知角色或无效身份"
+      ]
+    },
+    {
+      "source_code": "FS-01G",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/fs_01g.json",
+      "playable_file": "scenarios/official-tragic-aiplay-fs-01g.json",
+      "issues": []
+    },
+    {
+      "source_code": "FS-02G",
+      "status": "imported",
+      "data_file": "scenarios/sources/tragic-aiplay/fs_02g.json",
+      "playable_file": "scenarios/official-tragic-aiplay-fs-02g.json",
+      "issues": []
+    },
+    {
+      "source_code": "MC-01G",
+      "status": "already_present",
+      "data_file": "scenarios/sources/tragic-aiplay/mc_01g.json",
+      "playable_file": "scenarios/official-mc-08-obsession-detection.json",
+      "issues": []
+    },
+    {
+      "source_code": "MZ-01G",
+      "status": "already_present",
+      "data_file": "scenarios/sources/tragic-aiplay/mz_01g.json",
+      "playable_file": "scenarios/official-mz-04-romance-antithesis.json",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_27g",
+  "source_code": "BTX-27G",
+  "source_filename": "BTX-27G 一夜惨劇（BTX医院事故篇）作者：おみ (HOM) .txt",
+  "classification": "official_by_user_G_code_convention",
+  "public_setup": {
+    "code": "BTX-27G",
+    "name": "BTX-27G 一夜惨劇（BTX医院事故篇）作者：おみ (HOM)",
+    "module": "BTX",
+    "loops": "无限",
+    "days_per_loop": 1,
+    "special_rules": [
+      "1 剧作家严格按照剧本规定在固定位置放置固定的行动牌，并且每轮轮回均不变。",
+      "2 在每轮轮回开始时，由主人公決定幻想的初始区域。"
+    ],
+    "incidents": {
+      "1": {
+        "source_id": "hospital_accident",
+        "name": "医院事故"
+      }
+    }
+  },
+  "source_setup_text": "规则Y 谋杀计划\n规则X1 好友圈\n规则X2 流言四起\n大小姐 平民\n局外人 邪教徒\n巫女 平民\n幻想 亲友\n偶像 亲友\n医生 杀手\n住院患者 关键人物\n学者 传谣人\n军人 主谋\n1 医院事故 学者",
+  "normalized_setup": {
+    "id": "official-tragic-aiplay-btx-27g",
+    "title": "BTX-27G 一夜惨劇（BTX医院事故篇）作者：おみ (HOM)",
+    "module": "BTX",
+    "days": 1,
+    "loops": "无限",
+    "main_plot": "murder_plan",
+    "subplots": [
+      "friends",
+      "rumor"
+    ],
+    "cast": {
+      "rich": "ordinary",
+      "irregular": "cultist",
+      "maiden": "ordinary",
+      "illusion": "friend",
+      "idol": "friend",
+      "doctor": "killer",
+      "patient": "key",
+      "scholar": "conspiracy",
+      "soldier": "brain"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "hospital",
+        "culprit": "scholar"
+      }
+    ],
+    "table_talk": true
+  },
+  "status": "blocked_special_rules",
+  "playable_file": null,
+  "issues": [
+    "原始特殊规则需要额外引擎支持；未作为可玩剧本导入。",
+    "天数、轮回数必须在 1–8 之间"
+  ],
+  "fixed_actions_source": "每輪輪迴均按照下列行動進行操作。給學者放置不安指示物。醫院「密謀 +2」，學者「不安+1」，局外人「斜向移動」。"
+}

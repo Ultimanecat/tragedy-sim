@@ -1,0 +1,43 @@
+{
+  "id": "official-tragic-aiplay-btx-01g",
+  "title": "BTX-01G 魔法少女万能论",
+  "module": "BTX",
+  "days": 5,
+  "loops": 4,
+  "main_plot": "sign",
+  "subplots": [
+    "lurking",
+    "rumor"
+  ],
+  "cast": {
+    "student": "serial",
+    "rich": "ordinary",
+    "teacher": "ordinary",
+    "maiden": "friend",
+    "idol": "key",
+    "doctor": "conspiracy",
+    "patient": "ordinary"
+  },
+  "incidents": [
+    {
+      "day": 2,
+      "kind": "unease",
+      "culprit": "patient"
+    },
+    {
+      "day": 3,
+      "kind": "hospital",
+      "culprit": "maiden"
+    },
+    {
+      "day": 5,
+      "kind": "missing",
+      "culprit": "student"
+    }
+  ],
+  "table_talk": true,
+  "loop_options": [
+    3,
+    4
+  ]
+}

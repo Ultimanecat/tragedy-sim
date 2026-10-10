@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "source_url": "https://tragic-aiplay.cn/played_scripts.html",
+  "retrieved_on": "2026-10-10",
+  "source_id": "btx_02g",
+  "source_code": "BTX-02G",
+  "source_filename": "BTX-02G 猫箱 作者：GEnd.txt",
+  "classification": "official_by_user_G_code_convention",
+  "public_setup": {
+    "code": "BTX-02G",
+    "name": "BTX-02G 猫箱",
+    "module": "BTX",
+    "loops": "3-4",
+    "days_per_loop": 5,
+    "special_rules": [],
+    "incidents": {
+      "1": {
+        "source_id": "suicide",
+        "name": "自杀"
+      },
+      "4": {
+        "source_id": "missing",
+        "name": "失踪"
+      },
+      "5": {
+        "source_id": "missing",
+        "name": "失踪"
+      }
+    }
+  },
+  "source_setup_text": "巨大定时炸弹X\n未知因子kai\n恋爱风景线\n大小姐 平民\n局外人 传谣人\n异界人 心上人\n黑猫 不安定因子\n职员 求爱者\n偶像 平民\n护士 魔女\n军人 平民\n1 自杀 大小姐\n4 失踪 职员\n5 失踪 异界人",
+  "normalized_setup": {
+    "id": "official-tragic-aiplay-btx-02g",
+    "title": "BTX-02G 猫箱",
+    "module": "BTX",
+    "days": 5,
+    "loops": 4,
+    "main_plot": "bomb",
+    "subplots": [
+      "unknown",
+      "love"
+    ],
+    "cast": {
+      "rich": "ordinary",
+      "irregular": "conspiracy",
+      "outsider": "loved",
+      "black_cat": "factor",
+      "worker": "lover",
+      "idol": "ordinary",
+      "nurse": "witch",
+      "soldier": "ordinary"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "kind": "suicide",
+        "culprit": "rich"
+      },
+      {
+        "day": 4,
+        "kind": "missing",
+        "culprit": "worker"
+      },
+      {
+        "day": 5,
+        "kind": "missing",
+        "culprit": "outsider"
+      }
+    ],
+    "table_talk": true,
+    "loop_options": [
+      3,
+      4
+    ]
+  },
+  "status": "imported",
+  "playable_file": "scenarios/official-tragic-aiplay-btx-02g.json",
+  "issues": []
+}
