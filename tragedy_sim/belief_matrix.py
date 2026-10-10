@@ -6,7 +6,7 @@ attached: a marginal table cannot encode every legal joint assignment.
 """
 
 from copy import deepcopy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from math import isfinite
 from typing import Any, Mapping, Sequence
@@ -58,6 +58,8 @@ def role_domains(view: Mapping[str, Any], witnesses: Sequence[PublicWitness]):
     if module not in MODULES:
         raise ValueError(f"Unsupported belief module: {module}")
     roles = {"ordinary", *(role for plot in MODULES[module].plots for role in PLOTS[plot][2])}
+    if "hideous" in MODULES[module].plots:
+        roles.add("curmudgeon")
     domains = {str(cid): set(roles) for cid in view.get("characters", ())
                if cid != "part_timer_question"}
     sources = {cid: [] for cid in domains}
@@ -134,15 +136,37 @@ class BeliefMatrixProjection:
     role_count_bounds: dict[str, RoleCountBounds]
     any_of: tuple[AnyOf, ...]
     retained_witnesses: tuple[PublicWitness, ...]
-    # Dark joint legality remains with the sampler; this slice retains its
-    # sampled slot distribution, not a claim of a complete legal-card domain.
+    # Retained raw frequencies accompany the formal dark slot matrix below.
     dark_samples: tuple[dict[str, Any], ...] = ()
+    main_plots: dict[str, BeliefCell] = field(default_factory=dict)
+    subplot_exists: dict[str, BeliefCell] = field(default_factory=dict)
+    role_count_probabilities: dict[str, dict[int, float]] = field(default_factory=dict)
+    plot_candidates: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    dark_cards: dict[str, dict[str, BeliefCell]] = field(default_factory=dict)
+    dark_targets: dict[str, str] = field(default_factory=dict)
+    dark_distinct_slots: tuple[str, ...] = ()
 
     @classmethod
     def from_view(cls, view: Mapping[str, Any], witnesses: Sequence[PublicWitness], *,
                   role_counts=(), culprit_counts=(), dark_counts=(),
-                  role_assignments: Sequence[Mapping[str, str]] = ()):
+                  role_assignments: Sequence[Mapping[str, str]] = (),
+                  sampled_setups: Sequence[Mapping[str, Any]] = (),
+                  propagate_counts: bool = True):
         values, domains, sources = role_domains(view, witnesses)
+        variants = ()
+        # Partial legacy diagnostics can lack the printed setup. Full player
+        # projections always carry days/loops and receive count propagation.
+        if propagate_counts and "days" in view and "loops" in view:
+            from .belief import PublicEvidence
+            from .belief_plot_constraints import plot_role_variants
+            variants = plot_role_variants(PublicEvidence.from_view(view), domains, witnesses)
+            if not variants:
+                raise BeliefContradiction("No plot/count variant satisfies the hard evidence")
+            for cid in domains:
+                supported = set().union(*(variant.domains[cid] for variant in variants))
+                if supported != domains[cid]:
+                    sources[cid].append("plot_role_count_constraints")
+                domains[cid].intersection_update(supported)
         roles = _matrix(values, domains, sources, role_counts)
         culprit_domains = {str(item["day"]): set(domains)
                            for item in view.get("schedule", ())}
@@ -187,19 +211,55 @@ class BeliefMatrixProjection:
             if minimum > possible:
                 raise BeliefContradiction(f"Impossible existence constraint: {role}")
             bounds[role] = RoleCountBounds(minimum, possible)
+            if variants:
+                bounds[role] = RoleCountBounds(
+                    min(variant.counts.get(role, 0) for variant in variants),
+                    max(variant.counts.get(role, 0) for variant in variants))
             status = (HardStatus.ALWAYS if any(cell.hard_status == HardStatus.ALWAYS for cell in cells)
                       or required_by_any_of
                       else HardStatus.NEVER if all(cell.hard_status == HardStatus.NEVER for cell in cells)
                       else HardStatus.UNKNOWN)
+            if variants:
+                status = (HardStatus.ALWAYS if bounds[role].minimum > 0 else
+                          HardStatus.NEVER if bounds[role].maximum == 0 else HardStatus.UNKNOWN)
             probability = (sum(any(assignment.get(cid) == role for cid in domains)
                                for assignment in role_assignments) / len(role_assignments)
                            if role_assignments else None)
             exists[role] = BeliefCell(status, probability,
                                      "empirical_joint_assignments" if role_assignments else None,
                                      len(role_assignments))
+        candidates = tuple(dict.fromkeys((variant.main_plot, variant.subplots) for variant in variants))
+        main_plots, subplot_exists, count_probabilities = {}, {}, {}
+        if variants:
+            for plot in MODULES[view["module"]].plots:
+                selected = [plot in (main, *subplots) for main, subplots in candidates]
+                kind = PLOTS[plot][1]
+                status = (HardStatus.NEVER if not any(selected) else
+                          HardStatus.ALWAYS if all(selected) else HardStatus.UNKNOWN)
+                probability = (sum(plot in (sample["main_plot"], *sample["subplots"])
+                                   for sample in sampled_setups) / len(sampled_setups)
+                               if sampled_setups else None)
+                cell = BeliefCell(status, probability,
+                                 "empirical_joint_setups" if sampled_setups else None,
+                                 len(sampled_setups), ("plot_role_count_constraints",))
+                (main_plots if kind == "Y" else subplot_exists)[plot] = cell
+        if role_assignments:
+            from collections import Counter
+            for role in values:
+                histogram = Counter(sum(assignment.get(cid) == role for cid in domains)
+                                    for assignment in role_assignments)
+                count_probabilities[role] = {count: amount / len(role_assignments)
+                                            for count, amount in sorted(histogram.items())}
+        from .belief_dark_constraints import dark_card_domains
+        card_values, card_domains, targets = dark_card_domains(view)
+        dark_cards = _matrix(card_values, card_domains,
+                             {slot: ("public_hand_and_distinct_card_constraints",) for slot in card_domains},
+                             dark_counts, column_key="slot")
         return cls(str(view["module"]), int(view.get("loop", 1)), int(view.get("round", 1)),
                    roles, culprits, exists, bounds, tuple(disjunctions),
-                   tuple(deepcopy(witnesses)), tuple(deepcopy(dark_counts)))
+                   tuple(deepcopy(witnesses)), tuple(deepcopy(dark_counts)),
+                   main_plots, subplot_exists, count_probabilities, candidates,
+                   dark_cards, targets, tuple(card_domains))
 
     def to_dict(self):
         return asdict(self)
@@ -214,5 +274,20 @@ class BeliefMatrixProjection:
                 lines.append(f"{dimension} {label('characters', column) if dimension == '身份' else '第' + column + '天'}: {content}")
         for constraint in self.any_of:
             lines.append(f"析取 {constraint.witness.strength}: {constraint.atoms} ({constraint.witness.source})")
+        for kind, cells in (("主剧情", self.main_plots), ("副剧情存在", self.subplot_exists)):
+            if cells:
+                lines.append(kind + ": " + "; ".join(
+                    f"{label('plots', plot)}={cell.hard_status}"
+                    + (f"/{cell.approx_probability:.1%}" if cell.approx_probability is not None else "")
+                    for plot, cell in cells.items()))
+        if self.plot_candidates:
+            lines.append(f"合法剧情外界 {len(self.plot_candidates)} 组；身份数量按这些组传播。")
+        for slot, cells in self.dark_cards.items():
+            lines.append(f"暗牌槽{int(slot) + 1}→{self.dark_targets[slot]}: " + "; ".join(
+                f"{label('cards', card)}={cell.hard_status}"
+                + (f"/{cell.approx_probability:.1%}" if cell.approx_probability is not None else "")
+                for card, cell in cells.items()))
+        if self.dark_distinct_slots:
+            lines.append("暗牌联合约束：每个槽使用不同的实体牌 ID。")
         lines.append(f"保留原始 witness {len(self.retained_witnesses)} 条；未投影关系仍须 matcher 检查。")
         return "\n".join(lines)

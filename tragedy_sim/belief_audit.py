@@ -109,7 +109,7 @@ class BeliefAuditTrail:
 
     def record_samples(self, view, role_counts, culprit_options, world_count, *,
                        culprit_counts=(), dark_counts=(), placement_tendencies=(),
-                       witnesses=(), role_assignments=()):
+                       witnesses=(), role_assignments=(), sampled_setups=()):
         self.entries.append({"module": str(view.get("module", "")),
                              "loop": view.get("loop", 1), "day": view.get("round", 1),
                              "phase": view.get("phase"), "timing": view.get("timing", "unknown"),
@@ -127,7 +127,7 @@ class BeliefAuditTrail:
                 projection = BeliefMatrixProjection.from_view(
                     view, witnesses, role_counts=role_counts,
                     culprit_counts=culprit_counts, dark_counts=dark_counts,
-                    role_assignments=role_assignments)
+                    role_assignments=role_assignments, sampled_setups=sampled_setups)
             except ValueError as error:
                 # Telemetry must not alter a completed AI decision. Record
                 # projection failures without loosening inference constraints.

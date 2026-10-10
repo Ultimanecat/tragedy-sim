@@ -655,5 +655,7 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             self.evidence_ledger.audit.record_samples(
                 view, roles, self.factorized_belief._culprits(evidence, witnesses), len(worlds),
                 culprit_counts=culprits, dark_counts=dark, placement_tendencies=tendencies,
-                witnesses=witnesses, role_assignments=tuple(dict(world.roles) for world in worlds))
+                witnesses=witnesses, role_assignments=tuple(dict(world.roles) for world in worlds),
+                sampled_setups=tuple({"main_plot": world.scenario["main_plot"],
+                                      "subplots": tuple(world.scenario["subplots"])} for world in worlds))
         return chosen
