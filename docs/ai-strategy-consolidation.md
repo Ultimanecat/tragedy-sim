@@ -15,12 +15,12 @@
 | 主线保留 | `particle_ensemble_protagonist` | 当前公平红方，FS/BTX 单人控制三席位；后续矩阵化在此推进。 |
 | 主线合并入口 | `joint_mastermind`、`belief_joint_mastermind` | 已共用 `JointPlanMastermindAgent`。建议大厅选择“联合搜索”，再选择公开／信念回复模型；目前前者 FS/BTX、后者 BTX。保留不同模型的评测标签。 |
 | 开发对照保留 | `mcts_mastermind`、`optimized_mcts_mastermind` | 用户此前明确要求保留朴素和优化 MCTS 基线。建议收起到开发模式，暂不删除实现。 |
-| 开发诊断保留 | `oracle_script_protagonist`、`oracle_cards_protagonist` | 分离信念错误、暗牌应对与行动规划错误；两种开眼诊断均有必要。 |
+| 前端保留（已确认） | `oracle_script_protagonist`、`oracle_cards_protagonist` | 两种开眼红方继续供试玩选择；名称及说明明确标注开眼，分别知道完整剧本、完整剧本与当日暗牌。也用于分离信念、暗牌应对与行动规划错误。 |
 | 优先退出独立入口 | `ismcts_legacy_protagonist` | 搜索首张、后两张防守填充的旧中间态；不适合作为当前联合规划主线。 |
 | 优先退出独立入口 | `ismcts_protagonist`、`survival_ismcts_protagonist` | 早期团队／当日生存分支；当前粒子集成覆盖主要发展方向。冻结旧基准后可停止维护独立算法分支。 |
 | 保留内部模型 | `risk_aware_protagonist` | 历史风险仍用于联合黑方的公开回应估计；建议退出大厅独立入口，保留内部用途和必要对照。 |
 
-收敛后日常界面可保留 7 个策略家族，另设开发对照区。朴素／优化基线仍可选择用于对弈比较，具体是否隐藏大厅入口需用户确认。
+收敛后日常界面可保留 7 个策略家族，加上两种明确标注的开眼红方，另设开发对照区。朴素／优化基线仍可选择用于对弈比较，具体是否隐藏大厅入口需用户确认。开眼红方保留前端入口已获用户确认，其余收敛方案仍待确认。
 
 ## 删除前必须处理的依赖
 
