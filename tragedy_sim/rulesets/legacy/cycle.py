@@ -10,6 +10,7 @@ from ...effects.vocabulary import op, option
 from ...flow import phase_label
 from ...i18n import format_timepoint, label, normalize_language
 from ...model import TimingId
+from ..extensions.anniversary import matches_guess
 
 
 def _configure_day_actions(self):
@@ -247,7 +248,7 @@ def _resolve_loop_end(self, forced=False):
                  (main == "mz_secret_record"
                   and bool(self._announced_roles & {"brain", "factor", "magician"})) or
                  (main == "mz_battle" and any(
-                     self.roles[c.id] == "ninja" and c.intrigue >= 2
+                     self.roles[c.id] == "ninja" and self._count(c, "intrigue") >= 2
                      for c in s.characters.values())) or
                  (main == "sign" and any(c.intrigue >= 2 and self.roles[c.id] == "key" for c in s.characters.values())) or
                  (main == "change" and any(r["kind"] == "butterfly" and r["happened"] for r in self.incident_records)) or
@@ -314,7 +315,7 @@ def _resolve_loop_end(self, forced=False):
     self._decision_public_phase = None
     self._previous_dead = {c.id for c in s.characters.values() if not c.alive}
     self._previous_ex_gauge = self.ex_gauge
-    self._previous_goodwill = {c.id for c in s.characters.values() if c.goodwill > 0}
+    self._previous_goodwill = {c.id for c in s.characters.values() if self._count(c, 'goodwill') > 0}
     self._previous_fragment_dead = {c.id for c in s.characters.values()
                                     if self.roles[c.id] == "fragment" and not c.alive}
     self._previous_fragment_friendly = {c.id for c in s.characters.values()
@@ -443,7 +444,7 @@ def _new_loop(self):
     for cid, role in self.scenario["cast"].items():
         if role == "friend" and self.known_roles.get(cid, {}).get("role") == "friend":
             self._change(cid, "goodwill", 1)
-    if (self.module == "MZ" and self._previous_dead
+    if (self.module in ("MZ", "MZ+") and self._previous_dead
             and (self.scenario["main_plot"] in ("mz_approaching", "mz_causal")
                  or "mz_gods_dice" in self.scenario["subplots"])):
         self._return_phase = "day_start"
@@ -494,7 +495,7 @@ def _guess_all(self, guesses):
         else:
             actual = self.scenario["cast"][target]
         guessed = guesses[target]
-        matched = guessed == actual
+        matched = matches_guess(self.module, actual, guessed)
         correct += matched
         details.append({"character": target, "guessed_role": guessed,
                         "actual_role": actual, "correct": matched})

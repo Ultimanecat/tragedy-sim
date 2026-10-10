@@ -12,6 +12,16 @@ const catalog = catalogFixture as unknown as CatalogResponse;
 const game = viewFixture.state as unknown as GameView;
 
 describe("local game components", () => {
+  it("shows anniversary effective thresholds in character details", () => {
+    const expanded: GameView = { ...game, module: "BTX+", characters: {
+      ...game.characters, student: { ...game.characters.student, hope: 2, despair: 1,
+        effective_counters: { goodwill: 3, paranoia: 1, intrigue: 0 } },
+    } };
+    render(<Board game={expanded} catalog={catalog} />);
+    // Details buttons have unique accessible names even on crowded boards.
+    fireEvent.click(screen.getByRole("button", { name: `查看${game.characters.student.name}资料` }));
+    expect(screen.getByText("计入希望／绝望后的判定：友好 3 · 不安 1 · 密谋 0")).toBeInTheDocument();
+  });
   it("configures the joint reply model and keeps development baselines collapsed", () => {
     const assign = vi.fn();
     render(<AiSeatPicker seat="m" module="BTX" protagonistCount={1} busy={false} onAssign={assign} />);

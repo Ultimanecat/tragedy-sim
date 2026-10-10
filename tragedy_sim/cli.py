@@ -76,7 +76,7 @@ def board(game: ActionGame, viewer: str = "spectator") -> None:
         print(f"  {loc} {name}（密谋 {view['locations'][loc]}）")
         for char in view["characters"].values():
             if char["present"] and char["location"] == loc:
-                mind = f" / 希望 {char['hope']} / 绝望 {char['despair']}" if game.module in ("AHR", "LL") else ""
+                mind = f" / 希望 {char['hope']} / 绝望 {char['despair']}" if game.module in ("AHR", "LL", "BTX+", "MZ+") else ""
                 print(f"    {char['id']:<9} {char['name']}：友好 {char['goodwill']} / "
                       f"不安 {char['paranoia']} / 密谋 {char['intrigue']}{mind}"
                       + (" [死亡]" if not char["alive"] else ""))
@@ -232,10 +232,11 @@ def match_board(game, viewer="spectator"):
         print(f"  {label} [{loc}] {board_counter}={v['locations'][loc]}{curse}")
         for c in v["characters"].values():
             if c["present"] and c["location"] == loc:
-                panic = " 达临界" if c["alive"] and c["paranoia"] >= c["paranoia_limit"] else ""
+                panic_score = c.get("effective_counters", {}).get("paranoia", c["paranoia"])
+                panic = " 达临界" if c["alive"] and panic_score >= c["paranoia_limit"] else ""
                 special = "诅咒牌" if v["module"] == "HSA" else "Ex牌"
                 ex = f" · {special} {c.get('ex_cards', 0)}" if c.get("ex_cards", 0) else ""
-                mind = f" · 希望 {c['hope']} · 绝望 {c['despair']}" if v["module"] in ("AHR", "LL") else ""
+                mind = f" · 希望 {c['hope']} · 绝望 {c['despair']}" if v["module"] in ("AHR", "LL", "BTX+", "MZ+") else ""
                 tokens = ((" · 交友完毕" if c.get("friended_token") else "")
                           + (" · 死亡完毕" if c.get("death_token") else ""))
                 print(f"    {c['name']} [{c['id']}] {'存活' if c['alive'] else '尸体'} | "
@@ -336,6 +337,11 @@ def show_rules(game):
     print("禁止牌只限制同行动结算的牌，不限制能力或事件；两张以上禁止密谋全场失效。计数物先加后减，不低于零。")
     print("本轮顺利结束即可获胜。关键人物死亡/主人公死亡等会立即结束轮回，但仍须执行轮回结束的强制结算。")
     roles = {"ordinary"}
+    if game.module in ("BTX+", "MZ+"):
+        roles.add("fragment")
+        print("十周年：一名平民转换为因果残片；终猜该角色为平民或因果残片均正确。")
+        print("希望计入友好并减少密谋；绝望计入不安与密谋。特殊牌按条件在本轮获得。")
+        print("十周年本轮一次友好能力被拒绝时，不计使用次数。")
     for plot in spec.plots:
         name, group, required = PLOTS[plot]
         roles.update(required)

@@ -5,6 +5,7 @@ from ...catalog import CHARACTERS, MODULES, REFUSAL, ROLE_NAMES
 from ...engine import RuleError, State
 from ...effects.vocabulary import op, option
 from ...model import TimingId
+from ..extensions.anniversary import matches_guess
 
 def _configure_day_actions(self):
     self.configure_actions(mastermind=3,
@@ -118,7 +119,7 @@ def _resolve_loop_end(self, forced=False):
     self._decision_actor = None
     self._decision_public_phase = None
     self._previous_dead = {c.id for c in s.characters.values() if not c.alive}
-    self._previous_goodwill = {c.id for c in s.characters.values() if c.goodwill > 0}
+    self._previous_goodwill = {c.id for c in s.characters.values() if self._count(c, 'goodwill') > 0}
     if not loss:
         self._win('protagonists', '本轮全部日期已结束，未触发失败条件。主人公获胜！')
     else:
@@ -205,7 +206,7 @@ def _guess_all(self, guesses):
     for cid in self._guess_remaining:
         guessed = guesses[cid]
         actual = self.scenario['cast'][cid]
-        matched = guessed == actual
+        matched = matches_guess(self.module, actual, guessed)
         correct += matched
         details.append({'character': cid, 'guessed_role': guessed,
                         'actual_role': actual, 'correct': matched})

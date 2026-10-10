@@ -168,6 +168,17 @@ class GameServiceTests(unittest.TestCase):
 
 
 class HttpTransportTests(unittest.TestCase):
+    def test_anniversary_catalog_and_tutorial_work_with_encoded_plus(self):
+        for module in ("BTX", "MZ"):
+            status, catalog = self.request("GET", f"/v1/catalog/{module}%2B")
+            self.assertEqual(status, 200)
+            self.assertEqual(catalog["module"]["id"], module + "+")
+            self.assertIn("fragment", {item["id"] for item in catalog["roles"]})
+            status, scripts = self.request("GET", f"/v1/scenarios?module={module}%2B")
+            self.assertEqual(status, 200)
+            self.assertTrue(scripts["scenarios"])
+            self.assertTrue(all(item["module"] == module + "+" for item in scripts["scenarios"]))
+
     def setUp(self):
         self.server = create_server("127.0.0.1", 0)
         self.thread = Thread(target=self.server.serve_forever, daemon=True)

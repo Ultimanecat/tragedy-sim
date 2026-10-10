@@ -54,7 +54,7 @@ def _incident(self):
         forced |= any(self._has(c.id, "detective") and c.location == culprit.location
         for c in self.state.characters.values())
 
-    incident_paranoia = self._incident_score(culprit)
+    incident_paranoia = self._incident_score(culprit, "goodwill" if kind == "hope_light" else "paranoia")
     if (self.scenario["main_plot"] == "mc_strychnine"
             and kind in ("serial_murder", "suicide") and culprit.id != "ai"):
         incident_paranoia += culprit.intrigue
@@ -102,7 +102,7 @@ def _incident(self):
         self._queue_incident_resolution(effects, normal_end, culprit=culprit.id,
                                         repeat=False)
         return
-    if self.module == "MZ":
+    if self.module in ("MZ", "MZ+"):
         effects = self._mz_incident_effects(kind, culprit.id)
         # Copy effects refer to the public incident list.  A fake incident
         # therefore contributes its announced name, not its secret effect.

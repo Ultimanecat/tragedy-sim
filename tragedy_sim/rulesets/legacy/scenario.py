@@ -72,6 +72,12 @@ def validate_scenario(data: dict) -> dict:
         expected[role] = min(expected[role], cap)
     if "role_slots" in data:
         expected = Counter(data["role_slots"])
+    if module in ("BTX+", "MZ+"):
+        if expected["fragment"]:
+            raise RuleError("因果残片只能由一名平民转换，不能由 role_slots 追加")
+        expected["fragment"] += 1
+        if cast.get("ai") == "fragment":
+            raise RuleError("A.I. 不能由平民转换为因果残片")
     actual = selected_role_counts(cast, plots, spec.plots)
     if "hideous" in plots:
         if actual.get("curmudgeon", 0) > 2:

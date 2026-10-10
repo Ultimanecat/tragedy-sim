@@ -13,6 +13,8 @@ from ...model import TimingId
 
 def _script_roles(self):
     roles = set()
+    if self.module in ("BTX+", "MZ+"):
+        roles.add("fragment")
     for plot in (self.scenario["main_plot"], *self.scenario["subplots"]):
         roles.update(PLOTS[plot][2])
     return roles
@@ -30,16 +32,16 @@ def _publish_role(self, target, role):
             self._ll_restricted_day = self.state.round + 1
     self.role_announcements.append({"character": target, "role": role, "loop": self.state.loop,
                                     "day": self.state.round,
-                                    "may_be_ninja_claim": (self.module == "MZ" and role != "ninja"
+                                    "may_be_ninja_claim": (self.module in ("MZ", "MZ+") and role != "ninja"
                                                            and self.state.phase != "final_guess")})
-    if self.module == "MZ":
+    if self.module in ("MZ", "MZ+"):
         self._announced_roles.add(role)
     self._event("role_revealed", f"公开信息：{self.name(target)}的身份为{ROLE_NAMES[role]}。",
                 character=target, role=role)
 
 
 def _reveal_role(self, target, *, truthful=False):
-    if self.module == "MZ" and self.roles[target] == "ninja" and not truthful:
+    if self.module in ("MZ", "MZ+") and self.roles[target] == "ninja" and not truthful:
         choices = [option(f"公开宣称：{ROLE_NAMES[role]}",
                           [op("announce_role", target=target, role=role)])
                    for role in ROLE_NAMES if role != "ordinary" and role in self._script_roles()]

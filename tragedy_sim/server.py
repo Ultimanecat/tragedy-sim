@@ -239,7 +239,7 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
                     return
                 if len(parts) == 3 and parts[:2] == ["v1", "catalog"]:
                     language = parse_qs(parsed.query).get("lang", ["zh"])[0]
-                    self._send_json(200, service.get_catalog(parts[2], language))
+                    self._send_json(200, service.get_catalog(unquote(parts[2]), language))
                     return
                 if len(parts) >= 3 and parts[:2] == ["v1", "rooms"]:
                     code = parts[2]

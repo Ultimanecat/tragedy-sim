@@ -155,6 +155,8 @@ def module_roles(module):
     """Return exactly the identities players know may appear in a module."""
     spec = MODULES[module]
     roles = {"ordinary"}
+    if module in ("BTX+", "MZ+"):
+        roles.add("fragment")
     for plot in spec.plots:
         roles.update(PLOTS[plot][2])
     if "hideous" in spec.plots:
@@ -169,17 +171,17 @@ def public_log(view):
         if event["kind"] == "cards_revealed":
             for p in event["cards"]:
                 actor = view.get("labels", {}).get("actors", {}).get(p["actor"], ACTOR_NAMES[p["actor"]])
-                lines.append(f"    {actor}：{deck(p['actor'])[p['card']].name} → {target_name(view, p['target'])}")
+                lines.append(f"    {actor}：{deck(p['actor'], view['module'])[p['card']].name} → {target_name(view, p['target'])}")
     return "\n".join(lines)
 
 
 def public_knowledge(view):
     caveat = ("MZ 的身份公开是公开宣称：除忍者身份名外，其他宣称也可能来自忍者。"
-              if view["module"] == "MZ" else
+              if view["module"] in ("MZ", "MZ+") else
               "已公开的信息会跨轮回保留；历史身份不一定等于当前身份。")
     lines = [caveat, ""]
     for cid, fact in view["known_roles"].items():
-        verb = "宣称" if view["module"] == "MZ" else "确认"
+        verb = "宣称" if view["module"] in ("MZ", "MZ+") else "确认"
         role = label("roles", fact["role"], view.get("language", "zh"), fallback=ROLE_NAMES[fact["role"]])
         lines.append(f"{target_name(view, cid)}：{role}（轮回 {fact['loop']} / 第 {fact['day']} 天{verb}）")
     for day, cid in view["known_culprits"].items():
@@ -190,7 +192,7 @@ def public_knowledge(view):
         lines.append("尚未公开身份、当事人或实际规则。")
     lines += ["", "公开留置的限次牌"]
     for actor, cards in view["discarded"].items():
-        lines.append(f"{ACTOR_NAMES[actor]}：" + ("、".join(deck(actor)[c].name for c in cards) or "无"))
+        lines.append(f"{ACTOR_NAMES[actor]}：" + ("、".join(deck(actor, view['module'])[c].name for c in cards) or "无"))
     lines += ["", "能力使用记录（只列公开声明）"]
     used = sorted(set(view["ability_day_used"]) | set(view["ability_loop_used"]))
     for key in used:
@@ -214,6 +216,9 @@ def character_details(view, cid):
              f"初始：{locations[c['initial_location']]}　当前：{locations[c['location']]}",
              f"禁行：{'、'.join(locations[t] for t in c['forbidden']) or '无'}",
              f"{'存活' if c['alive'] else '尸体'}　友好 {c['goodwill']}　不安临界 {c['paranoia']}/{c['paranoia_limit']}　密谋 {c['intrigue']}　护卫 {c['guard']}{ex}", ""]
+    if c.get("effective_counters"):
+        effective = c["effective_counters"]
+        lines.append(f"计入希望／绝望后的判定：友好 {effective['goodwill']}　不安 {effective['paranoia']}　密谋 {effective['intrigue']}")
     if c.get("territory"):
         lines.insert(3, f"领地：{locations[c['territory']]}")
     for a in c["abilities"]:
@@ -241,6 +246,11 @@ def public_rules(module):
     else:
         lines += ["不使用最终猜测；轮回全部失败时剧作家获胜。", ""]
     roles = set(module_roles(module))
+    if module in ("BTX+", "MZ+"):
+        lines += ["十周年：一名平民转换为因果残片；终猜该角色为平民或因果残片均正确。",
+                  "希望计入友好并减少密谋；绝望计入不安与密谋。",
+                  "希望移除可选拒绝友好；绝望带来强制拒绝。不可拒绝能力仍不可拒绝。",
+                  "本轮一次友好能力被拒绝时，不计使用次数。", ""]
     for plot in spec.plots:
         name, group, counts = PLOTS[plot]
         lines += [f"规则 {group} · {name}", "身份：" + ("、".join(f"{ROLE_NAMES[r]} ×{n}" for r, n in counts.items()) or "无固定身份"), PLOT_RULES[plot], ""]
@@ -256,8 +266,8 @@ def public_rules(module):
     for kind in spec.incidents:
         lines += [INCIDENT_NAMES[kind] + "：" + INCIDENT_RULES[kind], ""]
     for actor, name in (("m", "剧作家"), ("a", "每位主人公")):
-        lines.append(name + "固定初始牌组（不是当前手牌）")
-        lines.extend(c.name + (" · 每轮一次" if c.once_per_loop else "") for c in deck(actor).values())
+        lines.append(name + "行动牌参考（特殊牌按条件入手，不代表当前手牌）")
+        lines.extend(c.name + (" · 每轮一次" if c.once_per_loop else "") for c in deck(actor, module).values())
         lines.append("")
     return "\n".join(lines)
 

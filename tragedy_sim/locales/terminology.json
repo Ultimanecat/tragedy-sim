@@ -37,6 +37,7 @@
     "higher_being": {"zh": "上位存在", "en": "Higher Being", "ja": "上位存在"}
   },
   "plots": {
+    "anniversary_beyond_worldline": {"zh": "超越世界线", "en": "Beyond the World Line", "ja": "世界線を越えて"},
     "murder_plan": {"zh": "谋杀计划", "en": "Murder Plan", "ja": "殺人計画"},
     "avenger": {"zh": "复仇的火种", "en": "Light of the Avenger", "ja": "復讐者の灯火"},
     "protect": {"zh": "守护此地", "en": "A Place to Protect", "ja": "守るべき場所"},
@@ -138,7 +139,7 @@
     "faceless": {"zh": "无面者", "en": "Faceless", "ja": "フェイスレス"},
     "ahr_puppet": {"zh": "提线木偶", "en": "Puppet", "ja": "パペット"},
     "narrator": {"zh": "叙述者", "en": "Narrator", "ja": "ナレーター"},
-    "fragment": {"zh": "碎片", "en": "Fragment", "ja": "フラグメント"},
+    "fragment": {"zh": "因果残片", "en": "Fragment", "ja": "フラグメント"},
     "piper": {"zh": "吹笛人", "en": "Piper", "ja": "パイドパイパー"},
     "preacher": {"zh": "布道者", "en": "Preacher", "ja": "プリーチャー"},
     "alice": {"zh": "爱丽丝", "en": "Alice", "ja": "アリス"},
@@ -194,7 +195,7 @@
     "imaginary_incident": {"zh": "空想事件", "en": "Imaginary Incident", "ja": "架空事件"},
     "will": {"zh": "遗言", "en": "Will", "ja": "意志"},
     "singularity": {"zh": "奇点", "en": "Singularity", "ja": "特異点"},
-    "hope_light": {"zh": "隙间阳光", "en": "Light of Hope", "ja": "希望の光"},
+    "hope_light": {"zh": "希望之光", "en": "Light of Hope", "ja": "希望の光"},
     "despair_dark": {"zh": "绝望之暗", "en": "Darkness of Despair", "ja": "絶望の闇"},
     "executor": {"zh": "执行者", "en": "Executor", "ja": "遂行者"},
     "metamorphosis": {"zh": "蜕变", "en": "Metamorphosis", "ja": "変身"},

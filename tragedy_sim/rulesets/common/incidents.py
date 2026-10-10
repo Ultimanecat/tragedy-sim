@@ -2,6 +2,7 @@
 from ...cards import COUNTER_NAMES, LOCATIONS, STANDARD_COUNTERS
 from ...catalog import CHARACTERS, INCIDENT_NAMES
 from ...effects.vocabulary import op, option
+from ..extensions.anniversary import incident_effects
 
 
 def _public_incident_characters(game):
@@ -39,7 +40,7 @@ def _incident(self):
     prophet_alive = any((False for c in self.state.characters.values()))
     prophet_blocks = any((False for c in self.state.characters.values()))
     forced = False
-    incident_paranoia = self._incident_score(culprit)
+    incident_paranoia = self._incident_score(culprit, 'goodwill' if kind == 'hope_light' else 'paranoia')
     prevented = culprit.id in self._prevented_incident_culprits
     happened = simulated or (culprit.present and culprit.alive and (not prevented)
                 and (forced or (not prophet_blocks and incident_paranoia >= threshold)))
@@ -69,7 +70,7 @@ def _incident(self):
     living = self._living()
     choices, effects = ([], [])
     if kind in ('murder', 'faraway'):
-        targets = [c for c in living if c.id != culprit.id and c.location == culprit.location] if kind == 'murder' else [c for c in living if c.intrigue >= 2]
+        targets = [c for c in living if c.id != culprit.id and c.location == culprit.location] if kind == 'murder' else [c for c in living if self._count(c, 'intrigue') >= 2]
         choices = [option(f'使{c.name}死亡', [op('kill', target=c.id)]) for c in targets]
     elif kind == 'suicide':
         effects = [op('kill', target=culprit.id)]
@@ -90,9 +91,9 @@ def _incident(self):
             for second in same[index:]:
                 add_effects = [op('counter', target=first.id, counter='goodwill', amount=1), op('counter', target=second.id, counter='goodwill', amount=1)]
                 choices.append(option(f'放置 2 友好：{first.name}、{second.name}', add_effects))
-                if first.id == second.id and first.goodwill >= 2:
+                if first.id == second.id and self._count(first, 'goodwill') >= 2:
                     choices.append(option(f'移除 2 友好：{first.name}', [op('counter', target=first.id, counter='goodwill', amount=-2)]))
-                elif first.id != second.id and first.goodwill and second.goodwill:
+                elif first.id != second.id and self._count(first, 'goodwill') and self._count(second, 'goodwill'):
                     choices.append(option(f'移除 2 友好：{first.name}、{second.name}', [op('counter', target=first.id, counter='goodwill', amount=-1), op('counter', target=second.id, counter='goodwill', amount=-1)]))
     elif kind == 'confession':
         effects = [op('reveal', target=culprit.id)]
@@ -105,6 +106,8 @@ def _incident(self):
             choices.append(option(f'{a.name}：{COUNTER_NAMES[counter]} {amount:+}', [op('counter', target=a.id, counter=counter, amount=amount), op('choice', prompt='选择另一个目标', options=follow)]))
     elif kind == 'butterfly':
         choices = [option(f'{c.name}：{COUNTER_NAMES[counter]} +1', [op('counter', target=c.id, counter=counter, amount=1)]) for c in living if c.location == culprit.location for counter in STANDARD_COUNTERS]
+    elif kind in ('hope_light', 'despair_dark'):
+        effects = incident_effects(self, kind)
     if kind in ('murder', 'faraway', 'missing', 'unease', 'spreading', 'butterfly', 'poison_gas', 'exposure'):
         effects = [op('choice', prompt=f'结算{INCIDENT_NAMES[kind]}：选择合法目标', options=choices)]
     self._queue_incident_resolution(effects, culprit=culprit.id)

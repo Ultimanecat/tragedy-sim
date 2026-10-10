@@ -299,11 +299,12 @@ class TragedyApp:
                 name_label = tk.Label(shell, text=f"{c['name']}   {alive}", font=("Microsoft YaHei UI", 11, "bold"),
                                       bg=CARD, fg=INK if c["alive"] else MUTED, anchor="w")
                 name_label.pack(fill="x")
-                panic = " !" if c["alive"] and c["paranoia"] >= c["paranoia_limit"] else ""
+                panic_score = c.get("effective_counters", {}).get("paranoia", c["paranoia"])
+                panic = " !" if c["alive"] and panic_score >= c["paranoia_limit"] else ""
                 ex_name = "诅咒" if view["module"] == "HSA" else "Ex"
                 ex = f"   {ex_name} {c['ex_cards']}" if c.get("ex_cards") else ""
                 locked = "   今日禁止移动" if view.get("movement_locks", {}).get(c["id"]) == view["round"] else ""
-                mind = f"   希望 {c['hope']}   绝望 {c['despair']}" if view["module"] in ("AHR", "LL") else ""
+                mind = f"   希望 {c['hope']}   绝望 {c['despair']}" if view["module"] in ("AHR", "LL", "BTX+", "MZ+") else ""
                 tokens = (("   交友完毕" if c.get("friended_token") else "")
                           + ("   死亡完毕" if c.get("death_token") else ""))
                 counts = tk.Label(shell, text=f"友好 {c['goodwill']}   不安 {c['paranoia']}/{c['paranoia_limit']}{panic}   密谋 {c['intrigue']}{mind}   护卫 {c['guard']}{ex}{tokens}{locked}",

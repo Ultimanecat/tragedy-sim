@@ -3,6 +3,8 @@ from ...catalog import PLOTS, ROLE_NAMES
 
 def _script_roles(self):
     roles = set()
+    if self.module in ("BTX+", "MZ+"):
+        roles.add("fragment")
     for plot in (self.scenario['main_plot'], *self.scenario['subplots']):
         roles.update(PLOTS[plot][2])
     return roles

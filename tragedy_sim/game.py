@@ -288,7 +288,8 @@ class Game(ActionGame):
         effects = tuple(item if isinstance(item, Effect) else legacy_effect(item)
                         for item in selected.get("effects", ()))
         identity = str(selected.get("key", selected.get("label", "choice"))).encode("utf-8")
-        source = RuleSource(f"{self.module.lower()}.optional.h{hashlib.sha256(identity).hexdigest()[:12]}")
+        namespace = self.module.lower().replace("+", "_anniversary")
+        source = RuleSource(f"{namespace}.optional.h{hashlib.sha256(identity).hexdigest()[:12]}")
         activation = Activation(source, self._current_timing(), ActivationMode.OPTIONAL,
                                 actor, effects)
         self._activation_history.append(activation)

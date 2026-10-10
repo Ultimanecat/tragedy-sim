@@ -9,7 +9,7 @@ def _plot_loss(game, main):
     if main == "sealed":
         return state.locations["shrine"] >= 2
     if main == "sign":
-        return any(character.intrigue >= 2 and game.roles[character.id] == "key"
+        return any(game._count(character, "intrigue") >= 2 and game.roles[character.id] == "key"
                    for character in state.characters.values())
     if main == "change":
         return any(record["kind"] == "butterfly" and record["happened"]

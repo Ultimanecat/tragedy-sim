@@ -63,10 +63,10 @@ def _scoped_targets(self, source, scope):
     if scope in ("student", "other_student"):
         selected = [c for c in selected if "student" in CHARACTERS[c.id].traits]
     if scope == "panicked_other":
-        selected = [c for c in selected if c.paranoia >= CHARACTERS[c.id].limit]
+        selected = [c for c in selected if self._count(c, "paranoia") >= CHARACTERS[c.id].limit]
     if scope == "panicked_any_other":
         selected = [c for c in living
-                    if c.id != source and c.paranoia >= CHARACTERS[c.id].limit]
+                    if c.id != source and self._count(c, "paranoia") >= CHARACTERS[c.id].limit]
     targets = [c.id for c in selected]
     if scope == "same_or_location":
         targets.extend(ability_locations)
@@ -230,7 +230,7 @@ def options(self, actor):
                     choice["goodwill"] = False
                     result.append(choice)
             if (c.id == "higher_being" and self.roles[c.id] in REFUSAL
-                    and c.goodwill >= 1):
+                    and self._count(c, "goodwill") >= 1):
                 for target in self._scoped_targets(c.id, "same"):
                     for counter in ("hope", "despair"):
                         result.append(option(
@@ -299,13 +299,13 @@ def options(self, actor):
                              if self.roles[c.id] == "factor"})
             result += self._counter_options(None, "plot:ll_x_citizen", boards, "intrigue", 1,
                                             "X 民周至（每轮一次）", True)
-        if self.module == "MZ" and self._available_key("role:magician", True):
+        if self.module in ("MZ", "MZ+") and self._available_key("role:magician", True):
             for magician in self._living():
                 if not self._has(magician.id, "magician"):
                     continue
                 for target in self._living():
                     if (target.location not in self._ability_locations(magician.id)
-                            or target.goodwill < 1):
+                            or self._count(target, "goodwill") < 1):
                         continue
                     x, y = COORDS[target.location]
                     for location, (dx, dy) in COORDS.items():
@@ -346,13 +346,13 @@ def options(self, actor):
                 key = f"killer:heroes:{c.id}"
                 if self._count(c, "intrigue") >= 4 and self._available_key(key):
                     result.append(option(f"{c.name}（杀手）：使主人公死亡", [op("heroes_die")], key=key))
-            if self._has(c.id, "lover") and c.paranoia >= 3 and c.intrigue >= 1:
+            if self._has(c.id, "lover") and self._count(c, "paranoia") >= 3 and self._count(c, "intrigue") >= 1:
                 key = f"lover:{c.id}"
                 if self._available_key(key):
                     result.append(option(f"{c.name}（求爱者）：使主人公死亡",
                                          [op("heroes_die")], key=key))
             traveler_ready = (all(getattr(c, counter) <= 2 for counter in STANDARD_COUNTERS)
-                              if self.module == "WM" else c.goodwill <= 2)
+                              if self.module == "WM" else self._count(c, "goodwill") <= 2)
             if (self._has(c.id, "time_traveler") and self.state.round == self.scenario["days"]
                     and traveler_ready):
                 key = f"time_traveler:{c.id}"
@@ -363,7 +363,7 @@ def options(self, actor):
                 if self._available_key(key):
                     for target in self._living():
                         if (target.location in self._ability_locations(c.id)
-                                and target.intrigue >= 2):
+                                and self._count(target, "intrigue") >= 2):
                             result.append(option(f"{c.name}（忍者）：使{target.name}死亡",
                                                  [op("kill", target=target.id)], key=key))
             if self._has(c.id, "vampire"):
@@ -372,7 +372,7 @@ def options(self, actor):
                     for target in self._living():
                         if (target.location in self._ability_locations(c.id)
                                 and self._has(target.id, "key")
-                                and target.intrigue >= 2):
+                                and self._count(target, "intrigue") >= 2):
                             result.append(option(f"{c.name}（吸血鬼）：使{target.name}死亡",
                                                  [op("kill", target=target.id)], key=key))
                 key = f"vampire:heroes:{c.id}"
@@ -505,7 +505,7 @@ def _choose(self, actor, index):
         request = self._request
         self._request = None
         if selected.get("refuse"):
-            rei_once = self.module in ("AHR", "LL") and request.get("once")
+            rei_once = self.module in ("AHR", "LL", "BTX+", "MZ+") and request.get("once") and not request.get("already_used")
             if rei_once:
                 for used in (self.day_used, self.loop_used,
                              self.public_day_used, self.public_loop_used):

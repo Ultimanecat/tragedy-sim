@@ -2,7 +2,7 @@
 export const PROTOCOL_VERSION = 1 as const;
 
 export type Language = "zh" | "en" | "ja";
-export type ModuleId = "FS" | "BTX" | "MZ" | "MC" | "HSA" | "WM" | "AHR" | "LL";
+export type ModuleId = "FS" | "BTX" | "BTX+" | "MZ" | "MZ+" | "MC" | "HSA" | "WM" | "AHR" | "LL";
 export type Seat = "m" | "a" | "b" | "c";
 export type Viewer = Seat | "spectator";
 export type LocationId = "hospital" | "shrine" | "city" | "school";
@@ -82,6 +82,7 @@ export interface CharacterView extends NamedItem {
   intrigue: number;
   hope: number;
   despair: number;
+  effective_counters?: Record<"goodwill" | "paranoia" | "intrigue", number>;
   alive: boolean;
   paranoia_limit: number;
   traits: string[];

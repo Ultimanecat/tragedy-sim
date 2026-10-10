@@ -26,6 +26,17 @@ def load_scenario(path: str | Path) -> dict:
 def example_scenario(module: str = "FS") -> dict:
     if module not in MODULES:
         raise RuleError("不支持的模组；当前支持 " + " / ".join(MODULES))
+    if module in ("BTX+", "MZ+"):
+        data = example_scenario(module[:-1])
+        data.update(module=module, id="silent-town-" + module.lower(),
+                    title="寂静小镇（十周年扩展教学剧本）")
+        data["cast"]["student"] = "fragment"
+        data["subplots"][-1] = "anniversary_beyond_worldline"
+        if module == "MZ+":
+            data["cast"]["patient"] = "ordinary"
+        data["incidents"] = [{"day": 2, "kind": "hope_light", "culprit": "doctor"},
+                             {"day": 3, "kind": "despair_dark", "culprit": "patient"}]
+        return validate_scenario(data)
     if module == "MZ":
         main_plot = "mz_secret_record"
         subplots = ["mz_factor", "mz_doom_song"]

@@ -52,9 +52,9 @@ def _scoped_targets(self, source, scope):
     if scope in ('student', 'other_student'):
         selected = [c for c in selected if 'student' in CHARACTERS[c.id].traits]
     if scope == 'panicked_other':
-        selected = [c for c in selected if c.paranoia >= CHARACTERS[c.id].limit]
+        selected = [c for c in selected if self._count(c, 'paranoia') >= CHARACTERS[c.id].limit]
     if scope == 'panicked_any_other':
-        selected = [c for c in living if c.id != source and c.paranoia >= CHARACTERS[c.id].limit]
+        selected = [c for c in living if c.id != source and self._count(c, 'paranoia') >= CHARACTERS[c.id].limit]
     targets = [c.id for c in selected]
     if scope == 'same_or_location':
         targets.extend(ability_locations)
@@ -198,7 +198,7 @@ def options(self, actor):
                 for choice in self._ability_options(c.id, CHARACTERS[c.id].abilities[0], private=True):
                     choice['goodwill'] = False
                     result.append(choice)
-            if c.id == 'higher_being' and self.roles[c.id] in REFUSAL and c.goodwill >= 1:
+            if c.id == 'higher_being' and self.roles[c.id] in REFUSAL and self._count(c, 'goodwill') >= 1:
                 for target in self._scoped_targets(c.id, 'same'):
                     for counter in ('hope', 'despair'):
                         result.append(option(
@@ -236,11 +236,11 @@ def options(self, actor):
                 key = f'killer:heroes:{c.id}'
                 if self._count(c, 'intrigue') >= 4 and self._available_key(key):
                     result.append(option(f'{c.name}（杀手）：使主人公死亡', [op('heroes_die')], key=key))
-            if self._has(c.id, 'lover') and c.paranoia >= 3 and (c.intrigue >= 1):
+            if self._has(c.id, 'lover') and self._count(c, 'paranoia') >= 3 and self._count(c, 'intrigue') >= 1:
                 key = f'lover:{c.id}'
                 if self._available_key(key):
                     result.append(option(f'{c.name}（求爱者）：使主人公死亡', [op('heroes_die')], key=key))
-            traveler_ready = c.goodwill <= 2
+            traveler_ready = self._count(c, 'goodwill') <= 2
             if self._has(c.id, 'time_traveler') and self.state.round == self.scenario['days'] and traveler_ready:
                 key = f'time_traveler:{c.id}'
                 if self._available_key(key):
@@ -292,7 +292,7 @@ def _choose(self, actor, index):
         request = self._request
         self._request = None
         if selected.get('refuse'):
-            rei_once = False
+            rei_once = self.module in ('BTX+', 'MZ+') and request.get('once') and not request.get('already_used')
             if rei_once:
                 for used in (self.day_used, self.loop_used, self.public_day_used, self.public_loop_used):
                     used.discard(request['key'])

@@ -1,6 +1,6 @@
 """Ruleset content transcribed from the user's sheets; no executable script data."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 ROLE_NAMES = {"ordinary": "平民", "key": "关键人物", "killer": "杀手", "brain": "主谋",
               "cultist": "邪教徒", "conspiracy": "传谣人", "serial": "杀人狂",
@@ -14,7 +14,7 @@ ROLE_NAMES = {"ordinary": "平民", "key": "关键人物", "killer": "杀手", "
               "ghost": "鬼魂", "paper_tiger": "纸老虎", "chicken": "胆小鬼",
               "zombie": "丧尸", "sacrifice": "祭品", "deep_one": "深潜者",
               "wizard": "巫师", "witness": "目击者", "faceless": "无面者",
-              "ahr_puppet": "提线木偶", "narrator": "叙述者", "fragment": "碎片",
+              "ahr_puppet": "提线木偶", "narrator": "叙述者", "fragment": "因果残片",
               "piper": "吹笛人", "preacher": "布道者", "alice": "爱丽丝",
               "watcher": "监视者", "internet_celeb": "网络红人", "secret_key": "秘钥",
               "clown": "小丑"}
@@ -47,7 +47,7 @@ INCIDENT_NAMES.update({"mass_suicide": "集体自杀", "extinction": "灭绝之�
 INCIDENT_NAMES.update({"impulsive_murder": "冲动杀人", "dimension_swap": "次元转换",
                        "dimension_distortion": "次元歪曲", "dimension_break": "次元断层",
                        "lost_property": "遗失之物", "imaginary_incident": "空想事件",
-                       "will": "遗言", "singularity": "奇点", "hope_light": "隙间阳光",
+                       "will": "遗言", "singularity": "奇点", "hope_light": "希望之光",
                        "despair_dark": "绝望之暗"})
 INCIDENT_NAMES.update({"executor": "执行者", "metamorphosis": "蜕变", "cocoon": "茧"})
 # id: (name, Y/X, required roles). Duplicate roles are capped by their printed maximum.
@@ -232,10 +232,22 @@ MODULES = {
                      True, False, _SCENARIO_CHARACTERS, True),
 }
 
+# Optional tenth-anniversary composition. The number of selected X plots stays
+# unchanged; one additional civilian role is converted independently of plots.
+PLOTS["anniversary_beyond_worldline"] = ("超越世界线", "X", {"conspiracy": 1})
+ANNIVERSARY_MODULES = {"BTX+": "BTX", "MZ+": "MZ"}
+for _expanded, _base in ANNIVERSARY_MODULES.items():
+    MODULES[_expanded] = replace(
+        MODULES[_base], name=MODULES[_base].name + "+",
+        plots=(*MODULES[_base].plots, "anniversary_beyond_worldline"),
+        incidents=(*MODULES[_base].incidents, "hope_light", "despair_dark"),
+    )
+
 # Historical public name retained for callers and saved-game compatibility.
 MODULE_PLOTS = {module: spec.plots for module, spec in MODULES.items()}
 
 PLOT_RULES = {
+    "anniversary_beyond_worldline": "偶数轮开始剧作家获得绝望 +1；最终轮开始三位主人公各获得希望 +1。",
     "murder_plan": "无追加规则；失败来源由身份能力决定。",
     "avenger": "轮回结束：主谋的初始区域密谋 ≥2，主人公失败。",
     "protect": "轮回结束：学校密谋 ≥2，主人公失败。",

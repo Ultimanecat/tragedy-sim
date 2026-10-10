@@ -172,7 +172,7 @@ def _wm_plot_loss(self, plot):
 def _counter_mutated(self, target, counter):
     if "virus" in self.scenario["subplots"]:
         for c in self._living():
-            if self.roles[c.id] == "ordinary" and c.paranoia >= 3:
+            if self.roles[c.id] == "ordinary" and self._count(c, "paranoia") >= 3:
                 self.roles[c.id] = "serial"  # Mandatory, permanent until the next loop; not announced.
     if self.module == "AHR" and "ahr_imaginary_virus" in self.scenario["subplots"]:
         for c in self._living():

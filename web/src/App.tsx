@@ -245,6 +245,7 @@ function CharacterDetailsDialog({ character, game, onClose }: {
             ].filter(Boolean).join(" · ")}
           </p>}
           <p>属性：{character.traits.join("、") || "无"}</p>
+          {character.effective_counters && <p>计入希望／绝望后的判定：友好 {character.effective_counters.goodwill} · 不安 {character.effective_counters.paranoia} · 密谋 {character.effective_counters.intrigue}</p>}
           <p>禁行：{character.forbidden.map(id => game.labels.locations[id]).join("、") || "无"}</p>
           {character.territory && <p>领地：{game.labels.locations[character.territory]}</p>}
         </div>
@@ -525,7 +526,7 @@ function Knowledge({ game, catalog }: { game: GameView; catalog: CatalogResponse
       !game.ability_day_used.length && !game.ability_loop_used.length && !game.protected && <p className="muted">尚无额外公开情报。</p>}
     {roles.map(([character, fact]) => {
       const claim = [...game.role_announcements].reverse().find(item => item.character === character);
-      return <p key={character}>{game.module === "MZ" ? "公开宣称" : "历史确认"}：{game.characters[character]?.name ?? character} →
+      return <p key={character}>{game.module === "MZ" || game.module === "MZ+" ? "公开宣称" : "历史确认"}：{game.characters[character]?.name ?? character} →
         {itemName(catalog?.roles, fact.role)}（轮回 {fact.loop} / 第 {fact.day} 天）
         {claim?.may_be_ninja_claim ? "（可能是忍者的宣称）" : ""}</p>;
     })}

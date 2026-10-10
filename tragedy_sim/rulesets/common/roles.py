@@ -49,7 +49,7 @@ def _count(self, character, counter):
 def _counter_mutated(self, target, counter):
     if 'virus' in self.scenario['subplots']:
         for c in self._living():
-            if self.roles[c.id] == 'ordinary' and c.paranoia >= 3:
+            if self.roles[c.id] == 'ordinary' and self._count(c, 'paranoia') >= 3:
                 self.roles[c.id] = 'serial'
 
 def _ignore_forbid(self, counter, target):

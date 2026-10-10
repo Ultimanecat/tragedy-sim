@@ -30,6 +30,12 @@ RULESETS = {
 RULESETS["FS"] = FS_DEFINITION
 RULESETS["BTX"] = BTX_DEFINITION
 
+from .extensions.anniversary import compose as _anniversary
+from .common.scenario import validate_scenario as _validate_basic
+
+RULESETS["BTX+"] = _anniversary(BTX_DEFINITION, "BTX+", _validate_basic)
+RULESETS["MZ+"] = _anniversary(RULESETS["MZ"], "MZ+", _validate)
+
 
 def get_ruleset(key):
     return RULESETS[key]

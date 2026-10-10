@@ -5,6 +5,8 @@
 Python 版《悲剧轮回》本地热座模拟器。FS、BTX、MZ、MC、HSA、WM、AHR、LL 对局现已串通：
 出牌、友好能力、剧作家与身份能力、事件、日终、轮回与胜负。
 
+另可选择 **BTX+ / MZ+ 十周年扩展**：因果残片、希望／绝望、超越世界线、两种追加事件，以及平民／因果残片的最终猜测别名。大厅规则集下拉框可以直接选择，CLI 使用 `python -m tragedy_sim --module "BTX+"`，Tk 使用 `--gui --module "BTX+"`。规则原文与进度见 [十周年追加规则](docs/tenth-anniversary-expansion.md)。FS/BTX 的公平多世界 AI 暂未扩展到 `+` 模式。
+
 支持 FS 的全部 6 个规则 X/Y、7 种事件，BTX 的全部 12 个规则 X/Y、9 种事件，
 MidnightZone（MZ）的全部 12 个规则 X/Y、11 种事件与 Ex / 身份宣称规则，
 MysteryCircle（MC/MCX）的全部 12 个规则 X/Y、11 种事件、Ex 槽与事件移动限制，

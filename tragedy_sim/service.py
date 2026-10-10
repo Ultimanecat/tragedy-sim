@@ -153,6 +153,8 @@ class GameService:
         language = _language(language)
         spec = MODULES[module]
         role_ids = {"ordinary"}
+        if module in ("BTX+", "MZ+"):
+            role_ids.add("fragment")
         for plot in spec.plots:
             role_ids.update(PLOTS[plot][2])
         if "hideous" in spec.plots:
