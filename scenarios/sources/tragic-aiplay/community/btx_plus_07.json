@@ -60,6 +60,11 @@
         "notes": ""
       },
       {
+        "character": "幻想",
+        "role": "因果残片",
+        "notes": ""
+      },
+      {
         "character": "班长",
         "role": "魔女",
         "notes": ""
@@ -95,10 +100,11 @@
     "main_plot": "bomb",
     "subplots": [
       "virus",
-      "love_hsa"
+      "love"
     ],
     "cast": {
       "patient": "ordinary",
+      "illusion": "fragment",
       "class_rep": "witch",
       "rich": "lover",
       "young_girl": "ordinary",
@@ -142,7 +148,39 @@
   "status": "blocked_special_rules",
   "playable_file": null,
   "issues": [
-    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-  ]
+    "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+    "固定出牌及非法牌跳过",
+    "取消最终决战",
+    "按剩余限次牌动态修改全场判定值",
+    "BTX+ 当前角色池不包含手下",
+    "剧本包含未知角色或无效身份"
+  ],
+  "compatibility_review": {
+    "reviewed_on": "2026-10-10",
+    "engine_revision": "839e72a",
+    "source_digest_sha256": "e6ab169b100a5c3eb750e946c30604c57b2a3b377768d094eae3591137418bf8",
+    "ruleset_supported": true,
+    "base_setup_valid": false,
+    "executable": false,
+    "required_features": [
+      {
+        "id": "fixed_mastermind_actions",
+        "description": "固定出牌及非法牌跳过"
+      },
+      {
+        "id": "no_final_guess",
+        "description": "取消最终决战"
+      },
+      {
+        "id": "last_stand_counter_modifier",
+        "description": "按剩余限次牌动态修改全场判定值"
+      },
+      {
+        "id": "btx_henchman",
+        "description": "BTX+ 当前角色池不包含手下"
+      }
+    ],
+    "normalization_issues": [],
+    "decision": "retain_archive"
+  }
 }

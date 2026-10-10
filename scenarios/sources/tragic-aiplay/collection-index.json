@@ -749,10 +749,41 @@
       "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_03.json",
       "playable_file": null,
       "issues": [
-        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+        "剧作家不出牌",
+        "主人公出牌数和牌副本无限",
+        "全角色配役及转校生／临时工择一配置",
+        "角色择一配置需要另行确认：因果残片 转校生 1 /临时工",
         "角色未支持：除上述选定6人以外的所有官方现行角色",
-        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-      ]
+        "剧本包含未知角色或无效身份"
+      ],
+      "compatibility_review": {
+        "reviewed_on": "2026-10-10",
+        "engine_revision": "839e72a",
+        "source_digest_sha256": "0d9c23af7fca3df2c491e5f79e322a98acb56551b59ff70addc0ff97718f0881",
+        "ruleset_supported": true,
+        "base_setup_valid": false,
+        "executable": false,
+        "required_features": [
+          {
+            "id": "no_mastermind_cards",
+            "description": "剧作家不出牌"
+          },
+          {
+            "id": "unlimited_protagonist_cards",
+            "description": "主人公出牌数和牌副本无限"
+          },
+          {
+            "id": "bulk_or_alternative_cast",
+            "description": "全角色配役及转校生／临时工择一配置"
+          }
+        ],
+        "normalization_issues": [
+          "角色择一配置需要另行确认：因果残片 转校生 1 /临时工",
+          "角色未支持：除上述选定6人以外的所有官方现行角色"
+        ],
+        "decision": "retain_archive"
+      }
     },
     {
       "source_code": "BTX+-04",
@@ -766,10 +797,39 @@
       "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_04.json",
       "playable_file": null,
       "issues": [
-        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-        "学者初始标记的剧本指定值尚无数据字段：学者 不安定因子 友好/密谋",
-        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-      ]
+        "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+        "固定出牌，非法牌跳过并减少出牌数",
+        "10 轮回超出现有 1–8 校验范围",
+        "学者的初始标记类型固定",
+        "学者初始标记的剧本指定值尚无数据字段：学者 不安定因子  友好/密谋",
+        "天数、轮回数必须在 1–8 之间"
+      ],
+      "compatibility_review": {
+        "reviewed_on": "2026-10-10",
+        "engine_revision": "839e72a",
+        "source_digest_sha256": "699c231c12fa3965ab8832f86382d5e651ea686b128a44fcd17a2147da887767",
+        "ruleset_supported": true,
+        "base_setup_valid": false,
+        "executable": false,
+        "required_features": [
+          {
+            "id": "fixed_mastermind_actions",
+            "description": "固定出牌，非法牌跳过并减少出牌数"
+          },
+          {
+            "id": "extended_loop_count",
+            "description": "10 轮回超出现有 1–8 校验范围"
+          },
+          {
+            "id": "fixed_scholar_markers",
+            "description": "学者的初始标记类型固定"
+          }
+        ],
+        "normalization_issues": [
+          "学者初始标记的剧本指定值尚无数据字段：学者 不安定因子  友好/密谋"
+        ],
+        "decision": "retain_archive"
+      }
     },
     {
       "source_code": "BTX+-07",
@@ -783,9 +843,41 @@
       "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_07.json",
       "playable_file": null,
       "issues": [
-        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-      ]
+        "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+        "固定出牌及非法牌跳过",
+        "取消最终决战",
+        "按剩余限次牌动态修改全场判定值",
+        "BTX+ 当前角色池不包含手下",
+        "剧本包含未知角色或无效身份"
+      ],
+      "compatibility_review": {
+        "reviewed_on": "2026-10-10",
+        "engine_revision": "839e72a",
+        "source_digest_sha256": "e6ab169b100a5c3eb750e946c30604c57b2a3b377768d094eae3591137418bf8",
+        "ruleset_supported": true,
+        "base_setup_valid": false,
+        "executable": false,
+        "required_features": [
+          {
+            "id": "fixed_mastermind_actions",
+            "description": "固定出牌及非法牌跳过"
+          },
+          {
+            "id": "no_final_guess",
+            "description": "取消最终决战"
+          },
+          {
+            "id": "last_stand_counter_modifier",
+            "description": "按剩余限次牌动态修改全场判定值"
+          },
+          {
+            "id": "btx_henchman",
+            "description": "BTX+ 当前角色池不包含手下"
+          }
+        ],
+        "normalization_issues": [],
+        "decision": "retain_archive"
+      }
     },
     {
       "source_code": "BTX+-08",
@@ -799,10 +891,44 @@
       "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_08.json",
       "playable_file": null,
       "issues": [
-        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-        "角色未支持：患者",
-        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-      ]
+        "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+        "固定出牌及非法牌跳过",
+        "牛头人互换胜负／身份",
+        "共命之翼的死亡绝望标记",
+        "BTX+ 当前角色池不包含手下",
+        "自定义身份未支持：牛头人",
+        "剧本包含未知角色或无效身份"
+      ],
+      "compatibility_review": {
+        "reviewed_on": "2026-10-10",
+        "engine_revision": "839e72a",
+        "source_digest_sha256": "dd1a20923236118c1e5de803bf4806ddf1db8aa175db66fd0f50e9981c8b85a2",
+        "ruleset_supported": true,
+        "base_setup_valid": false,
+        "executable": false,
+        "required_features": [
+          {
+            "id": "fixed_mastermind_actions",
+            "description": "固定出牌及非法牌跳过"
+          },
+          {
+            "id": "minotaur_role",
+            "description": "牛头人互换胜负／身份"
+          },
+          {
+            "id": "linked_despair",
+            "description": "共命之翼的死亡绝望标记"
+          },
+          {
+            "id": "btx_henchman",
+            "description": "BTX+ 当前角色池不包含手下"
+          }
+        ],
+        "normalization_issues": [
+          "自定义身份未支持：牛头人"
+        ],
+        "decision": "retain_archive"
+      }
     },
     {
       "source_code": "BTX+-09",
@@ -816,10 +942,59 @@
       "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_09.json",
       "playable_file": null,
       "issues": [
-        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+        "固定出牌及非法牌跳过",
+        "取消最终决战",
+        "10 轮回",
+        "局外人固定于医院",
+        "主人公限次牌转入剧作家手牌",
+        "仙人不在用户要求的实现范围",
+        "额外的远方区域",
         "角色未支持：仙人",
-        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-      ]
+        "天数、轮回数必须在 1–8 之间"
+      ],
+      "compatibility_review": {
+        "reviewed_on": "2026-10-10",
+        "engine_revision": "839e72a",
+        "source_digest_sha256": "3c6814d26df02a18fb817f2041ab200b0b84d99f6c8576f802509fb731fda928",
+        "ruleset_supported": true,
+        "base_setup_valid": false,
+        "executable": false,
+        "required_features": [
+          {
+            "id": "fixed_mastermind_actions",
+            "description": "固定出牌及非法牌跳过"
+          },
+          {
+            "id": "no_final_guess",
+            "description": "取消最终决战"
+          },
+          {
+            "id": "extended_loop_count",
+            "description": "10 轮回"
+          },
+          {
+            "id": "outsider_location_lock",
+            "description": "局外人固定于医院"
+          },
+          {
+            "id": "transfer_limited_cards",
+            "description": "主人公限次牌转入剧作家手牌"
+          },
+          {
+            "id": "excluded_hermit",
+            "description": "仙人不在用户要求的实现范围"
+          },
+          {
+            "id": "remote_region",
+            "description": "额外的远方区域"
+          }
+        ],
+        "normalization_issues": [
+          "角色未支持：仙人"
+        ],
+        "decision": "retain_archive"
+      }
     },
     {
       "source_code": "BTX+-11",
@@ -833,9 +1008,51 @@
       "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_11.json",
       "playable_file": null,
       "issues": [
-        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-      ]
+        "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+        "固定出牌及非法牌跳过",
+        "无限轮回",
+        "友好 +2 不再限次",
+        "隐藏角色卡和标记，限制合法目标",
+        "剧情分支影响角色卡展示",
+        "最终猜测还需猜未展示角色名",
+        "天数、轮回数必须在 1–8 之间"
+      ],
+      "compatibility_review": {
+        "reviewed_on": "2026-10-10",
+        "engine_revision": "839e72a",
+        "source_digest_sha256": "87f8a06a7c80fca8ad72c454e208c3ea860af51cda0fed0c144c9482ea0ab241",
+        "ruleset_supported": true,
+        "base_setup_valid": false,
+        "executable": false,
+        "required_features": [
+          {
+            "id": "fixed_mastermind_actions",
+            "description": "固定出牌及非法牌跳过"
+          },
+          {
+            "id": "unlimited_loops",
+            "description": "无限轮回"
+          },
+          {
+            "id": "reusable_goodwill_two",
+            "description": "友好 +2 不再限次"
+          },
+          {
+            "id": "hidden_character_cards",
+            "description": "隐藏角色卡和标记，限制合法目标"
+          },
+          {
+            "id": "narrative_reveal",
+            "description": "剧情分支影响角色卡展示"
+          },
+          {
+            "id": "guess_hidden_names",
+            "description": "最终猜测还需猜未展示角色名"
+          }
+        ],
+        "normalization_issues": [],
+        "decision": "retain_archive"
+      }
     },
     {
       "source_code": "BTX+-13",
@@ -849,9 +1066,39 @@
       "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_13.json",
       "playable_file": null,
       "issues": [
-        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-      ]
+        "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+        "固定出牌及非法牌跳过",
+        "无限轮回",
+        "BTX+ 当前角色池不包含手下",
+        "缺少明确登场时间：转校生 因果残片",
+        "天数、轮回数必须在 1–8 之间"
+      ],
+      "compatibility_review": {
+        "reviewed_on": "2026-10-10",
+        "engine_revision": "839e72a",
+        "source_digest_sha256": "9f484dc98277de9072e85449ac863240988edc096613b3c4d181d7ff1db59d23",
+        "ruleset_supported": true,
+        "base_setup_valid": false,
+        "executable": false,
+        "required_features": [
+          {
+            "id": "fixed_mastermind_actions",
+            "description": "固定出牌及非法牌跳过"
+          },
+          {
+            "id": "unlimited_loops",
+            "description": "无限轮回"
+          },
+          {
+            "id": "btx_henchman",
+            "description": "BTX+ 当前角色池不包含手下"
+          }
+        ],
+        "normalization_issues": [
+          "缺少明确登场时间：转校生 因果残片"
+        ],
+        "decision": "retain_archive"
+      }
     },
     {
       "source_code": "BTX+-14",
@@ -865,9 +1112,64 @@
       "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_14.json",
       "playable_file": null,
       "issues": [
-        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-      ]
+        "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+        "固定出牌及非法牌跳过",
+        "15 轮回超出现有 1–8 校验范围",
+        "互换胜负条件",
+        "取消最终决战",
+        "行动阶段以外的自由选择交给队长",
+        "绝望行动牌当作密谋 +1",
+        "上位存在立即移除获得的绝望",
+        "BTX+ 当前角色池不包含手下",
+        "缺少明确登场轮回：神灵 因果残片",
+        "天数、轮回数必须在 1–8 之间"
+      ],
+      "compatibility_review": {
+        "reviewed_on": "2026-10-10",
+        "engine_revision": "839e72a",
+        "source_digest_sha256": "0ec6ab309bbde2aced6dc698d5214b0b7fa1b13c609863174073c289e573bdc8",
+        "ruleset_supported": true,
+        "base_setup_valid": false,
+        "executable": false,
+        "required_features": [
+          {
+            "id": "fixed_mastermind_actions",
+            "description": "固定出牌及非法牌跳过"
+          },
+          {
+            "id": "extended_loop_count",
+            "description": "15 轮回超出现有 1–8 校验范围"
+          },
+          {
+            "id": "reverse_victory",
+            "description": "互换胜负条件"
+          },
+          {
+            "id": "no_final_guess",
+            "description": "取消最终决战"
+          },
+          {
+            "id": "leader_controls_mastermind_choices",
+            "description": "行动阶段以外的自由选择交给队长"
+          },
+          {
+            "id": "despair_card_as_intrigue",
+            "description": "绝望行动牌当作密谋 +1"
+          },
+          {
+            "id": "higher_being_clears_despair",
+            "description": "上位存在立即移除获得的绝望"
+          },
+          {
+            "id": "btx_henchman",
+            "description": "BTX+ 当前角色池不包含手下"
+          }
+        ],
+        "normalization_issues": [
+          "缺少明确登场轮回：神灵 因果残片"
+        ],
+        "decision": "retain_archive"
+      }
     },
     {
       "source_code": "BTX+-15",
@@ -881,14 +1183,48 @@
       "data_file": "scenarios/sources/tragic-aiplay/community/btx_plus_15.json",
       "playable_file": null,
       "issues": [
-        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-        "规则名未映射：规则X1 未知因子",
+        "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+        "固定出牌及非法牌跳过",
+        "希罗／艾玛／梅露露",
+        "羁绊束缚共同移动",
+        "BTX+ 当前角色池不包含手下",
         "角色未支持：希罗",
         "角色未支持：艾玛",
         "角色未支持：梅露露",
-        "规则 X/Y 数量或名称无法完整映射",
-        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-      ]
+        "剧本包含未知角色或无效身份"
+      ],
+      "compatibility_review": {
+        "reviewed_on": "2026-10-10",
+        "engine_revision": "839e72a",
+        "source_digest_sha256": "ac3807065e7f92c21401bd0d05265d6d58f2533c817a6ab7e2f642e6d2959dc6",
+        "ruleset_supported": true,
+        "base_setup_valid": false,
+        "executable": false,
+        "required_features": [
+          {
+            "id": "fixed_mastermind_actions",
+            "description": "固定出牌及非法牌跳过"
+          },
+          {
+            "id": "custom_characters",
+            "description": "希罗／艾玛／梅露露"
+          },
+          {
+            "id": "linked_movement",
+            "description": "羁绊束缚共同移动"
+          },
+          {
+            "id": "btx_henchman",
+            "description": "BTX+ 当前角色池不包含手下"
+          }
+        ],
+        "normalization_issues": [
+          "角色未支持：希罗",
+          "角色未支持：艾玛",
+          "角色未支持：梅露露"
+        ],
+        "decision": "retain_archive"
+      }
     },
     {
       "source_code": "FS-08",
@@ -1194,14 +1530,80 @@
       "data_file": "scenarios/sources/tragic-aiplay/community/mz_plus_05b.json",
       "playable_file": null,
       "issues": [
-        "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+        "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+        "按状态切换公开固定出牌策略",
+        "无限轮回",
+        "取消最终决战",
+        "首日日初死亡不结算死亡效果",
+        "第四天替换角色卡面",
+        "允许相同角色卡的多个实例",
+        "仙人不在用户要求的实现范围",
+        "额外的远方区域",
+        "角色卡面替换尚未支持：转校生->教主",
+        "角色卡面替换尚未支持：学者->媒体人",
+        "角色卡面替换尚未支持：住院患者->媒体人",
+        "角色卡面替换尚未支持：手下->鉴别员",
         "角色未支持：仙人",
+        "角色未支持：转校生->教主",
         "角色未支持：学者->媒体人",
         "角色未支持：住院患者->媒体人",
         "角色未支持：手下->鉴别员",
-        "角色未支持：大树",
-        "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-      ]
+        "天数、轮回数必须在 1–8 之间"
+      ],
+      "compatibility_review": {
+        "reviewed_on": "2026-10-10",
+        "engine_revision": "839e72a",
+        "source_digest_sha256": "ae10183160cc6fd5e7e6f0dcfd9dbfdc32226dc8896ae7be0f4524f35472a49a",
+        "ruleset_supported": true,
+        "base_setup_valid": false,
+        "executable": false,
+        "required_features": [
+          {
+            "id": "conditional_fixed_actions",
+            "description": "按状态切换公开固定出牌策略"
+          },
+          {
+            "id": "unlimited_loops",
+            "description": "无限轮回"
+          },
+          {
+            "id": "no_final_guess",
+            "description": "取消最终决战"
+          },
+          {
+            "id": "initial_death_without_effect",
+            "description": "首日日初死亡不结算死亡效果"
+          },
+          {
+            "id": "replace_character_faces",
+            "description": "第四天替换角色卡面"
+          },
+          {
+            "id": "duplicate_character_cards",
+            "description": "允许相同角色卡的多个实例"
+          },
+          {
+            "id": "excluded_hermit",
+            "description": "仙人不在用户要求的实现范围"
+          },
+          {
+            "id": "remote_region",
+            "description": "额外的远方区域"
+          }
+        ],
+        "normalization_issues": [
+          "角色卡面替换尚未支持：转校生->教主",
+          "角色卡面替换尚未支持：学者->媒体人",
+          "角色卡面替换尚未支持：住院患者->媒体人",
+          "角色卡面替换尚未支持：手下->鉴别员",
+          "角色未支持：仙人",
+          "角色未支持：转校生->教主",
+          "角色未支持：学者->媒体人",
+          "角色未支持：住院患者->媒体人",
+          "角色未支持：手下->鉴别员"
+        ],
+        "decision": "retain_archive"
+      }
     },
     {
       "source_code": "WM-02",

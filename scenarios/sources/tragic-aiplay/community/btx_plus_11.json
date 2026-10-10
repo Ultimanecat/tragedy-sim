@@ -57,9 +57,64 @@
     ],
     "cast": [
       {
+        "character": "大小姐",
+        "role": "求爱者",
+        "notes": "（山岸由花子）"
+      },
+      {
+        "character": "男学生",
+        "role": "心上人",
+        "notes": "（广濑康一）"
+      },
+      {
+        "character": "媒体人",
+        "role": "平民",
+        "notes": "（岸边露伴）"
+      },
+      {
+        "character": "异界人",
+        "role": "平民",
+        "notes": "（轰炸空间 & 疯狂钻石）"
+      },
+      {
+        "character": "御神木",
+        "role": "不安定因子",
+        "notes": "（猫草）"
+      },
+      {
+        "character": "小女孩",
+        "role": "平民",
+        "notes": "（川尻早人）"
+      },
+      {
+        "character": "巫女",
+        "role": "因果残片",
+        "notes": "（杉本铃美）"
+      },
+      {
+        "character": "局外人",
+        "role": "邪教徒",
+        "notes": "（音石明）"
+      },
+      {
+        "character": "职员",
+        "role": "关键人物",
+        "notes": "（吉良吉影）"
+      },
+      {
         "character": "大人物",
         "role": "主谋",
         "notes": "学校（吉良吉广）"
+      },
+      {
+        "character": "黑猫",
+        "role": "杀手",
+        "notes": "（杀手皇后）"
+      },
+      {
+        "character": "护士",
+        "role": "平民",
+        "notes": "（碾死吉良吉影的JO护车的护士）"
       }
     ]
   },
@@ -71,11 +126,22 @@
     "loops": "无限",
     "main_plot": "murder_plan",
     "subplots": [
-      "love_hsa",
+      "love",
       "unknown"
     ],
     "cast": {
-      "boss": "brain"
+      "rich": "lover",
+      "student": "loved",
+      "journalist": "ordinary",
+      "outsider": "ordinary",
+      "sacred_tree": "factor",
+      "young_girl": "ordinary",
+      "maiden": "fragment",
+      "irregular": "cultist",
+      "worker": "key",
+      "boss": "brain",
+      "black_cat": "killer",
+      "nurse": "ordinary"
     },
     "incidents": [
       {
@@ -111,7 +177,49 @@
   "status": "blocked_special_rules",
   "playable_file": null,
   "issues": [
-    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-  ]
+    "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+    "固定出牌及非法牌跳过",
+    "无限轮回",
+    "友好 +2 不再限次",
+    "隐藏角色卡和标记，限制合法目标",
+    "剧情分支影响角色卡展示",
+    "最终猜测还需猜未展示角色名",
+    "天数、轮回数必须在 1–8 之间"
+  ],
+  "compatibility_review": {
+    "reviewed_on": "2026-10-10",
+    "engine_revision": "839e72a",
+    "source_digest_sha256": "87f8a06a7c80fca8ad72c454e208c3ea860af51cda0fed0c144c9482ea0ab241",
+    "ruleset_supported": true,
+    "base_setup_valid": false,
+    "executable": false,
+    "required_features": [
+      {
+        "id": "fixed_mastermind_actions",
+        "description": "固定出牌及非法牌跳过"
+      },
+      {
+        "id": "unlimited_loops",
+        "description": "无限轮回"
+      },
+      {
+        "id": "reusable_goodwill_two",
+        "description": "友好 +2 不再限次"
+      },
+      {
+        "id": "hidden_character_cards",
+        "description": "隐藏角色卡和标记，限制合法目标"
+      },
+      {
+        "id": "narrative_reveal",
+        "description": "剧情分支影响角色卡展示"
+      },
+      {
+        "id": "guess_hidden_names",
+        "description": "最终猜测还需猜未展示角色名"
+      }
+    ],
+    "normalization_issues": [],
+    "decision": "retain_archive"
+  }
 }

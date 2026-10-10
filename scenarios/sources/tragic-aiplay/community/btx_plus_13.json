@@ -68,6 +68,11 @@
         "notes": ""
       },
       {
+        "character": "转校生",
+        "role": "因果残片",
+        "notes": ""
+      },
+      {
         "character": "小女孩",
         "role": "亲友",
         "notes": ""
@@ -101,6 +106,7 @@
       "maiden": "factor",
       "ai": "friend",
       "forensic": "ordinary",
+      "transfer_student": "fragment",
       "young_girl": "friend",
       "henchman": "conspiracy",
       "irregular": "serial"
@@ -119,12 +125,42 @@
       }
     }
   },
-  "normalization_complete": true,
+  "normalization_complete": false,
   "engine_setup_valid": false,
   "status": "blocked_special_rules",
   "playable_file": null,
   "issues": [
-    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-  ]
+    "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+    "固定出牌及非法牌跳过",
+    "无限轮回",
+    "BTX+ 当前角色池不包含手下",
+    "缺少明确登场时间：转校生 因果残片",
+    "天数、轮回数必须在 1–8 之间"
+  ],
+  "compatibility_review": {
+    "reviewed_on": "2026-10-10",
+    "engine_revision": "839e72a",
+    "source_digest_sha256": "9f484dc98277de9072e85449ac863240988edc096613b3c4d181d7ff1db59d23",
+    "ruleset_supported": true,
+    "base_setup_valid": false,
+    "executable": false,
+    "required_features": [
+      {
+        "id": "fixed_mastermind_actions",
+        "description": "固定出牌及非法牌跳过"
+      },
+      {
+        "id": "unlimited_loops",
+        "description": "无限轮回"
+      },
+      {
+        "id": "btx_henchman",
+        "description": "BTX+ 当前角色池不包含手下"
+      }
+    ],
+    "normalization_issues": [
+      "缺少明确登场时间：转校生 因果残片"
+    ],
+    "decision": "retain_archive"
+  }
 }

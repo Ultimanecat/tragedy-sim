@@ -68,6 +68,11 @@
         "notes": ""
       },
       {
+        "character": "黑猫",
+        "role": "因果残片",
+        "notes": ""
+      },
+      {
         "character": "幻想",
         "role": "平民",
         "notes": ""
@@ -117,12 +122,14 @@
     "loops": 7,
     "main_plot": "murder_plan",
     "subplots": [
-      "wm_rumor"
+      "unknown",
+      "rumor"
     ],
     "cast": {
       "希罗": "key",
       "艾玛": "factor",
       "梅露露": "killer",
+      "black_cat": "fragment",
       "illusion": "ordinary",
       "boss": "brain",
       "young_girl": "conspiracy",
@@ -168,12 +175,46 @@
   "status": "blocked_special_rules",
   "playable_file": null,
   "issues": [
-    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-    "规则名未映射：规则X1 未知因子",
+    "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+    "固定出牌及非法牌跳过",
+    "希罗／艾玛／梅露露",
+    "羁绊束缚共同移动",
+    "BTX+ 当前角色池不包含手下",
     "角色未支持：希罗",
     "角色未支持：艾玛",
     "角色未支持：梅露露",
-    "规则 X/Y 数量或名称无法完整映射",
-    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-  ]
+    "剧本包含未知角色或无效身份"
+  ],
+  "compatibility_review": {
+    "reviewed_on": "2026-10-10",
+    "engine_revision": "839e72a",
+    "source_digest_sha256": "ac3807065e7f92c21401bd0d05265d6d58f2533c817a6ab7e2f642e6d2959dc6",
+    "ruleset_supported": true,
+    "base_setup_valid": false,
+    "executable": false,
+    "required_features": [
+      {
+        "id": "fixed_mastermind_actions",
+        "description": "固定出牌及非法牌跳过"
+      },
+      {
+        "id": "custom_characters",
+        "description": "希罗／艾玛／梅露露"
+      },
+      {
+        "id": "linked_movement",
+        "description": "羁绊束缚共同移动"
+      },
+      {
+        "id": "btx_henchman",
+        "description": "BTX+ 当前角色池不包含手下"
+      }
+    ],
+    "normalization_issues": [
+      "角色未支持：希罗",
+      "角色未支持：艾玛",
+      "角色未支持：梅露露"
+    ],
+    "decision": "retain_archive"
+  }
 }

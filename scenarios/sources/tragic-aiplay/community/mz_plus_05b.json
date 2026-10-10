@@ -76,6 +76,11 @@
         "notes": "2 神社"
       },
       {
+        "character": "转校生->教主",
+        "role": "因果残片",
+        "notes": ""
+      },
+      {
         "character": "学者->媒体人",
         "role": "不安定因子",
         "notes": ""
@@ -115,11 +120,12 @@
     ],
     "cast": {
       "仙人": "serial",
+      "转校生->教主": "fragment",
       "学者->媒体人": "factor",
       "住院患者->媒体人": "magician",
       "ai": "immortal",
       "手下->鉴别员": "conspiracy",
-      "大树": "friend"
+      "sacred_tree": "friend"
     },
     "incidents": [
       {
@@ -156,12 +162,78 @@
   "status": "blocked_special_rules",
   "playable_file": null,
   "issues": [
-    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+    "按状态切换公开固定出牌策略",
+    "无限轮回",
+    "取消最终决战",
+    "首日日初死亡不结算死亡效果",
+    "第四天替换角色卡面",
+    "允许相同角色卡的多个实例",
+    "仙人不在用户要求的实现范围",
+    "额外的远方区域",
+    "角色卡面替换尚未支持：转校生->教主",
+    "角色卡面替换尚未支持：学者->媒体人",
+    "角色卡面替换尚未支持：住院患者->媒体人",
+    "角色卡面替换尚未支持：手下->鉴别员",
     "角色未支持：仙人",
+    "角色未支持：转校生->教主",
     "角色未支持：学者->媒体人",
     "角色未支持：住院患者->媒体人",
     "角色未支持：手下->鉴别员",
-    "角色未支持：大树",
-    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-  ]
+    "天数、轮回数必须在 1–8 之间"
+  ],
+  "compatibility_review": {
+    "reviewed_on": "2026-10-10",
+    "engine_revision": "839e72a",
+    "source_digest_sha256": "ae10183160cc6fd5e7e6f0dcfd9dbfdc32226dc8896ae7be0f4524f35472a49a",
+    "ruleset_supported": true,
+    "base_setup_valid": false,
+    "executable": false,
+    "required_features": [
+      {
+        "id": "conditional_fixed_actions",
+        "description": "按状态切换公开固定出牌策略"
+      },
+      {
+        "id": "unlimited_loops",
+        "description": "无限轮回"
+      },
+      {
+        "id": "no_final_guess",
+        "description": "取消最终决战"
+      },
+      {
+        "id": "initial_death_without_effect",
+        "description": "首日日初死亡不结算死亡效果"
+      },
+      {
+        "id": "replace_character_faces",
+        "description": "第四天替换角色卡面"
+      },
+      {
+        "id": "duplicate_character_cards",
+        "description": "允许相同角色卡的多个实例"
+      },
+      {
+        "id": "excluded_hermit",
+        "description": "仙人不在用户要求的实现范围"
+      },
+      {
+        "id": "remote_region",
+        "description": "额外的远方区域"
+      }
+    ],
+    "normalization_issues": [
+      "角色卡面替换尚未支持：转校生->教主",
+      "角色卡面替换尚未支持：学者->媒体人",
+      "角色卡面替换尚未支持：住院患者->媒体人",
+      "角色卡面替换尚未支持：手下->鉴别员",
+      "角色未支持：仙人",
+      "角色未支持：转校生->教主",
+      "角色未支持：学者->媒体人",
+      "角色未支持：住院患者->媒体人",
+      "角色未支持：手下->鉴别员"
+    ],
+    "decision": "retain_archive"
+  }
 }

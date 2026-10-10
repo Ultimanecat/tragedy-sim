@@ -44,6 +44,11 @@
     ],
     "cast": [
       {
+        "character": "住院患者",
+        "role": "因果残片",
+        "notes": ""
+      },
+      {
         "character": "御神木",
         "role": "主谋",
         "notes": ""
@@ -102,6 +107,7 @@
       "unknown"
     ],
     "cast": {
+      "patient": "fragment",
       "sacred_tree": "brain",
       "ai": "cultist",
       "young_girl": "friend",
@@ -144,8 +150,37 @@
   "status": "blocked_special_rules",
   "playable_file": null,
   "issues": [
-    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-    "学者初始标记的剧本指定值尚无数据字段：学者 不安定因子 友好/密谋",
-    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-  ]
+    "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+    "固定出牌，非法牌跳过并减少出牌数",
+    "10 轮回超出现有 1–8 校验范围",
+    "学者的初始标记类型固定",
+    "学者初始标记的剧本指定值尚无数据字段：学者 不安定因子  友好/密谋",
+    "天数、轮回数必须在 1–8 之间"
+  ],
+  "compatibility_review": {
+    "reviewed_on": "2026-10-10",
+    "engine_revision": "839e72a",
+    "source_digest_sha256": "699c231c12fa3965ab8832f86382d5e651ea686b128a44fcd17a2147da887767",
+    "ruleset_supported": true,
+    "base_setup_valid": false,
+    "executable": false,
+    "required_features": [
+      {
+        "id": "fixed_mastermind_actions",
+        "description": "固定出牌，非法牌跳过并减少出牌数"
+      },
+      {
+        "id": "extended_loop_count",
+        "description": "10 轮回超出现有 1–8 校验范围"
+      },
+      {
+        "id": "fixed_scholar_markers",
+        "description": "学者的初始标记类型固定"
+      }
+    ],
+    "normalization_issues": [
+      "学者初始标记的剧本指定值尚无数据字段：学者 不安定因子  友好/密谋"
+    ],
+    "decision": "retain_archive"
+  }
 }

@@ -61,6 +61,11 @@
         "notes": ""
       },
       {
+        "character": "神灵",
+        "role": "因果残片",
+        "notes": ""
+      },
+      {
         "character": "大小姐",
         "role": "平民",
         "notes": ""
@@ -102,6 +107,7 @@
       "higher_being": "friend",
       "sacred_tree": "factor",
       "guru": "cultist",
+      "godly": "fragment",
       "rich": "ordinary",
       "irregular": "lover",
       "journalist": "serial",
@@ -117,12 +123,67 @@
     ],
     "table_talk": true
   },
-  "normalization_complete": true,
+  "normalization_complete": false,
   "engine_setup_valid": false,
   "status": "blocked_special_rules",
   "playable_file": null,
   "issues": [
-    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-  ]
+    "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+    "固定出牌及非法牌跳过",
+    "15 轮回超出现有 1–8 校验范围",
+    "互换胜负条件",
+    "取消最终决战",
+    "行动阶段以外的自由选择交给队长",
+    "绝望行动牌当作密谋 +1",
+    "上位存在立即移除获得的绝望",
+    "BTX+ 当前角色池不包含手下",
+    "缺少明确登场轮回：神灵 因果残片",
+    "天数、轮回数必须在 1–8 之间"
+  ],
+  "compatibility_review": {
+    "reviewed_on": "2026-10-10",
+    "engine_revision": "839e72a",
+    "source_digest_sha256": "0ec6ab309bbde2aced6dc698d5214b0b7fa1b13c609863174073c289e573bdc8",
+    "ruleset_supported": true,
+    "base_setup_valid": false,
+    "executable": false,
+    "required_features": [
+      {
+        "id": "fixed_mastermind_actions",
+        "description": "固定出牌及非法牌跳过"
+      },
+      {
+        "id": "extended_loop_count",
+        "description": "15 轮回超出现有 1–8 校验范围"
+      },
+      {
+        "id": "reverse_victory",
+        "description": "互换胜负条件"
+      },
+      {
+        "id": "no_final_guess",
+        "description": "取消最终决战"
+      },
+      {
+        "id": "leader_controls_mastermind_choices",
+        "description": "行动阶段以外的自由选择交给队长"
+      },
+      {
+        "id": "despair_card_as_intrigue",
+        "description": "绝望行动牌当作密谋 +1"
+      },
+      {
+        "id": "higher_being_clears_despair",
+        "description": "上位存在立即移除获得的绝望"
+      },
+      {
+        "id": "btx_henchman",
+        "description": "BTX+ 当前角色池不包含手下"
+      }
+    ],
+    "normalization_issues": [
+      "缺少明确登场轮回：神灵 因果残片"
+    ],
+    "decision": "retain_archive"
+  }
 }

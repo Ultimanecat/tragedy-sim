@@ -67,6 +67,11 @@
         "notes": ""
       },
       {
+        "character": "住院患者",
+        "role": "因果残片",
+        "notes": ""
+      },
+      {
         "character": "御神木",
         "role": "邪教徒",
         "notes": ""
@@ -106,12 +111,13 @@
     "loops": 10,
     "main_plot": "sealed",
     "subplots": [
-      "love_hsa",
+      "love",
       "virus"
     ],
     "cast": {
       "仙人": "lover",
       "irregular": "time_traveler",
+      "patient": "fragment",
       "sacred_tree": "cultist",
       "godly": "brain",
       "outsider": "conspiracy",
@@ -133,7 +139,7 @@
       {
         "day": 3,
         "kind": "unease",
-        "culprit": "患者"
+        "culprit": "patient"
       },
       {
         "day": 4,
@@ -161,8 +167,57 @@
   "status": "blocked_special_rules",
   "playable_file": null,
   "issues": [
-    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+    "固定出牌及非法牌跳过",
+    "取消最终决战",
+    "10 轮回",
+    "局外人固定于医院",
+    "主人公限次牌转入剧作家手牌",
+    "仙人不在用户要求的实现范围",
+    "额外的远方区域",
     "角色未支持：仙人",
-    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-  ]
+    "天数、轮回数必须在 1–8 之间"
+  ],
+  "compatibility_review": {
+    "reviewed_on": "2026-10-10",
+    "engine_revision": "839e72a",
+    "source_digest_sha256": "3c6814d26df02a18fb817f2041ab200b0b84d99f6c8576f802509fb731fda928",
+    "ruleset_supported": true,
+    "base_setup_valid": false,
+    "executable": false,
+    "required_features": [
+      {
+        "id": "fixed_mastermind_actions",
+        "description": "固定出牌及非法牌跳过"
+      },
+      {
+        "id": "no_final_guess",
+        "description": "取消最终决战"
+      },
+      {
+        "id": "extended_loop_count",
+        "description": "10 轮回"
+      },
+      {
+        "id": "outsider_location_lock",
+        "description": "局外人固定于医院"
+      },
+      {
+        "id": "transfer_limited_cards",
+        "description": "主人公限次牌转入剧作家手牌"
+      },
+      {
+        "id": "excluded_hermit",
+        "description": "仙人不在用户要求的实现范围"
+      },
+      {
+        "id": "remote_region",
+        "description": "额外的远方区域"
+      }
+    ],
+    "normalization_issues": [
+      "角色未支持：仙人"
+    ],
+    "decision": "retain_archive"
+  }
 }

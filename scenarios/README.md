@@ -49,6 +49,8 @@ BT 卡按 BTX 规则集运行。原始参考图片及临时采集脚本位于被
 `normalized_setup` 是使用本项目 ID 的转换结果，部分待支持档案可能只有不完整或不合法的转换结果。
 `engine_setup_valid` 只表示基础配置能否通过校验；特殊规则的执行还由 `status` 决定。
 
+已在 BTX+ / MZ+ 引擎接入后重新复核全部 10 个十周年社区本：它们均有额外社区规则，继续归档。`compatibility_review` 区分规则集支持、基础配置校验与整本可执行性，并保存原始来源字段摘要及所需能力清单；复核结果在两个索引同步。括号备注旁的身份、反向配役行及同名规则映射已修正。逐本结果见 [十周年剧本兼容性](../docs/anniversary-script-compatibility.md)。
+
 | `status` | 含义 |
 | --- | --- |
 | `imported` | 已新增可玩文件，`playable_file` 指向顶层 JSON |

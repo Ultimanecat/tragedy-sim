@@ -37,6 +37,16 @@
     ],
     "cast": [
       {
+        "character": "情报商",
+        "role": "邪教徒",
+        "notes": ""
+      },
+      {
+        "character": "AI",
+        "role": "传谣人",
+        "notes": ""
+      },
+      {
         "character": "医生",
         "role": "时间旅者",
         "notes": ""
@@ -50,6 +60,11 @@
         "character": "模仿犯",
         "role": "杀人狂",
         "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "因果残片",
+        "notes": "1 /临时工"
       },
       {
         "character": "除上述选定6人以外的所有官方现行角色",
@@ -70,9 +85,12 @@
       "virus"
     ],
     "cast": {
+      "informer": "cultist",
+      "ai": "conspiracy",
       "doctor": "time_traveler",
       "irregular": "serial",
       "copycat": "serial",
+      "transfer_student": "fragment",
       "除上述选定6人以外的所有官方现行角色": "ordinary"
     },
     "incidents": [
@@ -82,15 +100,51 @@
         "culprit": "black_cat"
       }
     ],
-    "table_talk": true
+    "table_talk": true,
+    "character_options": {
+      "transfer_student": {
+        "entry_day": 1
+      }
+    }
   },
   "normalization_complete": false,
   "engine_setup_valid": false,
   "status": "blocked_special_rules",
   "playable_file": null,
   "issues": [
-    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
+    "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+    "剧作家不出牌",
+    "主人公出牌数和牌副本无限",
+    "全角色配役及转校生／临时工择一配置",
+    "角色择一配置需要另行确认：因果残片 转校生 1 /临时工",
     "角色未支持：除上述选定6人以外的所有官方现行角色",
-    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-  ]
+    "剧本包含未知角色或无效身份"
+  ],
+  "compatibility_review": {
+    "reviewed_on": "2026-10-10",
+    "engine_revision": "839e72a",
+    "source_digest_sha256": "0d9c23af7fca3df2c491e5f79e322a98acb56551b59ff70addc0ff97718f0881",
+    "ruleset_supported": true,
+    "base_setup_valid": false,
+    "executable": false,
+    "required_features": [
+      {
+        "id": "no_mastermind_cards",
+        "description": "剧作家不出牌"
+      },
+      {
+        "id": "unlimited_protagonist_cards",
+        "description": "主人公出牌数和牌副本无限"
+      },
+      {
+        "id": "bulk_or_alternative_cast",
+        "description": "全角色配役及转校生／临时工择一配置"
+      }
+    ],
+    "normalization_issues": [
+      "角色择一配置需要另行确认：因果残片 转校生 1 /临时工",
+      "角色未支持：除上述选定6人以外的所有官方现行角色"
+    ],
+    "decision": "retain_archive"
+  }
 }

@@ -2,13 +2,14 @@
 
 from collections import Counter
 import json
+import hashlib
 from pathlib import Path
 import random
 import unittest
 
 from tragedy_sim.engine import RuleError
 from tragedy_sim.game import Game
-from tragedy_sim.scenario import load_scenario
+from tragedy_sim.scenario import load_scenario, validate_scenario
 from tragedy_sim.scenario_library import DEFAULT_SCENARIO_ROOT, ScenarioLibrary
 
 
@@ -83,6 +84,57 @@ class ImportedScenarioDataTests(unittest.TestCase):
         self.assertEqual(actual, dict(groups))
         self.assertEqual(self.community["special_rules_counts"],
                          dict(Counter(entry["special_rules_label"] for entry in self.community["scripts"])))
+
+    def test_anniversary_reviews_preserve_source_and_distinguish_ruleset_from_custom_rules(self):
+        reviewed = [entry for entry in self.community["scripts"] if entry["module"] in {"BTX+", "MZ+"}]
+        self.assertEqual(len(reviewed), 10)
+        collection = {entry["source_code"]: entry for entry in self.collection["scripts"]}
+        for entry in reviewed:
+            with self.subTest(entry["source_code"]):
+                archive = read_data(REPOSITORY_ROOT / entry["data_file"])
+                review = archive["compatibility_review"]
+                self.assertEqual(review, entry["compatibility_review"])
+                self.assertEqual(review, collection[entry["source_code"]]["compatibility_review"])
+                self.assertTrue(review["ruleset_supported"])
+                self.assertFalse(review["executable"])
+                self.assertEqual(review["decision"], "retain_archive")
+                self.assertTrue(review["required_features"])
+                self.assertEqual(entry["status"], "blocked_special_rules")
+                self.assertIsNone(entry["playable_file"])
+                self.assertNotIn("不支持的模组", " ".join(archive["issues"]))
+                fields = {key: archive[key] for key in ("public_setup", "source_setup_text", "source_configuration_sections", "source_filename")}
+                digest = hashlib.sha256(json.dumps(fields, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+                self.assertEqual(digest, review["source_digest_sha256"])
+                try:
+                    validate_scenario(archive["normalized_setup"])
+                    valid = True
+                except (RuleError, TypeError, KeyError):
+                    valid = False
+                self.assertEqual(valid, review["base_setup_valid"])
+                self.assertEqual(valid, archive["engine_setup_valid"])
+
+    def test_anniversary_annotation_rows_and_module_specific_plot_mapping_are_complete(self):
+        archive = read_data(SOURCE_ROOT / "community" / "btx_plus_11.json")
+        setup = archive["normalized_setup"]
+        self.assertEqual(len(setup["cast"]), 12)
+        self.assertEqual(setup["subplots"], ["love", "unknown"])
+        self.assertEqual(setup["cast"]["student"], "loved")
+        self.assertEqual(setup["cast"]["rich"], "lover")
+        self.assertEqual(setup["cast"]["maiden"], "fragment")
+        self.assertEqual(setup["incidents"][2]["culprit"], "nurse")
+        rows = archive["source_setup"]["cast"]
+        self.assertEqual(len(rows), 12)
+        self.assertTrue(any("山岸由花子" in row["notes"] for row in rows))
+        source = read_data(SOURCE_ROOT / "community" / "btx_plus_03.json")
+        self.assertEqual(source["normalized_setup"]["cast"]["transfer_student"], "fragment")
+        self.assertFalse(source["normalization_complete"])
+        self.assertTrue(any("择一配置" in issue for issue in source["issues"]))
+
+    def test_unsupported_custom_identity_is_retained_instead_of_disappearing(self):
+        archive = read_data(SOURCE_ROOT / "community" / "btx_plus_08.json")
+        self.assertEqual(archive["normalized_setup"]["cast"]["transfer_student"], "牛头人")
+        self.assertFalse(archive["normalization_complete"])
+        self.assertIn("minotaur_role", {item["id"] for item in archive["compatibility_review"]["required_features"]})
 
     def test_imported_and_duplicate_setups_agree_with_playable_files(self):
         for entry in self.collection["scripts"]:

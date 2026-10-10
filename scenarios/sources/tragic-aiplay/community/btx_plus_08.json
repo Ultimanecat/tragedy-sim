@@ -99,6 +99,16 @@
         "character": "大小姐",
         "role": "平民",
         "notes": ""
+      },
+      {
+        "character": "男学生",
+        "role": "因果残片",
+        "notes": ""
+      },
+      {
+        "character": "转校生",
+        "role": "牛头人",
+        "notes": "3"
       }
     ]
   },
@@ -111,7 +121,7 @@
     "main_plot": "change",
     "subplots": [
       "friends",
-      "love_hsa"
+      "love"
     ],
     "cast": {
       "guru": "cultist",
@@ -122,14 +132,16 @@
       "idol": "friend",
       "forensic": "friend",
       "black_cat": "ordinary",
-      "患者": "ordinary",
-      "rich": "ordinary"
+      "patient": "ordinary",
+      "rich": "ordinary",
+      "student": "fragment",
+      "transfer_student": "牛头人"
     },
     "incidents": [
       {
         "day": 1,
         "kind": "suicide",
-        "culprit": "患者"
+        "culprit": "patient"
       },
       {
         "day": 2,
@@ -157,8 +169,42 @@
   "status": "blocked_special_rules",
   "playable_file": null,
   "issues": [
-    "特殊规则已保留为数据，当前未实现，未加入可玩目录。",
-    "角色未支持：患者",
-    "不支持的模组；当前支持 FS / BTX / MZ / MC / HSA / WM / AHR / LL"
-  ]
+    "十周年规则集已支持；本剧本另有尚未实现的特殊规则，继续归档。",
+    "固定出牌及非法牌跳过",
+    "牛头人互换胜负／身份",
+    "共命之翼的死亡绝望标记",
+    "BTX+ 当前角色池不包含手下",
+    "自定义身份未支持：牛头人",
+    "剧本包含未知角色或无效身份"
+  ],
+  "compatibility_review": {
+    "reviewed_on": "2026-10-10",
+    "engine_revision": "839e72a",
+    "source_digest_sha256": "dd1a20923236118c1e5de803bf4806ddf1db8aa175db66fd0f50e9981c8b85a2",
+    "ruleset_supported": true,
+    "base_setup_valid": false,
+    "executable": false,
+    "required_features": [
+      {
+        "id": "fixed_mastermind_actions",
+        "description": "固定出牌及非法牌跳过"
+      },
+      {
+        "id": "minotaur_role",
+        "description": "牛头人互换胜负／身份"
+      },
+      {
+        "id": "linked_despair",
+        "description": "共命之翼的死亡绝望标记"
+      },
+      {
+        "id": "btx_henchman",
+        "description": "BTX+ 当前角色池不包含手下"
+      }
+    ],
+    "normalization_issues": [
+      "自定义身份未支持：牛头人"
+    ],
+    "decision": "retain_archive"
+  }
 }
