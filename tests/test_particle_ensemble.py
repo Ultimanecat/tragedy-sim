@@ -6,6 +6,8 @@ import unittest
 from benchmarks.ai_self_play import _policy_offer
 from tragedy_sim import Game
 from tragedy_sim.belief import PublicEvidence
+from tragedy_sim.belief_planner import PublicBeliefPlanner
+from tragedy_sim.ismcts import IsmctsProtagonistAgent
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
 from tragedy_sim.scenario import example_scenario
 from tragedy_sim.scenario_library import ScenarioLibrary
@@ -21,6 +23,10 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class ParticleEnsembleTests(unittest.TestCase):
+    def test_fair_planner_does_not_inherit_historical_search(self):
+        self.assertTrue(issubclass(ParticleEnsembleProtagonistAgent, PublicBeliefPlanner))
+        self.assertFalse(issubclass(ParticleEnsembleProtagonistAgent, IsmctsProtagonistAgent))
+
     def test_replans_only_unplayed_seats_after_partial_submission(self):
         for placed in (1, 2):
             with self.subTest(placed=placed):

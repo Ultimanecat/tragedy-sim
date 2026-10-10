@@ -15,14 +15,14 @@ from time import perf_counter
 from typing import Any, Mapping, Sequence
 
 from .belief import DarkCardBelief, PublicEvidence
-from .ismcts import IsmctsProtagonistAgent, IsmctsTrace, _command, _key
+from .belief_planner import PublicBeliefPlanner, IsmctsTrace, _command, _key
 from .information_value import InformationOpportunityEvaluator
 from .oracle_protagonist import OracleProtagonistAgent
 from .search import SearchBudget
 from .witness import FsbtxWitnessCompiler, WitnessStrength
 
 
-class ParticleEnsembleProtagonistAgent(IsmctsProtagonistAgent):
+class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
     """Propose Oracle-style bundles per hypothesis, cross-score on all worlds."""
 
     def __init__(self, budget: SearchBudget | None = None, *,

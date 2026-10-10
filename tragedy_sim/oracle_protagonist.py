@@ -20,7 +20,7 @@ from .ai_decisions import JointCardDecisionProvider
 from .belief import HiddenWorldHypothesis, PublicEvidence
 from .evaluation import ScenarioConditionedEvaluator
 from .game import Game
-from .ismcts import PublicStateDeterminizer, _command, _key
+from .belief_planner import PublicStateDeterminizer, _command, _key
 from .engine import Placement
 from .information_value import InformationOpportunityEvaluator
 from .search import SearchBudget
