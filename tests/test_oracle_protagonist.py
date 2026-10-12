@@ -23,6 +23,25 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_hospital_rollout_uses_rumor_and_conspiracy_before_incident(self):
+        from tragedy_sim.effects.movement import move
+        game = Game(ScenarioLibrary().get("official-tragic-aiplay-btx-01g"))
+        move(game, {"target": "maiden", "location": "hospital"})
+        game._change("hospital", "intrigue", 1)
+        game._change("maiden", "paranoia", 1)
+        game.state.round = 3
+        game.state.phase = "master_abilities"
+        game._start_master_abilities_forced()
+        before = deepcopy(game.view("m"))
+        agent = FullCardOracleProtagonistAgent()
+        routes = agent._mastermind_strategy_options(game)
+        hospital = next(route for route in routes if "target=hospital" in route)
+        _, old_survival = agent._day_score(game, 1, 3, mastermind_strategy=routes[0])
+        _, attack_survival = agent._day_score(game, 1, 3, mastermind_strategy=hospital)
+        self.assertTrue(old_survival)
+        self.assertFalse(attack_survival)
+        self.assertEqual(game.view("m"), before)
+
     def test_cultist_and_incident_conjunction_is_in_candidate_pool(self):
         from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
         game = Game(ScenarioLibrary().get("community-tragic-aiplay-btx-45"))

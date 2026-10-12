@@ -253,6 +253,31 @@ class AiPolicyTests(unittest.TestCase):
         self.assertEqual(chosen["parameters"]["card"], "p1a")
         self.assertEqual(agent._plan.strategy_id, incident)
 
+    def test_hospital_route_is_dynamic_and_needs_both_counters(self):
+        view = {**self.view, "module": "BTX", "locations": {"hospital": 0},
+                "secret": {**self.view["secret"],
+                           "incidents": [{"day": 3, "kind": "hospital", "culprit": "doctor"}]}}
+        probe = FixedStrategyMastermindAgent(random.Random(1))
+        route = next(path for path in probe.strategy_options(view) if "target=hospital" in path)
+        agent = FixedStrategyMastermindAgent(random.Random(1), forced_strategy=route)
+        chosen = agent.choose_action(participant="m", view=view,
+                                     offers=[offer("play", card="p1a", target="doctor"),
+                                             offer("play", card="i2", target="hospital")])
+        self.assertEqual(chosen["parameters"]["target"], "doctor")
+        view["characters"]["doctor"]["paranoia"] = 2
+        chosen = agent.choose_action(participant="m", view=view,
+                                     offers=[offer("play", card="p1a", target="doctor"),
+                                             offer("play", card="i2", target="hospital")])
+        self.assertEqual(chosen["parameters"]["target"], "hospital")
+        for altered in ({**view, "round": 4}, {**view, "module": "MZ"}):
+            self.assertFalse(any("target=hospital" in path for path in probe.strategy_options(altered)))
+
+    def test_incident_attack_does_not_calm_its_culprit(self):
+        agent = FixedStrategyMastermindAgent(random.Random(1), "incident_pressure")
+        choices = [offer("next"), {**offer("choose", index=1), "ui": {
+            "effect": "counter", "counter": "paranoia", "amount": -1, "target": "doctor"}}]
+        self.assertEqual(agent.choose_action(participant="m", view=self.view, offers=choices)["type"], "next")
+
     def test_playbook_prefers_a_winning_optional_effect(self):
         agent = FixedStrategyMastermindAgent(random.Random(1), "key_assassination")
         offers = [offer("next"), {

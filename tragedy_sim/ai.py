@@ -387,13 +387,16 @@ class FixedStrategyMastermindAgent:
             culprit = incident.get("culprit")
             kind = incident.get("kind")
             culprit_role = secret.get("roles", {}).get(culprit)
+            hospital = (kind == "hospital" and view.get("module") in {"FS", "BTX"}
+                        and incident.get("day", 0) >= view.get("round", 1))
             threatens_loss = (kind in {"murder", "serial_murder", "frenzied_murder",
                                        "impulsive_murder"}
                               or (kind == "suicide" and culprit_role in {"key", "friend"})
                               or (secret.get("main_plot") == "mc_event_web"))
             if (isinstance(culprit, str) and culprit in view.get("characters", {})
-                    and threatens_loss):
-                plans.append(_Plan("incident_pressure", culprit=culprit, key=key,
+                    and (threatens_loss or hospital)):
+                plans.append(_Plan("incident_pressure", target="hospital" if hospital else None,
+                                   culprit=culprit, key=key,
                                    killer=killer, incident_day=incident.get("day")))
         return plans or [_Plan("opportunistic", key=key, killer=killer)]
 
@@ -461,6 +464,9 @@ class FixedStrategyMastermindAgent:
                 score = max(score, 105)
         elif self._plan.kind == "incident_pressure":
             culprit = self._plan.culprit
+            if (self._plan.target == "hospital" and target == "hospital"
+                    and view.get("locations", {}).get("hospital", 0) < 2):
+                score = {"i2": 118, "i1": 108}.get(card, 0)
             if culprit in characters and target == culprit:
                 current = characters[culprit].get("paranoia", 0)
                 limit = characters[culprit].get("paranoia_limit", 99)
@@ -492,7 +498,14 @@ class FixedStrategyMastermindAgent:
         if self._plan.kind == "plot_intrigue" and target == self._plan.target:
             return 125
         if self._plan.kind == "incident_pressure" and target == self._plan.culprit:
+            if (effect == "counter" and ui.get("counter") == "paranoia"
+                    and isinstance(ui.get("amount"), int) and ui["amount"] < 0):
+                return 0
             return 120
+        if (self._plan.kind == "incident_pressure" and self._plan.target == "hospital"
+                and target == "hospital" and effect == "counter"
+                and ui.get("counter") == "intrigue" and ui.get("amount", 0) > 0):
+            return 125
         if self._plan.kind == "key_assassination" and (
                 key.startswith("killer:") or target == self._plan.key):
             return 140
