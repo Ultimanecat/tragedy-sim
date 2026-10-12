@@ -189,6 +189,14 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
         played = {item.get("actor") for item in view.get("pending", ())}
         return len(order - played)
 
+    @staticmethod
+    def proposal_index(round_index: int, world_index: int = 0) -> int:
+        """Retain the tactical prefix, then advance to new joint proposals."""
+        order = (0, 1, 10, 2, 11, 3, 12, 4, 13, 5, 14, 6,
+                 15, 7, 16, 8, 17, 9, 18, 19, 20, 21, 22, 23)
+        cycle, offset = divmod(round_index + world_index, len(order))
+        return order[offset] if cycle == 0 else cycle * len(order) + offset
+
     def _bundle(self, root: Game, view: Mapping[str, Any], index: int
                 ) -> tuple[dict[str, Any], ...]:
         world = root
@@ -260,9 +268,10 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
             if plot_board:
                 defenses.append(("fi", plot_board))
             defenses = list(dict.fromkeys(defenses))
-            if defenses:
+            if defenses and (index < 24 or (index - 24) % 4 != 3):
                 anchor = defenses[((index - 10) // 2) % len(defenses)]
-                scripted = {(index - 10) % 2: anchor}
+                anchor_slot = (index - 10) % (2 if index < 24 else 3)
+                scripted = {anchor_slot: anchor}
         for slot in range(3):
             actions = [action for action in world.search_actions(world.controller)
                        if action.get("action") == "play"
@@ -282,6 +291,17 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                                 None)
                 if selected is None:
                     selected = ranked[0]
+            elif index >= 24:
+                # Later proposals vary BOTH companion cards of an anchored
+                # defense. Every fourth proposal is fully exploratory. Draw
+                # from all legal targets, keeping paranoia+1 a rare option.
+                # Only the sampled script and authorized view guide ranking;
+                # hidden card faces never enter this proposal distribution.
+                draw = random.Random(f"{self.rng_seed}:{index}:{slot}")
+                family = draw.choices(families, weights=(1,) * 8 + (0.05,))[0]
+                pool = [action for action in ranked if action["card"] == family] or ranked
+                selected = draw.choices(pool, weights=[
+                    1 / (1 + offset) for offset in range(len(pool))])[0]
             elif scripted and 1 <= index <= 9:
                 selected = next((action for action in ranked
                                  if action["card"] == "g1"), ranked[0])

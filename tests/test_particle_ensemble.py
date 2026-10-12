@@ -24,6 +24,24 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class ParticleEnsembleTests(unittest.TestCase):
+    def test_large_candidate_budget_advances_past_tactical_prefix(self):
+        game = protagonist_position()
+        view = deepcopy(game.protagonist_team_view())
+        agent = ParticleEnsembleProtagonistAgent(
+            SearchBudget(node_limit=32, rollout_depth=8, seed=3),
+            particle_count=1, rng_seed=3)
+        offers = [_policy_offer(game, action)
+                  for action in game.action_offers(game.controller)]
+        with patch.object(agent.oracle, "_bundle", wraps=agent.oracle._bundle) as propose:
+            chosen = agent.choose_action(participant="team", view=view, offers=offers)
+        self.assertIn(chosen, offers)
+        self.assertTrue(any(call.args[2] >= 24 for call in propose.call_args_list))
+        self.assertIsNone(agent.last_trace.fallback)
+        self.assertEqual(len(agent.last_trace.root_actions), 32)
+        for row in agent.last_trace.root_actions:
+            self.assertIsNotNone(agent._apply_bundle(game, row["bundle"]))
+        self.assertEqual(game.protagonist_team_view(), view)
+
     def test_fair_planner_does_not_inherit_historical_search(self):
         self.assertTrue(issubclass(ParticleEnsembleProtagonistAgent, PublicBeliefPlanner))
         self.assertFalse(issubclass(ParticleEnsembleProtagonistAgent, IsmctsProtagonistAgent))

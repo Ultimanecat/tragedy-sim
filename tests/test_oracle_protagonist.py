@@ -23,6 +23,62 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_proposal_schedule_preserves_prefix_and_advances_without_cycles(self):
+        agent = FullCardOracleProtagonistAgent()
+        prefix = (0, 1, 10, 2, 11, 3, 12, 4, 13, 5, 14, 6,
+                  15, 7, 16, 8, 17, 9, 18, 19, 20, 21, 22, 23)
+        self.assertEqual(tuple(agent.proposal_index(i) for i in range(24)), prefix)
+        indices = [agent.proposal_index(i) for i in range(96)]
+        self.assertEqual(len(set(indices)), 96)
+        self.assertEqual(indices[24:], list(range(24, 96)))
+        self.assertEqual(agent.proposal_index(20, 11), 31)
+
+    def test_progressive_joint_proposals_expand_legal_deterministic_pool(self):
+        from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
+        for scenario_id in ("official-fs-01-first-script",
+                            "official-tragic-aiplay-btx-01g"):
+            game = protagonist_position(scenario_id)
+            before = deepcopy(game.protagonist_team_view())
+            agent = FullCardOracleProtagonistAgent()
+            bundles = [agent._bundle(game, before, index) for index in range(72)]
+            signature = lambda bundle: tuple((item["actor"], item["card"], item["target"])
+                                             for item in bundle)
+            early = {signature(bundle) for bundle in bundles[:24]}
+            later = {signature(bundle) for bundle in bundles[24:]}
+            self.assertGreater(len(later - early), 20)
+            for index, bundle in enumerate(bundles):
+                self.assertEqual(len(bundle), 3)
+                self.assertLessEqual(sum(item["card"] == "fi" for item in bundle), 1)
+                self.assertIsNotNone(ParticleEnsembleProtagonistAgent._apply_bundle(game, bundle))
+                self.assertEqual(bundle, agent._bundle(game, before, index))
+            self.assertEqual(game.protagonist_team_view(), before)
+
+    def test_progressive_proposals_ignore_hidden_faces_and_support_partial_turns(self):
+        from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
+        first = protagonist_position()
+        second = deepcopy(first)
+        faces = [placement.card for placement in second.state.pending]
+        for i, placement in enumerate(second.state.pending):
+            second.state.pending[i] = Placement(placement.actor, faces[(i + 1) % len(faces)],
+                                                 placement.target)
+        agent = FullCardOracleProtagonistAgent()
+        for placed in range(3):
+            view = first.protagonist_team_view()
+            self.assertEqual(view, second.protagonist_team_view())
+            for index in range(24, 48):
+                bundle = agent._bundle(first, view, index)
+                self.assertEqual(bundle, agent._bundle(second, view, index))
+                self.assertEqual(len(bundle), 3 - placed)
+                self.assertIsNotNone(ParticleEnsembleProtagonistAgent._apply_bundle(first, bundle))
+                if placed:
+                    self.assertFalse(any(item["card"] == "fi" for item in bundle))
+            if placed < 2:
+                action = {"actor": first.controller, "action": "play",
+                          "card": "fi" if placed == 0 else "g1",
+                          "target": "school" if placed == 0 else "girl"}
+                first = first.search_transition(action)
+                second = second.search_transition(action)
+
     def test_partial_oracle_proposals_do_not_duplicate_an_existing_intrigue_forbid(self):
         game = protagonist_position()
         game = game.search_transition({"actor": game.controller, "action": "play",

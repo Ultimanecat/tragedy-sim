@@ -398,15 +398,15 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         limit = self.budget.node_limit
         proposal_deadline = (None if deadline is None else
                              search_started + 0.25 * self.budget.time_limit_ms / 1000)
-        index_order = (0, 1, 10, 2, 11, 3, 12, 4, 13, 5, 14, 6,
-                       15, 7, 16, 8, 17, 9, 18, 19, 20, 21, 22, 23)
-        for round_index in range(max(12, limit)):
+        # Duplicates do not consume evaluation nodes. Allow bounded extra
+        # draws so a small/repeated world batch can reach progressive indices.
+        for round_index in range(max(12, 4 * limit)):
             for world_index, world in enumerate(worlds):
                 if (proposal_deadline is not None
                         and perf_counter() >= proposal_deadline
                         and len(proposals) >= min(6, limit)):
                     break
-                index = index_order[(round_index + world_index) % len(index_order)]
+                index = self.oracle.proposal_index(round_index, world_index)
                 bundle = self.oracle._bundle(world, view, index)
                 if (len(bundle) != self.oracle.remaining_placements(view) or not bundle
                         or _key(bundle[0]) not in offers_by_key):
