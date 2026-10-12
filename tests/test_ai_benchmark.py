@@ -305,10 +305,12 @@ class AbilityUsageTests(unittest.TestCase):
     def test_mastermind_matrix_preserves_completed_match_when_next_fails(self):
         completed = MatchResult(
             "official-fs-01-first-script", "FS01", "FS", 2, "standard",
-            "strategic", "particle_ensemble", 0, "mastermind", 1, 1, 1, 0.1)
+            "strategic", "particle_ensemble", 0, "mastermind", 1, 1, 1, 0.1,
+            matrix_proposals_enabled=True)
         with (TemporaryDirectory() as folder,
               patch("sys.argv", ["ai_mastermind_matrix", "--scenario",
                                  "official-fs-01-first-script", "--games", "1",
+                                 "--matrix-proposals",
                                  "--slow-trace-seconds", "1",
                                  "--output", str(Path(folder) / "report.json")]),
               patch.object(ai_mastermind_matrix, "play",
@@ -327,9 +329,22 @@ class AbilityUsageTests(unittest.TestCase):
                              {"completed": 1, "planned": 2, "complete": False})
             self.assertEqual(saved["sources"], "starting-sources")
             self.assertEqual(len(saved["results"]), 1)
+            self.assertTrue(saved["settings"]["matrix_proposals"])
+            self.assertTrue(saved["results"][0]["matrix_proposals_enabled"])
+            self.assertTrue(ai_mastermind_matrix.play.call_args.kwargs["matrix_proposals"])
             self.assertEqual(digest.call_count, 1)
             self.assertEqual(start_dump.call_count, 2)
             self.assertEqual(stop_dump.call_count, 2)
+
+    def test_matrix_proposals_reject_unsupported_oracle_configuration(self):
+        with (patch("sys.argv", ["ai_mastermind_matrix", "--matrix-proposals",
+                                 "--protagonists", "oracle_script"]),
+              patch("sys.stderr", StringIO()), self.assertRaises(SystemExit) as error):
+            ai_mastermind_matrix.main()
+        self.assertEqual(error.exception.code, 2)
+        with self.assertRaisesRegex(ValueError, "particle_ensemble"):
+            play("official-fs-01-first-script", 0, 1, 1, "fixed", "oracle_script",
+                 matrix_proposals=True)
 
     def test_discovers_concrete_loop_difficulty_groups(self):
         groups = difficulty_groups(ScenarioLibrary(), "BTX")

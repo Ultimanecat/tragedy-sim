@@ -40,6 +40,8 @@ def main() -> None:
     parser.add_argument("--depth", type=int, default=8)
     parser.add_argument("--protagonists", choices=("particle_ensemble", "oracle_script"),
                         default="particle_ensemble")
+    parser.add_argument("--matrix-proposals", action="store_true",
+                        help="supplement underfilled red identity proposals; black reply stays baseline")
     parser.add_argument("--joint-reply-model", choices=("public", "belief", "hidden", "full"),
                         default="public")
     parser.add_argument("--joint-information-weight", type=float, default=0.02,
@@ -61,6 +63,8 @@ def main() -> None:
         parser.error("joint information weight must be between 0 and 0.1")
     if args.slow_trace_seconds is not None and args.slow_trace_seconds < 1:
         parser.error('slow-trace-seconds must be positive')
+    if args.matrix_proposals and args.protagonists != "particle_ensemble":
+        parser.error("matrix proposals require particle_ensemble protagonists")
     scenarios = args.scenarios or DEFAULT_SCENARIOS
     sources = source_digest()
     results = []
@@ -95,6 +99,7 @@ def main() -> None:
                         time_limit_ms=args.mastermind_ms,
                         protagonist_time_limit_ms=args.protagonist_ms,
                         protagonist_particles=args.protagonist_particles,
+                        matrix_proposals=args.matrix_proposals,
                         joint_reply_model=args.joint_reply_model,
                         joint_information_weight=args.joint_information_weight,
                         capture_fallback_contexts=args.trace,
@@ -123,6 +128,9 @@ def main() -> None:
                     "elapsed_seconds": round(match.elapsed_seconds, 3),
                     'decision_digest': match.decision_digest,
                     'final_true_setup_hard_compatible': match.final_true_setup_hard_compatible,
+                    'matrix_proposals_enabled': match.matrix_proposals_enabled,
+                    'matrix_proposal_attempts': match.protagonist_matrix_proposal_attempts,
+                    'matrix_proposal_worlds': match.protagonist_matrix_proposal_worlds,
                 }
                 if args.trace:
                     row["mastermind_plays"] = [asdict(item)

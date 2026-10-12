@@ -167,6 +167,9 @@ class MatchResult:
     matrix_recovery_enabled: bool = True
     protagonist_matrix_recovery_attempts: int = 0
     protagonist_matrix_recovery_worlds: int = 0
+    matrix_proposals_enabled: bool = False
+    protagonist_matrix_proposal_attempts: int = 0
+    protagonist_matrix_proposal_worlds: int = 0
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -278,8 +281,11 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          capture_fallback_contexts: bool = False,
          capture_replay: bool = False,
          matrix_recovery: bool = True,
+         matrix_proposals: bool = False,
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
+    if matrix_proposals and protagonist_strategy != "particle_ensemble":
+        raise ValueError("matrix proposals require particle_ensemble protagonists")
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -325,7 +331,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             joint_witness=joint_witness, rollout_horizon=oracle_horizon,
             disabled_witness_sources=disabled_witness_sources,
             mastermind_policy_samples=mastermind_policy_samples,
-            information_reward_weight=information_reward_weight)
+            information_reward_weight=information_reward_weight,
+            matrix_proposals=matrix_proposals)
     if team_ismcts is not None and hasattr(team_ismcts, "factorized_belief"):
         team_ismcts.factorized_belief.matrix_recovery_enabled = matrix_recovery
     protagonists = {
@@ -551,6 +558,11 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         protagonist_fallback_contexts=tuple(protagonist_fallback_contexts),
         replay_text=replay_text,
         matrix_recovery_enabled=matrix_recovery,
+        matrix_proposals_enabled=matrix_proposals,
+        protagonist_matrix_proposal_attempts=getattr(
+            getattr(team_ismcts, "factorized_belief", None), "matrix_proposal_attempts", 0),
+        protagonist_matrix_proposal_worlds=getattr(
+            getattr(team_ismcts, "factorized_belief", None), "matrix_proposal_worlds", 0),
         protagonist_matrix_recovery_attempts=getattr(
             getattr(team_ismcts, "factorized_belief", None), "matrix_recovery_attempts", 0),
         protagonist_matrix_recovery_worlds=getattr(
@@ -625,6 +637,8 @@ def main() -> None:
                         help="ablate BTX plot-role soft correlation witnesses")
     parser.add_argument("--disable-matrix-recovery", action="store_true",
                         help="ablate protagonist matrix recovery after legacy proposals are empty")
+    parser.add_argument("--matrix-proposals", action="store_true",
+                        help="supplement underfilled red identity proposals from matrix constraints")
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
@@ -649,6 +663,8 @@ def main() -> None:
         parser.error("games, nodes and depth must be positive")
     if args.protagonists == "particle_ensemble" and args.oracle_horizon == "match":
         parser.error("particle ensemble supports day or loop horizon")
+    if args.matrix_proposals and args.protagonists != "particle_ensemble":
+        parser.error("matrix proposals require particle_ensemble protagonists")
     library = ScenarioLibrary()
     scenarios = _scenario_ids(args, library)
     strategies = MASTERMIND_STRATEGIES if args.strategy == "all" else (args.strategy,)
@@ -665,6 +681,7 @@ def main() -> None:
                               protagonist_time_limit_ms=args.protagonist_time_limit_ms,
                               joint_witness=not args.disable_joint_witness,
                               matrix_recovery=not args.disable_matrix_recovery,
+                              matrix_proposals=args.matrix_proposals,
                               disabled_witness_sources=tuple(
                                   args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,

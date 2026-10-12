@@ -15,6 +15,16 @@ from tests.test_particle_ensemble import protagonist_position
 
 
 class CausalAuditTests(unittest.TestCase):
+    def test_matrix_proposals_cli_rejects_ignored_configurations(self):
+        for options in (("--matrix-proposals",),
+                        ("--matrix-proposals", "--compare-roots",
+                         "--budget-probe-ms", "100", "--budget-probe-ms", "200")):
+            with (patch("sys.argv", ["audit", "unused.json", "--output", "unused.json",
+                                     *options]), patch("sys.stderr", io.StringIO()),
+                  self.assertRaises(SystemExit) as error):
+                main()
+            self.assertEqual(error.exception.code, 2)
+
     def test_budget_probe_cli_requires_two_positive_deadlines(self):
         for values in ((10,), (10, 0)):
             args = ["audit", "unused.json", "--output", "unused-output.json"]

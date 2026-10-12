@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from tragedy_sim import Game
 from tragedy_sim.belief import DarkCardBelief, FactorizedBeliefState, PublicEvidence
+from tragedy_sim.belief import HiddenWorldHypothesis
 from tragedy_sim.belief_dark_constraints import dark_card_domains
 from tragedy_sim.belief_matrix_sampler import MatrixWorldSampler
 from tragedy_sim.cards import deck
@@ -15,6 +16,66 @@ from tests.test_belief_matrix import witness
 
 
 class MatrixSamplerTests(unittest.TestCase):
+    def test_normal_matrix_proposals_supplement_nonempty_underfilled_pool(self):
+        scenario = ScenarioLibrary().get("official-btx-06-secret-that-was-kept")
+        view = Game(scenario).protagonist_team_view()
+        view["known_plots"] = ["bomb", "friends", "threads"]
+        evidence = PublicEvidence.from_view(view)
+        weak_scenario = deepcopy(scenario)
+        weak_scenario["cast"]["rich"] = "ordinary"
+        weak_scenario["cast"]["patient"] = "witch"
+        weak = HiddenWorldHypothesis.from_scenario(validate_scenario(weak_scenario))
+        facts = (witness("role_is", "informer", "conspiracy"),
+                 witness("role_is", "worker", "friend"))
+        for enabled in (False, True):
+            state = FactorizedBeliefState(seed=1, matrix_proposals=enabled)
+            with patch.object(state.sampler, "sample", return_value=(weak,)):
+                posterior = state.role_posterior(evidence, facts)
+            self.assertEqual(state.matrix_recovery_attempts, 0)
+            self.assertEqual(state.matrix_proposal_attempts, int(enabled))
+            if enabled:
+                self.assertGreater(len(posterior), 1)
+                self.assertTrue(any(dict(world.roles)["rich"] == "witch"
+                                    for world, _ in posterior))
+                self.assertGreater(state.matrix_proposal_worlds, 0)
+            else:
+                self.assertEqual(len(posterior), 1)
+            for world, _ in posterior:
+                self.assertTrue(FsbtxWitnessMatcher().matches(world, facts))
+                world.materialize(evidence)
+            rng_before = state.rng.getstate()
+            summary = state.proposal_summary()
+            self.assertEqual(state.rng.getstate(), rng_before)
+            self.assertEqual(summary, state.proposal_summary())
+            self.assertEqual(summary["role_candidates"], len(posterior))
+
+    def test_normal_proposals_preserve_exact_small_cast_path(self):
+        scenario = ScenarioLibrary().get("official-fs-01-first-script")
+        evidence = PublicEvidence.from_view(Game(scenario).protagonist_team_view())
+        original = FactorizedBeliefState(seed=2)
+        enabled = FactorizedBeliefState(seed=2, matrix_proposals=True)
+        self.assertEqual(original.sample(evidence, (), 8, rng=random.Random(3)),
+                         enabled.sample(evidence, (), 8, rng=random.Random(3)))
+        self.assertTrue(enabled._exact_roles)
+        self.assertEqual(enabled.matrix_proposal_attempts, 0)
+
+    def test_normal_proposals_do_not_relax_incompatible_hard_counts(self):
+        scenario = ScenarioLibrary().get("official-btx-06-secret-that-was-kept")
+        view = Game(scenario).protagonist_team_view()
+        view["known_plots"] = ["bomb", "friends", "threads"]
+        evidence = PublicEvidence.from_view(view)
+        facts = (witness("role_is", "rich", "witch"),
+                 witness("role_is", "patient", "witch"))
+        state = FactorizedBeliefState(matrix_recovery=False, matrix_proposals=True)
+        with patch.object(state.sampler, "sample", return_value=()):
+            result = state.sample(evidence, facts, 8, rng=random.Random(3))
+        self.assertEqual(result.reason, "no_compatible_factor")
+        self.assertEqual(state.matrix_proposal_worlds, 0)
+
+    def test_normal_proposal_flag_requires_boolean(self):
+        with self.assertRaises(ValueError):
+            FactorizedBeliefState(matrix_proposals=1)
+
     def setUp(self):
         self.scenario = ScenarioLibrary().get("official-fs-01-first-script")
         self.scenario["cast"]["patient"] = "ordinary"

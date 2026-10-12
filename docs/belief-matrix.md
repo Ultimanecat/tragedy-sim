@@ -21,7 +21,7 @@
 
 ## 后续切片
 
-1. 强黑方四局 72 个历史根已审计，恢复没有触发；见 [历史根审计](belief-matrix-historical-audit.md)。下一步为正常身份提议增加开发对照选项，验证分布／覆盖／棋力，随后决定是否替换主路径。
+1. 强黑方四局 72 个历史根已审计，恢复没有触发；见 [历史根审计](belief-matrix-historical-audit.md)。正常提议现增加 `matrix_proposals=True` 开发对照：非完整枚举、旧提议不足目标数量时补样；BTX06 两根身份库 5→56，危险身份开始进入搜索世界。默认关闭，覆盖／分布／棋力结果见 [正常提议审计](normal-matrix-proposals-audit.md)。
 2. 更完整的条件／析取联合传播、细粒度来源链和软打分统一操作接口。一个 witness 的多格投影不可重复计分。
 
 当前不是棋力升级。已有联合候选、价值排序和采样行为保持；黑方移除重复的身份域实现。任何无解或样本违反硬域均显式诊断，不以放松证据恢复。
@@ -36,6 +36,7 @@
 - `MatrixWorldSampler` 从剧情／数量变体的角色允许域生成完整分配，按可完成分配数抽样，再做剧本校验和完整 matcher。变体提议不是完整后验分布。
 - `FactorizedBeliefState` 默认只在旧提议及条件构造均为空、已有身份库也为空时启用恢复。正常库保持原有随机顺序；恢复后的库明确标为非完整枚举。
 - `matrix_recovery=False` 或 self-play 的 `--disable-matrix-recovery` 用于消融；记录尝试次数与产生世界数，证据维护不占行动搜索节点预算。
+- `matrix_proposals=True`／评测 `--matrix-proposals` 可补充非空的低填充正常提议，独立于空库恢复；只读 `proposal_summary()` 的角色／剧情计数不代表精确后验。少角色穷举和最终整套 MAP 保持。
 - 原始 witness 保留，硬条件没有松动；候选仍为空时按现有显式回退处理，不使用真实剧本补样。最终猜测继续原有整套合法 MAP。
 
 本批测试、对局摘要和边界说明见 [接入验证](belief-matrix-validation.md)。

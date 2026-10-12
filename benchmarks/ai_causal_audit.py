@@ -58,13 +58,17 @@ def causal_evidence(view, truth=None):
 
 
 def compare_root(game, *, seed=2, nodes=8, worlds=12, time_limit_ms=1000,
-                 recorded_bundle=()):
+                 recorded_bundle=(), matrix_proposals=False):
     """Compare plans from exactly the same real position and authorized view.
 
     Subsequent diagnostic continuations use the same public red policy and
     dynamic fixed black routes for every plan. These are not match win rates.
     """
     view = game.protagonist_team_view()
+    class MeasuredPlanner(ParticleEnsembleProtagonistAgent):
+        def _counts(self, sampled_worlds, evidence):
+            self.proposal_diagnostics = self.factorized_belief.proposal_summary()
+            return super()._counts(sampled_worlds, evidence)
     offers = [_policy_offer(game, action) for action in game.action_offers(game.controller)]
     position = (game.state.loop, game.state.round)
     rows = []
@@ -77,8 +81,9 @@ def compare_root(game, *, seed=2, nodes=8, worlds=12, time_limit_ms=1000,
         for horizon in ("day", "loop"):
             started = perf_counter()
             if name == "belief":
-                policy = ParticleEnsembleProtagonistAgent(
-                    budget, particle_count=worlds, rng_seed=seed, rollout_horizon=horizon)
+                policy = MeasuredPlanner(
+                    budget, particle_count=worlds, rng_seed=seed, rollout_horizon=horizon,
+                    matrix_proposals=matrix_proposals)
                 chosen = policy.choose_action(participant="team", view=view, offers=offers)
                 bundle = (_command(chosen), *policy.remaining_card_commands())
             else:
@@ -93,6 +98,7 @@ def compare_root(game, *, seed=2, nodes=8, worlds=12, time_limit_ms=1000,
                 "elapsed_ms": (perf_counter() - started) * 1000,
                 "fallback": getattr(policy.last_trace, "fallback", None),
                 "trace": asdict(policy.last_trace) if policy.last_trace is not None else None,
+                "proposal_diagnostics": getattr(policy, "proposal_diagnostics", None),
             }))
     for name, horizon, bundle, search in plans:
         successor = ParticleEnsembleProtagonistAgent._apply_bundle(game, bundle)
@@ -175,7 +181,7 @@ def compare_budget_root(game, *, limits, seed=2, nodes=8, worlds=12):
 
 def audit_row(row, *, compare=False, nodes=8, worlds=12, time_limit_ms=1000,
               belief_log=False, probe_days=None, probe_loops=None, all_days=False,
-              budget_limits=()):
+              budget_limits=(), matrix_proposals=False):
     archive = ReplayArchive.parse(row["replay_text"])
     game = Game(archive.scenario)
     if game.module not in {"FS", "BTX"}:
@@ -221,7 +227,8 @@ def audit_row(row, *, compare=False, nodes=8, worlds=12, time_limit_ms=1000,
                     recorded = searches.get(position, {}).get("selected_bundle", ())
                     root["counterfactual"] = compare_root(
                         game, seed=row.get("seed", 2), nodes=nodes, worlds=worlds,
-                        time_limit_ms=time_limit_ms, recorded_bundle=recorded)
+                        time_limit_ms=time_limit_ms, recorded_bundle=recorded,
+                        matrix_proposals=matrix_proposals)
                 if budget_limits:
                     root["budget_probe"] = compare_budget_root(
                         game, limits=budget_limits, seed=row.get("seed", 2),
@@ -253,6 +260,8 @@ def main():
     parser.add_argument("report", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--compare-roots", action="store_true")
+    parser.add_argument("--matrix-proposals", action="store_true",
+                        help="supplement underfilled identity proposals in fair root comparisons")
     parser.add_argument("--belief-log", type=Path,
                         help="save developer-only Chinese evidence changes and sampled roles")
     parser.add_argument("--strategy", choices=("strategic", "joint"))
@@ -277,6 +286,8 @@ def main():
         parser.error("probe days and loops must be positive")
     if args.all_days and args.probe_day:
         parser.error("choose --all-days or --probe-day")
+    if args.matrix_proposals and (not args.compare_roots or args.budget_probe_ms):
+        parser.error("matrix proposals require root comparisons without budget probes")
     raw = args.report.read_bytes()
     source = json.loads(raw)
     selected = [row for row in source["results"]
@@ -292,6 +303,7 @@ def main():
                            "scenario": args.scenario, "strategy": args.strategy,
                            "probe_days": args.probe_day, "probe_loops": args.probe_loop,
                            "all_days": args.all_days, "compare_roots": args.compare_roots,
+                           "matrix_proposals": args.matrix_proposals,
                            "budget_probe_ms": args.budget_probe_ms},
               "progress": {"completed": 0, "planned": len(selected), "complete": False},
               "results": []}
@@ -301,7 +313,7 @@ def main():
             row, compare=args.compare_roots, nodes=args.nodes, worlds=args.worlds,
             time_limit_ms=args.time_limit_ms, belief_log=args.belief_log is not None,
             probe_days=args.probe_day, probe_loops=args.probe_loop, all_days=args.all_days,
-            budget_limits=args.budget_probe_ms))
+            budget_limits=args.budget_probe_ms, matrix_proposals=args.matrix_proposals))
         report["progress"] = {"completed": len(report["results"]), "planned": len(selected),
                               "complete": len(report["results"]) == len(selected)}
         write_report(args.output, report)

@@ -760,13 +760,18 @@ class FactorizedBeliefState:
     """
 
     def __init__(self, *, capacity: int = 192, seed: int = 0,
-                 matrix_recovery: bool = True):
+                 matrix_recovery: bool = True, matrix_proposals: bool = False):
         if type(matrix_recovery) is not bool:
             raise ValueError("matrix_recovery must be boolean")
+        if type(matrix_proposals) is not bool:
+            raise ValueError("matrix_proposals must be boolean")
         self.capacity = capacity
         self.matrix_recovery_enabled = matrix_recovery
         self.matrix_recovery_attempts = 0
         self.matrix_recovery_worlds = 0
+        self.matrix_proposals_enabled = matrix_proposals
+        self.matrix_proposal_attempts = 0
+        self.matrix_proposal_worlds = 0
         self.rng = random.Random(seed)
         self.sampler = ConstraintBeliefSampler()
         self._signature: tuple[Any, ...] | None = None
@@ -849,6 +854,18 @@ class FactorizedBeliefState:
             proposed = self.sampler.sample(
                 evidence, min(64, self.capacity), rng=self.rng,
                 witnesses=hard_witnesses, condition_hard=True)
+        # A nonempty rejection pool can still cover very few identities.
+        # Supplement underfilled normal proposals, independently of the
+        # empty-pool recovery switch. Small-cast exhaustive pools stay exact.
+        target = min(64, self.capacity)
+        if (self.matrix_proposals_enabled and not self._exact_roles
+                and evidence.module in {"FS", "BTX"} and len(proposed) < target):
+            from .belief_matrix_sampler import MatrixWorldSampler
+            self.matrix_proposal_attempts += 1
+            extra = MatrixWorldSampler().sample(
+                evidence, hard_witnesses, target - len(proposed), rng=self.rng)
+            self.matrix_proposal_worlds += len(extra)
+            proposed = (*proposed, *extra)
         if (self.matrix_recovery_enabled and evidence.module in {"FS", "BTX"}
                 and not proposed and not self._roles):
             from .belief_matrix_sampler import MatrixWorldSampler
@@ -868,6 +885,23 @@ class FactorizedBeliefState:
                 old = self.rng.choice(tuple(self._roles))
                 del self._roles[old]
             self._roles[key] = world
+
+    def proposal_summary(self) -> dict[str, Any]:
+        """Read-only developer diagnostics; counts are not posterior probabilities."""
+        worlds = tuple(self._roles.values())
+        characters = sorted({cid for world in worlds for cid, _ in world.roles})
+        plots = Counter((world.main_plot, world.subplots) for world in worlds)
+        return {
+            "role_candidates": len(worlds), "exact": self._exact_roles,
+            "matrix_proposals_enabled": self.matrix_proposals_enabled,
+            "matrix_proposal_attempts": self.matrix_proposal_attempts,
+            "matrix_proposal_worlds": self.matrix_proposal_worlds,
+            "roles": [{"character": cid, "counts": dict(sorted(Counter(
+                dict(world.roles).get(cid) for world in worlds).items()))}
+                for cid in characters],
+            "plots": [{"main_plot": main, "subplots": list(subplots), "count": count}
+                      for (main, subplots), count in sorted(plots.items())],
+        }
 
     def _culprits(self, evidence: PublicEvidence,
                   witnesses: Sequence[Any]) -> dict[int, tuple[str, ...]]:

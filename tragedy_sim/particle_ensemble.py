@@ -31,7 +31,8 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                  disabled_witness_sources: Sequence[str] = (),
                  rollout_horizon: str = "day",
                  mastermind_policy_samples: int = 3,
-                 information_reward_weight: float = 0.01):
+                 information_reward_weight: float = 0.01,
+                 matrix_proposals: bool = False):
         if rollout_horizon not in {"day", "loop"}:
             raise ValueError("particle rollout_horizon must be day or loop")
         if (type(mastermind_policy_samples) is not int
@@ -40,11 +41,14 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         if (not isinstance(information_reward_weight, (int, float))
                 or information_reward_weight < 0):
             raise ValueError("information_reward_weight must be non-negative")
+        if type(matrix_proposals) is not bool:
+            raise ValueError("matrix_proposals must be boolean")
         super().__init__(budget or SearchBudget(node_limit=24,
                                                 rollout_depth=12,
                                                 time_limit_ms=3000),
                          particle_count=particle_count, rng_seed=rng_seed,
                          survival_first=True)
+        self.factorized_belief.matrix_proposals_enabled = matrix_proposals
         self.compiler = FsbtxWitnessCompiler(
             include_joint=joint_witness,
             disabled_sources=disabled_witness_sources)

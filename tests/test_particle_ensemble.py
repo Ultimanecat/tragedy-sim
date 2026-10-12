@@ -79,6 +79,8 @@ class ParticleEnsembleTests(unittest.TestCase):
             ParticleEnsembleProtagonistAgent(mastermind_policy_samples=0)
         with self.assertRaises(ValueError):
             ParticleEnsembleProtagonistAgent(information_reward_weight=-0.1)
+        with self.assertRaises(ValueError):
+            ParticleEnsembleProtagonistAgent(matrix_proposals=1)
 
     def test_single_policy_sample_retains_seeded_baseline(self):
         game = protagonist_position()
