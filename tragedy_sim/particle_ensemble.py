@@ -612,8 +612,10 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             location_guard_bonus = self._location_guard_bonus(bundle, view)
             traveler_screening_bonus = self._time_traveler_screening_bonus(
                 bundle, view, traveler_candidates)
-            tail = (values[max(0, len(values) // 5 - 1)]
-                    + location_guard_bonus)
+            # The lower tail measures simulated risk. A location prior is
+            # shaping, and must not mask a worse risk row (e.g. a board bluff
+            # distracting from intrigue on a publicly established Key).
+            tail = values[max(0, len(values) // 5 - 1)]
             scarce = sum(item["card"] in {"fm", "g2", "p-1"}
                          for item in bundle)
             information_value = (sum(information_values) /

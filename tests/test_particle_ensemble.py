@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 import unittest
+from unittest.mock import patch
 
 from benchmarks.ai_self_play import _policy_offer
 from tragedy_sim import Game
@@ -96,6 +97,29 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertEqual(agent._location_guard_bonus(guarded, view), 0.08)
         self.assertEqual(agent._location_guard_bonus(wrong_board, view), 0.0)
         self.assertEqual(agent._location_guard_bonus(unguarded, view), 0.0)
+
+    def test_board_shaping_cannot_override_a_better_risk_tail(self):
+        key_guard = (1.0, 0.64, 1.0, 0.60, 0.59, "key")
+        board_guard = (1.0, 0.60, 1.0, 0.68, 0.65, "board")
+        self.assertEqual(max((key_guard, board_guard),
+                             key=ParticleEnsembleProtagonistAgent._evaluation_key)[5], "key")
+
+    def test_guarded_rollout_tail_contains_no_location_bonus(self):
+        game = Game(ScenarioLibrary().get("official-fs-01-first-script"))
+        while game.state.phase != "mastermind":
+            game = game.search_transition(game.search_actions(game.controller)[0])
+        for card, target in (("i2", "school"), ("fg", "maiden"), ("fp", "girl")):
+            game = game.search_transition({"actor": "m", "action": "play",
+                                           "card": card, "target": target})
+        agent = ParticleEnsembleProtagonistAgent(
+            SearchBudget(node_limit=8, seed=3), particle_count=4, rng_seed=3)
+        offers = [_policy_offer(game, action) for action in game.action_offers(game.controller)]
+        with patch.object(agent.oracle, "_rollout_score",
+                          return_value=(0.5, True, 1, False, 0.0, 0.0, 0.0, 0.0, 0.0)):
+            agent.choose_action(participant="team", view=game.protagonist_team_view(), offers=offers)
+        rows = agent.last_trace.root_actions
+        self.assertTrue(any(row["location_guard_bonus"] > 0 for row in rows))
+        self.assertTrue(all(row["tail_value"] == 0.5 for row in rows))
 
     def test_incident_guard_uses_only_hard_public_culprit_and_threshold(self):
         view = Game(ScenarioLibrary().get(
