@@ -81,3 +81,15 @@ python -m benchmarks.ai_causal_audit references/ai-calibration/2026-10-12/progre
 ```
 
 诊断读取不刷新库或推进 RNG。矩阵补样本身改变身份提议与世界批次，不能称作固定世界评分消融；真实剧本仍只用于决策后的开发审计。开关当前仅支持根比较，不与 `--budget-probe-ms` 合用。详见 [正常矩阵补样](normal-matrix-proposals-audit.md)。
+
+## 旧新轨迹的逐步补样诊断
+
+`ai_proposal_regression_audit` 按完整旧新报告的原命令重演，重建持续身份库及生产三维抽样；每个命令保存公开事件与 witness 增减，每个每日根保存库前后变化、三维 Trace 校验及原决策。固定输入均需 `progress.complete: true`，旧报告为未开启正常补样，新报告为开启正常补样。
+
+```powershell
+python -m benchmarks.ai_proposal_regression_audit references/ai-calibration/2026-10-12/progressive-proposals-seed1.json references/ai-calibration/2026-10-12/normal-matrix-proposals-seed1.json --scenario official-tragic-aiplay-btx-01g --strategy strategic --probe-loop 2 --probe-day 2 --resample-worlds 12 --resample-worlds 48 --resample-draws 5 --output references/ai-calibration/2026-10-12/matrix-regression-btx01g-resampling.json
+```
+
+同根候选并集在两种原世界批次中评价，冻结库重抽只比较两条轨迹原先选中的完整三牌，不重新跑完整对弈。`culprit_profile` 是按天独立提议概率，`culprit_composition` 在枚举上限内施加当事人重复限制，仍不等于暗牌材料化之后的完整后验。终猜 `selected_role_hard_compatible` 只验证角色／剧情投影，其事件行是占位值。
+
+此报告包含原始命令及开发真值，禁止进入玩家界面／SSE／公共 replay。真值用于采样完成后的诊断；概率标签不形成新的硬事实。完整每日表和首次分歧的分析见 [逐步退化排查](matrix-regression-step-audit.md)。
