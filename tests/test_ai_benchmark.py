@@ -81,12 +81,16 @@ class AbilityUsageTests(unittest.TestCase):
     def test_real_fs_loss_reports_murder_from_an_earlier_command(self):
         result = play("official-fs-01-first-script", 0, 2, 8, "fixed",
                       "particle_ensemble", protagonist_nodes=8,
-                      protagonist_particles=4)
+                      protagonist_particles=4, capture_replay=True)
         self.assertTrue(result.loop_losses)
         self.assertEqual(result.loop_losses[0].happened_incidents, ((2, "murder"),))
         self.assertIn("girl", result.loop_losses[0].deaths)
+        # The complete FS prior now includes optional Curmudgeons. Keep the
+        # telemetry assertions and pin the corrected deterministic trajectory.
         self.assertEqual(result.decision_digest,
-                         "e002cfd2383d2cf2a4c96e7c449ff26163e8f72055a061bc943ddc7acfe6543c")
+                         "d0d435bb2e40c2878de4728fcbbd522741240fe37763a6870c3102a88fe1b0b7")
+        from tragedy_sim.replay import ReplayArchive
+        self.assertEqual(ReplayArchive.parse(result.replay_text).winner, result.winner)
 
     def test_calibration_records_actual_world_counts_and_placement_work(self):
         result = MatchResult(

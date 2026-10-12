@@ -445,6 +445,38 @@ class ConstraintBeliefSampler:
             expected[role] = min(expected[role], cap)
         return +expected
 
+    @classmethod
+    def _role_slot_variants(cls, module: str, plots: tuple[str, ...]) -> tuple[Counter[str], ...]:
+        """Complete printed count alternatives, without Ordinary padding.
+
+        Hideous permits zero, one or two extra Curmudgeons. Fixed plot slots
+        alone are insufficient for either exhaustive or random proposals.
+        """
+        base = cls._role_slots(module, plots)
+        result = []
+        for amount in range(3) if "hideous" in plots else (0,):
+            slots = base.copy()
+            if amount:
+                slots["curmudgeon"] += amount
+            result.append(slots)
+        return tuple(result)
+
+    @staticmethod
+    def _slot_assignment_size(character_count: int, slots: Counter[str]) -> int:
+        ordinary = character_count - sum(slots.values())
+        if ordinary < 0:
+            return 0
+        size = factorial(character_count) // factorial(ordinary)
+        for amount in slots.values():
+            size //= factorial(amount)
+        return size
+
+    @classmethod
+    def _plot_slot_sets(cls, evidence: PublicEvidence):
+        for main, subplots in cls._plot_sets(evidence):
+            for slots in cls._role_slot_variants(evidence.module, (main, *subplots)):
+                yield main, subplots, slots
+
     @staticmethod
     def _irregular_roles(module: str, plots: Sequence[str]) -> tuple[str, ...]:
         """Printed Irregular roles are extra and do not consume plot slots."""
@@ -644,7 +676,17 @@ class ConstraintBeliefSampler:
         for attempt in range(limit):
             main, subplots = rng.choice(plot_sets)
             plots = (main, *subplots)
-            slots = self._role_slots(evidence.module, plots)
+            variants = self._role_slot_variants(evidence.module, plots)
+            if len(variants) == 1:
+                slots = variants[0]
+            else:
+                # Weight count alternatives by unconstrained assignment size,
+                # matching the small-cast exhaustive library's plot prior.
+                regular_count = len(evidence.characters) - int("irregular" in evidence.characters)
+                weights = [self._slot_assignment_size(regular_count, slots) for slots in variants]
+                if not any(weights):
+                    continue
+                slots = rng.choices(variants, weights=weights, k=1)[0]
             forced = (self._hard_role_bindings(
                 evidence, plots, slots, witnesses, rng)
                 if condition_hard else {})
@@ -737,9 +779,7 @@ class FactorizedBeliefState:
         return world.main_plot, world.subplots, world.roles
 
     def _enumerate_roles(self, evidence: PublicEvidence) -> None:
-        for main, subplots in self.sampler._plot_sets(evidence):
-            slots = self.sampler._role_slots(evidence.module,
-                                            (main, *subplots))
+        for main, subplots, slots in self.sampler._plot_slot_sets(evidence):
             bag = list(slots.elements())
             characters = tuple(cid for cid in evidence.characters
                                if cid != "irregular")
@@ -1036,7 +1076,7 @@ class FactorizedBeliefState:
 
         ranked: list[tuple[HiddenWorldHypothesis, float]] = []
         compatible_count = 0
-        plot_sets = 0
+        plot_sets = set()
         known_roles = dict(evidence.known_roles)
         known_role_sets: dict[str, set[str]] = {}
         excluded_roles: dict[str, set[str]] = {}
@@ -1071,7 +1111,7 @@ class FactorizedBeliefState:
                 used_culprits.add(culprit)
             incident_rows.append((day, kind, kind, culprit))
         incidents = tuple(incident_rows)
-        for main, subplots in self.sampler._plot_sets(evidence):
+        for main, subplots, slots in self.sampler._plot_slot_sets(evidence):
             plots = (main, *subplots)
             if any(witness.strength == WitnessStrength.HARD
                    and witness.kind == "plot_present"
@@ -1083,7 +1123,6 @@ class FactorizedBeliefState:
                    and witness.subject in plots
                    for witness in role_witnesses):
                 continue
-            slots = self.sampler._role_slots(evidence.module, plots)
             regular = tuple(cid for cid in evidence.characters
                             if cid != "irregular")
             if sum(slots.values()) > len(regular):
@@ -1128,13 +1167,11 @@ class FactorizedBeliefState:
                 friend_gender_split=gender_split)
             if assignment_count == 0:
                 continue
-            plot_sets += 1
+            plot_sets.add((main, subplots))
             compatible_count += assignment_count * len(irregular_options)
-            unconstrained_size = (factorial(len(regular)) //
-                                  max(1, factorial(len(regular) -
-                                                   sum(slots.values()))))
-            for amount in slots.values():
-                unconstrained_size //= factorial(amount)
+            unconstrained_size = sum(self.sampler._slot_assignment_size(len(regular), variant)
+                                     for variant in self.sampler._role_slot_variants(
+                                         evidence.module, plots))
             unconstrained_size *= len(irregular_options)
 
             from .witness_rules.role_routes import HARD_ROLE_ROUTES
@@ -1213,7 +1250,7 @@ class FactorizedBeliefState:
                               pair[0].main_plot, pair[0].subplots),
             reverse=True)
         return ExactRoleMapResult(tuple(ordered[:max(1, top)]),
-                                  compatible_count, plot_sets)
+                                  compatible_count, len(plot_sets))
 
     def sample(self, evidence: PublicEvidence, witnesses: Sequence[Any],
                count: int, *, rng: random.Random) -> FactorizedBeliefResult:

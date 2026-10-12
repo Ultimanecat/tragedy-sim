@@ -98,14 +98,11 @@ def plot_role_variants(evidence: PublicEvidence, domains: Mapping[str, set[str]]
         plots = (main, *subplots)
         if not required.issubset(plots) or excluded.intersection(plots):
             continue
-        slots = ConstraintBeliefSampler._role_slots(evidence.module, plots)
         irregular = (ConstraintBeliefSampler._irregular_roles(evidence.module, plots)
                      if "irregular" in domains else (None,))
-        # Hideous permits 0–2 optional Curmudgeons, outside normal slots.
-        for extra_amount, irregular_role in product(range(3) if "hideous" in plots else (0,), irregular):
+        for slots, irregular_role in product(
+                ConstraintBeliefSampler._role_slot_variants(evidence.module, plots), irregular):
             bag = slots.copy()
-            if extra_amount:
-                bag["curmudgeon"] += extra_amount
             if sum(bag.values()) > len(regular):
                 continue
             bag["ordinary"] += len(regular) - sum(bag.values())
