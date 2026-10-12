@@ -1,12 +1,13 @@
 """Offline causal audit preserves timing and information boundaries."""
 from copy import deepcopy
 import json
+import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from benchmarks.ai_causal_audit import audit_row, causal_evidence, compare_root, main
+from benchmarks.ai_causal_audit import audit_row, causal_evidence, compare_root, compare_budget_root, main
 from tragedy_sim import Game
 from tragedy_sim.belief import HiddenWorldHypothesis
 from tragedy_sim.scenario_library import ScenarioLibrary
@@ -14,6 +15,16 @@ from tests.test_particle_ensemble import protagonist_position
 
 
 class CausalAuditTests(unittest.TestCase):
+    def test_budget_probe_cli_requires_two_positive_deadlines(self):
+        for values in ((10,), (10, 0)):
+            args = ["audit", "unused.json", "--output", "unused-output.json"]
+            for value in values:
+                args.extend(("--budget-probe-ms", str(value)))
+            with (patch("sys.argv", args), patch("sys.stderr", io.StringIO()),
+                  self.assertRaises(SystemExit) as error):
+                main()
+            self.assertEqual(error.exception.code, 2)
+
     def test_explicit_days_and_loops_select_non_suicide_roots(self):
         from tragedy_sim.replay import dumps
         game = Game({"id": "audit-forced-loss", "title": "audit", "module": "FS",
@@ -55,16 +66,19 @@ class CausalAuditTests(unittest.TestCase):
                 {"scenario": "a", "strategy": "joint"}]}), encoding="utf-8")
             with (patch("sys.argv", ["audit", str(source), "--output", str(output),
                                      "--scenario", "a", "--strategy", "strategic",
-                                     "--probe-day", "2", "--probe-loop", "3"]),
+                                     "--probe-day", "2", "--probe-loop", "3",
+                                     "--budget-probe-ms", "100", "--budget-probe-ms", "1000"]),
                   patch("benchmarks.ai_causal_audit.audit_row",
                         return_value={"losses": []}) as mocked, patch("builtins.print")):
                 main()
             self.assertEqual(mocked.call_count, 1)
             self.assertEqual(mocked.call_args.kwargs["probe_days"], [2])
             self.assertEqual(mocked.call_args.kwargs["probe_loops"], [3])
+            self.assertEqual(mocked.call_args.kwargs["budget_limits"], [100, 1000])
             saved = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(saved["progress"], {"completed": 1, "planned": 1, "complete": True})
             self.assertEqual(len(saved["input_sha256"]), 64)
+            self.assertEqual(saved["settings"]["budget_probe_ms"], [100, 1000])
 
     def test_cli_does_not_label_partial_work_complete(self):
         with TemporaryDirectory() as folder:
@@ -140,6 +154,25 @@ class CausalAuditTests(unittest.TestCase):
         self.assertTrue(all(item["card"] is None for view in fair_inputs
                             for item in view["pending"] if item["actor"] == "m"))
         self.assertEqual({row["horizon"] for row in result["comparisons"]}, {"day", "loop"})
+
+    def test_budget_probe_verifies_common_worlds_and_keeps_game_private(self):
+        game = protagonist_position()
+        before = deepcopy(game.view("m"))
+        fair_inputs = []
+        from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
+        original = ParticleEnsembleProtagonistAgent.choose_action
+        def observe(self, *, participant, view, offers):
+            fair_inputs.append(deepcopy(view))
+            return original(self, participant=participant, view=view, offers=offers)
+        with patch.object(ParticleEnsembleProtagonistAgent, "choose_action", observe):
+            result = compare_budget_root(game, limits=(10, 1000), nodes=2, worlds=2)
+        self.assertEqual(game.view("m"), before)
+        self.assertTrue(result["shared_world_batch"])
+        self.assertTrue(result["shared_opponent_policies"])
+        self.assertEqual([row["time_limit_ms"] for row in result["results"]], [10, 1000])
+        self.assertTrue(all(row["legal"] for row in result["results"]))
+        self.assertTrue(all("secret" not in view and all(item["card"] is None
+                            for item in view["pending"] if item["actor"] == "m") for view in fair_inputs))
 
 
 if __name__ == "__main__":

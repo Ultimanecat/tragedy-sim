@@ -97,6 +97,11 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertEqual(agent._location_guard_bonus(guarded, view), 0.08)
         self.assertEqual(agent._location_guard_bonus(wrong_board, view), 0.0)
         self.assertEqual(agent._location_guard_bonus(unguarded, view), 0.0)
+        doubled = (*guarded, {"card": "fi", "target": "student"})
+        self.assertEqual(agent._location_guard_bonus(doubled, view), 0.0)
+        partial = {**view, "pending": [*view["pending"],
+                                      {"actor": "a", "card": "fi", "target": "student"}]}
+        self.assertEqual(agent._location_guard_bonus(guarded, partial), 0.0)
 
     def test_board_shaping_cannot_override_a_better_risk_tail(self):
         key_guard = (1.0, 0.64, 1.0, 0.60, 0.59, "key")
@@ -120,6 +125,33 @@ class ParticleEnsembleTests(unittest.TestCase):
         rows = agent.last_trace.root_actions
         self.assertTrue(any(row["location_guard_bonus"] > 0 for row in rows))
         self.assertTrue(all(row["tail_value"] == 0.5 for row in rows))
+        self.assertTrue(all(sum(item["card"] == "fi" for item in row["bundle"]) <= 1
+                            for row in rows))
+
+    def test_slow_evidence_does_not_consume_action_search_deadline(self):
+        game = protagonist_position()
+        view = game.protagonist_team_view()
+        offers = [_policy_offer(game, action) for action in game.action_offers(game.controller)]
+        traces = []
+        for delay in (0.0, 2.0):
+            agent = ParticleEnsembleProtagonistAgent(
+                SearchBudget(node_limit=8, time_limit_ms=1000, seed=3),
+                particle_count=4, rng_seed=3)
+            clock = [0.0]
+            update = agent.evidence_ledger.update
+            def delayed_update(*args, **kwargs):
+                result = update(*args, **kwargs)
+                clock[0] += delay
+                return result
+            with (patch("tragedy_sim.particle_ensemble.perf_counter", side_effect=lambda: clock[0]),
+                  patch.object(agent.evidence_ledger, "update", side_effect=delayed_update)):
+                agent.choose_action(participant="team", view=view, offers=offers)
+            traces.append(agent.last_trace)
+        self.assertEqual(traces[0].selected_action_id, traces[1].selected_action_id)
+        self.assertEqual(traces[0].root_actions, traces[1].root_actions)
+        self.assertEqual(traces[0].iterations, 8)
+        self.assertEqual(traces[1].evidence_elapsed_ms, 2000.0)
+        self.assertEqual(traces[1].search_elapsed_ms, 0.0)
 
     def test_incident_guard_uses_only_hard_public_culprit_and_threshold(self):
         view = Game(ScenarioLibrary().get(

@@ -23,6 +23,17 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_partial_oracle_proposals_do_not_duplicate_an_existing_intrigue_forbid(self):
+        game = protagonist_position()
+        game = game.search_transition({"actor": game.controller, "action": "play",
+                                       "card": "fi", "target": "school"})
+        agent = FullCardOracleProtagonistAgent()
+        view = game.protagonist_team_view()
+        for index in range(24):
+            bundle = agent._bundle(game, view, index)
+            self.assertEqual(len(bundle), 2)
+            self.assertFalse(any(item["card"] == "fi" for item in bundle))
+
     def test_hospital_rollout_uses_rumor_and_conspiracy_before_incident(self):
         from tragedy_sim.effects.movement import move
         game = Game(ScenarioLibrary().get("official-tragic-aiplay-btx-01g"))

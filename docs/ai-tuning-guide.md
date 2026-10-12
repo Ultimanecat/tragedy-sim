@@ -26,6 +26,8 @@ AI 只能选择引擎提供的合法行动，并在 `Game` 副本上调用同一
 
 证据维护不占 `SearchBudget.node_limit` 或 rollout 深度，但消耗墙钟；行动搜索不得因为 witness 更多而自动减少节点。Trace 至少分别记录：
 
+公平粒子主线的行动截止时间从证据／世界准备结束后开始，准备耗时也不占行动墙钟预算。端到端响应仍包含这部分时间；跨算法排名应同时报告行动与总响应，不能将相同 `time_limit_ms` 自动称为相同总用时。参见 [预算边界审计](action-budget-audit.md)。
+
 - witness 编译与重采样耗时；
 - 身份、事件当事人、暗牌三个维度的候选数；
 - 三牌候选数、世界×对手策略模拟次数；
@@ -67,7 +69,7 @@ python -m benchmarks.ai_self_play `
 - `--strategy`：黑方 `random/fixed/naive/optimized/strategic/joint`；
 - `--protagonists`：红方基线、Oracle、ISMCTS 或 `particle_ensemble`；
 - `--protagonist-horizon day|loop`：公平粒子版默认用 `day`，`loop` 仅作实验消融；
-- `--time-limit-ms`、`--protagonist-time-limit-ms`：真正的每决策墙钟比较；
+- `--time-limit-ms`、`--protagonist-time-limit-ms`：每次搜索的软墙钟截止；公平粒子红方的证据／世界准备独立计时，等端到端比较还须记录总响应；
 - `--disable-joint-witness`：关闭局部跨维 witness 做消融；
 - `--mastermind-policy-samples`：每个可能世界测试的黑方路线数；
 - `--information-reward-weight`：微量信息价值开关，设为 0 可做干净消融；

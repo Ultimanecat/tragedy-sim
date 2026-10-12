@@ -195,6 +195,7 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
         result: list[dict[str, Any]] = []
         families = ("fi", "fm", "p-1", "h", "v", "d", "g1", "g2", "p1")
         scripted: dict[int, tuple[str, str]] = {}
+        forbid_already_placed = any(item.get("card") == "fi" for item in view.get("pending", ()))
         plot_board = self._plot_board(root.scenario, view)
         cultists = [cid for cid, role in root.scenario["cast"].items()
                     if role == "cultist" and cid in view.get("characters", {})
@@ -268,8 +269,8 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                        and (action.get("target") not in view.get("locations", {})
                             or action.get("card") == "fi")
                        and not (action.get("card") == "fi"
-                                and any(previous["card"] == "fi"
-                                        for previous in result))]
+                                and (forbid_already_placed or any(previous["card"] == "fi"
+                                        for previous in result)))]
             if not actions:
                 break
             ranked = sorted(actions, key=lambda action: (

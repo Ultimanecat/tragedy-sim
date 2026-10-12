@@ -58,4 +58,16 @@ python -m benchmarks.ai_causal_audit references/ai-calibration/2026-10-12/import
 
 每个根增加完整硬 witness、身份硬域、剧情候选和授权私密知识。`known_roles` 为空时，矩阵仍可能已排除所有其他身份；应同时检查这些字段。开发真值只用于推断完成后的兼容性审计。
 
+## 同根行动预算对照
+
+重复 `--budget-probe-ms` 至少两次，只比较公平日末规划器：
+
+```powershell
+python -m benchmarks.ai_causal_audit references/ai-calibration/2026-10-12/hospital-route-holdout-seed1.json --strategy joint --probe-loop 3 --probe-day 3 --probe-day 4 --budget-probe-ms 1000 --budget-probe-ms 5000 --nodes 32 --worlds 12 --output references/ai-calibration/2026-10-12/action-budget-single-forbid-probe-32.json
+```
+
+`budget_probe` 保存预算、端到端／证据／搜索时间、采样世界及对手路线指纹、决策和 Trace。`shared_world_batch`／`shared_opponent_policies` 均须为 true 才能作为固定世界／固定模型对照；指纹仅描述采样假设。不同预算下候选生成可能不同，记录实际评估行数，不假称候选池必然相同。
+
+真实世界当日结局在公平决策完成后用相同动态黑方定式评价，仅用于开发诊断。它不等于原 MCTS 黑方实际回应，也不等于完整轮回或对弈胜率。行动预算自证据／世界准备结束后计时，端到端响应会额外包含证据耗时。
+
 失败命令可能自动进入下一轮或最终猜测。`loss_events` 保存实际失败事件的轮回、日期、时间点；不要用命令执行后的观察位置替代失败时间。报告保存输入 SHA256、源码指纹、筛选配置及原子更新的 `progress`，仅 `complete: true` 可作完整配对。具体失败分析见 [FS／BTX 失败审计](fs-btx-failure-audit.md)。

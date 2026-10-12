@@ -105,9 +105,12 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             str(item["target"]) for item in view.get("pending", ())
             if item.get("actor") == "m" and item.get("target") in boards
         }
+        placements = (*view.get("pending", ()), *bundle)
+        if sum(item.get("card") == "fi" for item in placements) != 1:
+            return 0.0  # Multiple intrigue forbids all cancel each other.
         return (0.08 if any(item.get("card") == "fi"
                             and item.get("target") in threatened
-                            for item in bundle) else 0.0)
+                            for item in placements) else 0.0)
 
     @staticmethod
     def _incident_guard_targets(view: Mapping[str, Any],
@@ -353,8 +356,6 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             self._joint_plan = []
 
         started = perf_counter()
-        deadline = (None if self.budget.time_limit_ms is None else
-                    started + self.budget.time_limit_ms / 1000)
         evidence = PublicEvidence.from_view(view)
         witnesses = self.evidence_ledger.update(view, self.compiler)
         traveler_candidates = self._time_traveler_candidates(witnesses)
@@ -384,14 +385,19 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                      if item.get("actor") == "m"],
             cards=[card for card in worlds[0]._deck("m")
                    if card not in discarded])
-        evidence_ms = (perf_counter() - started) * 1000
+        search_started = perf_counter()
+        evidence_ms = (search_started - started) * 1000
+        # Evidence maintenance/world construction is accounted separately.
+        # Give proposals and their evaluation the full action-search budget.
+        deadline = (None if self.budget.time_limit_ms is None else
+                    search_started + self.budget.time_limit_ms / 1000)
 
         # The proposal phase may inspect each *sampled* script, but never the
         # true game. All resulting bundles face the same world batch below.
         proposals: dict[str, tuple[dict[str, Any], ...]] = {}
         limit = self.budget.node_limit
         proposal_deadline = (None if deadline is None else
-                             started + 0.25 * self.budget.time_limit_ms / 1000)
+                             search_started + 0.25 * self.budget.time_limit_ms / 1000)
         index_order = (0, 1, 10, 2, 11, 3, 12, 4, 13, 5, 14, 6,
                        15, 7, 16, 8, 17, 9, 18, 19, 20, 21, 22, 23)
         for round_index in range(max(12, limit)):
@@ -424,11 +430,15 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         guard_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
         for target in board_targets:
             for base in bases:
-                for slot in range(len(base)):
+                slots = sorted(range(len(base)), key=lambda slot: base[slot].get("card") != "fi")
+                for slot in slots:
                     anchored = [dict(item) for item in base]
                     anchored[slot] = {**anchored[slot], "card": "fi",
                                       "target": target}
                     bundle = tuple(anchored)
+                    if sum(item.get("card") == "fi" for item in
+                           (*view.get("pending", ()), *bundle)) != 1:
+                        continue
                     if (_key(bundle[0]) not in offers_by_key
                             or self._apply_bundle(worlds[0], bundle) is None):
                         continue

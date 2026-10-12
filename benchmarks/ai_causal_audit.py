@@ -123,8 +123,59 @@ def compare_root(game, *, seed=2, nodes=8, worlds=12, time_limit_ms=1000,
             "continuation": "same public red rollout and dynamic fixed black routes"}
 
 
+def compare_budget_root(game, *, limits, seed=2, nodes=8, worlds=12):
+    """Vary only the fair action deadline; verify sampled worlds/routes match.
+
+    Fingerprints describe sampled hypotheses, never truth supplied to the
+    planner. Actual-world outcomes are evaluated only after its decisions.
+    """
+    class MeasuredPlanner(ParticleEnsembleProtagonistAgent):
+        def _counts(self, sampled_worlds, evidence):
+            material = [self.oracle._policy_state_key(world) for world in sampled_worlds]
+            self.world_digest = hashlib.sha256(json.dumps(material).encode()).hexdigest()
+            policies = [self._mastermind_strategies(world) for world in sampled_worlds]
+            self.policy_digest = hashlib.sha256(json.dumps(policies).encode()).hexdigest()
+            return super()._counts(sampled_worlds, evidence)
+
+    view = game.protagonist_team_view()
+    offers = [_policy_offer(game, action) for action in game.action_offers(game.controller)]
+    position = (game.state.loop, game.state.round)
+    evaluation = OracleProtagonistAgent(reveal_cards=True, rng_seed=seed,
+                                       script_aware_rollout=False)
+    results = []
+    for limit in limits:
+        budget = SearchBudget(node_limit=nodes, rollout_depth=8,
+                              time_limit_ms=limit, seed=seed)
+        policy = MeasuredPlanner(budget, particle_count=worlds, rng_seed=seed)
+        started = perf_counter()
+        chosen = policy.choose_action(participant="team", view=view, offers=offers)
+        elapsed_ms = (perf_counter() - started) * 1000
+        bundle = (_command(chosen), *policy.remaining_card_commands())
+        successor = policy._apply_bundle(game, bundle)
+        outcomes = []
+        if successor is not None:
+            for strategy in evaluation._mastermind_strategy_options(game):
+                value, survived = evaluation._day_score(
+                    successor, *position, mastermind_strategy=strategy)
+                outcomes.append({"strategy": strategy, "score": value,
+                                 "survived_day": survived})
+        results.append({"time_limit_ms": limit, "elapsed_ms": elapsed_ms,
+                        "world_batch_sha256": getattr(policy, "world_digest", None),
+                        "opponent_policies_sha256": getattr(policy, "policy_digest", None),
+                        "bundle": bundle, "legal": successor is not None,
+                        "trace": asdict(policy.last_trace),
+                        "true_world_day_outcomes": outcomes})
+    return {"loop": position[0], "day": position[1], "results": results,
+            "shared_world_batch": all(row["world_batch_sha256"] is not None for row in results)
+                and len({row["world_batch_sha256"] for row in results}) == 1,
+            "shared_opponent_policies": all(row["opponent_policies_sha256"] is not None for row in results)
+                and len({row["opponent_policies_sha256"] for row in results}) == 1,
+            "nodes": nodes, "worlds": worlds, "fresh_belief_reservoir": True}
+
+
 def audit_row(row, *, compare=False, nodes=8, worlds=12, time_limit_ms=1000,
-              belief_log=False, probe_days=None, probe_loops=None, all_days=False):
+              belief_log=False, probe_days=None, probe_loops=None, all_days=False,
+              budget_limits=()):
     archive = ReplayArchive.parse(row["replay_text"])
     game = Game(archive.scenario)
     if game.module not in {"FS", "BTX"}:
@@ -171,6 +222,10 @@ def audit_row(row, *, compare=False, nodes=8, worlds=12, time_limit_ms=1000,
                     root["counterfactual"] = compare_root(
                         game, seed=row.get("seed", 2), nodes=nodes, worlds=worlds,
                         time_limit_ms=time_limit_ms, recorded_bundle=recorded)
+                if budget_limits:
+                    root["budget_probe"] = compare_budget_root(
+                        game, limits=budget_limits, seed=row.get("seed", 2),
+                        nodes=nodes, worlds=worlds)
                 roots.append(root)
         cursor = len(game.state.events)
         game.dispatch(command["actor"], command["action"],
@@ -210,9 +265,14 @@ def main():
     parser.add_argument("--nodes", type=int, default=8)
     parser.add_argument("--worlds", type=int, default=12)
     parser.add_argument("--time-limit-ms", type=int, default=1000)
+    parser.add_argument("--budget-probe-ms", action="append", type=int, default=[],
+                        help="compare fair action deadlines at each selected root (repeat at least twice)")
     args = parser.parse_args()
     if min(args.nodes, args.worlds, args.time_limit_ms) < 1:
         parser.error("budgets must be positive")
+    if args.budget_probe_ms and (len(args.budget_probe_ms) < 2
+                                 or min(args.budget_probe_ms) < 1):
+        parser.error("budget probes require at least two positive deadlines")
     if any(value < 1 for value in (*(args.probe_day or ()), *(args.probe_loop or ()))):
         parser.error("probe days and loops must be positive")
     if args.all_days and args.probe_day:
@@ -231,7 +291,8 @@ def main():
                            "time_limit_ms": args.time_limit_ms,
                            "scenario": args.scenario, "strategy": args.strategy,
                            "probe_days": args.probe_day, "probe_loops": args.probe_loop,
-                           "all_days": args.all_days, "compare_roots": args.compare_roots},
+                           "all_days": args.all_days, "compare_roots": args.compare_roots,
+                           "budget_probe_ms": args.budget_probe_ms},
               "progress": {"completed": 0, "planned": len(selected), "complete": False},
               "results": []}
     write_report(args.output, report)
@@ -239,7 +300,8 @@ def main():
         report["results"].append(audit_row(
             row, compare=args.compare_roots, nodes=args.nodes, worlds=args.worlds,
             time_limit_ms=args.time_limit_ms, belief_log=args.belief_log is not None,
-            probe_days=args.probe_day, probe_loops=args.probe_loop, all_days=args.all_days))
+            probe_days=args.probe_day, probe_loops=args.probe_loop, all_days=args.all_days,
+            budget_limits=args.budget_probe_ms))
         report["progress"] = {"completed": len(report["results"]), "planned": len(selected),
                               "complete": len(report["results"]) == len(selected)}
         write_report(args.output, report)
