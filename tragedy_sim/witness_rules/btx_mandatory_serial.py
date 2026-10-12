@@ -34,7 +34,18 @@ def compile_mandatory_serial_absence(
     return _compile_serial_windows(view, absence=True)
 
 
-def _compile_serial_windows(view: Mapping[str, Any], *, absence: bool
+def compile_terminal_mandatory_serial_routes(
+        view: Mapping[str, Any]) -> list[PublicWitness]:
+    """An immediate mandatory death can abort before the completion marker.
+
+    Require explicit public phase provenance. Journals without it remain
+    ambiguous; optional deaths in a decision phase are not attributed here.
+    """
+    return _compile_serial_windows(view, absence=False, terminal=True)
+
+
+def _compile_serial_windows(view: Mapping[str, Any], *, absence: bool,
+                            terminal: bool = False
                             ) -> list[PublicWitness]:
     if view.get("module") != "BTX":
         return []
@@ -50,6 +61,7 @@ def _compile_serial_windows(view: Mapping[str, Any], *, absence: bool
     active_loop: int | None = None
     window: tuple[int, int, dict[str, str | None], set[str], set[str]] | None = None
     outcomes: list[str] = []
+    mandatory_outcomes = True
     replacement = False
     result: list[PublicWitness] = []
     for event in view.get("events", ()):
@@ -71,6 +83,7 @@ def _compile_serial_windows(view: Mapping[str, Any], *, absence: bool
             window = ((active_loop, day, dict(positions), set(alive),
                        set(reached)) if isinstance(day, int) else None)
             outcomes = []
+            mandatory_outcomes = True
             replacement = False
             continue
         if kind in {"character_moved", "character_replaced",
@@ -87,10 +100,12 @@ def _compile_serial_windows(view: Mapping[str, Any], *, absence: bool
                 alive.discard(target)
                 if window is not None:
                     outcomes.append(target)
+                    mandatory_outcomes &= event.get("phase") == "day_end"
         elif kind in {"guard_spent", "death_prevented"}:
             target = event.get("target")
             if window is not None and isinstance(target, str):
                 outcomes.append(target)
+                mandatory_outcomes &= event.get("phase") == "day_end"
         elif kind == "death_replaced" and window is not None:
             replacement = True
         elif kind == "revived":
@@ -110,7 +125,13 @@ def _compile_serial_windows(view: Mapping[str, Any], *, absence: bool
                     and any(isinstance(value, int) and value >= 3
                             for value in values)):
                 reached.add(target)
-        if kind != "mandatory_window_resolved" or window is None:
+        if terminal and kind == "mandatory_window_resolved":
+            window = None
+            continue
+        closes = (kind == "loop_lost" and event.get("phase") == "day_end"
+                  and outcomes and mandatory_outcomes) if terminal else (
+                      kind == "mandatory_window_resolved")
+        if not closes or window is None:
             continue
         loop, day, snapshot, living, virus_reached = window
         window = None
@@ -154,5 +175,7 @@ def _compile_serial_windows(view: Mapping[str, Any], *, absence: bool
                                             if cid in virus_reached
                                             or (cid == "part_timer" and
                                                 "part_timer_question" in virus_reached)),
-                }, loop, day, "day_end", "public_btx_mandatory_serial_route"))
+                }, loop, day, "day_end", (
+                    "public_btx_terminal_mandatory_serial_route" if terminal
+                    else "public_btx_mandatory_serial_route")))
     return result

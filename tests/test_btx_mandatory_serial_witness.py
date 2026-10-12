@@ -15,6 +15,7 @@ from tragedy_sim.witness import FsbtxWitnessCompiler, FsbtxWitnessMatcher
 
 SOURCE = "public_btx_mandatory_serial_route"
 ABSENCE_SOURCE = "public_btx_mandatory_serial_absence"
+TERMINAL_SOURCE = "public_btx_terminal_mandatory_serial_route"
 
 
 def scenario(*, virus=False):
@@ -30,6 +31,71 @@ def scenario(*, virus=False):
 
 
 class BtxMandatorySerialWitnessTests(unittest.TestCase):
+    @staticmethod
+    def terminal_view(*, virus=False):
+        setup = ScenarioLibrary().get("official-tragic-aiplay-btx-01g")
+        if virus:
+            setup["subplots"] = ["virus", "rumor"]
+            setup["cast"]["student"] = "ordinary"
+            setup["cast"]["maiden"] = "ordinary"
+        game = Game(setup)
+        move(game, {"target": "student", "location": "city"})
+        if virus:
+            game._change("student", "paranoia", 3)
+        game._begin_night()
+        return game, game.protagonist_team_view()
+
+    def test_terminal_mandatory_death_keeps_serial_evidence_without_marker(self):
+        from tragedy_sim.belief_matrix import BeliefMatrixProjection, HardStatus
+        game, view = self.terminal_view()
+        self.assertFalse(any(e["kind"] == "mandatory_window_resolved" for e in view["events"]))
+        self.assertTrue(any(e["kind"] == "loop_lost" for e in view["events"]))
+        clues = FsbtxWitnessCompiler().compile(view)
+        routes = [w for w in clues if w.source == TERMINAL_SOURCE]
+        self.assertEqual(len(routes), 1)
+        self.assertEqual(routes[0].subject, "idol")
+        self.assertEqual(routes[0].value, {"serial": ("student",), "virus_ordinary": ()})
+        truth = HiddenWorldHypothesis.from_scenario(game.scenario)
+        self.assertTrue(FsbtxWitnessMatcher().matches(truth, clues))
+        wrong = replace(truth, roles=tuple(sorted({**dict(truth.roles), "student": "ordinary"}.items())))
+        self.assertFalse(FsbtxWitnessMatcher().matches(wrong, routes))
+        matrix = BeliefMatrixProjection.from_view(view, clues)
+        self.assertEqual(matrix.roles["student"]["serial"].hard_status, HardStatus.ALWAYS)
+        self.assertFalse(any(w.source == TERMINAL_SOURCE for w in
+                             FsbtxWitnessCompiler(disabled_sources={TERMINAL_SOURCE}).compile(view)))
+
+    def test_terminal_old_or_optional_phase_journal_is_not_attributed(self):
+        _, view = self.terminal_view()
+        for kind, phase in (("character_died", None), ("loop_lost", None),
+                            ("character_died", "decision"), ("loop_lost", "decision")):
+            altered = deepcopy(view)
+            for event in altered["events"]:
+                if event["kind"] == kind:
+                    event["phase"] = phase
+            self.assertFalse(any(w.source == TERMINAL_SOURCE for w in
+                                 FsbtxWitnessCompiler().compile(altered)))
+        altered = deepcopy(view)
+        death = next(i for i, e in enumerate(altered["events"]) if e["kind"] == "character_died")
+        altered["events"].insert(death, {"kind": "mandatory_window_resolved", "loop": 1,
+                                         "round": 1, "timing": "day_end", "phase": "day_end"})
+        self.assertFalse(any(w.source == TERMINAL_SOURCE for w in
+                             FsbtxWitnessCompiler().compile(altered)))
+
+    def test_terminal_replacement_preserves_ambiguity(self):
+        _, view = self.terminal_view()
+        death = next(i for i, e in enumerate(view["events"]) if e["kind"] == "character_died")
+        view["events"].insert(death, {"kind": "death_replaced", "loop": 1, "round": 1,
+                                      "timing": "day_end", "phase": "day_end"})
+        self.assertFalse(any(w.source == TERMINAL_SOURCE for w in
+                             FsbtxWitnessCompiler().compile(view)))
+
+    def test_terminal_virus_keeps_ordinary_alternative(self):
+        game, view = self.terminal_view(virus=True)
+        route = next(w for w in FsbtxWitnessCompiler().compile(view) if w.source == TERMINAL_SOURCE)
+        self.assertEqual(route.value["virus_ordinary"], ("student",))
+        self.assertTrue(FsbtxWitnessMatcher().matches(
+            HiddenWorldHypothesis.from_scenario(game.scenario), (route,)))
+
     def test_empty_mandatory_batch_excludes_serial_before_optional_kill(self):
         game = Game(ScenarioLibrary().get("official-btx-10-prologue"))
         move(game, {"target": "rich", "location": "shrine"})

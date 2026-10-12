@@ -14,7 +14,8 @@ from typing import Any, Callable, Mapping
 from .witness_rules.btx_immediate_death import compile_immediate_death_losses
 from .witness_rules.btx_love import compile_love_death_reactions
 from .witness_rules.btx_mandatory_serial import (
-    compile_mandatory_serial_absence, compile_mandatory_serial_routes)
+    compile_mandatory_serial_absence, compile_mandatory_serial_routes,
+    compile_terminal_mandatory_serial_routes)
 from .witness_rules.btx_threads import compile_threads_at_loop_start
 from .witness_rules.btx_time_traveler import (
     compile_death_prevention, compile_ignored_goodwill_forbids)
@@ -79,6 +80,9 @@ BTX_MANDATORY_SERIAL = _component(
 BTX_MANDATORY_SERIAL_ABSENCE = _component(
     "btx.mandatory_serial_absence", compile_mandatory_serial_absence,
     "public_btx_mandatory_serial_absence")
+BTX_TERMINAL_MANDATORY_SERIAL = _component(
+    "btx.terminal_mandatory_serial", compile_terminal_mandatory_serial_routes,
+    "public_btx_terminal_mandatory_serial_route")
 MASTERMIND_COUNTER_SOURCES = _component(
     "common.mastermind_counter_sources", compile_mastermind_counter_sources,
     "public_mastermind_intrigue_source",
@@ -200,6 +204,7 @@ RULESET_WITNESS_COMPONENTS = {
         DEATH_CLUES,
         LOOP_END_CLUES,
         BTX_MANDATORY_SERIAL_ABSENCE,
+        BTX_TERMINAL_MANDATORY_SERIAL,
     ),
 }
 
