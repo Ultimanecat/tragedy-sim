@@ -65,6 +65,33 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         return row[0], row[2], row[1], row[3], row[4]
 
     @staticmethod
+    def _prioritize_proposals(proposals: Mapping[str, Any],
+                              priorities: Mapping[str, Any],
+                              limit: int) -> dict[str, Any]:
+        """Reserved candidates must run before a wall-clock cutoff."""
+        selected = dict(list(priorities.items())[:limit])
+        for signature, bundle in proposals.items():
+            if len(selected) >= limit:
+                break
+            selected.setdefault(signature, bundle)
+        return selected
+
+    @staticmethod
+    def _incident_anchor_order(bases: Sequence[Sequence[Mapping[str, Any]]]
+                               ) -> list[tuple[Sequence[Mapping[str, Any]], int]]:
+        """Keep existing board defense and movement when lowering paranoia."""
+        anchors = [(base, slot) for base in bases for slot in range(len(base))]
+        def rank(anchor: tuple[Sequence[Mapping[str, Any]], int]) -> tuple[int, int]:
+            base, slot = anchor
+            remaining = [item.get("card") for index, item in enumerate(base)
+                         if index != slot]
+            synergistic = ("fi" in remaining
+                           and any(card in {"h", "v", "d"} for card in remaining))
+            return (0 if synergistic else 1,
+                    0 if base[slot].get("card") in {"g1", "g2"} else 1)
+        return sorted(anchors, key=rank)
+
+    @staticmethod
     def _location_guard_bonus(bundle: Sequence[Mapping[str, Any]],
                               view: Mapping[str, Any]) -> float:
         """Reward covering a publicly targeted board without reading its face.
@@ -96,6 +123,13 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                                    if witness.strength == WitnessStrength.HARD
                                    and witness.kind == "culprit_is"
                                    and witness.subject == str(day))
+        from .belief_culprit_constraints import culprit_domains
+        inferred = culprit_domains(evidence.characters, evidence.schedule,
+                                   dict(evidence.known_culprits), witnesses).get(day, ())
+        if len(inferred) == 1:
+            # Snapshot thresholds can identify a culprit without an explicit
+            # culprit_is event. Use the same hard domain as matrix/sampling.
+            candidates.setdefault(inferred[0], None)
         targets = []
         for cid in candidates:
             character = view.get("characters", {}).get(cid, {})
@@ -416,20 +450,17 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         # batch can otherwise omit this legal card entirely.
         incident_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
         for cid in self._incident_guard_targets(view, evidence, witnesses):
-            for base in tuple(proposals.values()):
-                for slot in range(len(base)):
-                    anchored = [dict(item) for item in base]
-                    anchored[slot] = {**anchored[slot], "card": "p-1",
-                                      "target": cid}
-                    bundle = tuple(anchored)
-                    if (_key(bundle[0]) not in offers_by_key
-                            or self._apply_bundle(worlds[0], bundle) is None):
-                        continue
-                    signature = _key(bundle)
-                    if signature not in proposals:
-                        incident_proposals[signature] = bundle
-                    break
-                if incident_proposals:
+            for base, slot in self._incident_anchor_order(tuple(proposals.values())):
+                anchored = [dict(item) for item in base]
+                anchored[slot] = {**anchored[slot], "card": "p-1", "target": cid}
+                bundle = tuple(anchored)
+                if (_key(bundle[0]) not in offers_by_key
+                        or self._apply_bundle(worlds[0], bundle) is None):
+                    continue
+                signature = _key(bundle)
+                if signature not in proposals:
+                    incident_proposals.setdefault(signature, bundle)
+                if len(incident_proposals) >= min(2, max(1, limit - 1)):
                     break
             if incident_proposals:
                 break
@@ -506,19 +537,14 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                     break
             if len(information_proposals) >= min(2, limit - 1):
                 break
-        if (information_proposals or screening_proposals or incident_proposals
+        if (guard_proposals or information_proposals or screening_proposals or incident_proposals
                 or escape_proposals):
             priorities = dict(guard_proposals)
             priorities.update(incident_proposals)
             priorities.update(escape_proposals)
             priorities.update(screening_proposals)
             priorities.update(information_proposals)
-            priorities = dict(list(priorities.items())[:limit])
-            retained = [item for item in proposals.items()
-                        if item[0] not in priorities][
-                            :max(0, limit - len(priorities))]
-            proposals = dict(retained)
-            proposals.update(priorities)
+            proposals = self._prioritize_proposals(proposals, priorities, limit)
         if not proposals:
             return self._fallback(participant, view, offers,
                                   "no_legal_bundle", len(witnesses))

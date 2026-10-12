@@ -4,6 +4,7 @@ import random
 import unittest
 from copy import deepcopy
 from functools import reduce
+from unittest.mock import patch
 
 from tragedy_sim import Game
 from tragedy_sim.belief import PublicEvidence
@@ -22,6 +23,65 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_cultist_and_incident_conjunction_is_in_candidate_pool(self):
+        from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
+        game = Game(ScenarioLibrary().get("community-tragic-aiplay-btx-45"))
+        while game.state.phase != "mastermind":
+            game = game.search_transition(game.search_actions(game.controller)[0])
+        for card, target in (("i2", "shrine"), ("p1b", "rich"), ("p1a", "student")):
+            game = game.search_transition({"actor": "m", "action": "play", "card": card,
+                                           "target": target})
+        endpoints = []
+        agent = FullCardOracleProtagonistAgent()
+        for index in (1, 4):
+            bundle = agent._bundle(game, game.protagonist_team_view(), index)
+            if index == 4:
+                self.assertEqual({(item["card"], item["target"]) for item in bundle},
+                                 {("fi", "shrine"), ("h", "maiden"), ("p-1", "rich")})
+            else:
+                self.assertTrue(any(item["card"] == "g1" for item in bundle))
+            successor = ParticleEnsembleProtagonistAgent._apply_bundle(game, bundle)
+            self.assertIsNotNone(successor)
+            original = agent._cutoff_value_with_events
+
+            def capture(world, start_day, events):
+                endpoints.append(world.state.locations["shrine"])
+                return original(world, start_day, events)
+
+            with patch.object(agent, "_cutoff_value_with_events", side_effect=capture):
+                agent._day_score(successor, 1, 1, mastermind_strategy="plot_intrigue")
+        self.assertEqual(endpoints, [2, 0])
+
+    def test_rollout_cultist_cancellation_and_movement_counterplay(self):
+        from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
+        game = Game(ScenarioLibrary().get("community-tragic-aiplay-btx-45"))
+        while game.state.phase != "mastermind":
+            game = game.search_transition(game.search_actions(game.controller)[0])
+        for card, target in (("i2", "shrine"), ("fg", "patient"), ("fp", "girl")):
+            game = game.search_transition({"actor": "m", "action": "play", "card": card,
+                                           "target": target})
+        before = deepcopy(game.view("m"))
+        endpoints = []
+        for move_cultist in (False, True):
+            agent = FullCardOracleProtagonistAgent()
+            bundle = (
+                {"actor": "a", "action": "play", "card": "fi", "target": "shrine"},
+                {"actor": "b", "action": "play", "card": "h" if move_cultist else "g1",
+                 "target": "maiden" if move_cultist else "student"},
+                {"actor": "c", "action": "play", "card": "g1", "target": "girl"})
+            successor = ParticleEnsembleProtagonistAgent._apply_bundle(game, bundle)
+            self.assertIsNotNone(successor)
+            original = agent._cutoff_value_with_events
+
+            def capture(world, start_day, events):
+                endpoints.append(world.state.locations["shrine"])
+                return original(world, start_day, events)
+
+            with patch.object(agent, "_cutoff_value_with_events", side_effect=capture):
+                agent._day_score(successor, 1, 1, mastermind_strategy="plot_intrigue")
+        self.assertEqual(endpoints, [2, 0])
+        self.assertEqual(game.view("m"), before)
+
     def test_both_oracles_search_remaining_cards_after_partial_submission(self):
         for placed in (1, 2):
             for agent_type in (FullCardOracleProtagonistAgent, HiddenCardOracleProtagonistAgent):

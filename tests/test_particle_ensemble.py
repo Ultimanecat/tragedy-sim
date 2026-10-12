@@ -119,6 +119,23 @@ class ParticleEnsembleTests(unittest.TestCase):
         urgent["characters"]["girl"]["paranoia"] = 3
         self.assertEqual(targets(urgent, evidence, (hard,)), ("girl",))
 
+    def test_incident_guard_reuses_unique_snapshot_domain(self):
+        view = Game(ScenarioLibrary().get("community-tragic-aiplay-btx-45")).protagonist_team_view()
+        evidence = PublicEvidence.from_view(view)
+        view["pending"] = [{"actor": "m", "target": "rich"}]
+        snapshot = {cid: {"paranoia": 0} for cid in view["characters"]}
+        snapshot["rich"]["paranoia"] = 1
+        fact = PublicWitness("incident_happened", "1",
+                             {"kind": "foul_play", "characters": snapshot},
+                             1, 1, "incident", "test", WitnessStrength.HARD)
+        targets = ParticleEnsembleProtagonistAgent._incident_guard_targets
+        self.assertEqual(targets(view, evidence, (fact,)), ("rich",))
+        soft = PublicWitness(fact.kind, fact.subject, fact.value, fact.loop,
+                             fact.day, fact.timing, fact.source, WitnessStrength.SOFT)
+        self.assertEqual(targets(view, evidence, (soft,)), ())
+        snapshot["girl"]["paranoia"] = 3
+        self.assertEqual(targets(view, evidence, (fact,)), ())
+
     def test_murder_escape_uses_public_schedule_and_hard_critical_role(self):
         view = Game(ScenarioLibrary().get(
             "official-fs-01-first-script")).protagonist_team_view()
@@ -261,6 +278,23 @@ class ParticleEnsembleTests(unittest.TestCase):
         self.assertNotEqual(
             ParticleEnsembleProtagonistAgent._sampling_hash(standard),
             ParticleEnsembleProtagonistAgent._sampling_hash(easy))
+
+    def test_reserved_defenses_are_evaluated_first_and_bounded(self):
+        prioritize = ParticleEnsembleProtagonistAgent._prioritize_proposals
+        proposals = {"base": 1, "guard": 2, "other": 3}
+        self.assertEqual(list(prioritize(proposals, {"guard": 2}, 2)),
+                         ["guard", "base"])
+        self.assertEqual(list(prioritize(proposals, {"guard": 2, "incident": 4}, 1)),
+                         ["guard"])
+        self.assertEqual(prioritize(proposals, {}, 0), {})
+
+    def test_incident_anchor_preserves_board_guard_and_movement(self):
+        plain = ({"card": "fi"}, {"card": "fm"}, {"card": "g1"})
+        combined = ({"card": "fi"}, {"card": "h"}, {"card": "g1"})
+        anchors = ParticleEnsembleProtagonistAgent._incident_anchor_order(
+            (plain, combined))
+        self.assertEqual(anchors[0], (combined, 2))
+        self.assertEqual(len(anchors), 6)
 
     def test_public_view_yields_legal_three_card_plan_and_posteriors(self):
         game = protagonist_position()

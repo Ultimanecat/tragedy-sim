@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict
+import hashlib
 import json
 from pathlib import Path
 from time import perf_counter
@@ -14,6 +15,7 @@ from time import perf_counter
 from tragedy_sim import Game
 from tragedy_sim.belief import FactorizedBeliefState, HiddenWorldHypothesis, PublicEvidence
 from tragedy_sim.belief_audit import BeliefAuditTrail
+from tragedy_sim.belief_matrix import BeliefMatrixProjection, HardStatus
 from tragedy_sim.ismcts import _command
 from tragedy_sim.oracle_protagonist import OracleProtagonistAgent
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
@@ -37,9 +39,16 @@ def causal_evidence(view, truth=None):
     witnesses = FsbtxWitnessCompiler().compile(view)
     evidence = PublicEvidence.from_view(view)
     matcher = FsbtxWitnessMatcher()
+    projection = BeliefMatrixProjection.from_view(view, witnesses)
     return {
         "loop": view["loop"], "day": view["round"], "phase": view["phase"],
         "known_roles": view.get("known_roles", {}),
+        "private_roles": view.get("protagonist_knowledge", {}).get("roles", {}),
+        "hard_role_domains": {cid: [role for role, cell in column.items()
+                                   if cell.hard_status != HardStatus.NEVER]
+                              for cid, column in projection.roles.items()},
+        "plot_candidates": projection.plot_candidates,
+        "hard_witnesses": [asdict(w) for w in witnesses if w.strength == "hard"],
         "culprit_options": FactorizedBeliefState()._culprits(evidence, witnesses),
         "causal_witnesses": [asdict(w) for w in witnesses
                              if w.source in CAUSAL_SOURCES],
@@ -115,7 +124,7 @@ def compare_root(game, *, seed=2, nodes=8, worlds=12, time_limit_ms=1000,
 
 
 def audit_row(row, *, compare=False, nodes=8, worlds=12, time_limit_ms=1000,
-              belief_log=False):
+              belief_log=False, probe_days=None, probe_loops=None, all_days=False):
     archive = ReplayArchive.parse(row["replay_text"])
     game = Game(archive.scenario)
     if game.module not in {"FS", "BTX"}:
@@ -128,7 +137,9 @@ def audit_row(row, *, compare=False, nodes=8, worlds=12, time_limit_ms=1000,
     truth = HiddenWorldHypothesis.from_scenario(archive.scenario)
     suicide_days = {item["day"] for item in archive.scenario["incidents"]
                     if item["kind"] == "suicide"}
-    probe_days = suicide_days | {day - 1 for day in suicide_days if day > 1}
+    selected_days = (set(probe_days) if probe_days is not None else
+                     suicide_days | {day - 1 for day in suicide_days if day > 1})
+    selected_loops = None if probe_loops is None else set(probe_loops)
     searches = {(item["loop"], item["day"]): item
                 for item in row.get("protagonist_searches", ())}
     losses, roots = [], []
@@ -148,7 +159,8 @@ def audit_row(row, *, compare=False, nodes=8, worlds=12, time_limit_ms=1000,
                                      witnesses=ledger.witnesses,
                                      dark_counts=sample.get("belief_dark_cards", ()),
                                      placement_tendencies=sample.get("placement_tendencies", ()))
-            if game.state.round in probe_days:
+            if ((all_days or game.state.round in selected_days)
+                    and (selected_loops is None or game.state.loop in selected_loops)):
                 root = {"command_number": number,
                         "evidence": causal_evidence(game.protagonist_team_view(), truth),
                         "public_board": {"characters": game.protagonist_team_view()["characters"],
@@ -168,6 +180,10 @@ def audit_row(row, *, compare=False, nodes=8, worlds=12, time_limit_ms=1000,
             ledger.update(game.protagonist_team_view(), compiler)
         if any(event.get("kind") == "loop_lost" for event in game.state.events[cursor:]):
             losses.append({"command_number": number,
+                           # A command may already reset the day/start another
+                           # loop. Preserve the actual loss event's timepoint.
+                           "loss_events": [dict(event) for event in game.state.events[cursor:]
+                                           if event.get("kind") == "loop_lost"],
                            "evidence": causal_evidence(game.protagonist_team_view(), truth),
                            "event_tail": game.state.events[max(0, cursor - 6):]})
     return {"scenario": row.get("scenario", archive.scenario["id"]),
@@ -185,23 +201,47 @@ def main():
     parser.add_argument("--belief-log", type=Path,
                         help="save developer-only Chinese evidence changes and sampled roles")
     parser.add_argument("--strategy", choices=("strategic", "joint"))
+    parser.add_argument("--scenario", action="append", help="restrict report rows by scenario ID")
+    parser.add_argument("--probe-day", action="append", type=int,
+                        help="explicit root days; default: suicide day and preceding day")
+    parser.add_argument("--probe-loop", action="append", type=int,
+                        help="restrict selected roots to these loops")
+    parser.add_argument("--all-days", action="store_true", help="select every daily placement root")
     parser.add_argument("--nodes", type=int, default=8)
     parser.add_argument("--worlds", type=int, default=12)
     parser.add_argument("--time-limit-ms", type=int, default=1000)
     args = parser.parse_args()
     if min(args.nodes, args.worlds, args.time_limit_ms) < 1:
         parser.error("budgets must be positive")
-    source = json.loads(args.report.read_text(encoding="utf-8"))
+    if any(value < 1 for value in (*(args.probe_day or ()), *(args.probe_loop or ()))):
+        parser.error("probe days and loops must be positive")
+    if args.all_days and args.probe_day:
+        parser.error("choose --all-days or --probe-day")
+    raw = args.report.read_bytes()
+    source = json.loads(raw)
+    selected = [row for row in source["results"]
+                if (not args.strategy or row["strategy"] == args.strategy)
+                and (not args.scenario or row["scenario"] in args.scenario)]
+    if not selected:
+        parser.error("no report rows match the selectors")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     report = {"sources": source_digest(), "input": str(args.report),
+              "input_sha256": hashlib.sha256(raw).hexdigest(),
               "settings": {"nodes": args.nodes, "worlds": args.worlds,
-                           "time_limit_ms": args.time_limit_ms}, "results": []}
-    for row in source["results"]:
-        if args.strategy and row["strategy"] != args.strategy:
-            continue
+                           "time_limit_ms": args.time_limit_ms,
+                           "scenario": args.scenario, "strategy": args.strategy,
+                           "probe_days": args.probe_day, "probe_loops": args.probe_loop,
+                           "all_days": args.all_days, "compare_roots": args.compare_roots},
+              "progress": {"completed": 0, "planned": len(selected), "complete": False},
+              "results": []}
+    write_report(args.output, report)
+    for row in selected:
         report["results"].append(audit_row(
             row, compare=args.compare_roots, nodes=args.nodes, worlds=args.worlds,
-            time_limit_ms=args.time_limit_ms, belief_log=args.belief_log is not None))
+            time_limit_ms=args.time_limit_ms, belief_log=args.belief_log is not None,
+            probe_days=args.probe_day, probe_loops=args.probe_loop, all_days=args.all_days))
+        report["progress"] = {"completed": len(report["results"]), "planned": len(selected),
+                              "complete": len(report["results"]) == len(selected)}
         write_report(args.output, report)
         if args.belief_log:
             args.belief_log.parent.mkdir(parents=True, exist_ok=True)

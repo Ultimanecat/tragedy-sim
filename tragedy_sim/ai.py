@@ -482,6 +482,11 @@ class FixedStrategyMastermindAgent:
         ui = offer.get("ui", {})
         target, effect = ui.get("target"), ui.get("effect")
         key = str(ui.get("choice_key", ""))
+        if effect == "ignore_intrigue":
+            # Cultist cancellation is an available attack, with no card cost.
+            # Skipping it in rollouts makes a forbidden intrigue placement
+            # look reliably blocked even in a world with a living Cultist.
+            return 130
         if effect in {"kill", "heroes_die", "lose", "finish_loop"}:
             return 150 if target in (None, self._plan.key) else 130
         if self._plan.kind == "plot_intrigue" and target == self._plan.target:

@@ -47,3 +47,15 @@ python -m benchmarks.ai_causal_audit references/ai-calibration/2026-10-10/btx04-
 这些是有限候选的同根反事实测试，不是整局胜率或无解证明。重采样红方使用新建候选池，原记录保留独立行；当前开眼候选器与公平粒子候选器也有覆盖差异，不能把全部差异都归因于信息权限。知剧本诊断不会把最终猜测的正确答案作为轮回存活。
 
 审计顺序：直接原因是否形成证据 → 硬候选是否保留事实 → 当前防御是否进入候选 → 后续动作及资源模型是否可靠。死亡立即失败保留关键人物／城市阈值下的不安定因子析取；亲友在轮回结束时公开，必须区分时间点。
+
+## 非自杀剧本与任意日期
+
+默认日期仍为自杀日及前一天。其他剧本用 `--all-days`，或重复传入 `--probe-day`；`--probe-loop` 和 `--scenario` 也可重复使用：
+
+```powershell
+python -m benchmarks.ai_causal_audit references/ai-calibration/2026-10-12/imported-five-seed0.json --strategy strategic --scenario community-tragic-aiplay-btx-45 --probe-loop 3 --probe-day 1 --compare-roots --output references/ai-calibration/2026-10-12/btx45-defense-root.json
+```
+
+每个根增加完整硬 witness、身份硬域、剧情候选和授权私密知识。`known_roles` 为空时，矩阵仍可能已排除所有其他身份；应同时检查这些字段。开发真值只用于推断完成后的兼容性审计。
+
+失败命令可能自动进入下一轮或最终猜测。`loss_events` 保存实际失败事件的轮回、日期、时间点；不要用命令执行后的观察位置替代失败时间。报告保存输入 SHA256、源码指纹、筛选配置及原子更新的 `progress`，仅 `complete: true` 可作完整配对。具体失败分析见 [FS／BTX 失败审计](fs-btx-failure-audit.md)。

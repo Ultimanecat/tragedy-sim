@@ -262,6 +262,14 @@ class AiPolicyTests(unittest.TestCase):
         self.assertEqual(agent.choose_action(
             participant="m", view=self.view, offers=offers)["type"], "choose")
 
+    def test_playbook_does_not_skip_cultist_cancellation(self):
+        agent = FixedStrategyMastermindAgent(random.Random(1), "plot_intrigue")
+        choices = [offer("next"), {
+            **offer("choose"), "ui": {"choice_key": "cultist:maiden",
+                                        "effect": "ignore_intrigue"}}]
+        self.assertEqual(agent.choose_action(
+            participant="m", view=self.view, offers=choices)["type"], "choose")
+
     def test_btx_playbooks_reach_mastermind_win_without_counterplay(self):
         for path in ("key_assassination", "incident_pressure"):
             with self.subTest(path=path):

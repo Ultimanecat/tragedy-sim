@@ -227,6 +227,14 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
             move_slot = 1 if fi_slot == 0 else 0
             scripted = {fi_slot: ("fi", plot_board),
                         move_slot: (movement, cultists[0])}
+            today = next((incident for incident in root.scenario["incidents"]
+                          if incident["day"] == view["round"]), None)
+            if index >= 4 and today is not None:
+                # Keep the first three goodwill variants; also propose the
+                # conjunction that blocks the plot AND today's incident.
+                # A default goodwill filler missed this three-card defense.
+                spare_slot = next(slot for slot in range(3) if slot not in scripted)
+                scripted[spare_slot] = ("p-1", today["culprit"])
         elif index >= 10:
             # Cover individual tactical defenses systematically before
             # spending the remaining budget on randomized combinations.
