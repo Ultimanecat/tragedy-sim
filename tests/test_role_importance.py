@@ -52,7 +52,8 @@ class RoleImportanceTests(unittest.TestCase):
     def test_proposer_keeps_duplicates_and_reports_correct_density(self):
         setup, worlds, groups = self.optional_space()
         size_by_counts = {key: len(group) for key, group in groups.items()}
-        draws = MatrixWorldSampler().propose_roles(setup, (), 3000, rng=random.Random(13))
+        draws = MatrixWorldSampler().propose_roles(
+            setup, (), 3000, rng=random.Random(13), variant_policy="uniform")
         self.assertEqual(len(draws), 3000)
         self.assertLess(len({FactorizedBeliefState._key(p.world) for p in draws}), len(draws))
         for proposal in draws:
@@ -125,6 +126,65 @@ class RoleImportanceTests(unittest.TestCase):
         for q in (0, -1, float("nan"), float("inf"), 1.1):
             with self.subTest(q=q), self.assertRaises(ValueError):
                 RoleImportancePool((RoleProposal(world, q),))
+
+    def test_prior_proposals_follow_cast_mass_with_constant_importance_without_soft_evidence(self):
+        setup, worlds, groups = self.optional_space()
+        target = RolePosteriorTarget(setup)
+        prior_draws = MatrixWorldSampler().propose_roles(
+            setup, (), 3000, rng=random.Random(13), target=target)
+        self.assertEqual(len(prior_draws), 3000)
+        for proposal in prior_draws:
+            self.assertAlmostEqual(proposal.density, 1 / len(worlds))
+            self.assertEqual(proposal.policy, "prior")
+        actual = Counter(tuple(sorted(Counter(dict(p.world.roles).values()).items()))
+                         for p in prior_draws)
+        for key, group in groups.items():
+            self.assertLess(abs(actual[key] / 3000 - len(group) / len(worlds)), 0.03)
+        diagnostic = RoleImportancePool(prior_draws).diagnostics(target, ())
+        self.assertAlmostEqual(diagnostic["effective_sample_size"], 3000, places=8)
+        uniform = MatrixWorldSampler().propose_roles(
+            setup, (), 3000, rng=random.Random(13), variant_policy="uniform")
+        old = RoleImportancePool(uniform).diagnostics(target, ())
+        self.assertLess(old["effective_sample_size"], 2900)
+
+    def test_prior_density_matches_independent_hard_conditioned_multiplot_target(self):
+        setup = evidence("BTX")
+        target = RolePosteriorTarget(setup)
+        facts = (PublicWitness("role_is", "girl", "key", 1, 1, "query", "test"),)
+        compatible = tuple(w for w in enumerate_printed(setup)
+                           if FsbtxWitnessMatcher().matches(w, facts))
+        normalizer = sum(target.weight(w, facts) for w in compatible)
+        expected = {FactorizedBeliefState._key(w): target.weight(w, facts) / normalizer
+                    for w in compatible}
+        draws = MatrixWorldSampler().propose_roles(
+            setup, facts, 2000, rng=random.Random(17), target=target)
+        self.assertEqual(len(draws), 2000)
+        for proposal in draws:
+            self.assertAlmostEqual(proposal.density, expected[FactorizedBeliefState._key(proposal.world)],
+                                   places=12)
+        self.assertAlmostEqual(RoleImportancePool(draws).diagnostics(target, facts)[
+            "effective_sample_size"], 2000, places=8)
+        # Soft witness remains a likelihood factor; proposal q does not change.
+        soft = PublicWitness("role_pressure", "brain", {"candidates": ["doctor"]},
+                             1, 1, "day_end", "test", WitnessStrength.SOFT)
+        soft_draws = MatrixWorldSampler().propose_roles(
+            setup, (*facts, soft), 2000, rng=random.Random(17), target=target)
+        self.assertEqual(draws, soft_draws)
+        pool = RoleImportancePool(draws)
+        masses = dict((FactorizedBeliefState._key(w), weight) for w, weight in pool.posterior(
+            target, (*facts, soft)))
+        direct = Counter()
+        for p in draws:
+            direct[FactorizedBeliefState._key(p.world)] += target.weight(p.world, (*facts, soft)) / p.density
+        self.assertEqual(masses, direct)
+
+    def test_invalid_variant_policy_is_rejected(self):
+        for value in ("posterior_magic", None, True, []):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                MatrixWorldSampler().propose_roles(evidence(), (), 1, rng=random.Random(1),
+                                                  variant_policy=value)
+            with self.subTest(state=value), self.assertRaises(ValueError):
+                FactorizedBeliefState(matrix_variant_policy=value)
 
     def test_subplot_order_does_not_change_prior_or_map_weight(self):
         scenario = ScenarioLibrary().get("official-btx-06-secret-that-was-kept")

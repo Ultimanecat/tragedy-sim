@@ -761,18 +761,21 @@ class FactorizedBeliefState:
 
     def __init__(self, *, capacity: int = 192, seed: int = 0,
                  matrix_recovery: bool = True, matrix_proposals: bool = False,
-                 joint_culprits: bool = False):
+                 joint_culprits: bool = False, matrix_variant_policy: str = "prior"):
         if type(matrix_recovery) is not bool:
             raise ValueError("matrix_recovery must be boolean")
         if type(matrix_proposals) is not bool:
             raise ValueError("matrix_proposals must be boolean")
         if type(joint_culprits) is not bool:
             raise ValueError("joint_culprits must be boolean")
+        if type(matrix_variant_policy) is not str or matrix_variant_policy not in {"uniform", "prior"}:
+            raise ValueError("matrix_variant_policy must be uniform or prior")
         self.capacity = capacity
         self.matrix_recovery_enabled = matrix_recovery
         self.matrix_recovery_attempts = 0
         self.matrix_recovery_worlds = 0
         self.matrix_proposals_enabled = matrix_proposals
+        self.matrix_variant_policy = matrix_variant_policy
         self.joint_culprits_enabled = joint_culprits
         self._culprit_diagnostics = None
         self.matrix_proposal_attempts = 0
@@ -860,7 +863,8 @@ class FactorizedBeliefState:
             from .belief_posterior import RoleImportancePool
             self.matrix_proposal_attempts += 1
             proposals = MatrixWorldSampler().propose_roles(
-                evidence, role_witnesses, min(64, self.capacity), rng=self.matrix_rng)
+                evidence, role_witnesses, min(64, self.capacity), rng=self.matrix_rng,
+                variant_policy=self.matrix_variant_policy, target=self.role_target)
             self.matrix_proposal_worlds += len(proposals)
             self.role_importance_pool = RoleImportancePool(proposals)
             self._roles = {self._key(p.world): p.world for p in proposals}
@@ -914,6 +918,7 @@ class FactorizedBeliefState:
         return {
             "role_candidates": len(worlds), "exact": self._exact_roles,
             "matrix_proposals_enabled": self.matrix_proposals_enabled,
+            "matrix_variant_policy": self.matrix_variant_policy,
             "matrix_proposal_attempts": self.matrix_proposal_attempts,
             "matrix_proposal_worlds": self.matrix_proposal_worlds,
             "posterior_target": self.role_target.diagnostics() if self.role_target else None,

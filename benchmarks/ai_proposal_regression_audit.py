@@ -126,6 +126,7 @@ def resample_probe(state, evidence, witnesses, view, plans, *, counts, draws, se
             pass
     frozen = FrozenRoleBelief()
     frozen.joint_culprits_enabled = state.joint_culprits_enabled
+    frozen.matrix_variant_policy = state.matrix_variant_policy
     frozen._roles = dict(state._roles)
     frozen._plot_sizes = state._plot_sizes.copy()
     frozen._exact_roles = state._exact_roles
@@ -147,14 +148,16 @@ def resample_probe(state, evidence, witnesses, view, plans, *, counts, draws, se
     return result
 
 
-def audit_trajectory(row, *, matrix_proposals, joint_culprits=False, worlds=12, probe_position=None, probe_plans=(),
+def audit_trajectory(row, *, matrix_proposals, joint_culprits=False, matrix_variant_policy="uniform",
+                     worlds=12, probe_position=None, probe_plans=(),
                      resample_counts=(), resample_draws=5, resample_plans=()):
     """Reconstruct samples along a recorded path; do not replay an AI policy."""
     archive = ReplayArchive.parse(row["replay_text"])
     game = Game(archive.scenario)
     seed = row.get("seed", 0)
     state = FactorizedBeliefState(capacity=max(192, worlds * 8), seed=seed,
-                                 matrix_proposals=matrix_proposals, joint_culprits=joint_culprits)
+                                 matrix_proposals=matrix_proposals, joint_culprits=joint_culprits,
+                                 matrix_variant_policy=matrix_variant_policy)
     compiler, ledger, determinizer = FsbtxWitnessCompiler(), PublicEvidenceLedger(), PublicStateDeterminizer()
     recorded = {(s["loop"], s["day"]): s for s in row.get("protagonist_searches", ())}
     initial = [asdict(w) for w in compiler.compile(game.protagonist_team_view())]
@@ -280,6 +283,7 @@ def main():
                     if (s["loop"], s["day"]) == position}
         paths = [audit_trajectory(row,
                                  matrix_proposals=row.get("matrix_proposals_enabled", enabled),
+                                 matrix_variant_policy=row.get("matrix_variant_policy", "uniform"),
                                  joint_culprits=row.get("joint_culprits_enabled", False), worlds=args.worlds,
                                  probe_position=position, probe_plans=tuple(plans.values()),
                                  resample_counts=args.resample_worlds, resample_draws=args.resample_draws,

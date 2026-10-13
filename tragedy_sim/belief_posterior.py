@@ -61,7 +61,10 @@ class RolePosteriorTarget:
                                  for (main, subs), size in self.plot_sizes.items()}
 
     def prior_weight(self, world):
-        size = self._canonical_sizes.get((world.main_plot, tuple(sorted(world.subplots))), 0)
+        return self.plot_cast_weight(world.main_plot, world.subplots)
+
+    def plot_cast_weight(self, main_plot, subplots):
+        size = self._canonical_sizes.get((main_plot, tuple(sorted(subplots))), 0)
         return 1.0 / size if size else 0.0
 
     def weight(self, world, witnesses):
@@ -104,6 +107,7 @@ class RoleImportancePool:
         total = sum(weights)
         square_sum = sum(weight * weight for weight in weights)
         return {"estimator": self.version, "proposal_draws": len(weights),
+                "proposal_policies": sorted({p.policy for p in self.proposals}),
                 "unique_roles": len({FactorizedBeliefState._key(p.world) for p in self.proposals}),
                 "effective_sample_size": total * total / square_sum if square_sum else 0.0,
                 "max_normalized_draw_weight": max(weights, default=0) / total if total else 0.0}

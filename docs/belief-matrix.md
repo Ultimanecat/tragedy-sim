@@ -37,6 +37,7 @@
 - `FactorizedBeliefState` 默认只在旧提议及条件构造均为空、已有身份库也为空时启用恢复。正常库保持原有随机顺序；恢复后的库明确标为非完整枚举。
 - `matrix_recovery=False` 或 self-play 的 `--disable-matrix-recovery` 用于消融；记录尝试次数与产生世界数，证据维护不占行动搜索节点预算。
 - `matrix_proposals=True`／评测 `--matrix-proposals` 对非完整枚举启用完整带密度的矩阵提议批次，以 target/q 保留重复质量；不混入旧无密度库。只读 `proposal_summary()` 增加 ESS 等诊断，库计数不代表精确后验。少角色穷举和最终整套 MAP 保持，旧恢复开关只影响旧路径。
+- 开发矩阵路径的 `matrix_variant_policy` 默认 prior：按硬兼容先验质量选择数量／域变体，目标分布不变；历史 uniform 保留消融，提议记录 policy 和 q。首批 ESS 与配对结果见 [先验质量提议](prior-mass-matrix-proposals.md)，正常主线矩阵开关仍关闭。
 - 原始 witness 保留，硬条件没有松动；候选仍为空时按现有显式回退处理，不使用真实剧本补样。最终猜测继续原有整套合法 MAP。
 
 本批测试、对局摘要和边界说明见 [接入验证](belief-matrix-validation.md)。

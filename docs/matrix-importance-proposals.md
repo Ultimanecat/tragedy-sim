@@ -4,6 +4,8 @@
 
 继续 [共同概率目标](unified-belief-target.md)。本阶段修正提议偏差和重复质量，不调整先验选择、软分系数、候选策略、行动评分或 horizon。矩阵开发开关默认仍关闭；终猜完整 MAP 独立于提议批次。
 
+本文下方实验使用历史等权变体提议（uniform）。后续新增 [先验质量提议](prior-mass-matrix-proposals.md)（prior），开发开关开启时默认选择 prior；主线矩阵开关仍关闭。新旧均显式记录 q 并保持同一目标，下方历史公式和结果不能当作 prior 的实验。
+
 `matrix_proposals=True`／`--matrix-proposals` 对非完整枚举 FS／BTX 身份库采用新路径，替代此前“旧提议不足时补样”。现有少角色枚举及关闭开关的旧路径保留。新路径不静默混入没有 q 的旧持续库，不新增大厅 AI 模式。
 
 ## 提议分布和估计器

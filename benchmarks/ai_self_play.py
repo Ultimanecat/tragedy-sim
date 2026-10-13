@@ -170,6 +170,7 @@ class MatchResult:
     protagonist_matrix_recovery_worlds: int = 0
     matrix_proposals_enabled: bool = False
     joint_culprits_enabled: bool = False
+    matrix_variant_policy: str = "prior"
     protagonist_matrix_proposal_attempts: int = 0
     protagonist_matrix_proposal_worlds: int = 0
 
@@ -285,6 +286,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          matrix_recovery: bool = True,
          matrix_proposals: bool = False,
          joint_culprits: bool = False,
+         matrix_variant_policy: str = "prior",
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     if matrix_proposals and protagonist_strategy != "particle_ensemble":
@@ -337,7 +339,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             disabled_witness_sources=disabled_witness_sources,
             mastermind_policy_samples=mastermind_policy_samples,
             information_reward_weight=information_reward_weight,
-            matrix_proposals=matrix_proposals, joint_culprits=joint_culprits)
+            matrix_proposals=matrix_proposals, joint_culprits=joint_culprits,
+            matrix_variant_policy=matrix_variant_policy)
     if team_ismcts is not None and hasattr(team_ismcts, "factorized_belief"):
         team_ismcts.factorized_belief.matrix_recovery_enabled = matrix_recovery
     protagonists = {
@@ -568,6 +571,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         matrix_recovery_enabled=matrix_recovery,
         matrix_proposals_enabled=matrix_proposals,
         joint_culprits_enabled=joint_culprits,
+        matrix_variant_policy=matrix_variant_policy,
         protagonist_matrix_proposal_attempts=getattr(
             getattr(team_ismcts, "factorized_belief", None), "matrix_proposal_attempts", 0),
         protagonist_matrix_proposal_worlds=getattr(
@@ -650,6 +654,8 @@ def main() -> None:
                         help="use importance-corrected matrix role proposals for red")
     parser.add_argument("--joint-culprits", action="store_true",
                         help="direct legal joint culprit sampling for red")
+    parser.add_argument("--matrix-variant-policy", choices=("uniform", "prior"), default="prior",
+                        help="matrix variant proposal distribution; posterior target unchanged")
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
@@ -696,6 +702,7 @@ def main() -> None:
                               matrix_recovery=not args.disable_matrix_recovery,
                               matrix_proposals=args.matrix_proposals,
                               joint_culprits=args.joint_culprits,
+                              matrix_variant_policy=args.matrix_variant_policy,
                               disabled_witness_sources=tuple(
                                   args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,

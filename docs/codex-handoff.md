@@ -3,6 +3,8 @@
 本文是新会话的启动入口，整理截至源码提交 `0ec96eb` 的上下文。本次交接只增加文档。
 开始工作时先执行 `git status --short --branch`、`git log -8 --oneline`，确认是否已有后续提交或其他会话的修改。
 
+2026-10-13 当前切片：矩阵变体新增 `matrix_variant_policy="prior"`（矩阵开发路径默认），历史 `uniform` 可消融；变体按 `N_v/C_p` 抽样，q=`1/(Z*C_p)`，原概率目标／soft witness／行动评分未变。729 项完整回归通过。全部 151 历史根平均 ESS 46.70→53.63；同源码 BTX-01G／BTX06 seed 1／2、联合黑方、固定联合当事人八局，红胜 uniform 0/4→prior 3/4，107 根／1578 命令真值与 replay 通过、无回退。当前所有评测进程已正常结束；来源 `f448dd7b623ff38798896e859c337276d54b62d31af5c712245e803062e40092`，报告 `matrix-prior-paired-seeds12.json` 完整，见 [先验质量提议](prior-mass-matrix-proposals.md)。主线 `matrix_proposals` 仍关闭，用户目标仍未完成：先审计少角色随机事件占位漏支持、Copycat／Irregular MAP 和初始计数，再跑留出 BTX-02G／BTX04／FS、多 seed／Easy；确认优势并完成范围验证后默认启用。历史报告缺 policy 字段时应按 uniform 重建，不能用新默认 prior 复现旧库。下方是前置切片。
+
 2026-10-13 联合当事人接续：`JointCulpritPosterior` 实现原逐天软分乘积条件化到合法重复限制的精确配分／直接采样／边际。共享硬支持接入矩阵和因子信念，跨日约束可产生 always／never；开发 `joint_culprits=True`、评测 `--joint-culprits` 开启直接抽样，默认暂时关闭。726 项全量通过（160.393 秒），冻结库工具保留开关的 5 项另通过；40 个已录入 FS／BTX 难度版本初始域均可构造。U2 同源码十局红胜 3/10→5/10，耗时接近，22 局／3511 命令 replay 与硬兼容完成，已推送 `92933dd`。接着做 U3 同源码对弈消融，再审计少角色任意事件占位遗漏／特殊额外身份 MAP，扩大 seed／剧本检验矩阵默认门槛。当前目标仍未完成；默认切换前禁止把单剧本两胜外推。见 [联合当事人](joint-culprit-posterior.md)。下方是前置切片。
 
 2026-10-13 最新接续：矩阵重要性提议已实现，`matrix_proposals=True` 对非完整枚举 FS／BTX 身份库完全替换旧正常提议，按 `target/q` 保留重复质量，不混入未知密度库；默认暂时关闭。后端 720 项通过，16 局／172 根／2517 命令完整 replay 与真值硬兼容通过。BTX-01G seed 1 对两黑方均红胜；BTX06 仍黑胜；留出 FS-02G／BTX-02G seed 2 胜负保持。FS01 小空间固定工作量开关等价，墙钟结果有波动。用户当前目标是验证优化至确认矩阵更优或发现致命缺陷，随后默认启用；不能用单个好结果验收。正在补同源码主实验基线；后续合法当事人联合采样、少角色事件占位遗漏／额外身份 MAP 审计、多 seed 与新剧本。见 [重要性提议](matrix-importance-proposals.md)及路线图 U。

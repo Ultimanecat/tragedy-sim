@@ -23,6 +23,7 @@ from .witness import FsbtxWitnessMatcher
 class RoleProposal:
     world: HiddenWorldHypothesis
     density: float
+    policy: str = "uniform"
 
 
 @lru_cache(maxsize=64)
@@ -106,19 +107,23 @@ def _random_cast(variant, module, rng):
 
 
 class MatrixWorldSampler:
-    def propose_roles(self, evidence, witnesses, count, *, rng, max_attempts=None):
+    def propose_roles(self, evidence, witnesses, count, *, rng, max_attempts=None,
+                      variant_policy="prior", target=None):
         """Repeated role draws with an explicit pre-rejection density.
 
-        Each variant's casts are uniform by completion counts. Residual hard
+        Variants can follow their initial-prior support mass; casts inside
+        each variant are uniform by completion counts. Residual hard
         rejection has a common normalization constant, which cancels in
         normalized importance weights. No uniqueness filtering is applied.
         """
-        from .belief_posterior import variant_size
+        from .belief_posterior import RolePosteriorTarget, variant_size
 
         if type(count) is not int or count < 1:
             raise ValueError("count must be a positive integer")
         if max_attempts is not None and (type(max_attempts) is not int or max_attempts < 1):
             raise ValueError("max_attempts must be a positive integer")
+        if type(variant_policy) is not str or variant_policy not in {"uniform", "prior"}:
+            raise ValueError("variant_policy must be uniform or prior")
         hard = tuple(w for w in FactorizedBeliefState._role_witnesses(witnesses)
                      if w.strength == "hard")
         view = {"module": evidence.module,
@@ -134,12 +139,23 @@ class MatrixWorldSampler:
         placeholders = role_incident_placeholders(evidence)
         if not sized or placeholders is None:
             return ()
+        if variant_policy == "prior":
+            target = target or RolePosteriorTarget(evidence)
+            variant_weights = tuple(size * target.plot_cast_weight(v.main_plot, v.subplots)
+                                    for v, size in sized)
+        else:
+            variant_weights = (1,) * len(sized)
+        normalizer = sum(variant_weights)
+        if not normalizer:
+            return ()
         incidents = [{"day": day, "kind": kind, "culprit": cid}
                      for day, kind, cid in placeholders]
         matcher = FsbtxWitnessMatcher()
         results = []
         for _ in range(max_attempts or max(64, count * 12)):
-            variant, size = rng.choice(sized)
+            index = (rng.randrange(len(sized)) if variant_policy == "uniform" else
+                     rng.choices(range(len(sized)), weights=variant_weights, k=1)[0])
+            variant, size = sized[index]
             cast = _random_cast(variant, evidence.module, rng)
             if cast is None:
                 continue
@@ -154,7 +170,9 @@ class MatrixWorldSampler:
                 continue
             world = HiddenWorldHypothesis.from_scenario(scenario)
             if matcher.matches(world, hard):
-                results.append(RoleProposal(world, 1.0 / (len(sized) * size)))
+                density = (1.0 / (len(sized) * size) if variant_policy == "uniform" else
+                           variant_weights[index] / normalizer / size)
+                results.append(RoleProposal(world, density, variant_policy))
                 if len(results) == count:
                     break
         return tuple(results)

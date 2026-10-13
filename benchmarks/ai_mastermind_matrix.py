@@ -44,6 +44,8 @@ def main() -> None:
                         help="importance-corrected matrix role proposals for red; black reply stays baseline")
     parser.add_argument("--joint-culprits", action="store_true",
                         help="direct legal joint culprit sampling for red; black reply stays baseline")
+    parser.add_argument("--matrix-variant-policy", choices=("uniform", "prior"), default="prior",
+                        help="matrix variant proposal distribution; posterior target unchanged")
     parser.add_argument("--joint-reply-model", choices=("public", "belief", "hidden", "full"),
                         default="public")
     parser.add_argument("--joint-information-weight", type=float, default=0.02,
@@ -105,6 +107,7 @@ def main() -> None:
                         protagonist_particles=args.protagonist_particles,
                         matrix_proposals=args.matrix_proposals,
                         joint_culprits=args.joint_culprits,
+                        matrix_variant_policy=args.matrix_variant_policy,
                         joint_reply_model=args.joint_reply_model,
                         joint_information_weight=args.joint_information_weight,
                         capture_fallback_contexts=args.trace,
@@ -135,6 +138,7 @@ def main() -> None:
                     'final_true_setup_hard_compatible': match.final_true_setup_hard_compatible,
                     'matrix_proposals_enabled': match.matrix_proposals_enabled,
                     'joint_culprits_enabled': match.joint_culprits_enabled,
+                    'matrix_variant_policy': match.matrix_variant_policy,
                     'matrix_proposal_attempts': match.protagonist_matrix_proposal_attempts,
                     'matrix_proposal_worlds': match.protagonist_matrix_proposal_worlds,
                 }
