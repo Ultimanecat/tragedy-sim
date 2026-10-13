@@ -894,8 +894,12 @@ class FactorizedBeliefState:
             from .belief_matrix_sampler import MatrixWorldSampler
             from .belief_posterior import RoleImportancePool
             self.matrix_proposal_attempts += 1
+            # A complete fresh importance batch replaces the reservoir. Use
+            # its bounded capacity, rather than the legacy per-refresh top-up
+            # count. The draw limit is fixed before sampling; do not stop on
+            # observed ESS/weights and introduce selection bias.
             proposals = MatrixWorldSampler().propose_roles(
-                evidence, role_witnesses, min(64, self.capacity), rng=self.matrix_rng,
+                evidence, role_witnesses, min(192, self.capacity), rng=self.matrix_rng,
                 variant_policy=self.matrix_variant_policy, target=self.role_target)
             self.matrix_proposal_worlds += len(proposals)
             self.role_importance_pool = RoleImportancePool(proposals)

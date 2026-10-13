@@ -8,7 +8,7 @@ from unittest.mock import patch
 from tragedy_sim import Game
 from tragedy_sim.belief import FactorizedBeliefState, HiddenWorldHypothesis, PublicEvidence
 from tragedy_sim.belief_matrix_sampler import (
-    MatrixWorldSampler, RoleProposal, role_incident_placeholders,
+    MatrixWorldSampler, RoleProposal, role_incident_placeholders, _completion_count_cached,
 )
 from tragedy_sim.belief_posterior import RoleImportancePool, RolePosteriorTarget
 from tragedy_sim.scenario_library import ScenarioLibrary
@@ -17,6 +17,46 @@ from tests.test_belief_posterior import enumerate_printed, evidence
 
 
 class RoleImportanceTests(unittest.TestCase):
+    def test_suffix_cache_preserves_proposals_density_and_rng(self):
+        setup = PublicEvidence.from_view(Game(ScenarioLibrary().get(
+            "official-tragic-aiplay-btx-02g")).protagonist_team_view())
+
+        def uncached(characters, domain_rows, count_rows, split, genders):
+            return FactorizedBeliefState._assignment_count(
+                characters, dict(domain_rows), Counter(dict(count_rows)),
+                friend_gender_split=split, used_friend_genders=genders)
+
+        before_rng, after_rng = random.Random(19), random.Random(19)
+        with patch("tragedy_sim.belief_matrix_sampler._completion_count_cached", side_effect=uncached):
+            before = MatrixWorldSampler().propose_roles(setup, (), 192, rng=before_rng)
+        _completion_count_cached.cache_clear()
+        after = MatrixWorldSampler().propose_roles(setup, (), 192, rng=after_rng)
+        self.assertEqual(before, after)
+        self.assertEqual(before_rng.getstate(), after_rng.getstate())
+        self.assertGreater(_completion_count_cached.cache_info().hits, 0)
+        self.assertLessEqual(_completion_count_cached.cache_info().currsize, 4096)
+
+    def test_suffix_cache_separates_domains_counts_and_friend_gender_conditions(self):
+        characters = ("girl", "maiden")
+        domains = tuple((cid, ("friend", "ordinary")) for cid in characters)
+        counts = (("friend", 1), ("ordinary", 1))
+        self.assertEqual(_completion_count_cached(characters, domains, counts, True, (False, False)), 2)
+        self.assertEqual(_completion_count_cached(characters, domains, counts, True, (False, True)), 0)
+        self.assertEqual(_completion_count_cached(characters, domains, counts, False, (False, True)), 2)
+        restricted = (("girl", ("ordinary",)), ("maiden", ("friend",)))
+        self.assertEqual(_completion_count_cached(characters, restricted, counts, True, (False, False)), 1)
+        self.assertEqual(_completion_count_cached(characters, domains,
+                          (("friend", 2), ("ordinary", 0)), True, (False, False)), 0)
+
+    def test_fresh_matrix_batch_has_a_fixed_bounded_capacity(self):
+        scenario = ScenarioLibrary().get("official-btx-06-secret-that-was-kept")
+        setup = PublicEvidence.from_view(Game(scenario).protagonist_team_view())
+        for capacity in (1, 24, 64, 192, 1000):
+            state = FactorizedBeliefState(capacity=capacity, matrix_proposals=True)
+            with patch.object(MatrixWorldSampler, "propose_roles", return_value=()) as propose:
+                state.role_posterior(setup, ())
+                self.assertEqual(propose.call_args.args[2], min(192, capacity))
+
     def optional_space(self):
         setup = replace(evidence(), characters=(*evidence().characters, "worker"),
                         known_plots=("avenger", "hideous"))

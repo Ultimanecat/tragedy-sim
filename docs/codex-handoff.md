@@ -3,6 +3,12 @@
 本文是新会话的启动入口，整理截至源码提交 `0ec96eb` 的上下文。本次交接只增加文档。
 开始工作时先执行 `git status --short --branch`、`git log -8 --oneline`，确认是否已有后续提交或其他会话的修改。
 
+2026-10-13 最新优化：固定工作量四局已结束，双方均 0/2；BTX-01G 旧／矩阵终猜 4/7／3/7，BTX06 4/9／7/9，全部审计通过。新增 `ai_matrix_posterior_accuracy` 独立枚举七角色 FS 可选人数（2310／硬条件 330）与 BTX 部分已知剧情（6300），16 seed 共同比较。64 次矩阵批次的 FS 边际噪声略大；现固定 `min(192, capacity)`，五类状态的角色 TV 全改善，BTX 剧情 TV 约 0.30→0.06～0.07。目标、q、soft 系数和行动预算未变，额外时间归证据；默认尚未切换，下一步新源码跨剧本对弈。详见 [精度实验](matrix-posterior-accuracy.md)。旧报告重建须注明批次与源码，不能用新 192 批次假称旧 64 批次的相同抽样。
+
+同阶段缓存后缀精确计数（最多 4096 项，键包含全部域／数量／性别条件），完整提议／q／RNG 等价，五类状态 160 行除耗时完全相同；192 次准备降至约 15～28 ms。沙箱临时目录不可写，测试命令内将 TEMP／TMP 指向工作区 `references/matrix-test-temp`；仍有 HTTP 的 WinError 10013，须单列受限验证，不修改测试断言或规避权限。此前 748 全量通过为旧切片。不要触碰未追踪用户附件。
+
+最新验证：39 项专项通过；754 项完整执行，744 通过、10 项 HTTP 连接被 WinError 10013 阻止，零断言失败／零跳过，结构化结果 `references/matrix-192-cached-regression-20261013.json`。最新 Python 指纹 `c395d03e2e04f04b8a1b5b2b33bc17170d35f94731197851a1840da48e7c5cec`。下一步同源码 192 批次六剧本／seed 0、3 的 24 局，新输出 `matrix-default-validation-192-cached-seeds03.json`；保持源代码冻结，结果与旧 64 次报告分列。检查真实运行句柄与 progress，不能仅凭此计划假定已运行。
+
 2026-10-13 补测完成：同源码标准 BTX-01G／BTX06 seed 1／2 八局已结束，与六剧本报告组合后红胜旧 3/16、矩阵 5/16，改善两对、退化零对；407 根／5932 命令审计通过，无回退。默认仍关闭，正对 BTX-01G／BTX06 seed 2 做固定工作量四局复测，报告 `matrix-default-validation-fixed-work-seed2.json`；接续时检查进程及 progress，不根据文字重启。源码不得在评测期间变化。详细表见跨剧本报告；小样本胜率不宣称统计显著。
 
 2026-10-13 最新对比：`7c57978` 同源码六剧本 seed 0／3、旧／prior 矩阵＋联合当事人 24 局已完整结束，红胜均 2/12，303 每日根／4412 命令硬兼容、矩阵真值与 replay 通过，无回退。终猜有升有降，证据每根平均约 160／99 ms，不同轨迹不作严格性能归因。默认保持关闭，目标未完成；继续相同源码标准 BTX-01G／BTX06 seed 1／2 八局，报告路径 `references/ai-calibration/2026-10-13/matrix-default-validation-standard-seeds12.json`。先检查实时进程／报告完整性，不能根据本段文字假定仍运行。见 [跨剧本报告](matrix-cross-script-comparison.md)。

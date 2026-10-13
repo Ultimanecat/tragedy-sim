@@ -26,6 +26,18 @@ class RoleProposal:
     policy: str = "uniform"
 
 
+@lru_cache(maxsize=4096)
+def _completion_count_cached(characters, domain_rows, count_rows, split, genders):
+    """Reuse exact suffix masses across draws; every constraint is in the key.
+
+    Counts are order-independent. Canonical callers preserve the original draw
+    order and RNG operations while avoiding repeated inner-DP construction.
+    """
+    return FactorizedBeliefState._assignment_count(
+        characters, dict(domain_rows), Counter(dict(count_rows)),
+        friend_gender_split=split, used_friend_genders=genders)
+
+
 @lru_cache(maxsize=64)
 def role_incident_placeholders(evidence):
     """One legal schedule for role validation, independent of cast sampling.
@@ -87,9 +99,10 @@ def _random_cast(variant, module, rng):
                 next_male |= is_male
                 next_female |= is_female
             remaining[role] -= 1
-            completions = FactorizedBeliefState._assignment_count(
-                tuple(regular[index + 1:]), domains, remaining,
-                friend_gender_split=split, used_friend_genders=(next_male, next_female))
+            tail = tuple(sorted(regular[index + 1:]))
+            completions = _completion_count_cached(
+                tail, tuple((who, domains[who]) for who in tail),
+                tuple(sorted(remaining.items())), split, (next_male, next_female))
             remaining[role] += 1
             if completions:
                 choices.append(role)
