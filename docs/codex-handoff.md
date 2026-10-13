@@ -3,6 +3,8 @@
 本文是新会话的启动入口，整理截至源码提交 `0ec96eb` 的上下文。本次交接只增加文档。
 开始工作时先执行 `git status --short --branch`、`git log -8 --oneline`，确认是否已有后续提交或其他会话的修改。
 
+2026-10-13 补测完成：同源码标准 BTX-01G／BTX06 seed 1／2 八局已结束，与六剧本报告组合后红胜旧 3/16、矩阵 5/16，改善两对、退化零对；407 根／5932 命令审计通过，无回退。默认仍关闭，正对 BTX-01G／BTX06 seed 2 做固定工作量四局复测，报告 `matrix-default-validation-fixed-work-seed2.json`；接续时检查进程及 progress，不根据文字重启。源码不得在评测期间变化。详细表见跨剧本报告；小样本胜率不宣称统计显著。
+
 2026-10-13 最新对比：`7c57978` 同源码六剧本 seed 0／3、旧／prior 矩阵＋联合当事人 24 局已完整结束，红胜均 2/12，303 每日根／4412 命令硬兼容、矩阵真值与 replay 通过，无回退。终猜有升有降，证据每根平均约 160／99 ms，不同轨迹不作严格性能归因。默认保持关闭，目标未完成；继续相同源码标准 BTX-01G／BTX06 seed 1／2 八局，报告路径 `references/ai-calibration/2026-10-13/matrix-default-validation-standard-seeds12.json`。先检查实时进程／报告完整性，不能根据本段文字假定仍运行。见 [跨剧本报告](matrix-cross-script-comparison.md)。
 
 2026-10-13 当前接续：两条接口均已实现，witness 进入矩阵／共同后验，采样使用矩阵硬域、数量／剧情及完整 matcher。主线 `matrix_proposals` 和 `joint_culprits` 仍关闭；未完成跨剧本默认门槛。查询实际返回当前身份，新增 `identity_knowledge` 保存安全初始推导；病毒转变后的杀人狂答案允许初始平民，先前查到的平民不被重查覆盖，原临时工平民答案不暴露秘密身份。黑方对病毒下初始平民的历史查询暂不编造答案。可续跑评测 `benchmarks.ai_matrix_validation` 冻结源码／剧本顺序／预算，默认六剧本 seed 0／3、24 局，每局强制逐命令 replay／硬证据及每日矩阵真值审计，失败保存 incomplete；见 [默认验证](matrix-default-validation.md)。当前验证结果以路线图为准。用户附件目录不触碰，references 产物不强制加入 Git。
