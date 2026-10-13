@@ -5,6 +5,7 @@ from collections import Counter
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 import json
+from time import perf_counter
 
 from .i18n import format_timepoint, label
 
@@ -77,16 +78,31 @@ def _key(witness):
 class BeliefAuditTrail:
     """Independent telemetry: no RNG, hypotheses, evaluator or player output."""
     entries: list[dict] = field(default_factory=list)
+    probability_solver: object | None = field(default=None, repr=False)
+    offline_true_cast: dict | None = field(default=None, repr=False)
     _counts: Counter = field(default_factory=Counter, repr=False)
     _facts: dict = field(default_factory=dict, repr=False)
     _module: str = field(default="", repr=False)
+    _probability_key: object = field(default=None, repr=False)
+    _probability_result: object = field(default=None, repr=False)
 
-    def observe(self, view, witnesses):
+    def score_guess(self, guess):
+        """Read-only query against the last observation, before revealing answers."""
+        result = self._probability_result
+        if result is None:
+            return {"status": "unavailable", "probability": None}
+        return {"status": result.status, "probability": result.probability_for(guess),
+                "best_guess_probability": result.best_guess_probability,
+                "information_scope": "authorized_team_knowledge"}
+
+    def observe(self, view, witnesses, *, context=None):
+        witnesses = tuple(witnesses)
         module = str(view.get("module", ""))
         reset = bool(self._module and module != self._module)
         if reset:
             self._counts.clear()
             self._facts.clear()
+            self._probability_key = self._probability_result = None
         counts = Counter(_key(w) for w in witnesses)
         facts = {_key(w): w for w in witnesses}
         changes = []
@@ -99,13 +115,74 @@ class BeliefAuditTrail:
                 changes.append({"operation": operation,
                                 "observations": abs(delta), "witness": asdict(witness),
                                 "description": describe_witness(witness)})
-        if changes or reset:
-            self.entries.append({"module": module, "loop": view.get("loop", 1),
+        if changes or reset or self.probability_solver is not None:
+            entry = {"module": module, "loop": view.get("loop", 1),
                                  "day": view.get("round", 1), "phase": view.get("phase"),
                                  "timing": view.get("timing", view.get("phase", "unknown")),
                                  "event_cursor": len(view.get("events", ())),
-                                 "module_reset": reset, "changes": changes})
+                                 "module_reset": reset, "changes": changes}
+            if context is not None:
+                entry["context"] = deepcopy(context)
+            if self.probability_solver is not None:
+                entry["guess_probability"] = self._probability_observation(view, witnesses)
+                entry["no_witness_changes"] = not changes
+            self.entries.append(entry)
         self._module, self._counts, self._facts = module, counts, deepcopy(facts)
+
+    def _probability_observation(self, view, witnesses):
+        """Independent exact diagnostic; private truth is a scoring query only.
+
+        Cache only identical evidence and factor multisets. Stage/loop/source
+        metadata does not affect current matcher weights; multiplicity does.
+        Neither querying a cast nor logging modifies the posterior or RNG.
+        """
+        from .belief import PublicEvidence
+
+        started = perf_counter()
+        before = self._probability_result
+        try:
+            evidence = PublicEvidence.from_view(view)
+            factors = Counter(json.dumps([w.kind, w.subject, w.value, w.strength],
+                                         ensure_ascii=False, sort_keys=True) for w in witnesses)
+            key = (evidence, tuple(sorted(factors.items())))
+            cached = key == self._probability_key and before is not None
+            after = before if cached else self.probability_solver.solve(evidence, witnesses)
+            previous = dict(before.best_guess) if before and before.exact else None
+            current = dict(after.best_guess) if after.exact else None
+            old_probability = after.probability_for(previous) if previous is not None and set(previous) == set(evidence.characters) else None
+            before_value = before.best_guess_probability if before is not None else None
+            after_value = after.best_guess_probability
+            result = {**after.to_dict(), "observer": "protagonist_team",
+                      "information_scope": "authorized_team_knowledge",
+                      "before_status": before.status if before is not None else None,
+                      "before": before_value, "after": after_value,
+                      "delta": after_value - before_value if after_value is not None and before_value is not None else None,
+                      "previous_guess": previous, "previous_guess_probability": old_probability,
+                      "previous_guess_delta": old_probability - before_value if old_probability is not None and before_value is not None else None,
+                      "recommendation_changed": current != previous if current is not None and previous is not None else None,
+                      "cached": cached}
+            if self.offline_true_cast is not None:
+                # Truth never enters solve(), evidence, recommended guess or
+                # cache key. This extra field belongs only to offline reports.
+                result["offline_truth"] = {
+                    "information_scope": "offline_true_cast_query",
+                    "before": before.probability_for(self.offline_true_cast) if before is not None else None,
+                    "after": after.probability_for(self.offline_true_cast)}
+                truth = result["offline_truth"]
+                truth["delta"] = truth["after"] - truth["before"] if truth["after"] is not None and truth["before"] is not None else None
+            self._probability_key, self._probability_result = key, after
+        except Exception as error:
+            # Developer telemetry must not interrupt a legal decision. An
+            # implementation failure is explicit and invalidates comparison;
+            # it never becomes a zero probability or weakened evidence.
+            result = {"status": "diagnostic_error", "exact": False,
+                      "before": None, "after": None, "delta": None,
+                      "reason": f"{type(error).__name__}: {error}",
+                      "observer": "protagonist_team",
+                      "information_scope": "authorized_team_knowledge"}
+            self._probability_key = self._probability_result = None
+        result["diagnostic_ms"] = (perf_counter() - started) * 1000
+        return result
 
     def record_samples(self, view, role_counts, culprit_options, world_count, *,
                        culprit_counts=(), dark_counts=(), placement_tendencies=(),
@@ -121,6 +198,10 @@ class BeliefAuditTrail:
                              "sampled_dark_cards": deepcopy(dark_counts),
                              "placement_tendencies": deepcopy(placement_tendencies),
                              "world_count": world_count})
+        if self.probability_solver is not None:
+            self.entries[-1].update(
+                context={"checkpoint": "ai_decision"}, no_witness_changes=True,
+                guess_probability=self._probability_observation(view, tuple(witnesses)))
         if view.get("characters") and view.get("module") in {"FS", "BTX"}:
             from .belief_matrix import BeliefMatrixProjection
             try:
@@ -143,6 +224,30 @@ class BeliefAuditTrail:
             lines.append(f"\n[第{entry['loop']}轮 · {point}] 观察至事件 {entry['event_cursor']}（阶段 {entry['phase']}）")
             if entry["module_reset"]:
                 lines.append("规则集变化，清空旧证据比较基线。")
+            if "context" in entry:
+                context = entry["context"]
+                trigger = context.get("trigger", {})
+                number = context.get("command_number")
+                checkpoint = f"命令 {number}" if number is not None else context.get("checkpoint", "观察")
+                if trigger:
+                    checkpoint += f"（{label('actors', trigger['actor'])}：{trigger['action']}）"
+                lines.append("  检查点：" + checkpoint)
+                before = context.get("before_position")
+                if before:
+                    origin = format_timepoint(str(before.get("timing") or before.get("phase") or "unknown"),
+                                              int(before["loop"]), int(before["round"]))
+                    lines.append(f"  执行前：第{before['loop']}轮 · {origin}（阶段 {before['phase']}）")
+                for event in context.get("observed_events", ()):
+                    origin = format_timepoint(str(event.get("timing", "unknown")),
+                                              int(event.get("loop", entry["loop"])),
+                                              int(event.get("round", entry["day"])))
+                    lines.append(f"    [第{event.get('loop', entry['loop'])}轮 · {origin}] "
+                                 f"{event.get('message', event.get('kind', '观察'))}")
+                if "submitted_guess_before_reveal" in context:
+                    query = context["submitted_guess_before_reveal"]
+                    value = query["probability"]
+                    score = "不可用" if value is None else f"{value:.6%}"
+                    lines.append(f"  实际提交整套身份的概率（公开答案前）：{score}；状态 {query['status']}。")
             for change in entry["changes"]:
                 witness = change["witness"]
                 strength = "硬" if witness["strength"] == "hard" else "软"
@@ -150,6 +255,31 @@ class BeliefAuditTrail:
                 origin = format_timepoint(witness["timing"], witness["loop"], witness["day"])
                 lines.append(f"  {operation}{strength} ×{change['observations']}：{change['description']}"
                              f"（证据时间：第{witness['loop']}轮 · {origin}；来源：{witness['source']}）")
+            if "guess_probability" in entry:
+                result = entry["guess_probability"]
+                fmt = lambda value: "不可用" if value is None else f"{value:.6%}"
+                delta = result["delta"]
+                change = "不可用" if delta is None else f"{delta * 100:+.6f} 个百分点"
+                lines.append(f"  最优整套终猜概率：{fmt(result['before'])} → {fmt(result['after'])}（{change}）")
+                if entry["no_witness_changes"]:
+                    lines.append("  无 witness 变化；仍检查公开／团队私密知识。")
+                if result.get("previous_guess") is not None:
+                    switched = result["recommendation_changed"]
+                    description = "不可比较" if switched is None else "已改变" if switched else "未改变"
+                    lines.append(f"  原推荐在新模型下：{fmt(result['previous_guess_probability'])}；"
+                                 f"推荐{description}。")
+                if "offline_truth" in result:
+                    truth = result["offline_truth"]
+                    lines.append(f"  离线真实身份表：{fmt(truth['before'])} → {fmt(truth['after'])}（仅作查询评分）。")
+                lines.append(f"  状态：{result['status']}；口径：团队合法知识；"
+                             f"方法：{result.get('method', '不可用')}；目标：{result.get('target_version', '不可用')}；"
+                             f"诊断耗时 {result['diagnostic_ms']:.3f} ms。")
+                if result.get("best_guess") and (result.get("previous_guess") is None or result.get("recommendation_changed")):
+                    names = "、".join(f"{label('characters', cid)}={label('roles', role)}"
+                                     for cid, role in result["best_guess"].items())
+                    lines.append("  当前最优整套猜测：" + names)
+                if result.get("reason"):
+                    lines.append("  原因：" + result["reason"])
             if "sampled_roles" in entry:
                 lines.append(f"  采样世界 {entry['world_count']} 个；以下是样本频率，不是完整后验概率：")
                 for row in entry["sampled_roles"]:

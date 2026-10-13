@@ -6,6 +6,12 @@
 
 公平 FS／BTX 粒子红方已默认使用 prior 矩阵重要性提议和合法联合当事人。主线构造器、房间工厂、self-play API／CLI、黑方对弈 CLI 一致；两处联合黑方内部红方模型显式保持旧提议＋旧当事人，避免同时更换对手。原始 `FactorizedBeliefState`／历史 ISMCTS 保留旧基线。
 
+新增独立 `final_guess_probability.py` 和可选逐命令概率审计：同身份表跨剧情汇总、精确计数无关排列，硬域／软评分／完整 matcher 保留。正式终猜和行动算法未改。`ai_causal_audit --guess-probabilities --guess-probability-node-limit 100000` 记录最佳概率、旧猜测的新概率及推荐切换；`--guess-truth` 单独开启真值只读评分。日志默认关闭、不使用 RNG、不进入玩家 API／SSE。终猜提交需读 `context.submitted_guess_before_reveal`，终局公开答案后确定身份不能算行动时效果。
+
+六份原 seed 0 轨迹、1178 检查点：1122 精确、56 超限，无诊断错误。BTX04／Easy 全轨迹精确；BTX-02G 55 个、BTX06 1 个超限，下一步优化这些具体公开模型。153 次实际求解，其余同模型缓存，无新证据漂移；详见 [概率日志](final-guess-probability-audit.md)。原始结果在忽略目录 `references/ai-calibration/2026-10-13/joint-guess-probability-audit-smoke-100k.json`。
+
+联合概率接入后完整 778 项通过（190.211 秒），文本输出收尾后 33 项专项通过。日志 `references/joint-guess-probability-regression-20261013.txt` 被忽略。此阶段没有改变正式行动或终猜选择，不据回放诊断宣称棋力提升。
+
 默认切换源码 Python 指纹 `63b77dfa833503ee7ba5a92f114fd903872e2214806ed98d6b5f1751b3e71c96`：53 项专项通过，完整 759 项通过（178.932 秒）。实际房间选择公平 AI 后，BTX-01G 第一天默认 192 次提议／12 行动世界，无回退，原子执行三张红牌到 reveal；本机耗时 2.246 秒，仅为单根烟测。前端未改。
 
 切换前的同源码 `2398cf4`、Python 指纹 `c395d03e…` 完成：
@@ -21,8 +27,7 @@
 
 ## 下一步
 
-1. 终猜联合成功概率：当前压缩 MAP 只保留代表，未累计完整后验质量；同身份表跨剧情先汇总，再归一化全部合法世界。小空间独立枚举，大空间加权计数／重要性估计记录误差与 ESS。不能归一化 top 候选、相乘角色边际或把 compatible_count 当概率分母。本次未改终猜。
-   用户追加：每次 witness 变化和行动判定／结算／决策记录概率前后值、delta 及推荐切换，复用 BeliefAuditTrail，供 debug 和黑方信息隐藏评估。默认关闭、独立诊断 RNG／计时、保留同时批次及观察权限；见 [详细计划](final-guess-probability-audit.md)。尚未实现，不把未来示例当已有日志。
+1. 联合概率日志第一版完成；接续压缩大空间的多角色析取／额外身份分支，保留精确求和或明确不可用。再单独比较完整身份表边缘 MAP 与当前潜在世界 MAP 的正式终猜；不能归一化 top 候选、相乘角色边际或把 compatible_count 当概率分母。单 witness leave-one-out 归因和黑方预计泄露评分仍待做。
 2. FS-02G／BTX04／BTX06 的危险覆盖、联合防御候选和更早的资源准备；保留日末基线，短跨日规划单独消融。
 3. 信息收益与黑方实际信念／回应模型，先做终猜概率诊断再讨论信息隐藏与跨轮回价值。
 4. 扩默认矩阵版的 seed／标准与 Easy，再按开眼 → witness／矩阵 → 公平规划迁移 MC。更多未来项见路线图。
@@ -34,6 +39,7 @@
 | 规则／阶段 | `game.py`、`engine.py`、`phases/`、`effects/`、`rulesets/` | 正式裁判与轻量搜索转移，禁止全局难追踪 hook |
 | 公平红方 | `particle_ensemble.py`、`belief_planner.py` | 合法团队观察，完整三牌候选跨共同世界评价 |
 | 后验 | `belief.py`、`belief_posterior.py` | 共同目标、分维维护、target/q 与重复质量 |
+| 终猜概率／日志 | `final_guess_probability.py`、`belief_audit.py`、`benchmarks/ai_causal_audit.py` | 精确完整身份表归一化、逐观察批次、离线真值查询隔离 |
 | 矩阵／支持 | `belief_matrix.py`、`belief_plot_constraints.py`、`belief_matrix_sampler.py`、`belief_role_solver.py` | 硬域／数量／析取，合法完整分配，小空间枚举和 MAP |
 | 当事人／暗牌 | `belief_culprit_constraints.py`、`belief_culprit_posterior.py`、`belief_dark_constraints.py` | 联合重复限制及公开暗牌 all-different |
 | witness | `witness_components.py`、`witness_rules/`、`witness.py` | 编译器读观察、matcher 检查世界，按规则集复用 |

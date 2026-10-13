@@ -26,10 +26,10 @@ class PublicEvidenceLedger:
     audit: BeliefAuditTrail | None = None
 
     def update(self, view: Mapping[str, Any],
-               compiler: "FsbtxWitnessCompiler") -> tuple[PublicWitness, ...]:
+               compiler: "FsbtxWitnessCompiler", *, audit_context=None) -> tuple[PublicWitness, ...]:
         compiled = compiler.compile(view)
         if self.audit is not None:
-            self.audit.observe(view, compiled)
+            self.audit.observe(view, compiled, context=audit_context)
         module = str(view.get("module", ""))
         module_changed = self.module != module
         if module_changed:

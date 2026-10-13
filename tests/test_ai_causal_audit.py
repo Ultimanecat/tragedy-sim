@@ -15,6 +15,91 @@ from tests.test_particle_ensemble import protagonist_position
 
 
 class CausalAuditTests(unittest.TestCase):
+    def test_joint_guess_logs_every_command_preserve_replay_and_truth_boundary(self):
+        from tragedy_sim.replay import dumps, ReplayArchive
+        from tragedy_sim.final_guess_probability import JointGuessProbabilitySolver
+        game = Game({"id": "audit-probability", "title": "audit", "module": "FS",
+                     "days": 1, "loops": 2, "main_plot": "protect", "subplots": ["rumor"],
+                     "cast": {"girl": "key", "maiden": "cultist", "worker": "conspiracy"},
+                     "incidents": [], "table_talk": True})
+        for _ in range(200):
+            if game.winner is not None:
+                break
+            if game.state.phase == "mastermind":
+                for card, target in (("i2", "school"), ("fg", "maiden"), ("fp", "girl")):
+                    game.dispatch("m", "play", card=card, target=target)
+            elif game.state.phase == "protagonists":
+                for _ in range(3):
+                    actor = game.controller
+                    target = {"a": "girl", "b": "maiden", "c": "worker"}[actor]
+                    game.dispatch(actor, "play", card="g1", target=target)
+            else:
+                game.dispatch(**game.search_actions(game.controller)[0])
+        self.assertIsNotNone(game.winner)
+        replay = dumps(game)
+        row = {"replay_text": replay, "strategy": "fixed"}
+        calls = []
+        original = JointGuessProbabilitySolver.solve
+        def spy(self, evidence, witnesses=()):
+            calls.append((evidence, witnesses))
+            return original(self, evidence, witnesses)
+        with patch.object(JointGuessProbabilitySolver, "solve", spy):
+            logged = audit_row(row, guess_probabilities=True, guess_truth=True)
+        plain = audit_row(row, guess_probabilities=True)
+        rows = logged["belief_changes"]
+        archive = ReplayArchive.parse(replay)
+        self.assertEqual(len(rows), len(archive.commands) + 1)
+        self.assertEqual([item["context"]["command_number"] for item in rows],
+                         list(range(len(archive.commands) + 1)))
+        self.assertTrue(all(item["guess_probability"]["status"] == "exact" for item in rows))
+        self.assertEqual(logged["winner"], game.winner)
+        self.assertEqual(dumps(game), replay)
+        self.assertEqual([item["guess_probability"]["after"] for item in rows],
+                         [item["guess_probability"]["after"] for item in plain["belief_changes"]])
+        self.assertTrue(all("offline_truth" not in item["guess_probability"]
+                            for item in plain["belief_changes"]))
+        self.assertTrue(all(set(item["context"].get("trigger", {})) <= {"actor", "action"}
+                            for item in rows))
+        loss = logged["losses"][0]
+        checkpoint = rows[loss["command_number"]]
+        self.assertTrue(any(e["kind"] == "loop_lost" and e["loop"] == 1
+                            for e in checkpoint["context"]["observed_events"]))
+        self.assertEqual(checkpoint["context"]["before_position"]["loop"], 1)
+        self.assertTrue(any(item["loop"] == 2 and item["context"].get("before_position", {}).get("loop") == 1
+                            for item in rows))
+        self.assertTrue(calls)
+        self.assertTrue(all(not evidence.known_initial_roles for evidence, _ in calls))
+
+    def test_guess_cli_requires_explicit_truth_and_positive_work_limit(self):
+        for flags in (("--guess-truth",), ("--guess-probability-node-limit", "0")):
+            with (patch("sys.argv", ["audit", "unused.json", "--output", "unused.json", *flags]),
+                  patch("sys.stderr", io.StringIO()), self.assertRaises(SystemExit) as error):
+                main()
+            self.assertEqual(error.exception.code, 2)
+
+    def test_submitted_guess_is_scored_before_answers_are_revealed(self):
+        from tragedy_sim.replay import dumps
+        game = Game({"id": "audit-submission", "title": "audit", "module": "BTX",
+                     "days": 1, "loops": 1, "main_plot": "sealed", "subplots": ["rumor", "threads"],
+                     "cast": {"girl": "brain", "maiden": "cultist", "worker": "conspiracy"},
+                     "incidents": [], "table_talk": True})
+        for _ in range(100):
+            if game.winner is not None:
+                break
+            if game.state.phase == "mastermind":
+                for card, target in (("i2", "shrine"), ("fg", "maiden"), ("fp", "girl")):
+                    game.dispatch("m", "play", card=card, target=target)
+            else:
+                game.dispatch(**game.search_actions(game.controller)[0])
+        self.assertEqual(game.winner, "mastermind")
+        result = audit_row({"replay_text": dumps(game)}, guess_probabilities=True)
+        rows = [row for row in result["belief_changes"]
+                if row.get("context", {}).get("trigger", {}).get("action") == "guess_all"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["context"]["before_position"]["phase"], "final_guess")
+        self.assertEqual(rows[0]["context"]["submitted_guess_before_reveal"]["probability"], 0)
+        self.assertGreater(rows[0]["context"]["submitted_guess_before_reveal"]["best_guess_probability"], 0)
+
     def test_matrix_proposals_cli_rejects_ignored_configurations(self):
         for options in (("--matrix-proposals",),
                         ("--matrix-proposals", "--compare-roots",

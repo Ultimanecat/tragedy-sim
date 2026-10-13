@@ -16,6 +16,7 @@ from tragedy_sim import Game
 from tragedy_sim.belief import FactorizedBeliefState, HiddenWorldHypothesis, PublicEvidence
 from tragedy_sim.belief_audit import BeliefAuditTrail
 from tragedy_sim.belief_matrix import BeliefMatrixProjection, HardStatus
+from tragedy_sim.final_guess_probability import JointGuessProbabilitySolver
 from tragedy_sim.ismcts import _command
 from tragedy_sim.oracle_protagonist import OracleProtagonistAgent
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
@@ -182,16 +183,24 @@ def compare_budget_root(game, *, limits, seed=2, nodes=8, worlds=12):
 
 def audit_row(row, *, compare=False, nodes=8, worlds=12, time_limit_ms=1000,
               belief_log=False, probe_days=None, probe_loops=None, all_days=False,
-              budget_limits=(), matrix_proposals=False):
+              budget_limits=(), matrix_proposals=False, guess_probabilities=False,
+              guess_probability_node_limit=10_000, guess_truth=False):
     archive = ReplayArchive.parse(row["replay_text"])
     game = Game(archive.scenario)
     if game.module not in {"FS", "BTX"}:
         raise ValueError("causal audit currently supports FS/BTX")
-    trail = BeliefAuditTrail() if belief_log else None
+    if guess_truth and not guess_probabilities:
+        raise ValueError("truth probability queries require guess probabilities")
+    trail = (BeliefAuditTrail(
+        probability_solver=JointGuessProbabilitySolver(node_limit=guess_probability_node_limit)
+        if guess_probabilities else None,
+        offline_true_cast=dict(archive.scenario["cast"]) if guess_truth else None)
+        if belief_log or guess_probabilities else None)
     ledger = PublicEvidenceLedger(audit=trail)
     compiler = FsbtxWitnessCompiler()
     if trail is not None:
-        ledger.update(game.protagonist_team_view(), compiler)
+        ledger.update(game.protagonist_team_view(), compiler,
+                      audit_context={"checkpoint": "initial", "command_number": 0})
     truth = HiddenWorldHypothesis.from_scenario(archive.scenario)
     suicide_days = {item["day"] for item in archive.scenario["incidents"]
                     if item["kind"] == "suicide"}
@@ -236,11 +245,26 @@ def audit_row(row, *, compare=False, nodes=8, worlds=12, time_limit_ms=1000,
                         nodes=nodes, worlds=worlds)
                 roots.append(root)
         cursor = len(game.state.events)
+        before_view = game.protagonist_team_view() if guess_probabilities else None
+        submitted_guess = (trail.score_guess(command["guesses"])
+                           if guess_probabilities and command["action"] == "guess_all" else None)
         game.dispatch(command["actor"], command["action"],
                       **{key: value for key, value in command.items()
                          if key not in {"actor", "action"}})
         if trail is not None:
-            ledger.update(game.protagonist_team_view(), compiler)
+            after_view = game.protagonist_team_view()
+            context = None
+            if guess_probabilities:
+                # Record only actor/action names and authorized observed
+                # events. Hidden card values never become fair evidence.
+                context = {"checkpoint": "command_resolved", "command_number": number,
+                           "trigger": {"actor": command["actor"], "action": command["action"]},
+                           "before_position": {key: before_view.get(key) for key in
+                                               ("loop", "round", "phase", "timing")},
+                           "observed_events": after_view.get("events", ())[len(before_view.get("events", ())) :]}
+                if submitted_guess is not None:
+                    context["submitted_guess_before_reveal"] = submitted_guess
+            ledger.update(after_view, compiler, audit_context=context)
         if any(event.get("kind") == "loop_lost" for event in game.state.events[cursor:]):
             losses.append({"command_number": number,
                            # A command may already reset the day/start another
@@ -265,6 +289,12 @@ def main():
                         help="importance-corrected matrix role proposals in fair root comparisons")
     parser.add_argument("--belief-log", type=Path,
                         help="save developer-only Chinese evidence changes and sampled roles")
+    parser.add_argument("--guess-probabilities", action="store_true",
+                        help="log exact joint final-guess probability after every replay command")
+    parser.add_argument("--guess-probability-node-limit", type=int, default=10_000,
+                        help="exact diagnostic work cap; incomplete values are unavailable")
+    parser.add_argument("--guess-truth", action="store_true",
+                        help="also score true initial cast in an explicitly offline-only field")
     parser.add_argument("--strategy", choices=("strategic", "joint"))
     parser.add_argument("--scenario", action="append", help="restrict report rows by scenario ID")
     parser.add_argument("--probe-day", action="append", type=int,
@@ -280,6 +310,10 @@ def main():
     args = parser.parse_args()
     if min(args.nodes, args.worlds, args.time_limit_ms) < 1:
         parser.error("budgets must be positive")
+    if args.guess_probability_node_limit < 1:
+        parser.error("guess probability node limit must be positive")
+    if args.guess_truth and not args.guess_probabilities:
+        parser.error("--guess-truth requires --guess-probabilities")
     if args.budget_probe_ms and (len(args.budget_probe_ms) < 2
                                  or min(args.budget_probe_ms) < 1):
         parser.error("budget probes require at least two positive deadlines")
@@ -305,6 +339,9 @@ def main():
                            "probe_days": args.probe_day, "probe_loops": args.probe_loop,
                            "all_days": args.all_days, "compare_roots": args.compare_roots,
                            "matrix_proposals": args.matrix_proposals,
+                           "guess_probabilities": args.guess_probabilities,
+                           "guess_probability_node_limit": args.guess_probability_node_limit,
+                           "guess_truth": args.guess_truth,
                            "budget_probe_ms": args.budget_probe_ms},
               "progress": {"completed": 0, "planned": len(selected), "complete": False},
               "results": []}
@@ -314,7 +351,10 @@ def main():
             row, compare=args.compare_roots, nodes=args.nodes, worlds=args.worlds,
             time_limit_ms=args.time_limit_ms, belief_log=args.belief_log is not None,
             probe_days=args.probe_day, probe_loops=args.probe_loop, all_days=args.all_days,
-            budget_limits=args.budget_probe_ms, matrix_proposals=args.matrix_proposals))
+            budget_limits=args.budget_probe_ms, matrix_proposals=args.matrix_proposals,
+            guess_probabilities=args.guess_probabilities,
+            guess_probability_node_limit=args.guess_probability_node_limit,
+            guess_truth=args.guess_truth))
         report["progress"] = {"completed": len(report["results"]), "planned": len(selected),
                               "complete": len(report["results"]) == len(selected)}
         write_report(args.output, report)
