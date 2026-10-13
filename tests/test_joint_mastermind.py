@@ -143,6 +143,8 @@ class JointMastermindTests(unittest.TestCase):
             return 0.5
 
         def policy(budget, **kwargs):
+            self.assertIs(kwargs["matrix_proposals"], False)
+            self.assertIs(kwargs["joint_culprits"], False)
             budgets.append(budget)
             return SimpleNamespace(choose_action=lambda **call: call["offers"][0])
 
@@ -184,6 +186,8 @@ class JointMastermindTests(unittest.TestCase):
         seen = []
 
         def guess(policy, *, participant, view, offers):
+            self.assertFalse(policy.factorized_belief.matrix_proposals_enabled)
+            self.assertFalse(policy.factorized_belief.joint_culprits_enabled)
             self.assertEqual(participant, "team")
             self.assertEqual(view["protagonist_knowledge"], {})
             self.assertEqual([event["kind"] for event in view["events"]],
@@ -253,6 +257,8 @@ class JointMastermindTests(unittest.TestCase):
             self.assertEqual(participant, "team")
             self.assertNotIn("secret", view)
             self.assertEqual(view["protagonist_knowledge"], {})
+            self.assertFalse(policy.factorized_belief.matrix_proposals_enabled)
+            self.assertFalse(policy.factorized_belief.joint_culprits_enabled)
             seen.append(view)
             return original_choose(policy, participant=participant,
                                    view=view, offers=offers)

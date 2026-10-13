@@ -102,7 +102,7 @@ python -m benchmarks.ai_budget_matrix --budgets small --games 2 --seed 0
 主人公资源，并生成私有贡献明细；公开知识只缩小信念世界和服务最终猜测，不直接增加行动估值。其他规则集暂时显式回退旧通用估值。朴素 MCTS 始终保留旧估值，作为性能和棋力对照。
 当前可复现自对弈结果及其限制见 [AI 基准结果](docs/ai-benchmark-results.md)。
 
-FS/BTX 信念现提供共享矩阵投影：硬状态、经验概率、剧情、身份数量与当天暗牌域分开保存，析取及原始 witness 保留。正常提议耗尽且身份库为空时，可从剧情／数量变体构造合法世界恢复；`--disable-matrix-recovery` 可在 self-play 中消融红方恢复，JSON 记录次数。正常提议和终猜 MAP 路径保持；边界与完整对局对照见 [矩阵验证](docs/belief-matrix-validation.md)。
+公平 FS/BTX 粒子红方默认使用矩阵正常重要性提议（prior 变体、固定最多 192 次、target/q 校正）与合法联合当事人采样。硬状态与近似概率分开，剧情、身份数量、析取及完整 witness 保留；暗牌使用公开合法域。少角色精确枚举和终猜合法整套 MAP 保持。开发 self-play 用 `--no-matrix-proposals --no-joint-culprits` 运行旧红方消融，联合黑方内部回复保持旧基线。精度、对弈范围及限制见 [默认验证](docs/matrix-default-validation.md)和 [矩阵边界](docs/belief-matrix.md)。
 
 历史 C3 的 FS/BTX 主人公信息集搜索（下述旧 ISMCTS 模式现仅供开发对照）以 `PublicEvidence` 限制信息边界，并把身份/剧本、逐日事件当事人和当前剧作家暗牌分开采样；硬 witness 排除与公开事实矛盾的身份世界，软 witness 只调整权重。两人局团队 AI 由一个实例控制 A/B/C，生成完整三牌候选并跨相容世界比较，再按引擎顺序提交。`survival_ismcts_protagonist` 另以当天结算和样本存活率为首要评价，按公开历史揭牌调整暗牌抽样；这是实验性风险搜索，不提供“所有暗牌必活”的证明。`ismcts_legacy_protagonist` 保留首张搜索、后两张策略补全及旧持续粒子路径供对照。未重建的能力、事件选择回退公开信息防守策略。更多细节见 [AI 阶段性总结](docs/ai-current-state.md)及 [ISMCTS 与 witness 证据设计](docs/ismcts-witness-design.md)。
 

@@ -83,7 +83,7 @@ def compare_root(game, *, seed=2, nodes=8, worlds=12, time_limit_ms=1000,
             if name == "belief":
                 policy = MeasuredPlanner(
                     budget, particle_count=worlds, rng_seed=seed, rollout_horizon=horizon,
-                    matrix_proposals=matrix_proposals)
+                    matrix_proposals=matrix_proposals, joint_culprits=False)
                 chosen = policy.choose_action(participant="team", view=view, offers=offers)
                 bundle = (_command(chosen), *policy.remaining_card_commands())
             else:
@@ -152,7 +152,8 @@ def compare_budget_root(game, *, limits, seed=2, nodes=8, worlds=12):
     for limit in limits:
         budget = SearchBudget(node_limit=nodes, rollout_depth=8,
                               time_limit_ms=limit, seed=seed)
-        policy = MeasuredPlanner(budget, particle_count=worlds, rng_seed=seed)
+        policy = MeasuredPlanner(budget, particle_count=worlds, rng_seed=seed,
+                                 matrix_proposals=False, joint_culprits=False)
         started = perf_counter()
         chosen = policy.choose_action(participant="team", view=view, offers=offers)
         elapsed_ms = (perf_counter() - started) * 1000

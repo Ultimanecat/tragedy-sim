@@ -48,6 +48,6 @@ python -X utf8 -m benchmarks.ai_matrix_posterior_accuracy --output references/ai
 
 旧 64 次实验 JSON：`matrix-posterior-accuracy-16trials.json`，源码指纹 `0e0ff62fc32e459b919e3666d4e2d0860505cd231c2d89183ef154d8a9f3fff6`。192 次 JSON：`matrix-posterior-accuracy-192-16trials.json`，指纹 `c121970705239ccd31801088561589f0d674f59944ec03f77cb343b7ee02426d`。文件位于忽略目录 `references/ai-calibration/2026-10-13/`；原始 seed、权重诊断和参考计数均记录，前端不展示。
 
-新增测试覆盖精确小空间、私密安全初始知识、硬 witness、缺失支持的 TV 和不适用枚举输入；批次测试确认容量 1／24／64／192／1000 的固定上限。全量回归后，用新源码同预算重跑跨剧本配对，结果足以支持优势后再默认切换。当前尚未切换默认。
+新增测试覆盖精确小空间、私密安全初始知识、硬 witness、缺失支持的 TV 和不适用枚举输入；批次测试确认容量 1／24／64／192／1000 的固定上限。192 批次六剧本 24 局和固定工作量四局已完整结束，支持公平主线默认切换；范围和反例见 [对弈报告](matrix-cross-script-comparison.md)。本精度实验的原始模型、q 和批次未在默认切换时改变。
 
-缓存与批次的 39 项专项通过。权限恢复后，同一源码全部 754 项完整通过（167.685 秒），日志 `references/matrix-restored-permissions-regression-20261013.txt`。此前 744 通过／10 项 HTTP 的 WinError 10013 属于受限环境记录，未改测试断言、网络代码或系统权限。当前 192 批次六剧本 24 局已结束，红胜旧 3/12／矩阵 5/12；见 [对弈报告](matrix-cross-script-comparison.md)，固定工作量复测继续。
+缓存与批次的 39 项专项通过。权限恢复后，同一源码全部 754 项完整通过（167.685 秒），日志 `references/matrix-restored-permissions-regression-20261013.txt`。此前 744 通过／10 项 HTTP 的 WinError 10013 属于受限环境记录，未改测试断言、网络代码或系统权限。默认切换后的回归独立记录在 [路线图](future-roadmap.md)，不能用前置 754 项代替默认源码的验收。

@@ -107,7 +107,8 @@ class _PublicReplyEvaluator(OracleProtagonistAgent):
             offers = [self._offer(action, world) for action in actions]
             model = ParticleEnsembleProtagonistAgent(
                 SearchBudget(node_limit=1, rollout_depth=6, seed=self.rng_seed),
-                particle_count=2, rng_seed=self.rng_seed)
+                particle_count=2, rng_seed=self.rng_seed,
+                matrix_proposals=False, joint_culprits=False)
             chosen = model.choose_action(
                 participant="team", view=view, offers=offers)
             guesses = chosen.get("arguments", {}).get("guesses", {})
@@ -308,7 +309,8 @@ class JointPlanMastermindAgent(JointCardDecisionProvider, StrategicMctsMastermin
                 SearchBudget(node_limit=min(reply_limit, 8), rollout_depth=6,
                              time_limit_ms=remaining_ms, seed=seed),
                 particle_count=max(2, min(4, reply_limit // 2)),
-                rng_seed=seed, mastermind_policy_samples=1)
+                rng_seed=seed, mastermind_policy_samples=1,
+                matrix_proposals=False, joint_culprits=False)
                 if self.reply_model == "belief" else
                 RiskAwareProtagonistAgent(random.Random(self.budget.seed)))
             while world.state.phase == "protagonists":

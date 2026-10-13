@@ -15,7 +15,7 @@
 - 相同配分器计算精确条件边际，以及不依赖频率／概率阈值的硬支持。`belief_culprit_constraints` 和矩阵共享后者，跨日期占用可推出新的 always／never。
 - 硬约束导致整套无解时所有日期支持为空，矩阵显式报错；不放松 witness。不发生事件的软证据只调权，不推出硬排除。
 - 配分器共享有界缓存；支持／边际／诊断不推进 RNG。软权重逐天等比例缩放保持条件分布，原有 witness 系数不变。
-- `FactorizedBeliefState(joint_culprits=True)`、粒子红方同名参数和评测 `--joint-culprits` 开启直接抽样；默认仍关闭，旧独立拒绝路径用于消融。共享硬支持的强化已统一应用；黑方内部回应未开启新直接抽样。
+- 公平粒子红方默认开启直接联合抽样；原始 `FactorizedBeliefState(joint_culprits=True)` 可显式开启，历史原始状态仍关闭，旧独立拒绝路径保留消融。评测 `--no-joint-culprits` 关闭该项，完整旧基线还须 `--no-matrix-proposals`。共享硬支持统一应用；黑方内部回应显式保持旧抽样。当前验收见 [默认验证](matrix-default-validation.md)，下方为首批历史实验。
 - 每根 `proposal_summary().culprit_posterior` 记录版本 `legal-joint-culprits-v1`、日期数、可行性与配分状态数。诊断不进入玩家界面、SSE 或公开 replay。
 
 ## 验证与边界

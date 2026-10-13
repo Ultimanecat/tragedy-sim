@@ -330,6 +330,8 @@ class RoomServiceTests(unittest.TestCase):
                          "particle_ensemble_protagonist")
         policy = rooms._rooms[code].seats["a"].ai_policy
         self.assertEqual(policy.plan_name, "public_fs_btx_particle_ensemble")
+        self.assertTrue(policy.factorized_belief.matrix_proposals_enabled)
+        self.assertTrue(policy.factorized_belief.joint_culprits_enabled)
         other = RoomService()
         btx = other.create({"module": "BTX", "nickname": "Host", "seat": "m",
                             "protagonist_count": 1})
@@ -339,6 +341,9 @@ class RoomServiceTests(unittest.TestCase):
         }, token=btx["credential"]["admin_token"])
         self.assertEqual(updated_btx["room"]["seats"]["a"]["ai_type"],
                          "particle_ensemble_protagonist")
+        btx_policy = other._rooms[btx["room"]["code"]].seats["a"].ai_policy
+        self.assertTrue(btx_policy.factorized_belief.matrix_proposals_enabled)
+        self.assertTrue(btx_policy.factorized_belief.joint_culprits_enabled)
         unsupported = other.create({"module": "MZ", "nickname": "Host", "seat": "m",
                                     "protagonist_count": 1})
         with self.assertRaises(ServiceError) as error:

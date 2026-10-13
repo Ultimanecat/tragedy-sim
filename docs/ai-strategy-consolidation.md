@@ -12,7 +12,7 @@
 | 日常保留 | `fixed_mastermind` | 快速黑方基线；搜索续演也使用动态获胜路线。 |
 | 日常保留 | `baseline_protagonist`、`defensive_protagonist` | 基础干扰与公开信息防守；轻量基线，多席位可用。 |
 | 主线保留 | `strategic_mcts_mastermind` | 通用搜索黑方，作为联合版的对照及共享实现。 |
-| 主线保留 | `particle_ensemble_protagonist` | 当前公平红方，FS/BTX 单人控制三席位；后续矩阵化在此推进。 |
+| 主线保留 | `particle_ensemble_protagonist` | 公平红方，FS/BTX 单人控制三席位；默认矩阵重要性提议＋合法联合当事人，有限共同世界三牌规划。 |
 | 主线合并入口 | `joint_mastermind`、`belief_joint_mastermind` | 已共用 `JointPlanMastermindAgent`。建议大厅选择“联合搜索”，再选择公开／信念回复模型；目前前者 FS/BTX、后者 BTX。保留不同模型的评测标签。 |
 | 开发对照保留 | `mcts_mastermind`、`optimized_mcts_mastermind` | 用户此前明确要求保留朴素和优化 MCTS 基线。建议收起到开发模式，暂不删除实现。 |
 | 前端保留（已确认） | `oracle_script_protagonist`、`oracle_cards_protagonist` | 两种开眼红方继续供试玩选择；名称及说明明确标注开眼，分别知道完整剧本、完整剧本与当日暗牌。也用于分离信念、暗牌应对与行动规划错误。 |

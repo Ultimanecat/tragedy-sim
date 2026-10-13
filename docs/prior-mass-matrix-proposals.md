@@ -17,7 +17,7 @@
 
 ## 接口和诊断
 
-`matrix_variant_policy="uniform" / "prior"` 为开发消融参数；评测 `--matrix-variant-policy` 同名取值。矩阵开发路径默认选择 prior，主线 `matrix_proposals` 开关仍关闭。少角色枚举、终猜 MAP 和当事人后验不受此参数影响；不新增长期大厅 AI 模式。
+`matrix_variant_policy="uniform" / "prior"` 为开发消融参数；评测 `--matrix-variant-policy` 同名取值。公平主线默认启用 prior 矩阵提议，最新精度与对弈验收见 [默认验证](matrix-default-validation.md)。少角色枚举、终猜 MAP 和当事人后验不受此参数影响；不新增长期大厅 AI 模式。下方实验属于 64 次批次历史切片。
 
 每次 RoleProposal 同时记录 q 与 policy，重要性批次诊断记录策略集合；矩阵支持、初始计数和目标权重同源。传给提议器的目标复用因子信念已创建的对象，不重复建立不同先验。
 

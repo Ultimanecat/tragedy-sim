@@ -13,7 +13,7 @@ from dataclasses import asdict
 from pathlib import Path
 from statistics import mean
 
-from .ai_self_play import play
+from .ai_self_play import _resolve_belief_options, play
 from .ai_cutoff_calibration import match_telemetry
 from .ai_calibration_matrix import source_digest, write_report
 
@@ -40,10 +40,10 @@ def main() -> None:
     parser.add_argument("--depth", type=int, default=8)
     parser.add_argument("--protagonists", choices=("particle_ensemble", "oracle_script"),
                         default="particle_ensemble")
-    parser.add_argument("--matrix-proposals", action="store_true",
-                        help="importance-corrected matrix role proposals for red; black reply stays baseline")
-    parser.add_argument("--joint-culprits", action="store_true",
-                        help="direct legal joint culprit sampling for red; black reply stays baseline")
+    parser.add_argument("--matrix-proposals", action=argparse.BooleanOptionalAction,
+                        default=None, help="matrix role proposals (fair default); black reply stays baseline")
+    parser.add_argument("--joint-culprits", action=argparse.BooleanOptionalAction,
+                        default=None, help="legal joint culprits (fair default); black reply stays baseline")
     parser.add_argument("--matrix-variant-policy", choices=("uniform", "prior"), default="prior",
                         help="matrix variant proposal distribution; posterior target unchanged")
     parser.add_argument("--joint-reply-model", choices=("public", "belief", "hidden", "full"),
@@ -67,10 +67,11 @@ def main() -> None:
         parser.error("joint information weight must be between 0 and 0.1")
     if args.slow_trace_seconds is not None and args.slow_trace_seconds < 1:
         parser.error('slow-trace-seconds must be positive')
-    if args.matrix_proposals and args.protagonists != "particle_ensemble":
-        parser.error("matrix proposals require particle_ensemble protagonists")
-    if args.joint_culprits and args.protagonists != "particle_ensemble":
-        parser.error("joint culprits require particle_ensemble protagonists")
+    try:
+        args.matrix_proposals, args.joint_culprits = _resolve_belief_options(
+            args.protagonists, args.matrix_proposals, args.joint_culprits)
+    except ValueError as error:
+        parser.error(str(error))
     scenarios = args.scenarios or DEFAULT_SCENARIOS
     sources = source_digest()
     results = []

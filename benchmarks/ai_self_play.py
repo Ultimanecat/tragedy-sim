@@ -267,6 +267,21 @@ def _choose_policy_action(policy: Any, participant: str, game: Game,
     return action, arguments if isinstance(arguments, dict) else None
 
 
+def _resolve_belief_options(protagonists: str, matrix_proposals: bool | None,
+                            joint_culprits: bool | None) -> tuple[bool, bool]:
+    """Use main fair defaults; preserve explicit ablations and other policies."""
+    options = []
+    for name, value in (("matrix_proposals", matrix_proposals),
+                        ("joint_culprits", joint_culprits)):
+        if value is not None and type(value) is not bool:
+            raise ValueError(f"{name} must be boolean or None")
+        enabled = protagonists == "particle_ensemble" if value is None else value
+        if enabled and protagonists != "particle_ensemble":
+            raise ValueError(f"{name} requires particle_ensemble protagonists")
+        options.append(enabled)
+    return tuple(options)
+
+
 def play(scenario_id: str, seed: int, nodes: int, depth: int,
          strategy: str, protagonist_strategy: str = "baseline", *,
          protagonist_nodes: int | None = None,
@@ -284,15 +299,13 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          capture_fallback_contexts: bool = False,
          capture_replay: bool = False,
          matrix_recovery: bool = True,
-         matrix_proposals: bool = False,
-         joint_culprits: bool = False,
+         matrix_proposals: bool | None = None,
+         joint_culprits: bool | None = None,
          matrix_variant_policy: str = "prior",
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
-    if matrix_proposals and protagonist_strategy != "particle_ensemble":
-        raise ValueError("matrix proposals require particle_ensemble protagonists")
-    if joint_culprits and protagonist_strategy != "particle_ensemble":
-        raise ValueError("joint culprits require particle_ensemble protagonists")
+    matrix_proposals, joint_culprits = _resolve_belief_options(
+        protagonist_strategy, matrix_proposals, joint_culprits)
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -650,10 +663,10 @@ def main() -> None:
                         help="ablate BTX plot-role soft correlation witnesses")
     parser.add_argument("--disable-matrix-recovery", action="store_true",
                         help="ablate protagonist matrix recovery after legacy proposals are empty")
-    parser.add_argument("--matrix-proposals", action="store_true",
-                        help="use importance-corrected matrix role proposals for red")
-    parser.add_argument("--joint-culprits", action="store_true",
-                        help="direct legal joint culprit sampling for red")
+    parser.add_argument("--matrix-proposals", action=argparse.BooleanOptionalAction,
+                        default=None, help="matrix role proposals (default for particle_ensemble)")
+    parser.add_argument("--joint-culprits", action=argparse.BooleanOptionalAction,
+                        default=None, help="legal joint culprit sampling (default for particle_ensemble)")
     parser.add_argument("--matrix-variant-policy", choices=("uniform", "prior"), default="prior",
                         help="matrix variant proposal distribution; posterior target unchanged")
     parser.add_argument("--disable-witness-source", action="append", default=[],
@@ -680,10 +693,11 @@ def main() -> None:
         parser.error("games, nodes and depth must be positive")
     if args.protagonists == "particle_ensemble" and args.oracle_horizon == "match":
         parser.error("particle ensemble supports day or loop horizon")
-    if args.matrix_proposals and args.protagonists != "particle_ensemble":
-        parser.error("matrix proposals require particle_ensemble protagonists")
-    if args.joint_culprits and args.protagonists != "particle_ensemble":
-        parser.error("joint culprits require particle_ensemble protagonists")
+    try:
+        args.matrix_proposals, args.joint_culprits = _resolve_belief_options(
+            args.protagonists, args.matrix_proposals, args.joint_culprits)
+    except ValueError as error:
+        parser.error(str(error))
     library = ScenarioLibrary()
     scenarios = _scenario_ids(args, library)
     strategies = MASTERMIND_STRATEGIES if args.strategy == "all" else (args.strategy,)

@@ -32,7 +32,7 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                  rollout_horizon: str = "day",
                  mastermind_policy_samples: int = 3,
                  information_reward_weight: float = 0.01,
-                 matrix_proposals: bool = False, joint_culprits: bool = False,
+                 matrix_proposals: bool = True, joint_culprits: bool = True,
                  matrix_variant_policy: str = "prior"):
         if rollout_horizon not in {"day", "loop"}:
             raise ValueError("particle rollout_horizon must be day or loop")

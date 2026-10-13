@@ -21,7 +21,7 @@
 
 ## 后续切片
 
-1. 强黑方四局 72 个历史根已审计，恢复没有触发；见 [历史根审计](belief-matrix-historical-audit.md)。旧正常补样曾使 BTX06 冷根身份库 5→56，结果见 [历史正常提议审计](normal-matrix-proposals-audit.md)。2026-10-13 的 `matrix_proposals=True` 开发路径已改为带 q 的完整重要性批次，不混入旧库；默认仍关闭，见 [重要性提议](matrix-importance-proposals.md)。
+1. 公平 FS／BTX 主线默认使用 prior 矩阵完整重要性批次和合法联合当事人，小空间保持精确枚举；见 [默认验收](matrix-default-validation.md)。旧正常补样曾使 BTX06 冷根身份库 5→56，属于已替换的混合算法，历史结果见 [正常提议审计](normal-matrix-proposals-audit.md)。新路径不混入旧无 q 库；历史 ISMCTS／原始因子信念与黑方内部回复仍用旧基线。
 2. 更完整的条件／析取联合传播、细粒度来源链和软打分统一操作接口。一个 witness 的多格投影不可重复计分。
 
 矩阵投影和硬域复用本身不证明棋力提升。联合候选和价值排序保持；共用目标与重要性提议的采样变化单独验证。任何无解或样本违反硬域均显式诊断，不以放松证据恢复。
@@ -37,7 +37,7 @@
 - `FactorizedBeliefState` 默认只在旧提议及条件构造均为空、已有身份库也为空时启用恢复。正常库保持原有随机顺序；恢复后的库明确标为非完整枚举。
 - `matrix_recovery=False` 或 self-play 的 `--disable-matrix-recovery` 用于消融；记录尝试次数与产生世界数，证据维护不占行动搜索节点预算。
 - `matrix_proposals=True`／评测 `--matrix-proposals` 对非完整枚举启用完整带密度的矩阵提议批次，以 target/q 保留重复质量；不混入旧无密度库。只读 `proposal_summary()` 增加 ESS 等诊断，库计数不代表精确后验。少角色穷举和最终整套 MAP 保持，旧恢复开关只影响旧路径。
-- 开发矩阵路径的 `matrix_variant_policy` 默认 prior：按硬兼容先验质量选择数量／域变体，目标分布不变；历史 uniform 保留消融，提议记录 policy 和 q。首批 ESS 与配对结果见 [先验质量提议](prior-mass-matrix-proposals.md)，正常主线矩阵开关仍关闭。
+- 主线 `matrix_variant_policy` 默认 prior：按硬兼容先验质量选择数量／域变体，目标分布不变；历史 uniform 保留消融，提议记录 policy 和 q。首批 ESS 与配对结果见 [先验质量提议](prior-mass-matrix-proposals.md)，当前结果见 [跨剧本报告](matrix-cross-script-comparison.md)。
 - 新鲜重要性批次固定为 `min(192, capacity)`，与旧持续库每次补 64 个区分；数量在采样前确定，不根据当批权重停采。独立后验精度及额外耗时见 [固定批次实验](matrix-posterior-accuracy.md)。历史 64 次报告不可用新批次假称等价重建。
 - 原始 witness 保留，硬条件没有松动；候选仍为空时按现有显式回退处理，不使用真实剧本补样。最终猜测继续原有整套合法 MAP。
 
@@ -45,6 +45,6 @@
 
 当事人硬域共用 `belief_culprit_constraints`：直接揭示、候选限制与事件发生时的阈值快照复用完整 matcher，A.I. 合计标记与兼职替身保留原规则。矩阵和因子采样器逐根使用相同候选；软的未发生观察不自动形成排除。历史日志必须附带当时 witness，不仅传采样频率。
 
-跨日期重复限制已通过共用 `JointCulpritPosterior` 传播到硬支持，局部非空而整套无解会显式诊断。`joint_culprits=True` 可直接抽合法联合安排，保留原 soft score；精确边际与样本频率分开，默认仍旧独立拒绝采样，见 [联合当事人](joint-culprit-posterior.md)。
+跨日期重复限制已通过共用 `JointCulpritPosterior` 传播到硬支持，局部非空而整套无解会显式诊断。主线默认 `joint_culprits=True` 直接抽合法联合安排，保留原 soft score；精确边际与样本频率分开。原始因子信念的旧独立拒绝路径保留消融，见 [联合当事人](joint-culprit-posterior.md)。
 
 验收：本批全量后端 617 项通过，前端未改；上批前端 25 项、构建与 lint 通过。首切片曾与重构前 `e637156` 对照 FS01／BTX04 的完整及部分出牌根，共四个固定工作量案例等价；本批恢复消融与完整对局见验证文档。日志投影错误单独记录，不改变已完成的 AI 决策。
