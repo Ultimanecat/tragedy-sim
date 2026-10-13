@@ -50,4 +50,4 @@ python -X utf8 -m benchmarks.ai_matrix_posterior_accuracy --output references/ai
 
 新增测试覆盖精确小空间、私密安全初始知识、硬 witness、缺失支持的 TV 和不适用枚举输入；批次测试确认容量 1／24／64／192／1000 的固定上限。全量回归后，用新源码同预算重跑跨剧本配对，结果足以支持优势后再默认切换。当前尚未切换默认。
 
-缓存与批次的 39 项专项通过。最新全部 754 项执行结果为 744 通过、10 项 HTTP 连接因沙箱 WinError 10013 未能验证，零断言失败、零跳过；完整结构化结果在 `references/matrix-192-cached-regression-20261013.json`。TEMP／TMP 在本次测试进程内指向工作区 `references/matrix-test-temp`，未改测试断言、网络代码或系统权限。此前未限制环境中的 748 项完整通过属于前置源码，不能冒充本批全量通过。
+缓存与批次的 39 项专项通过。权限恢复后，同一源码全部 754 项完整通过（167.685 秒），日志 `references/matrix-restored-permissions-regression-20261013.txt`。此前 744 通过／10 项 HTTP 的 WinError 10013 属于受限环境记录，未改测试断言、网络代码或系统权限。当前 192 批次六剧本 24 局已结束，红胜旧 3/12／矩阵 5/12；见 [对弈报告](matrix-cross-script-comparison.md)，固定工作量复测继续。
