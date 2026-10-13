@@ -93,3 +93,5 @@ python -m benchmarks.ai_proposal_regression_audit references/ai-calibration/2026
 同根候选并集在两种原世界批次中评价，冻结库重抽只比较两条轨迹原先选中的完整三牌，不重新跑完整对弈。`culprit_profile` 是按天独立提议概率，`culprit_composition` 在枚举上限内施加当事人重复限制，仍不等于暗牌材料化之后的完整后验。终猜 `selected_role_hard_compatible` 只验证角色／剧情投影，其事件行是占位值。
 
 此报告包含原始命令及开发真值，禁止进入玩家界面／SSE／公共 replay。真值用于采样完成后的诊断；概率标签不形成新的硬事实。完整每日表和首次分歧的分析见 [逐步退化排查](matrix-regression-step-audit.md)。
+
+2026-10-13 起，生产身份权重及诊断共用 [概率目标](unified-belief-target.md)。用旧源码对局作输入时，当前实现重建的样本可能与旧 Trace 不同；检查 `recorded_sampling_matches` 及原始候选分数，不能称作原批次等价重现。2026-10-12 的已保存逐步报告仍是当时算法的审计结果。

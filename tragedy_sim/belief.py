@@ -773,11 +773,14 @@ class FactorizedBeliefState:
         self.matrix_proposal_attempts = 0
         self.matrix_proposal_worlds = 0
         self.rng = random.Random(seed)
+        self.matrix_rng = random.Random(f"belief-matrix:{seed}")
+        self.eviction_rng = random.Random(f"belief-eviction:{seed}")
         self.sampler = ConstraintBeliefSampler()
         self._signature: tuple[Any, ...] | None = None
         self._roles: dict[tuple[Any, ...], HiddenWorldHypothesis] = {}
         self._exact_roles = False
         self._plot_sizes: Counter[tuple[str, tuple[str, ...]]] = Counter()
+        self.role_target = None
 
     @staticmethod
     def _key(world: HiddenWorldHypothesis) -> tuple[Any, ...]:
@@ -828,6 +831,11 @@ class FactorizedBeliefState:
         from .witness import FsbtxWitnessMatcher
 
         matcher = FsbtxWitnessMatcher()
+        if evidence.module in {"FS", "BTX"}:
+            from .belief_posterior import RolePosteriorTarget
+            self.role_target = RolePosteriorTarget(evidence)
+        else:
+            self.role_target = None
         role_witnesses = self._role_witnesses(witnesses)
         signature = PersistentBeliefState._static_signature(evidence)
         if signature != self._signature:
@@ -863,7 +871,7 @@ class FactorizedBeliefState:
             from .belief_matrix_sampler import MatrixWorldSampler
             self.matrix_proposal_attempts += 1
             extra = MatrixWorldSampler().sample(
-                evidence, hard_witnesses, target - len(proposed), rng=self.rng)
+                evidence, hard_witnesses, target - len(proposed), rng=self.matrix_rng)
             self.matrix_proposal_worlds += len(extra)
             proposed = (*proposed, *extra)
         if (self.matrix_recovery_enabled and evidence.module in {"FS", "BTX"}
@@ -871,7 +879,7 @@ class FactorizedBeliefState:
             from .belief_matrix_sampler import MatrixWorldSampler
             self.matrix_recovery_attempts += 1
             proposed = MatrixWorldSampler().sample(
-                evidence, hard_witnesses, min(16, self.capacity), rng=self.rng)
+                evidence, hard_witnesses, min(16, self.capacity), rng=self.matrix_rng)
             self.matrix_recovery_worlds += len(proposed)
             if proposed:
                 # Once recovery supplies an incomplete proposal reservoir,
@@ -882,7 +890,7 @@ class FactorizedBeliefState:
             if key in self._roles or not matcher.matches(world, role_witnesses):
                 continue
             if len(self._roles) >= self.capacity:
-                old = self.rng.choice(tuple(self._roles))
+                old = self.eviction_rng.choice(tuple(self._roles))
                 del self._roles[old]
             self._roles[key] = world
 
@@ -896,6 +904,7 @@ class FactorizedBeliefState:
             "matrix_proposals_enabled": self.matrix_proposals_enabled,
             "matrix_proposal_attempts": self.matrix_proposal_attempts,
             "matrix_proposal_worlds": self.matrix_proposal_worlds,
+            "posterior_target": self.role_target.diagnostics() if self.role_target else None,
             "roles": [{"character": cid, "counts": dict(sorted(Counter(
                 dict(world.roles).get(cid) for world in worlds).items()))}
                 for cid in characters],
@@ -924,8 +933,8 @@ class FactorizedBeliefState:
         self._refresh_roles(evidence, witnesses)
         matcher = FsbtxWitnessMatcher()
         role_witnesses = self._role_witnesses(witnesses)
-        return tuple((world,
-                      2.0 ** matcher.soft_score(world, role_witnesses)
+        return tuple((world, self.role_target.weight(world, role_witnesses)
+                      if self.role_target else 2.0 ** matcher.soft_score(world, role_witnesses)
                       / (self._plot_sizes[(world.main_plot, world.subplots)]
                          if self._exact_roles else 1))
                      for world in self._roles.values())
@@ -1097,6 +1106,10 @@ class FactorizedBeliefState:
 
         matcher = FsbtxWitnessMatcher()
         role_witnesses = self._role_witnesses(witnesses)
+        target = None
+        if evidence.module in {"FS", "BTX"}:
+            from .belief_posterior import RolePosteriorTarget
+            target = RolePosteriorTarget(evidence)
         soft = tuple(w for w in role_witnesses
                      if w.strength == WitnessStrength.SOFT)
         # Repeated observations share one realization choice; the matcher still
@@ -1272,8 +1285,9 @@ class FactorizedBeliefState:
                         "belief-exact-map", main, subplots, signature, incidents)
                     if not matcher.matches(world, role_witnesses):
                         continue
-                    weight = (2.0 ** matcher.soft_score(
-                        world, role_witnesses) / max(1, unconstrained_size))
+                    weight = (target.weight(world, role_witnesses) if target else
+                              2.0 ** matcher.soft_score(world, role_witnesses)
+                              / max(1, unconstrained_size))
                     ranked.append((world, weight))
 
             propose(0, {})
