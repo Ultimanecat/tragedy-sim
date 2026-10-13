@@ -68,6 +68,36 @@ class FinalGuessProbabilityTests(unittest.TestCase):
                 with self.subTest(module=module, extras=extras):
                     self.assert_reference(setup)
 
+    def test_extra_partitions_remain_disjoint_after_public_role_constraints(self):
+        setup = replace(evidence("BTX"), characters=(*evidence("BTX").characters, "copycat", "irregular"))
+        for fact in (
+            PublicWitness("role_in", "copycat", ["ordinary", "friend"], 1, 1, "test", "test"),
+            PublicWitness("role_pressure", "friend", {"candidates": ["irregular", "girl"]},
+                          1, 1, "test", "test", WitnessStrength.SOFT),
+            PublicWitness("mandatory_serial_route", "death", {
+                "serial": ["copycat"], "virus_ordinary": ["doctor"]}, 1, 1, "test", "test"),
+        ):
+            with self.subTest(kind=fact.kind):
+                self.assert_reference(setup, (fact,))
+
+    def test_large_extra_cast_counts_without_full_identity_enumeration(self):
+        from tragedy_sim import Game
+        from tragedy_sim.belief import PublicEvidence
+        from tragedy_sim.belief_posterior import RolePosteriorTarget
+        from tragedy_sim.scenario_library import ScenarioLibrary
+        library = ScenarioLibrary()
+        for sid, cast_count in (("official-tragic-aiplay-btx-02g", 763140),
+                                ("community-tragic-aiplay-btx-41", 27370080)):
+            with self.subTest(scenario=sid):
+                setup = PublicEvidence.from_view(Game(library.get(sid)).protagonist_team_view())
+                result = JointGuessProbabilitySolver(node_limit=1000).solve(setup)
+                self.assertTrue(result.exact, result.to_dict())
+                self.assertEqual(result.support_count, cast_count)
+                self.assertLess(result.nodes, 1000)
+                # With no evidence, every latent plot's prior sums to one.
+                self.assertAlmostEqual(result.total_mass,
+                                       len(RolePosteriorTarget(setup).plot_sizes), places=10)
+
     def test_current_and_initial_identity_are_distinct_conditions(self):
         setup = replace(evidence("BTX"), known_roles=(("girl", "serial"),),
                         known_plots=("virus",))

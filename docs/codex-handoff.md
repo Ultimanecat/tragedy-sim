@@ -8,7 +8,11 @@
 
 新增独立 `final_guess_probability.py` 和可选逐命令概率审计：同身份表跨剧情汇总、精确计数无关排列，硬域／软评分／完整 matcher 保留。正式终猜和行动算法未改。`ai_causal_audit --guess-probabilities --guess-probability-node-limit 100000` 记录最佳概率、旧猜测的新概率及推荐切换；`--guess-truth` 单独开启真值只读评分。日志默认关闭、不使用 RNG、不进入玩家 API／SSE。终猜提交需读 `context.submitted_guess_before_reveal`，终局公开答案后确定身份不能算行动时效果。
 
-六份原 seed 0 轨迹、1178 检查点：1122 精确、56 超限，无诊断错误。BTX04／Easy 全轨迹精确；BTX-02G 55 个、BTX06 1 个超限，下一步优化这些具体公开模型。153 次实际求解，其余同模型缓存，无新证据漂移；详见 [概率日志](final-guess-probability-audit.md)。原始结果在忽略目录 `references/ai-calibration/2026-10-13/joint-guess-probability-audit-smoke-100k.json`。
+首版六份 seed 0 轨迹、1178 检查点：1122 精确、56 超限，无诊断错误。153 次实际求解，其余同模型缓存，无新证据漂移；详见 [概率日志](final-guess-probability-audit.md)。首版结果在忽略目录 `references/ai-calibration/2026-10-13/joint-guess-probability-audit-smoke-100k.json`。
+
+后续 `extra_identity_partition-v2` 已提前分开局外人／模仿者身份，避免不同额外槽位的普通角色域混合。相同六份轨迹现在 1177／1178 精确；原 1122 个可用点概率／质量／支持数一致，BTX-02G 55 个超限点全部恢复，约 46→4 秒。11 角色 BTX-41 初始 534 节点精确计数。报告 `joint-guess-extra-partition-validation.json`；剩 BTX06 第 1 轮第 4 天命令 57，下一步检查剧情域差异是否需要完整身份展开。
+
+额外身份分组阶段完整 780 项通过（193.998 秒），35 项概率／审计专项通过；日志 `references/joint-guess-extra-partition-regression-20261013.txt` 被忽略。
 
 联合概率接入后完整 778 项通过（190.211 秒），文本输出收尾后 33 项专项通过。日志 `references/joint-guess-probability-regression-20261013.txt` 被忽略。此阶段没有改变正式行动或终猜选择，不据回放诊断宣称棋力提升。
 

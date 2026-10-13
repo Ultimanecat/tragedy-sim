@@ -108,6 +108,7 @@ class JointGuessProbability:
     _split: bool = field(default=False, repr=False)
     _groups: tuple[_CastGroup, ...] = field(default=(), repr=False)
     _index: dict = field(default_factory=dict, repr=False, compare=False)
+    _extra_characters: tuple[str, ...] = field(default=(), repr=False)
 
     @property
     def exact(self):
@@ -122,7 +123,9 @@ class JointGuessProbability:
             return None
         if not _gender_ok(guess, self._split):
             return 0.0
-        row = self._index.get(tuple(sorted(Counter(guess.values()).items())))
+        extra_groups = self._index.get(tuple(sorted(Counter(guess.values()).items())), {})
+        extra_key = tuple((cid, guess[cid]) for cid in self._extra_characters)
+        row = extra_groups.get(extra_key)
         if row is None:
             return 0.0
         fixed_ids, groups = row
@@ -133,6 +136,7 @@ class JointGuessProbability:
     def to_dict(self):
         return {"version": "joint-cast-probability-v1", "status": self.status,
                 "exact": self.exact, "method": "counted_cast_partition",
+                "solver_policy": "extra_identity_partition-v2",
                 "model": "factorized-role-posterior-v1",
                 "target_version": RolePosteriorTarget.version,
                 "total_mass": self.total_mass, "support_count": self.support_count,
@@ -185,14 +189,19 @@ class JointGuessProbabilitySolver:
         incidents = tuple((day, kind, kind, cid) for day, kind, cid in placeholders)
         target = RolePosteriorTarget(evidence)
         by_counts = defaultdict(list)
+        extra_characters = tuple(cid for cid in characters if cid in {"irregular", "copycat"})
         for variant in variants:
             counts = tuple(sorted((role, amount) for role, amount in variant.counts.items() if amount))
-            by_counts[counts].append(variant)
+            # Different extra identities describe disjoint cast sets. Their
+            # printed-slot subtraction changes regular domains, so establish
+            # this choice before finding role dependencies across plots.
+            extra_key = tuple(sorted(variant.extra_roles.items()))
+            by_counts[counts, extra_key].append(variant)
         groups = []
         from .belief_plot_constraints import _genders
 
         try:
-            for count_key, selected in sorted(by_counts.items()):
+            for (count_key, extra_key), selected in sorted(by_counts.items()):
                 union = {cid: tuple(sorted(set().union(*(v.domains[cid] for v in selected))))
                          for cid in characters}
                 relevant = _dependencies(role_facts, selected, characters)
@@ -200,10 +209,19 @@ class JointGuessProbabilitySolver:
                 # fixed before counting a common suffix across latent plots.
                 relevant.update(cid for cid in characters
                                 if len({v.domains[cid] for v in selected}) > 1)
-                relevant.update(cid for v in selected for cid in v.extra_roles)
+                fixed = dict(extra_key)
+                relevant.difference_update(fixed)
                 order = tuple(sorted(relevant, key=lambda cid: (len(union[cid]), cid)))
                 remaining = Counter(dict(count_key))
-                fixed = {}
+                remaining.subtract(fixed.values())
+                if any(amount < 0 for amount in remaining.values()) or not _gender_ok(fixed, split):
+                    continue
+                initial_male = initial_female = False
+                if split:
+                    for cid, role in fixed.items():
+                        if role == "friend":
+                            m, f = _genders(cid)
+                            initial_male, initial_female = initial_male or m, initial_female or f
 
                 def visit(index, male=False, female=False):
                     nonlocal nodes
@@ -258,7 +276,7 @@ class JointGuessProbabilitySolver:
                         groups.append(_CastGroup(count_key, tuple(union.items()), tuple(sorted(fixed.items())),
                                                  roles, completions, mass))
 
-                visit(0)
+                visit(0, initial_male, initial_female)
         except _WorkLimit:
             return unavailable("work_limit", "exact partition exceeded node limit; no partial probabilities")
         if not groups:
@@ -267,11 +285,15 @@ class JointGuessProbabilitySolver:
         best = max(groups, key=lambda g: (g.per_cast_mass, g.representative))
         index = {}
         for group in groups:
-            fixed_ids = tuple(cid for cid, _ in group.fixed)
-            ids, rows = index.setdefault(group.counts, (fixed_ids, {}))
-            if ids != fixed_ids or group.fixed in rows:
+            extra_key = tuple((cid, role) for cid, role in group.fixed if cid in extra_characters)
+            regular_key = tuple((cid, role) for cid, role in group.fixed if cid not in extra_characters)
+            fixed_ids = tuple(cid for cid, _ in regular_key)
+            extras = index.setdefault(group.counts, {})
+            ids, rows = extras.setdefault(extra_key, (fixed_ids, {}))
+            if ids != fixed_ids or regular_key in rows:
                 raise AssertionError("Cast partition groups overlap or have inconsistent dependencies")
-            rows[group.fixed] = group
+            rows[regular_key] = group
         return JointGuessProbability("exact", total, sum(g.completions for g in groups),
                                      best.representative, best.per_cast_mass / total, len(groups), nodes,
-                                     _characters=characters, _split=split, _groups=tuple(groups), _index=index)
+                                     _characters=characters, _split=split, _groups=tuple(groups), _index=index,
+                                     _extra_characters=extra_characters)
