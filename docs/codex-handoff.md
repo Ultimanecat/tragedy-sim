@@ -3,6 +3,8 @@
 本文是新会话的启动入口，整理截至源码提交 `0ec96eb` 的上下文。本次交接只增加文档。
 开始工作时先执行 `git status --short --branch`、`git log -8 --oneline`，确认是否已有后续提交或其他会话的修改。
 
+2026-10-13 最新对比：`7c57978` 同源码六剧本 seed 0／3、旧／prior 矩阵＋联合当事人 24 局已完整结束，红胜均 2/12，303 每日根／4412 命令硬兼容、矩阵真值与 replay 通过，无回退。终猜有升有降，证据每根平均约 160／99 ms，不同轨迹不作严格性能归因。默认保持关闭，目标未完成；继续相同源码标准 BTX-01G／BTX06 seed 1／2 八局，报告路径 `references/ai-calibration/2026-10-13/matrix-default-validation-standard-seeds12.json`。先检查实时进程／报告完整性，不能根据本段文字假定仍运行。见 [跨剧本报告](matrix-cross-script-comparison.md)。
+
 2026-10-13 当前接续：两条接口均已实现，witness 进入矩阵／共同后验，采样使用矩阵硬域、数量／剧情及完整 matcher。主线 `matrix_proposals` 和 `joint_culprits` 仍关闭；未完成跨剧本默认门槛。查询实际返回当前身份，新增 `identity_knowledge` 保存安全初始推导；病毒转变后的杀人狂答案允许初始平民，先前查到的平民不被重查覆盖，原临时工平民答案不暴露秘密身份。黑方对病毒下初始平民的历史查询暂不编造答案。可续跑评测 `benchmarks.ai_matrix_validation` 冻结源码／剧本顺序／预算，默认六剧本 seed 0／3、24 局，每局强制逐命令 replay／硬证据及每日矩阵真值审计，失败保存 incomplete；见 [默认验证](matrix-default-validation.md)。当前验证结果以路线图为准。用户附件目录不触碰，references 产物不强制加入 Git。
 
 2026-10-13 前置支持集切片：`belief_role_solver` 对 FS／BTX 小空间枚举与 MAP 复用矩阵剧情／数量／域，修复随机非法事件占位漏剧情、模仿者额外身份和未来已知当事人占位；普通完成器接收额外亲友性别占用。`PublicEvidence.known_initial_roles` 区分安全初始身份知识；共享输入转换修复临时工替身答案丢失，持续库和共同 target 直接条件化新知识。初始计数清除全部知识字段，先验／soft score 未变；六组额外身份初始计数和 MAP 独立枚举一致。737 项全量通过（164.979 秒），前端未改，见 [支持集审计](exact-role-support-audit.md)。主线矩阵开关仍关闭，目标未完成。下方是前置切片。
