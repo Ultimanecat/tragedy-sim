@@ -14,6 +14,8 @@
 
 BTX06 命令 57 的根因是宽泛能力来源析取要求 6 名角色完整展开，剧情域无差异。旧算法增大上限后完整完成 255505 节点／15.896 秒，新版 1826 节点／0.381 秒；477876 个身份表及 624 套查询逐一对照一致。报告 `references/ai-calibration/2026-10-14/joint-guess-predicate-partition-validation.json`，单根在 2026-10-13 目录的 `joint-guess-predicate-btx06-root.json`。下一步扩留出状态，单独比较正式终猜的边缘 MAP，不继续按旧超限 TODO 工作。
 
+留出验证随后完成：38 份完整轨迹、9 个剧本 ID、7405 检查点全精确，最大 3699 节点；真值未排除，17 次正式终猜均记录提交前概率。报告 `joint-guess-corpus-default24.json`、`joint-guess-corpus-imported10.json`、`joint-guess-corpus-hospital4.json` 在 2026-10-14 忽略目录。旧记录的决策来自不同源码；与当前两个策略的同观察比较分开统计。评测工具 `ai_self_play` 的终猜支持审计当前在提交后执行，下一阶段必须移至提交前。
+
 额外身份分组阶段完整 780 项通过（193.998 秒），35 项概率／审计专项通过；日志 `references/joint-guess-extra-partition-regression-20261013.txt` 被忽略。
 
 最新等价类别阶段完整 783 项通过（210.309 秒），38 项概率／审计专项通过；日志 `references/joint-guess-predicate-partition-regression-20261014.txt` 被忽略。正式行动和终猜选择尚未改，不据回放诊断宣称棋力提升。

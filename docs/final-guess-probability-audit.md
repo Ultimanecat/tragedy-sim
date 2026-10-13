@@ -142,3 +142,11 @@ BTX06 原超限点实际上有 6 名角色被完整展开，剧情域没有差�
 源码指纹 `f77afa7c…`。完整同轨迹对照在 `references/ai-calibration/2026-10-14/joint-guess-predicate-partition-validation.json`；BTX06 完整旧／新单根和 624 查询对照在 `references/ai-calibration/2026-10-13/joint-guess-predicate-btx06-root.json`。这些文件继续忽略。后续按路线图扩展留出状态、比较完整身份表边缘 MAP，再讨论预计泄露评价；不能把六份轨迹的性能结果外推到所有剧本／任意证据。
 
 本阶段完整后端回归 783 项通过（210.309 秒）；日志 `references/joint-guess-predicate-partition-regression-20261014.txt` 被忽略。
+
+## 扩展轨迹验证（2026-10-14）
+
+冻结 `e236d88` 的 Python 实现，重演三份完整报告：默认切换对照 24 局、导入剧本 10 局、医院路线留出 4 局。覆盖 9 个剧本 ID、seed 0／1／3、策略／联合黑方及新旧红方轨迹；含标准／Easy、社区 BTX-08／45。
+
+共 **7405 个检查点全部精确可用**，最大 3699 节点，默认上限 10000；所有真值查询保持正概率，未发现诊断错误、支持为空或超限。总诊断约 57.8 秒，17 次正式终猜的实际提交前概率均有记录。这是概率／信息边界重演，未重新对弈，不据此更新棋力胜率。
+
+原始报告继续忽略，位于 `references/ai-calibration/2026-10-14/`：`joint-guess-corpus-default24.json`、`joint-guess-corpus-imported10.json`、`joint-guess-corpus-hospital4.json`。已保存旧决策来自不同开发版本，不能把当前 witness 下对旧猜测的改善全部归因于边缘 MAP；下一步在同一授权观察上重新运行当前两种终猜策略。
