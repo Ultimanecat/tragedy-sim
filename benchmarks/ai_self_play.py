@@ -169,6 +169,7 @@ class MatchResult:
     protagonist_matrix_recovery_attempts: int = 0
     protagonist_matrix_recovery_worlds: int = 0
     matrix_proposals_enabled: bool = False
+    joint_culprits_enabled: bool = False
     protagonist_matrix_proposal_attempts: int = 0
     protagonist_matrix_proposal_worlds: int = 0
 
@@ -283,10 +284,13 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          capture_replay: bool = False,
          matrix_recovery: bool = True,
          matrix_proposals: bool = False,
+         joint_culprits: bool = False,
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     if matrix_proposals and protagonist_strategy != "particle_ensemble":
         raise ValueError("matrix proposals require particle_ensemble protagonists")
+    if joint_culprits and protagonist_strategy != "particle_ensemble":
+        raise ValueError("joint culprits require particle_ensemble protagonists")
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -333,7 +337,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             disabled_witness_sources=disabled_witness_sources,
             mastermind_policy_samples=mastermind_policy_samples,
             information_reward_weight=information_reward_weight,
-            matrix_proposals=matrix_proposals)
+            matrix_proposals=matrix_proposals, joint_culprits=joint_culprits)
     if team_ismcts is not None and hasattr(team_ismcts, "factorized_belief"):
         team_ismcts.factorized_belief.matrix_recovery_enabled = matrix_recovery
     protagonists = {
@@ -563,6 +567,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         replay_text=replay_text,
         matrix_recovery_enabled=matrix_recovery,
         matrix_proposals_enabled=matrix_proposals,
+        joint_culprits_enabled=joint_culprits,
         protagonist_matrix_proposal_attempts=getattr(
             getattr(team_ismcts, "factorized_belief", None), "matrix_proposal_attempts", 0),
         protagonist_matrix_proposal_worlds=getattr(
@@ -643,6 +648,8 @@ def main() -> None:
                         help="ablate protagonist matrix recovery after legacy proposals are empty")
     parser.add_argument("--matrix-proposals", action="store_true",
                         help="use importance-corrected matrix role proposals for red")
+    parser.add_argument("--joint-culprits", action="store_true",
+                        help="direct legal joint culprit sampling for red")
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
@@ -669,6 +676,8 @@ def main() -> None:
         parser.error("particle ensemble supports day or loop horizon")
     if args.matrix_proposals and args.protagonists != "particle_ensemble":
         parser.error("matrix proposals require particle_ensemble protagonists")
+    if args.joint_culprits and args.protagonists != "particle_ensemble":
+        parser.error("joint culprits require particle_ensemble protagonists")
     library = ScenarioLibrary()
     scenarios = _scenario_ids(args, library)
     strategies = MASTERMIND_STRATEGIES if args.strategy == "all" else (args.strategy,)
@@ -686,6 +695,7 @@ def main() -> None:
                               joint_witness=not args.disable_joint_witness,
                               matrix_recovery=not args.disable_matrix_recovery,
                               matrix_proposals=args.matrix_proposals,
+                              joint_culprits=args.joint_culprits,
                               disabled_witness_sources=tuple(
                                   args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,

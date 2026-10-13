@@ -42,6 +42,8 @@ def main() -> None:
                         default="particle_ensemble")
     parser.add_argument("--matrix-proposals", action="store_true",
                         help="importance-corrected matrix role proposals for red; black reply stays baseline")
+    parser.add_argument("--joint-culprits", action="store_true",
+                        help="direct legal joint culprit sampling for red; black reply stays baseline")
     parser.add_argument("--joint-reply-model", choices=("public", "belief", "hidden", "full"),
                         default="public")
     parser.add_argument("--joint-information-weight", type=float, default=0.02,
@@ -65,6 +67,8 @@ def main() -> None:
         parser.error('slow-trace-seconds must be positive')
     if args.matrix_proposals and args.protagonists != "particle_ensemble":
         parser.error("matrix proposals require particle_ensemble protagonists")
+    if args.joint_culprits and args.protagonists != "particle_ensemble":
+        parser.error("joint culprits require particle_ensemble protagonists")
     scenarios = args.scenarios or DEFAULT_SCENARIOS
     sources = source_digest()
     results = []
@@ -100,6 +104,7 @@ def main() -> None:
                         protagonist_time_limit_ms=args.protagonist_ms,
                         protagonist_particles=args.protagonist_particles,
                         matrix_proposals=args.matrix_proposals,
+                        joint_culprits=args.joint_culprits,
                         joint_reply_model=args.joint_reply_model,
                         joint_information_weight=args.joint_information_weight,
                         capture_fallback_contexts=args.trace,
@@ -129,6 +134,7 @@ def main() -> None:
                     'decision_digest': match.decision_digest,
                     'final_true_setup_hard_compatible': match.final_true_setup_hard_compatible,
                     'matrix_proposals_enabled': match.matrix_proposals_enabled,
+                    'joint_culprits_enabled': match.joint_culprits_enabled,
                     'matrix_proposal_attempts': match.protagonist_matrix_proposal_attempts,
                     'matrix_proposal_worlds': match.protagonist_matrix_proposal_worlds,
                 }

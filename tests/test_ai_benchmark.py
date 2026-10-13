@@ -25,13 +25,16 @@ class AbilityUsageTests(unittest.TestCase):
     def test_matrix_importance_diagnostics_are_captured_per_root(self):
         result = play("official-tragic-aiplay-btx-01g", 1, 2, 4, "fixed",
                       "particle_ensemble", protagonist_nodes=2, protagonist_particles=4,
-                      matrix_proposals=True)
+                      matrix_proposals=True, joint_culprits=True)
+        self.assertTrue(result.joint_culprits_enabled)
         self.assertTrue(result.protagonist_searches)
         for root in result.protagonist_searches:
             diagnostic = root.proposal_diagnostics
             self.assertEqual(diagnostic["posterior_target"]["version"], "uniform-printed-casts-v1")
             self.assertEqual(diagnostic["importance"]["estimator"], "matrix-role-importance-v1")
             self.assertGreater(diagnostic["importance"]["effective_sample_size"], 0)
+            self.assertEqual(diagnostic["culprit_posterior"]["version"], "legal-joint-culprits-v1")
+            self.assertTrue(diagnostic["culprit_posterior"]["feasible"])
 
     def test_matrix_recovery_ablation_is_recorded_without_changing_normal_match(self):
         results = [play("official-fs-01-first-script", 0, 2, 8, "fixed", "particle_ensemble",
@@ -317,11 +320,12 @@ class AbilityUsageTests(unittest.TestCase):
         completed = MatchResult(
             "official-fs-01-first-script", "FS01", "FS", 2, "standard",
             "strategic", "particle_ensemble", 0, "mastermind", 1, 1, 1, 0.1,
-            matrix_proposals_enabled=True)
+            matrix_proposals_enabled=True, joint_culprits_enabled=True)
         with (TemporaryDirectory() as folder,
               patch("sys.argv", ["ai_mastermind_matrix", "--scenario",
                                  "official-fs-01-first-script", "--games", "1",
                                  "--matrix-proposals",
+                                 "--joint-culprits",
                                  "--slow-trace-seconds", "1",
                                  "--output", str(Path(folder) / "report.json")]),
               patch.object(ai_mastermind_matrix, "play",
@@ -343,6 +347,9 @@ class AbilityUsageTests(unittest.TestCase):
             self.assertTrue(saved["settings"]["matrix_proposals"])
             self.assertTrue(saved["results"][0]["matrix_proposals_enabled"])
             self.assertTrue(ai_mastermind_matrix.play.call_args.kwargs["matrix_proposals"])
+            self.assertTrue(saved["settings"]["joint_culprits"])
+            self.assertTrue(saved["results"][0]["joint_culprits_enabled"])
+            self.assertTrue(ai_mastermind_matrix.play.call_args.kwargs["joint_culprits"])
             self.assertEqual(digest.call_count, 1)
             self.assertEqual(start_dump.call_count, 2)
             self.assertEqual(stop_dump.call_count, 2)
@@ -356,6 +363,14 @@ class AbilityUsageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "particle_ensemble"):
             play("official-fs-01-first-script", 0, 1, 1, "fixed", "oracle_script",
                  matrix_proposals=True)
+        with (patch("sys.argv", ["ai_mastermind_matrix", "--joint-culprits",
+                                 "--protagonists", "oracle_script"]),
+              patch("sys.stderr", StringIO()), self.assertRaises(SystemExit) as error):
+            ai_mastermind_matrix.main()
+        self.assertEqual(error.exception.code, 2)
+        with self.assertRaisesRegex(ValueError, "particle_ensemble"):
+            play("official-fs-01-first-script", 0, 1, 1, "fixed", "oracle_script",
+                 joint_culprits=True)
 
     def test_discovers_concrete_loop_difficulty_groups(self):
         groups = difficulty_groups(ScenarioLibrary(), "BTX")

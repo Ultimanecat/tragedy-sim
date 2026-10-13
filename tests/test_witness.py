@@ -628,7 +628,9 @@ class FsbtxWitnessTests(unittest.TestCase):
         culprits = FactorizedBeliefState(capacity=64, seed=1)._culprits(
             evidence, FsbtxWitnessCompiler().compile(view))
         self.assertEqual(culprits[2], ("doctor",))
-        self.assertEqual(culprits[3], ("doctor", "girl"))
+        # Murder reserves Doctor. Butterfly cannot reuse the same culprit;
+        # joint support propagates the printed cross-day repeat restriction.
+        self.assertEqual(culprits[3], ("girl",))
 
     def test_incident_location_witness_requires_snapshot_and_is_ablatable(self):
         view = deepcopy(self.view)

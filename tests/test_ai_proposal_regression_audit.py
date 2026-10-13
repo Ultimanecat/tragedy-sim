@@ -56,10 +56,17 @@ class ProposalRegressionAuditTests(unittest.TestCase):
         view = game.protagonist_team_view()
         evidence = PublicEvidence.from_view(view)
         facts = FsbtxWitnessCompiler().compile(view)
-        state = FactorizedBeliefState(seed=2)
+        state = FactorizedBeliefState(seed=2, joint_culprits=True)
         state.sample(evidence, facts, 2, rng=random.Random(3))
         rng, summary = state.rng.getstate(), state.proposal_summary()
-        result = resample_probe(state, evidence, facts, view, (), counts=(2, 4), draws=2, seed=1)
+        flags = []
+        original = FactorizedBeliefState.sample
+        def observe(frozen, *args, **kwargs):
+            flags.append(frozen.joint_culprits_enabled)
+            return original(frozen, *args, **kwargs)
+        with patch.object(FactorizedBeliefState, "sample", observe):
+            result = resample_probe(state, evidence, facts, view, (), counts=(2, 4), draws=2, seed=1)
+        self.assertEqual(flags, [True] * 4)
         self.assertEqual(len(result), 4)
         self.assertEqual([r["materialized_worlds"] for r in result], [2, 2, 4, 4])
         self.assertEqual(state.rng.getstate(), rng)

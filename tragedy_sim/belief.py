@@ -760,16 +760,21 @@ class FactorizedBeliefState:
     """
 
     def __init__(self, *, capacity: int = 192, seed: int = 0,
-                 matrix_recovery: bool = True, matrix_proposals: bool = False):
+                 matrix_recovery: bool = True, matrix_proposals: bool = False,
+                 joint_culprits: bool = False):
         if type(matrix_recovery) is not bool:
             raise ValueError("matrix_recovery must be boolean")
         if type(matrix_proposals) is not bool:
             raise ValueError("matrix_proposals must be boolean")
+        if type(joint_culprits) is not bool:
+            raise ValueError("joint_culprits must be boolean")
         self.capacity = capacity
         self.matrix_recovery_enabled = matrix_recovery
         self.matrix_recovery_attempts = 0
         self.matrix_recovery_worlds = 0
         self.matrix_proposals_enabled = matrix_proposals
+        self.joint_culprits_enabled = joint_culprits
+        self._culprit_diagnostics = None
         self.matrix_proposal_attempts = 0
         self.matrix_proposal_worlds = 0
         self.rng = random.Random(seed)
@@ -913,6 +918,8 @@ class FactorizedBeliefState:
             "matrix_proposal_worlds": self.matrix_proposal_worlds,
             "posterior_target": self.role_target.diagnostics() if self.role_target else None,
             "importance": dict(self._importance_diagnostics) if self._importance_diagnostics else None,
+            "joint_culprits_enabled": self.joint_culprits_enabled,
+            "culprit_posterior": dict(self._culprit_diagnostics) if self._culprit_diagnostics else None,
             "roles": [{"character": cid, "counts": dict(sorted(Counter(
                 dict(world.roles).get(cid) for world in worlds).items()))}
                 for cid in characters],
@@ -1316,6 +1323,7 @@ class FactorizedBeliefState:
 
         if count < 1:
             raise ValueError("count must be positive")
+        self._culprit_diagnostics = None
         ranked_roles = self.role_posterior(evidence, witnesses)
         culprits = self._culprits(evidence, witnesses)
         sizes = tuple((day, len(options)) for day, options in sorted(culprits.items()))
@@ -1335,12 +1343,23 @@ class FactorizedBeliefState:
                   for cid in culprits[day]]
             for day, kind in evidence.schedule
         }
+        joint = None
+        if self.joint_culprits_enabled:
+            from .belief_culprit_posterior import joint_culprit_posterior
+            joint = joint_culprit_posterior(
+                evidence.schedule, culprits,
+                {day: dict(zip(culprits[day], weights)) for day, weights in culprit_weights.items()})
+            self._culprit_diagnostics = joint.diagnostics()
+            if not joint.partition:
+                return FactorizedBeliefResult((), len(roles), sizes, "no_compatible_factor")
         worlds = []
         attempts = 0
         while len(worlds) < count and attempts < count * 12:
             attempts += 1
             role = rng.choices(roles, weights=weights, k=1)[0]
+            assignment = joint.sample(rng) if joint is not None else None
             incidents = tuple((day, kind, public_kind,
+                               assignment[day] if assignment is not None else
                                rng.choices(culprits[day],
                                            weights=culprit_weights[day], k=1)[0])
                               for day, kind, public_kind, _ in role.incidents)

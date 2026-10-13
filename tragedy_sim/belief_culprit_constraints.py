@@ -44,4 +44,7 @@ def culprit_domains(characters: Sequence[str], schedule: Sequence[tuple[int, str
                    for fact in facts):
                 candidates.append(cid)
         result[day] = tuple(candidates)
-    return result
+    from .belief_culprit_posterior import joint_culprit_posterior
+    # Global repeat restrictions can prove a singleton or a contradiction
+    # even when every individual day's local domain is nonempty.
+    return joint_culprit_posterior(schedule, result).support()
