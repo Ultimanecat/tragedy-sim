@@ -4,9 +4,10 @@ from collections import Counter
 from dataclasses import replace
 from math import fsum, prod
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from tragedy_sim.final_guess_probability import JointGuessProbabilitySolver
+from tragedy_sim.final_guess_probability import JointGuessProbabilitySolver, _role_classes
 from tragedy_sim.witness import FsbtxWitnessMatcher, PublicWitness, WitnessStrength
 from tests.test_belief_posterior import evidence, enumerate_printed
 from tests.test_role_support_solver import independent_extra_casts
@@ -180,9 +181,64 @@ class FinalGuessProbabilityTests(unittest.TestCase):
         )
         for module in ("FS", "BTX"):
             for kind, subject, value in cases:
-                with self.subTest(module=module, kind=kind):
-                    fact = PublicWitness(kind, subject, value, 1, 1, "test", "test", WitnessStrength.SOFT)
-                    self.assert_reference(evidence(module), (fact,))
+                for strength in (WitnessStrength.HARD, WitnessStrength.SOFT):
+                    with self.subTest(module=module, kind=kind, strength=strength):
+                        fact = PublicWitness(kind, subject, value, 1, 1, "test", "test", strength)
+                        self.assert_reference(evidence(module), (fact,))
+
+    def test_equivalent_role_classes_split_when_another_factor_distinguishes_them(self):
+        domains = {"doctor": ("brain", "conspiracy", "factor", "ordinary")}
+        variants = [SimpleNamespace(main_plot="bomb", subplots=("rumor", "unknown"),
+                                    domains={cid: frozenset(roles) for cid, roles in domains.items()})]
+        route = PublicWitness("mastermind_ability_route", "doctor", {
+            "roles": {"conspiracy": ["doctor"], "factor": ["doctor"]}, "plots": []},
+            1, 1, "test", "test")
+        self.assertEqual(_role_classes((route,), variants, domains, ())["doctor"],
+                         (("brain", "ordinary"), ("conspiracy", "factor")))
+        single = PublicWitness("role_pressure", "conspiracy", {"candidates": ["doctor"]},
+                               1, 1, "test", "test", WitnessStrength.SOFT)
+        self.assertEqual(_role_classes((route, single), variants, domains, ())["doctor"],
+                         (("brain", "ordinary"), ("conspiracy",), ("factor",)))
+
+    def test_plot_specific_domains_and_virus_routes_distinguish_initial_roles(self):
+        domains = {"girl": ("brain", "ordinary", "serial")}
+        variants = [SimpleNamespace(main_plot="bomb", subplots=subs,
+                                    domains={"girl": frozenset(domains["girl"])})
+                    for subs in (("rumor", "unknown"), ("virus", "unknown"))]
+        route = PublicWitness("mandatory_serial_route", "death", {
+            "serial": ["girl"], "virus_ordinary": ["girl"]}, 1, 1, "test", "test")
+        self.assertEqual(_role_classes((route,), variants, domains, ())["girl"],
+                         (("brain",), ("ordinary",), ("serial",)))
+        variants[0].domains = {"girl": frozenset(("ordinary", "serial"))}
+        classes = _role_classes((), variants, domains, ())
+        self.assertEqual(classes["girl"], (("brain",), ("ordinary", "serial")))
+
+    def test_broad_city_ability_routes_do_not_expand_every_complete_identity(self):
+        from tragedy_sim import Game
+        from tragedy_sim.belief import PublicEvidence
+        from tragedy_sim.scenario_library import ScenarioLibrary
+        setup = PublicEvidence.from_view(Game(ScenarioLibrary().get(
+            "official-btx-06-secret-that-was-kept")).protagonist_team_view())
+        facts = []
+        for target in ("journalist", "journalist", "idol", "worker"):
+            candidates = ["idol", "informer", "journalist", "worker"]
+            if target == "worker":
+                candidates.insert(0, "class_rep")
+            facts.append(PublicWitness("mastermind_ability_route", target, {
+                "roles": {"conspiracy": candidates, "factor": candidates}, "plots": []},
+                1, 1, "master_abilities", "test"))
+        facts.append(PublicWitness("role_not_in", "class_rep", ["cultist", "witch"],
+                                   1, 1, "protagonist_abilities", "test"))
+        facts.append(PublicWitness("loss_after_death", "patient", {
+            "companions": [], "factor_key_possible": False}, 1, 4, "loop_end", "test", WitnessStrength.SOFT))
+        for _ in range(3):
+            for cid in ("class_rep", "maiden", "outsider", "rich"):
+                facts.append(PublicWitness("role_not_in", cid, ["serial"], 1, 1, "day_end", "test"))
+        result = JointGuessProbabilitySolver(node_limit=2500).solve(setup, facts)
+        self.assertTrue(result.exact, result.to_dict())
+        self.assertEqual(result.support_count, 477876)
+        self.assertAlmostEqual(result.total_mass, 50.846825396825395, places=10)
+        self.assertEqual(result.nodes, 1826)
 
     def test_special_character_printed_and_query_constraints(self):
         for characters in (("little_sister", "ai", "maiden", "student"),

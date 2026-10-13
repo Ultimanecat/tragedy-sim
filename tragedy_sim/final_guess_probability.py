@@ -18,51 +18,97 @@ from .belief_posterior import RolePosteriorTarget
 from .belief_role_solver import _variants
 from .catalog import MODULES
 from .engine import RuleError
-from .witness_rules.common_loop_end import loop_end_realizations
+from .witness_rules.role_routes import HARD_ROLE_ROUTES, role_route_realizations
 
 
 _PLOT_FACTS = {"plot_present", "plot_not_present", "plot_pressure"}
 _INCIDENT_FACTS = {"culprit_is", "culprit_in", "incident_happened", "incident_not_happened"}
-_ROLE_DEPENDENCIES = {
-    "role_is", "role_in", "role_not_in", "role_pressure", "role_route_pressure",
-    "joint_plot_role_pressure", "day_end_death_companion", "day_end_killer_candidate",
-    "loss_after_death", "mastermind_ability_route", "mandatory_serial_route",
-}
 
+def _role_tests(witnesses, variants, domains):
+    """Unary membership tests sufficient to preserve every role verdict.
 
-def _character_references(value, characters):
-    if isinstance(value, str):
-        cid = "part_timer" if value == "part_timer_question" else value
-        return {cid} if cid in characters else set()
-    if isinstance(value, Mapping):
-        return set().union(*(_character_references(item, characters)
-                            for pair in value.items() for item in pair))
-    if isinstance(value, (list, tuple, set, frozenset)):
-        return set().union(*(_character_references(item, characters) for item in value))
-    return set()
+    Existential routes with one role per alternative can group roles by
+    character; conjunctive routes retain each separate equality. Distinct
+    latent plots keep separate tests. Unknown future role factors fall back
+    to complete identity branching, never inferred equivalence.
+    """
+    tests = defaultdict(set)
 
+    def add(cid, roles):
+        cid = "part_timer" if cid == "part_timer_question" else cid
+        if cid in domains:
+            tests[cid].add(frozenset(roles))
 
-def _dependencies(witnesses, variants, characters):
-    result = set()
+    def add_routes(routes):
+        if any(not route for route in routes):
+            return  # A plot-only explanation makes this predicate constant.
+        if all(len(route) == 1 for route in routes):
+            by_character = defaultdict(set)
+            for route in routes:
+                for cid, role in route.items():
+                    by_character[cid].add(role)
+            for cid, roles in by_character.items():
+                add(cid, roles)
+        else:
+            for route in routes:
+                for cid, role in route.items():
+                    add(cid, (role,))
+
     for witness in witnesses:
+        kind, subject, value = witness.kind, witness.subject, witness.value
         if witness.kind in _PLOT_FACTS:
             continue
         if witness.strength == "hard" and witness.kind in {"role_is", "role_in", "role_not_in"}:
-            # These unary predicates are fully enforced in each plot's
-            # domains (including Virus's current/initial interpretation).
-            # Differences between plot domains are handled separately below.
+            # Fully enforced by each plot domain, including Virus conditions.
             continue
-        if witness.kind == "loop_end_plot_explanation":
-            for main in {variant.main_plot for variant in variants}:
-                for route in loop_end_realizations(witness.subject, main, witness.value):
-                    result.update(route)
-        elif witness.kind in _ROLE_DEPENDENCIES:
-            result.update(_character_references((witness.subject, witness.value), characters))
+        if kind in HARD_ROLE_ROUTES:
+            for main, subs in {(v.main_plot, v.subplots) for v in variants}:
+                add_routes(role_route_realizations(witness, (main, *subs)))
+        elif kind == "role_is":
+            add(subject, (value,))
+            if value == "serial":
+                add(subject, ("ordinary",))
+        elif kind in {"role_in", "role_not_in"}:
+            add(subject, value)
+        elif kind == "joint_plot_role_pressure":
+            for cid in value.get("candidates", ()):
+                add(cid, (value.get("role"),))
+        elif kind == "day_end_death_companion":
+            cid = value.get("character") if isinstance(value, Mapping) else value
+            add(cid, ("serial",))
+            if isinstance(value, Mapping) and value.get("virus_eligible"):
+                add(cid, ("ordinary",))
+        elif kind == "day_end_killer_candidate":
+            add(subject, ("key",))
+            add(value, ("killer",))
+        elif kind == "loss_after_death":
+            roles = {"key", "friend"}
+            if value.get("factor_key_possible"):
+                roles.add("factor")
+            add(subject, roles)
         else:
-            # Future role predicates require an explicit dependency contract.
-            # Until then full identity branching is sound, though expensive.
-            result.update(characters)
-    return result & set(characters)
+            for cid, roles in domains.items():
+                for role in roles:
+                    add(cid, (role,))
+    return tests
+
+
+def _role_classes(witnesses, variants, domains, extras):
+    tests = _role_tests(witnesses, variants, domains)
+    classes = {}
+    for cid, roles in domains.items():
+        if cid in extras:
+            continue
+        predicates = sorted(tests[cid], key=lambda values: tuple(sorted(values)))
+        grouped = defaultdict(list)
+        for role in roles:
+            signature = (tuple(role in v.domains[cid] for v in variants),
+                         tuple(role in values for values in predicates))
+            grouped[signature].append(role)
+        choices = tuple(sorted(tuple(values) for values in grouped.values()))
+        if len(choices) > 1:
+            classes[cid] = choices
+    return classes
 
 
 def _gender_ok(cast, split):
@@ -128,15 +174,15 @@ class JointGuessProbability:
         row = extra_groups.get(extra_key)
         if row is None:
             return 0.0
-        fixed_ids, groups = row
-        group = groups.get(tuple((cid, guess[cid]) for cid in fixed_ids))
+        classifiers, groups = row
+        group = groups.get(tuple(roles.get(guess[cid], -1) for cid, roles in classifiers))
         return (group.per_cast_mass / self.total_mass
                 if group is not None and group.contains(guess) else 0.0)
 
     def to_dict(self):
         return {"version": "joint-cast-probability-v1", "status": self.status,
                 "exact": self.exact, "method": "counted_cast_partition",
-                "solver_policy": "extra_identity_partition-v2",
+                "solver_policy": "predicate_role_classes-v3",
                 "model": "factorized-role-posterior-v1",
                 "target_version": RolePosteriorTarget.version,
                 "total_mass": self.total_mass, "support_count": self.support_count,
@@ -197,21 +243,22 @@ class JointGuessProbabilitySolver:
             # this choice before finding role dependencies across plots.
             extra_key = tuple(sorted(variant.extra_roles.items()))
             by_counts[counts, extra_key].append(variant)
-        groups = []
+        groups, index = [], {}
         from .belief_plot_constraints import _genders
 
         try:
             for (count_key, extra_key), selected in sorted(by_counts.items()):
                 union = {cid: tuple(sorted(set().union(*(v.domains[cid] for v in selected))))
                          for cid in characters}
-                relevant = _dependencies(role_facts, selected, characters)
-                # Plot-specific domains and extra-character choices must be
-                # fixed before counting a common suffix across latent plots.
-                relevant.update(cid for cid in characters
-                                if len({v.domains[cid] for v in selected}) > 1)
                 fixed = dict(extra_key)
-                relevant.difference_update(fixed)
-                order = tuple(sorted(relevant, key=lambda cid: (len(union[cid]), cid)))
+                classes = _role_classes(role_facts, selected, union, fixed)
+                order = tuple(sorted(classes, key=lambda cid: (len(classes[cid]), cid)))
+                classifiers = tuple((cid, {role: i for i, values in enumerate(classes[cid]) for role in values})
+                                    for cid in order)
+                rows = {}
+                index.setdefault(count_key, {})[extra_key] = classifiers, rows
+                active_domains = dict(union)
+                signature = []
                 remaining = Counter(dict(count_key))
                 remaining.subtract(fixed.values())
                 if any(amount < 0 for amount in remaining.values()) or not _gender_ok(fixed, split):
@@ -228,30 +275,38 @@ class JointGuessProbabilitySolver:
                     nodes += 1
                     if nodes > self.node_limit:
                         raise _WorkLimit
-                    if not any(all(role in v.domains[cid] for cid, role in fixed.items()) for v in selected):
+                    if not any(all(set(active_domains[cid]) & v.domains[cid] for cid in characters)
+                               for v in selected):
                         return
                     tail = tuple(cid for cid in characters if cid not in fixed)
                     completions = FactorizedBeliefState._assignment_count(
-                        tail, union, remaining, friend_gender_split=split,
+                        tail, active_domains, remaining, friend_gender_split=split,
                         used_friend_genders=(male, female))
                     if not completions:
                         return
                     if index < len(order):
                         cid = order[index]
-                        for role in union[cid]:
-                            if not remaining[role]:
+                        for choice, values in enumerate(classes[cid]):
+                            if not any(remaining[role] for role in values):
                                 continue
-                            m, f = _genders(cid) if split and role == "friend" else (False, False)
-                            if m and male or f and female:
-                                continue
-                            fixed[cid] = role
-                            remaining[role] -= 1
-                            visit(index + 1, male or m, female or f)
-                            remaining[role] += 1
-                            del fixed[cid]
+                            active_domains[cid] = values
+                            signature.append(choice)
+                            if len(values) == 1:
+                                role = values[0]
+                                m, f = _genders(cid) if split and role == "friend" else (False, False)
+                                if not (m and male or f and female):
+                                    fixed[cid] = role
+                                    remaining[role] -= 1
+                                    visit(index + 1, male or m, female or f)
+                                    remaining[role] += 1
+                                    del fixed[cid]
+                            else:
+                                visit(index + 1, male, female)
+                            signature.pop()
+                        active_domains[cid] = union[cid]
                         return
                     cast = FactorizedBeliefState._complete_assignment(
-                        characters, union, Counter(dict(count_key)), fixed,
+                        characters, active_domains, Counter(dict(count_key)), fixed,
                         friend_gender_split=split)
                     if cast is None:
                         return
@@ -273,8 +328,12 @@ class JointGuessProbabilitySolver:
                             seen.add(plot_key)
                     mass = fsum(masses)
                     if mass:
-                        groups.append(_CastGroup(count_key, tuple(union.items()), tuple(sorted(fixed.items())),
-                                                 roles, completions, mass))
+                        group = _CastGroup(count_key, tuple(active_domains.items()), tuple(sorted(fixed.items())),
+                                           roles, completions, mass)
+                        if tuple(signature) in rows:
+                            raise AssertionError("Cast predicate partitions overlap")
+                        rows[tuple(signature)] = group
+                        groups.append(group)
 
                 visit(0, initial_male, initial_female)
         except _WorkLimit:
@@ -283,16 +342,6 @@ class JointGuessProbabilitySolver:
             return unavailable("no_compatible_worlds", "all complete role groups were rejected")
         total = fsum(g.completions * g.per_cast_mass for g in groups)
         best = max(groups, key=lambda g: (g.per_cast_mass, g.representative))
-        index = {}
-        for group in groups:
-            extra_key = tuple((cid, role) for cid, role in group.fixed if cid in extra_characters)
-            regular_key = tuple((cid, role) for cid, role in group.fixed if cid not in extra_characters)
-            fixed_ids = tuple(cid for cid, _ in regular_key)
-            extras = index.setdefault(group.counts, {})
-            ids, rows = extras.setdefault(extra_key, (fixed_ids, {}))
-            if ids != fixed_ids or regular_key in rows:
-                raise AssertionError("Cast partition groups overlap or have inconsistent dependencies")
-            rows[regular_key] = group
         return JointGuessProbability("exact", total, sum(g.completions for g in groups),
                                      best.representative, best.per_cast_mass / total, len(groups), nodes,
                                      _characters=characters, _split=split, _groups=tuple(groups), _index=index,

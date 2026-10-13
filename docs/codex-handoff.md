@@ -1,4 +1,4 @@
-# Codex 会话交接（2026-10-13）
+# Codex 会话交接（2026-10-14）
 
 先执行 `git status --short --branch`、`git log -8 --oneline`，以当前源码和 [AI 路线图](future-roadmap.md)为准。本页保留当前实现、验证证据和易错信息；历史实验进入专题报告，不按旧报告的“下一步”开展工作。
 
@@ -10,11 +10,13 @@
 
 首版六份 seed 0 轨迹、1178 检查点：1122 精确、56 超限，无诊断错误。153 次实际求解，其余同模型缓存，无新证据漂移；详见 [概率日志](final-guess-probability-audit.md)。首版结果在忽略目录 `references/ai-calibration/2026-10-13/joint-guess-probability-audit-smoke-100k.json`。
 
-后续 `extra_identity_partition-v2` 已提前分开局外人／模仿者身份，避免不同额外槽位的普通角色域混合。相同六份轨迹现在 1177／1178 精确；原 1122 个可用点概率／质量／支持数一致，BTX-02G 55 个超限点全部恢复，约 46→4 秒。11 角色 BTX-41 初始 534 节点精确计数。报告 `joint-guess-extra-partition-validation.json`；剩 BTX06 第 1 轮第 4 天命令 57，下一步检查剧情域差异是否需要完整身份展开。
+`extra_identity_partition-v2` 提前分开局外人／模仿者身份，修复 BTX-02G 的全部超限；随后 `predicate_role_classes-v3` 按公开规则的成员资格判定及剧情域划分等价身份类别，保留组内完整槽位／性别精确计数。相同六份轨迹在默认 10000 节点上限下 **1178／1178 精确可用**，旧所有可用概率／质量／支持数一致，真值未排除；总诊断约 83→8 秒。11 角色 BTX-41 初始 534 节点精确计数。
+
+BTX06 命令 57 的根因是宽泛能力来源析取要求 6 名角色完整展开，剧情域无差异。旧算法增大上限后完整完成 255505 节点／15.896 秒，新版 1826 节点／0.381 秒；477876 个身份表及 624 套查询逐一对照一致。报告 `references/ai-calibration/2026-10-14/joint-guess-predicate-partition-validation.json`，单根在 2026-10-13 目录的 `joint-guess-predicate-btx06-root.json`。下一步扩留出状态，单独比较正式终猜的边缘 MAP，不继续按旧超限 TODO 工作。
 
 额外身份分组阶段完整 780 项通过（193.998 秒），35 项概率／审计专项通过；日志 `references/joint-guess-extra-partition-regression-20261013.txt` 被忽略。
 
-联合概率接入后完整 778 项通过（190.211 秒），文本输出收尾后 33 项专项通过。日志 `references/joint-guess-probability-regression-20261013.txt` 被忽略。此阶段没有改变正式行动或终猜选择，不据回放诊断宣称棋力提升。
+最新等价类别阶段完整 783 项通过（210.309 秒），38 项概率／审计专项通过；日志 `references/joint-guess-predicate-partition-regression-20261014.txt` 被忽略。正式行动和终猜选择尚未改，不据回放诊断宣称棋力提升。
 
 默认切换源码 Python 指纹 `63b77dfa833503ee7ba5a92f114fd903872e2214806ed98d6b5f1751b3e71c96`：53 项专项通过，完整 759 项通过（178.932 秒）。实际房间选择公平 AI 后，BTX-01G 第一天默认 192 次提议／12 行动世界，无回退，原子执行三张红牌到 reveal；本机耗时 2.246 秒，仅为单根烟测。前端未改。
 
