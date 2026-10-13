@@ -21,6 +21,7 @@ from typing import Any, Mapping, Sequence
 
 from .catalog import CHARACTERS, MODULES, PLOTS, REFUSAL
 from .engine import RuleError
+from .identity_knowledge import initial_character_id, initial_role_deduction
 from .scenario import validate_scenario
 from .scenario_library import ScenarioLibrary
 
@@ -97,16 +98,25 @@ class PublicEvidence:
         }
         if "part_timer_question" in known:
             known["part_timer"] = known.pop("part_timer_question")
-        # A successful private identity query reveals the initial script
-        # role. It can be more precise than a public current-role reveal
-        # after a temporary transformation such as BTX's Virus.
-        initial = {
+        # Queries expose current identities. Part-Timer? carries the original
+        # identity; the original Part-Timer always displays Ordinary instead.
+        received = {
             ("part_timer" if cid == "part_timer_question" else cid): role
             for cid, role in view.get("protagonist_knowledge", {}).get(
                 "roles", {}).items()
-            if isinstance(cid, str) and isinstance(role, str)
+            if isinstance(cid, str) and isinstance(role, str) and cid != "part_timer"
         }
-        known.update(initial)
+        known.update(received)
+        initial = {}
+        for cid, role in view.get("protagonist_knowledge", {}).get("roles", {}).items():
+            if isinstance(cid, str) and isinstance(role, str):
+                deduction = initial_role_deduction(view.get("module"), cid, role)
+                if deduction is not None:
+                    initial[deduction[0]] = deduction[1]
+        # Explicit initial-identity evidence is separate from a current query.
+        initial.update({initial_character_id(cid): role
+                        for cid, role in view.get("protagonist_knowledge", {}).get("initial_roles", {}).items()
+                        if isinstance(cid, str) and isinstance(role, str)})
         known_roles = tuple(sorted(known.items()))
         known_culprits = tuple(sorted(
             (int(day), cid)
@@ -559,7 +569,8 @@ class ConstraintBeliefSampler:
             return None
         role_bag.extend(["ordinary"] * (len(unassigned) - len(role_bag)))
         rng.shuffle(role_bag)
-        return {**assigned, **dict(zip(unassigned, role_bag))}
+        cast = {**assigned, **dict(zip(unassigned, role_bag))}
+        return cast if evidence.matches_roles(plots[0], plots[1:], cast) else None
 
     @staticmethod
     def _hard_role_bindings(evidence: PublicEvidence, plots: Sequence[str],

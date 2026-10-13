@@ -172,7 +172,7 @@ class JointMastermindTests(unittest.TestCase):
             state = SimpleNamespace(phase="final_guess")
             controller = "p1"
             roles = {"girl": "key", "boy": "ordinary"}
-            scenario = {"cast": dict(roles)}
+            scenario = {"cast": dict(roles), "subplots": []}
 
             def protagonist_team_view(self):
                 return {"phase": "final_guess", "events": [],
@@ -317,6 +317,31 @@ class JointMastermindTests(unittest.TestCase):
         self.assertEqual(agent.last_trace.nodes, 4)
         self.assertLessEqual(agent.last_trace.expanded_actions, 2)
         self.assertEqual(game.state_key("m"), before)
+
+    def test_private_query_model_does_not_invent_initial_answers_under_virus(self):
+        game = Game(ScenarioLibrary().get("official-btx-09-those-with-antibodies"))
+        target = next(cid for cid, role in game.scenario["cast"].items() if role == "ordinary")
+        game.roles[target] = "serial"
+        learn_role(game, {"target": target})
+        self.assertEqual(game.protagonist_knowledge["roles"][target], "serial")
+        agent = JointPlanMastermindAgent(reply_model="belief")
+        view = agent._red_reply_view(game, game, game.state.events)
+        self.assertEqual(view["protagonist_knowledge"], {})
+        evaluator = _PublicReplyEvaluator(SearchBudget(), 0, root_view={"events": game.state.events})
+        cutoff = evaluator._public_cutoff_view(game, ())
+        self.assertEqual(cutoff["protagonist_knowledge"], {})
+
+    def test_private_query_model_maps_part_timer_replacement_to_initial_cast(self):
+        game = Game({"id": "temp-inference", "title": "temp", "module": "FS", "days": 2,
+                     "loops": 2, "main_plot": "avenger", "subplots": ["rumor"],
+                     "cast": {"part_timer": "brain", "maiden": "conspiracy", "doctor": "ordinary"},
+                     "incidents": []})
+        game.roles["part_timer"] = "ordinary"
+        event = {"kind": "private_information_gained", "information_kind": "role",
+                 "character": "part_timer_question"}
+        agent = JointPlanMastermindAgent(reply_model="belief")
+        view = agent._red_reply_view(game, game, (event,))
+        self.assertEqual(view["protagonist_knowledge"], {"roles": {"part_timer_question": "brain"}})
 
 
 if __name__ == "__main__":

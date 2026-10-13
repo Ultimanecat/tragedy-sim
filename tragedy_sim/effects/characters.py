@@ -2,6 +2,7 @@
 
 from ..cards import COUNTER_NAMES
 from ..catalog import INCIDENT_NAMES
+from ..identity_knowledge import initial_role_deduction
 from .vocabulary import op, option
 
 
@@ -75,7 +76,12 @@ def simulated_incident_done(game, effect):
 
 def learn_role(game, effect):
     target = effect["target"]
-    game.protagonist_knowledge.setdefault("roles", {})[target] = game.roles[target]
+    role = game.roles[target]
+    game.protagonist_knowledge.setdefault("roles", {})[target] = role
+    deduction = initial_role_deduction(game.module, target, role)
+    if deduction is not None:
+        cid, initial = deduction
+        game.protagonist_knowledge.setdefault("initial_roles", {})[cid] = initial
     game._event("private_information_gained",
                 f"主人公获得了关于{game.name(target)}身份的私密信息。",
                 character=target, information_kind="role")

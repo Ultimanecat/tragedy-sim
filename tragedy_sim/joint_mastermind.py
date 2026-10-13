@@ -27,7 +27,7 @@ from .witness import FsbtxWitnessCompiler
 
 
 def _certain_red_knowledge(events: Sequence[dict[str, Any]],
-                           roles: dict[str, str]) -> dict[str, Any]:
+                           initial_roles: dict[str, str], *, virus: bool = False) -> dict[str, Any]:
     """Reconstruct only private answers implied by completed public queries.
 
     The event announces the query and its result type, never the answer.
@@ -35,12 +35,17 @@ def _certain_red_knowledge(events: Sequence[dict[str, Any]],
     same-role-group queries need more history and remain deliberately unknown.
     """
     learned = {
-        cid: roles[cid]
+        cid: ("ordinary" if cid == "part_timer" else
+              initial_roles["part_timer" if cid == "part_timer_question" else cid])
         for event in events
         if event.get("kind") == "private_information_gained"
         and event.get("information_kind") == "role"
         and isinstance((cid := event.get("character")), str)
-        and cid in roles
+        and ("part_timer" if cid == "part_timer_question" else cid) in initial_roles
+        # A past query of an initial Ordinary under Virus needs the historical
+        # query-time role; initial/current cast alone cannot recover its answer.
+        and (not virus or cid == "part_timer" or
+             initial_roles["part_timer" if cid == "part_timer_question" else cid] != "ordinary")
     }
     return {"roles": learned} if learned else {}
 
@@ -72,7 +77,7 @@ class _PublicReplyEvaluator(OracleProtagonistAgent):
             view["events"] = [*self.root_view.get("events", ()),
                               *rollout_events]
         view["protagonist_knowledge"] = _certain_red_knowledge(
-            view.get("events", ()), world.roles)
+            view.get("events", ()), world.scenario["cast"], virus="virus" in world.scenario["subplots"])
         return view
 
     def _role_entropy(self, view: dict[str, Any]) -> float:
@@ -365,7 +370,7 @@ class JointPlanMastermindAgent(JointCardDecisionProvider, StrategicMctsMastermin
                 recent = recent[1:]
             view["events"] = [*prior, *recent]
         view["protagonist_knowledge"] = _certain_red_knowledge(
-            view["events"], world.roles)
+            view["events"], world.scenario["cast"], virus="virus" in world.scenario["subplots"])
         return view
 
     def search(self, game: SearchGame) -> Any:

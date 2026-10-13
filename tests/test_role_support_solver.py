@@ -11,6 +11,8 @@ from tragedy_sim.belief_matrix_sampler import MatrixWorldSampler
 from tragedy_sim.belief_posterior import RolePosteriorTarget
 from tragedy_sim.catalog import MODULES, PLOTS
 from tragedy_sim.engine import RuleError
+from tragedy_sim.effects.characters import learn_role
+from tragedy_sim.belief_matrix import BeliefMatrixProjection, HardStatus
 from tragedy_sim.scenario import validate_scenario
 from tragedy_sim.witness import FsbtxWitnessMatcher, PublicWitness, WitnessStrength
 from tests.test_belief_posterior import evidence
@@ -155,7 +157,7 @@ class RoleSupportSolverTests(unittest.TestCase):
         view["known_roles"] = {"doctor": {"role": "serial"}}
         view["known_plots"] = ["bomb", "lurking", "virus"]
         observed = PublicEvidence.from_view(view)
-        view["protagonist_knowledge"] = {"roles": {"doctor": "serial"}}
+        view["protagonist_knowledge"] = {"initial_roles": {"doctor": "serial"}}
         answered = PublicEvidence.from_view(view)
         truth = HiddenWorldHypothesis.from_scenario(scenario)
         roles = dict(truth.roles)
@@ -194,3 +196,67 @@ class RoleSupportSolverTests(unittest.TestCase):
         posterior = state.role_posterior(replace(setup, known_roles=(("girl", "brain"),)), ())
         self.assertTrue(posterior)
         self.assertTrue(all(dict(w.roles)["girl"] == "brain" for w, _ in posterior))
+
+    def virus_game(self):
+        return Game({"id": "query-virus", "title": "query", "module": "BTX", "days": 2, "loops": 2,
+                     "main_plot": "bomb", "subplots": ["lurking", "virus"],
+                     "cast": {"girl": "witch", "doctor": "serial", "student": "friend",
+                              "maiden": "conspiracy", "patient": "ordinary"}, "incidents": []})
+
+    def test_actual_virus_query_keeps_true_initial_ordinary_world(self):
+        game = self.virus_game()
+        game._change("patient", "paranoia", 3)
+        self.assertEqual(game.roles["patient"], "serial")
+        learn_role(game, {"target": "patient"})
+        view = game.protagonist_team_view()
+        setup = PublicEvidence.from_view(view)
+        self.assertEqual(dict(setup.known_roles)["patient"], "serial")
+        self.assertNotIn("patient", dict(setup.known_initial_roles))
+        truth = HiddenWorldHypothesis.from_scenario(game.scenario)
+        self.assertGreater(RolePosteriorTarget(setup).weight(truth, ()), 0)
+        matrix = BeliefMatrixProjection.from_view(view, ())
+        self.assertEqual(matrix.roles["patient"]["ordinary"].hard_status, HardStatus.UNKNOWN)
+        draws = MatrixWorldSampler().propose_roles(setup, (), 64, rng=random.Random(8))
+        self.assertTrue(any(dict(p.world.roles)["patient"] == "ordinary" for p in draws))
+        self.assertTrue(all(dict(p.world.roles)["patient"] != "ordinary" or "virus" in p.world.subplots
+                            for p in draws))
+
+    def test_safe_initial_deduction_survives_later_transformed_query(self):
+        game = self.virus_game()
+        learn_role(game, {"target": "patient"})
+        self.assertEqual(game.protagonist_knowledge["initial_roles"]["patient"], "ordinary")
+        for viewer in ("m", "spectator"):
+            projection = game.view(viewer)
+            self.assertNotIn("protagonist_knowledge", projection)
+            event = projection["events"][-1]
+            self.assertEqual(event["kind"], "private_information_gained")
+            self.assertNotIn("role", event)
+            self.assertNotIn("initial_roles", event)
+        game._change("patient", "paranoia", 3)
+        learn_role(game, {"target": "patient"})
+        view = game.protagonist_team_view()
+        setup = PublicEvidence.from_view(view)
+        self.assertEqual(dict(setup.known_roles)["patient"], "serial")
+        self.assertEqual(dict(setup.known_initial_roles)["patient"], "ordinary")
+        matrix = BeliefMatrixProjection.from_view(view, ())
+        self.assertEqual(matrix.roles["patient"]["ordinary"].hard_status, HardStatus.ALWAYS)
+        draws = MatrixWorldSampler().propose_roles(setup, (), 32, rng=random.Random(1))
+        self.assertTrue(draws)
+        self.assertTrue(all(dict(p.world.roles)["patient"] == "ordinary" and "virus" in p.world.subplots
+                            for p in draws))
+
+    def test_original_part_timer_current_query_does_not_reveal_initial_role(self):
+        game = Game({"id": "original-temp", "title": "temp", "module": "FS", "days": 2,
+                     "loops": 2, "main_plot": "avenger", "subplots": ["rumor"],
+                     "cast": {"part_timer": "brain", "maiden": "conspiracy", "doctor": "ordinary"},
+                     "incidents": []})
+        self.assertEqual(game.roles["part_timer"], "ordinary")
+        learn_role(game, {"target": "part_timer"})
+        view = game.protagonist_team_view()
+        setup = PublicEvidence.from_view(view)
+        self.assertNotIn("part_timer", dict(setup.known_roles))
+        self.assertNotIn("part_timer", dict(setup.known_initial_roles))
+        truth = HiddenWorldHypothesis.from_scenario(game.scenario)
+        self.assertGreater(RolePosteriorTarget(setup).weight(truth, ()), 0)
+        self.assertNotEqual(BeliefMatrixProjection.from_view(view, ()).roles[
+            "part_timer"]["brain"].hard_status, HardStatus.NEVER)

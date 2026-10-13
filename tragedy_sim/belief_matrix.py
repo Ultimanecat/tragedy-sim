@@ -13,6 +13,7 @@ from typing import Any, Mapping, Sequence
 
 from .catalog import MODULES, PLOTS
 from .i18n import label
+from .identity_knowledge import initial_role_options
 from .witness_types import PublicWitness, WitnessStrength
 
 
@@ -96,9 +97,13 @@ def role_domains(view: Mapping[str, Any], witnesses: Sequence[PublicWitness]):
             restrict(cid, set(witness.value), witness.source)
         elif witness.kind == "role_not_in":
             restrict(cid, roles.difference(witness.value), witness.source)
-    # Private answers are initial identities, more precise than current-role
-    # public reveals. Only the supplied observer projection is consulted.
+    # Current queries retain Virus alternatives. Original Part-Timer's
+    # Ordinary answer says nothing about its initial identity.
     for cid, role in view.get("protagonist_knowledge", {}).get("roles", {}).items():
+        allowed = initial_role_options(module, cid, role)
+        if allowed is not None:
+            restrict(_subject(cid), allowed, "private_current_role")
+    for cid, role in view.get("protagonist_knowledge", {}).get("initial_roles", {}).items():
         restrict(_subject(cid), {role}, "private_initial_role")
     return tuple(sorted(roles)), domains, sources
 
@@ -113,7 +118,7 @@ def evidence_role_domains(evidence, witnesses):
     return role_domains({
         "module": evidence.module, "characters": dict.fromkeys(evidence.characters, {}),
         "known_roles": {cid: {"role": role} for cid, role in evidence.known_roles},
-        "protagonist_knowledge": {"roles": {
+        "protagonist_knowledge": {"initial_roles": {
             **{cid: role for cid, role in evidence.known_roles if cid == "part_timer"},
             **dict(evidence.known_initial_roles)}},
     }, witnesses)
