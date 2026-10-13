@@ -70,6 +70,8 @@ class IsmctsTrace:
     mastermind_policy_samples: int = 1
     mastermind_policy_aggregation: str = "single"
     information_reward_weight: float = 0.0
+    final_guess_policy: str | None = None
+    final_guess_probability: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False,
@@ -205,6 +207,8 @@ class PublicBeliefPlanner(JointCardDecisionProvider):
         self.particle_count = particle_count
         self.rng_seed = rng_seed
         self.survival_first = survival_first
+        self.final_guess_policy = "latent_map"
+        self.final_guess_node_limit = 100_000
         self.evaluator = ScenarioConditionedEvaluator()
         self.fallback = DefensiveProtagonistAgent(random.Random(rng_seed))
         self.sampler = ConstraintBeliefSampler()
@@ -296,6 +300,31 @@ class PublicBeliefPlanner(JointCardDecisionProvider):
                 return chosen
             evidence = PublicEvidence.from_view(view)
             witnesses = self.evidence_ledger.update(view, self.compiler)
+            probability = None
+            if self.final_guess_policy == "cast_map":
+                from .final_guess_probability import JointGuessProbabilitySolver
+                result = JointGuessProbabilitySolver(node_limit=self.final_guess_node_limit).solve(
+                    evidence, witnesses)
+                probability = result.to_dict()
+                if result.exact:
+                    roles = dict(result.best_guess)
+                    guesses = {target: roles[target] for target in targets}
+                    chosen = {**offers[0], "arguments": {"guesses": guesses}}
+                    self.last_trace = IsmctsTrace(
+                        self.plan_name, self.rng_seed, evidence.module, 0,
+                        len(witnesses), 0, self.budget.rollout_depth,
+                        "simultaneous_cast_marginal_guess", offers[0]["id"], (),
+                        belief_source="exact_cast_marginal_map",
+                        evidence_hard=self.evidence_ledger.hard_count,
+                        evidence_soft=self.evidence_ledger.soft_count,
+                        role_candidates=result.support_count,
+                        belief_setups=({"roles": roles,
+                                        "cast_probability": result.best_guess_probability},),
+                        final_guess_policy="cast_map", final_guess_probability=probability)
+                    return chosen
+                # A bounded partition can be unavailable. Preserve the old
+                # complete-world policy, and retain the unavailable status;
+                # no normalized probability is inferred from its top results.
             solved = self.factorized_belief.exact_role_map(
                 evidence, witnesses)
             ranked_roles = solved.ranked
@@ -304,7 +333,9 @@ class PublicBeliefPlanner(JointCardDecisionProvider):
                 self.last_trace = IsmctsTrace(
                     self.plan_name, self.rng_seed, evidence.module, 0,
                     len(witnesses), 0, self.budget.rollout_depth,
-                    "no_final_guess_particles", offers[0]["id"], ())
+                    "no_final_guess_particles", offers[0]["id"], (),
+                    final_guess_policy=self.final_guess_policy,
+                    final_guess_probability=probability)
                 return chosen
             marginals = {cid: Counter() for cid in evidence.characters}
             for world, weight in ranked_roles:
@@ -341,7 +372,10 @@ class PublicBeliefPlanner(JointCardDecisionProvider):
                 "exact_joint_map", 0, self.evidence_ledger.hard_count,
                 self.evidence_ledger.soft_count,
                 role_candidates=solved.compatible_count,
-                belief_setups=belief_setups)
+                belief_setups=belief_setups,
+                belief_failure=("cast_map_" + probability["status"] if probability is not None else None),
+                final_guess_policy=self.final_guess_policy,
+                final_guess_probability=probability)
             return chosen
         if view.get("module") not in ("FS", "BTX"):
             return self._fallback(participant, view, offers, "unsupported_module")

@@ -33,7 +33,9 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                  mastermind_policy_samples: int = 3,
                  information_reward_weight: float = 0.01,
                  matrix_proposals: bool = True, joint_culprits: bool = True,
-                 matrix_variant_policy: str = "prior"):
+                 matrix_variant_policy: str = "prior",
+                 final_guess_policy: str = "latent_map",
+                 final_guess_node_limit: int = 100_000):
         if rollout_horizon not in {"day", "loop"}:
             raise ValueError("particle rollout_horizon must be day or loop")
         if (type(mastermind_policy_samples) is not int
@@ -48,6 +50,10 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             raise ValueError("joint_culprits must be boolean")
         if type(matrix_variant_policy) is not str or matrix_variant_policy not in {"uniform", "prior"}:
             raise ValueError("matrix_variant_policy must be uniform or prior")
+        if type(final_guess_policy) is not str or final_guess_policy not in {"latent_map", "cast_map"}:
+            raise ValueError("final_guess_policy must be latent_map or cast_map")
+        if type(final_guess_node_limit) is not int or final_guess_node_limit < 1:
+            raise ValueError("final_guess_node_limit must be a positive integer")
         super().__init__(budget or SearchBudget(node_limit=24,
                                                 rollout_depth=12,
                                                 time_limit_ms=3000),
@@ -62,6 +68,8 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         self.rollout_horizon = rollout_horizon
         self.mastermind_policy_samples = mastermind_policy_samples
         self.information_reward_weight = float(information_reward_weight)
+        self.final_guess_policy = final_guess_policy
+        self.final_guess_node_limit = final_guess_node_limit
         self.oracle = OracleProtagonistAgent(
             reveal_cards=True, budget=self.budget, rng_seed=rng_seed,
             rollout_horizon=rollout_horizon, script_aware_rollout=False)

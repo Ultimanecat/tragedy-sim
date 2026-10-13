@@ -7,7 +7,8 @@ can be counted without enumerating them. No Game, true script or RNG is input.
 
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from math import fsum
+from math import fsum, isclose
+from sys import float_info
 from typing import Mapping
 
 from .belief import FactorizedBeliefState, HiddenWorldHypothesis, PublicEvidence
@@ -23,6 +24,20 @@ from .witness_rules.role_routes import HARD_ROLE_ROUTES, role_route_realizations
 
 _PLOT_FACTS = {"plot_present", "plot_not_present", "plot_pressure"}
 _INCIDENT_FACTS = {"culprit_is", "culprit_in", "incident_happened", "incident_not_happened"}
+_TIE_RELATIVE_ROUNDOFF = 16 * float_info.epsilon
+
+
+def _best_group(groups):
+    """Canonical lexical ties tolerate only relative floating-point roundoff.
+
+    Positive latent weights may add to the same mathematical mass through
+    different plot decompositions. No absolute epsilon can merge distinct
+    small posterior masses or turn a zero into supported probability.
+    """
+    largest = max(group.per_cast_mass for group in groups)
+    return max((group for group in groups if isclose(group.per_cast_mass, largest,
+                                                    rel_tol=_TIE_RELATIVE_ROUNDOFF, abs_tol=0.0)),
+               key=lambda group: group.representative)
 
 def _role_tests(witnesses, variants, domains):
     """Unary membership tests sufficient to preserve every role verdict.
@@ -183,6 +198,7 @@ class JointGuessProbability:
         return {"version": "joint-cast-probability-v1", "status": self.status,
                 "exact": self.exact, "method": "counted_cast_partition",
                 "solver_policy": "predicate_role_classes-v3",
+                "tie_policy": "lexical_relative_roundoff", "tie_relative_tolerance": _TIE_RELATIVE_ROUNDOFF,
                 "model": "factorized-role-posterior-v1",
                 "target_version": RolePosteriorTarget.version,
                 "total_mass": self.total_mass, "support_count": self.support_count,
@@ -341,7 +357,7 @@ class JointGuessProbabilitySolver:
         if not groups:
             return unavailable("no_compatible_worlds", "all complete role groups were rejected")
         total = fsum(g.completions * g.per_cast_mass for g in groups)
-        best = max(groups, key=lambda g: (g.per_cast_mass, g.representative))
+        best = _best_group(groups)
         return JointGuessProbability("exact", total, sum(g.completions for g in groups),
                                      best.representative, best.per_cast_mass / total, len(groups), nodes,
                                      _characters=characters, _split=split, _groups=tuple(groups), _index=index,

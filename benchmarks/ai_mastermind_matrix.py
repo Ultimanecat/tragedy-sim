@@ -13,7 +13,7 @@ from dataclasses import asdict
 from pathlib import Path
 from statistics import mean
 
-from .ai_self_play import _resolve_belief_options, play
+from .ai_self_play import _resolve_belief_options, _validate_final_guess_options, play
 from .ai_cutoff_calibration import match_telemetry
 from .ai_calibration_matrix import source_digest, write_report
 
@@ -46,6 +46,8 @@ def main() -> None:
                         default=None, help="legal joint culprits (fair default); black reply stays baseline")
     parser.add_argument("--matrix-variant-policy", choices=("uniform", "prior"), default="prior",
                         help="matrix variant proposal distribution; posterior target unchanged")
+    parser.add_argument("--final-guess-policy", choices=("latent_map", "cast_map"), default="latent_map")
+    parser.add_argument("--final-guess-node-limit", type=int, default=100_000)
     parser.add_argument("--joint-reply-model", choices=("public", "belief", "hidden", "full"),
                         default="public")
     parser.add_argument("--joint-information-weight", type=float, default=0.02,
@@ -70,6 +72,7 @@ def main() -> None:
     try:
         args.matrix_proposals, args.joint_culprits = _resolve_belief_options(
             args.protagonists, args.matrix_proposals, args.joint_culprits)
+        _validate_final_guess_options(args.protagonists, args.final_guess_policy, args.final_guess_node_limit)
     except ValueError as error:
         parser.error(str(error))
     scenarios = args.scenarios or DEFAULT_SCENARIOS
@@ -109,6 +112,8 @@ def main() -> None:
                         matrix_proposals=args.matrix_proposals,
                         joint_culprits=args.joint_culprits,
                         matrix_variant_policy=args.matrix_variant_policy,
+                        final_guess_policy=args.final_guess_policy,
+                        final_guess_node_limit=args.final_guess_node_limit,
                         joint_reply_model=args.joint_reply_model,
                         joint_information_weight=args.joint_information_weight,
                         capture_fallback_contexts=args.trace,
@@ -140,6 +145,10 @@ def main() -> None:
                     'matrix_proposals_enabled': match.matrix_proposals_enabled,
                     'joint_culprits_enabled': match.joint_culprits_enabled,
                     'matrix_variant_policy': match.matrix_variant_policy,
+                    'final_guess_policy': match.final_guess_policy,
+                    'final_guess_probability': match.final_guess_probability,
+                    'final_inference_scope': match.final_inference_scope,
+                    'final_role_candidates_scope': match.final_role_candidates_scope,
                     'matrix_proposal_attempts': match.protagonist_matrix_proposal_attempts,
                     'matrix_proposal_worlds': match.protagonist_matrix_proposal_worlds,
                 }

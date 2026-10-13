@@ -2,12 +2,12 @@
 
 from collections import Counter
 from dataclasses import replace
-from math import fsum, prod
+from math import fsum, prod, nextafter
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from tragedy_sim.final_guess_probability import JointGuessProbabilitySolver, _role_classes
+from tragedy_sim.final_guess_probability import JointGuessProbabilitySolver, _role_classes, _best_group
 from tragedy_sim.witness import FsbtxWitnessMatcher, PublicWitness, WitnessStrength
 from tests.test_belief_posterior import evidence, enumerate_printed
 from tests.test_role_support_solver import independent_extra_casts
@@ -29,6 +29,16 @@ def reference(setup, facts=()):
 
 
 class FinalGuessProbabilityTests(unittest.TestCase):
+    def test_equal_mass_ties_are_stable_under_relative_roundoff_not_absolute_epsilon(self):
+        lexical = SimpleNamespace(per_cast_mass=1.0, representative=(("girl", "serial"),))
+        rounded = SimpleNamespace(per_cast_mass=nextafter(1.0, 2.0), representative=(("girl", "friend"),))
+        self.assertIs(_best_group((lexical, rounded)), lexical)
+        self.assertIs(_best_group((rounded, lexical)), lexical)
+        # A real advantage stays an advantage even at extremely small mass.
+        tiny = SimpleNamespace(per_cast_mass=1e-50, representative=(("girl", "serial"),))
+        better = SimpleNamespace(per_cast_mass=1.0001e-50, representative=(("girl", "friend"),))
+        self.assertIs(_best_group((tiny, better)), better)
+
     def assert_reference(self, setup, facts=()):
         masses, total = reference(setup, facts)
         result = JointGuessProbabilitySolver().solve(setup, facts)

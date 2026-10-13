@@ -28,6 +28,8 @@ from tragedy_sim.oracle_protagonist import (FullCardOracleProtagonistAgent,
                                              HiddenCardOracleProtagonistAgent)
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
 from tragedy_sim.belief import HiddenWorldHypothesis, PublicEvidence
+from tragedy_sim.belief_posterior import RolePosteriorTarget
+from tragedy_sim.engine import RuleError
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
 from tragedy_sim.witness import FsbtxWitnessMatcher
@@ -173,6 +175,10 @@ class MatchResult:
     matrix_variant_policy: str = "prior"
     protagonist_matrix_proposal_attempts: int = 0
     protagonist_matrix_proposal_worlds: int = 0
+    final_guess_policy: str | None = None
+    final_guess_probability: dict[str, Any] | None = None
+    final_inference_scope: str | None = None
+    final_role_candidates_scope: str | None = None
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -282,6 +288,39 @@ def _resolve_belief_options(protagonists: str, matrix_proposals: bool | None,
     return tuple(options)
 
 
+def _validate_final_guess_options(protagonists, policy, node_limit):
+    if type(policy) is not str or policy not in {"latent_map", "cast_map"}:
+        raise ValueError("final_guess_policy must be latent_map or cast_map")
+    if type(node_limit) is not int or node_limit < 1:
+        raise ValueError("final_guess_node_limit must be a positive integer")
+    if policy == "cast_map" and protagonists != "particle_ensemble":
+        raise ValueError("cast_map requires particle_ensemble protagonists")
+
+
+def _final_inference_diagnostics(game, policy, scenario):
+    """Audit the legal decision snapshot before terminal answers are public."""
+    if game.state.phase != "final_guess":
+        raise ValueError("final inference audit must run before guess submission")
+    view = game.protagonist_team_view()
+    evidence = PublicEvidence.from_view(view)
+    witnesses = policy.evidence_ledger.update(view, policy.compiler)
+    truth = HiddenWorldHypothesis.from_scenario(scenario)
+    hard_compatible = (FsbtxWitnessMatcher().matches(truth, witnesses)
+                       and evidence.matches_roles(truth.main_plot, truth.subplots, truth.roles))
+    try:
+        truth.materialize(evidence)
+        in_space = hard_compatible and RolePosteriorTarget(evidence).weight(truth, witnesses) > 0
+    except (RuleError, ValueError):
+        in_space = False
+    trace = policy.last_trace
+    probability = getattr(trace, "final_guess_probability", None)
+    return {"hard_compatible": hard_compatible, "in_space": in_space,
+            "role_candidates": getattr(trace, "role_candidates", 0),
+            "role_candidates_scope": ("complete_cast_tables" if probability and probability.get("exact")
+                                      else "propagated_latent_support_bound"),
+            "probability": probability}
+
+
 def play(scenario_id: str, seed: int, nodes: int, depth: int,
          strategy: str, protagonist_strategy: str = "baseline", *,
          protagonist_nodes: int | None = None,
@@ -302,10 +341,13 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          matrix_proposals: bool | None = None,
          joint_culprits: bool | None = None,
          matrix_variant_policy: str = "prior",
+         final_guess_policy: str = "latent_map",
+         final_guess_node_limit: int = 100_000,
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     matrix_proposals, joint_culprits = _resolve_belief_options(
         protagonist_strategy, matrix_proposals, joint_culprits)
+    _validate_final_guess_options(protagonist_strategy, final_guess_policy, final_guess_node_limit)
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -353,7 +395,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             mastermind_policy_samples=mastermind_policy_samples,
             information_reward_weight=information_reward_weight,
             matrix_proposals=matrix_proposals, joint_culprits=joint_culprits,
-            matrix_variant_policy=matrix_variant_policy)
+            matrix_variant_policy=matrix_variant_policy,
+            final_guess_policy=final_guess_policy, final_guess_node_limit=final_guess_node_limit)
     if team_ismcts is not None and hasattr(team_ismcts, "factorized_belief"):
         team_ismcts.factorized_belief.matrix_recovery_enabled = matrix_recovery
     protagonists = {
@@ -382,6 +425,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     final_role_candidates = 0
     final_true_setup_in_exact_space = None
     final_true_setup_hard_compatible = None
+    final_guess_probability = final_inference_scope = final_role_candidates_scope = None
     protagonist_plays: list[ProtagonistPlayRecord] = []
     mastermind_plays: list[MastermindPlayRecord] = []
     protagonist_searches: list[ProtagonistSearchRecord] = []
@@ -482,6 +526,21 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                     getattr(trace, "belief_dark_cards", ()),
                     getattr(trace, "placement_tendencies", ()),
                     proposal_reader() if proposal_reader else None))
+        if command.get("action") == "guess_all":
+            policy = protagonists[command["actor"]]
+            trace = getattr(policy, "last_trace", None)
+            if trace is not None:
+                final_belief_roles = getattr(trace, "belief_roles", ())
+                final_belief_setups = getattr(trace, "belief_setups", ())
+            if all(hasattr(policy, attribute) for attribute in
+                   ("factorized_belief", "evidence_ledger", "compiler")):
+                audited = _final_inference_diagnostics(game, policy, scenario)
+                final_role_candidates = audited["role_candidates"]
+                final_role_candidates_scope = audited["role_candidates_scope"]
+                final_guess_probability = audited["probability"]
+                final_true_setup_hard_compatible = audited["hard_compatible"]
+                final_true_setup_in_exact_space = audited["in_space"]
+                final_inference_scope = "before_guess_submission"
         # This is the real match trajectory, not a tree rollout.  Real dispatch
         # preserves the complete public journal and per-seat observation
         # checkpoints used by persistent protagonist beliefs.
@@ -512,26 +571,6 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                 for event in game.view(game.controller)["events"]
                 if event.get("kind") == "character_died")
         if command.get("action") == "guess_all":
-            trace = getattr(protagonists[command["actor"]], "last_trace", None)
-            if trace is not None:
-                final_belief_roles = getattr(trace, "belief_roles", ())
-                final_belief_setups = getattr(trace, "belief_setups", ())
-            policy = protagonists[command["actor"]]
-            if (hasattr(policy, "factorized_belief")
-                    and hasattr(policy, "evidence_ledger")
-                    and hasattr(policy, "compiler")):
-                public_view = game.protagonist_team_view()
-                evidence = PublicEvidence.from_view(public_view)
-                witnesses = policy.evidence_ledger.update(
-                    public_view, policy.compiler)
-                solved = policy.factorized_belief.exact_role_map(
-                    evidence, witnesses)
-                final_role_candidates = solved.compatible_count
-                truth = HiddenWorldHypothesis.from_scenario(scenario)
-                final_true_setup_hard_compatible = FsbtxWitnessMatcher().matches(
-                    truth, witnesses)
-                final_true_setup_in_exact_space = (
-                    final_true_setup_hard_compatible)
             for cid, guessed in command["guesses"].items():
                 final_guesses.append(FinalGuessRecord(
                     cid, guessed, scenario["cast"][cid],
@@ -569,6 +608,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         final_public_deaths=final_public_deaths,
         final_belief_roles=final_belief_roles,
         final_belief_setups=final_belief_setups,
+        final_guess_policy=final_guess_policy if protagonist_strategy == "particle_ensemble" else None,
+        final_guess_probability=final_guess_probability,
+        final_inference_scope=final_inference_scope,
+        final_role_candidates_scope=final_role_candidates_scope,
         final_role_candidates=final_role_candidates,
         final_true_setup_in_exact_space=final_true_setup_in_exact_space,
         final_true_setup_hard_compatible=final_true_setup_hard_compatible,
@@ -669,6 +712,9 @@ def main() -> None:
                         default=None, help="legal joint culprit sampling (default for particle_ensemble)")
     parser.add_argument("--matrix-variant-policy", choices=("uniform", "prior"), default="prior",
                         help="matrix variant proposal distribution; posterior target unchanged")
+    parser.add_argument("--final-guess-policy", choices=("latent_map", "cast_map"), default="latent_map",
+                        help="particle final guessing only; action planner unchanged")
+    parser.add_argument("--final-guess-node-limit", type=int, default=100_000)
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
@@ -696,6 +742,7 @@ def main() -> None:
     try:
         args.matrix_proposals, args.joint_culprits = _resolve_belief_options(
             args.protagonists, args.matrix_proposals, args.joint_culprits)
+        _validate_final_guess_options(args.protagonists, args.final_guess_policy, args.final_guess_node_limit)
     except ValueError as error:
         parser.error(str(error))
     library = ScenarioLibrary()
@@ -717,6 +764,8 @@ def main() -> None:
                               matrix_proposals=args.matrix_proposals,
                               joint_culprits=args.joint_culprits,
                               matrix_variant_policy=args.matrix_variant_policy,
+                              final_guess_policy=args.final_guess_policy,
+                              final_guess_node_limit=args.final_guess_node_limit,
                               disabled_witness_sources=tuple(
                                   args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,

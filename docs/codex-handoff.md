@@ -6,19 +6,21 @@
 
 公平 FS／BTX 粒子红方已默认使用 prior 矩阵重要性提议和合法联合当事人。主线构造器、房间工厂、self-play API／CLI、黑方对弈 CLI 一致；两处联合黑方内部红方模型显式保持旧提议＋旧当事人，避免同时更换对手。原始 `FactorizedBeliefState`／历史 ISMCTS 保留旧基线。
 
-新增独立 `final_guess_probability.py` 和可选逐命令概率审计：同身份表跨剧情汇总、精确计数无关排列，硬域／软评分／完整 matcher 保留。正式终猜和行动算法未改。`ai_causal_audit --guess-probabilities --guess-probability-node-limit 100000` 记录最佳概率、旧猜测的新概率及推荐切换；`--guess-truth` 单独开启真值只读评分。日志默认关闭、不使用 RNG、不进入玩家 API／SSE。终猜提交需读 `context.submitted_guess_before_reveal`，终局公开答案后确定身份不能算行动时效果。
+新增独立 `final_guess_probability.py` 和可选逐命令概率审计：同身份表跨剧情汇总、精确计数无关排列，硬域／软评分／完整 matcher 保留。默认终猜和行动算法未改，另有可选边缘 MAP 实验。`ai_causal_audit --guess-probabilities --guess-probability-node-limit 100000` 记录最佳概率、旧猜测的新概率及推荐切换；`--guess-truth` 单独开启真值只读评分。日志默认关闭、不使用 RNG、不进入玩家 API／SSE。终猜提交需读 `context.submitted_guess_before_reveal`，终局公开答案后确定身份不能算行动时效果。
 
 首版六份 seed 0 轨迹、1178 检查点：1122 精确、56 超限，无诊断错误。153 次实际求解，其余同模型缓存，无新证据漂移；详见 [概率日志](final-guess-probability-audit.md)。首版结果在忽略目录 `references/ai-calibration/2026-10-13/joint-guess-probability-audit-smoke-100k.json`。
 
 `extra_identity_partition-v2` 提前分开局外人／模仿者身份，修复 BTX-02G 的全部超限；随后 `predicate_role_classes-v3` 按公开规则的成员资格判定及剧情域划分等价身份类别，保留组内完整槽位／性别精确计数。相同六份轨迹在默认 10000 节点上限下 **1178／1178 精确可用**，旧所有可用概率／质量／支持数一致，真值未排除；总诊断约 83→8 秒。11 角色 BTX-41 初始 534 节点精确计数。
 
-BTX06 命令 57 的根因是宽泛能力来源析取要求 6 名角色完整展开，剧情域无差异。旧算法增大上限后完整完成 255505 节点／15.896 秒，新版 1826 节点／0.381 秒；477876 个身份表及 624 套查询逐一对照一致。报告 `references/ai-calibration/2026-10-14/joint-guess-predicate-partition-validation.json`，单根在 2026-10-13 目录的 `joint-guess-predicate-btx06-root.json`。下一步扩留出状态，单独比较正式终猜的边缘 MAP，不继续按旧超限 TODO 工作。
+BTX06 命令 57 的根因是宽泛能力来源析取要求 6 名角色完整展开，剧情域无差异。旧算法增大上限后完整完成 255505 节点／15.896 秒，新版 1826 节点／0.381 秒；477876 个身份表及 624 套查询逐一对照一致。报告 `references/ai-calibration/2026-10-14/joint-guess-predicate-partition-validation.json`，单根在 2026-10-13 目录的 `joint-guess-predicate-btx06-root.json`。留出状态与边缘 MAP 比较均已完成，不继续按旧超限 TODO 工作。
 
-留出验证随后完成：38 份完整轨迹、9 个剧本 ID、7405 检查点全精确，最大 3699 节点；真值未排除，17 次正式终猜均记录提交前概率。报告 `joint-guess-corpus-default24.json`、`joint-guess-corpus-imported10.json`、`joint-guess-corpus-hospital4.json` 在 2026-10-14 忽略目录。旧记录的决策来自不同源码；与当前两个策略的同观察比较分开统计。评测工具 `ai_self_play` 的终猜支持审计当前在提交后执行，下一阶段必须移至提交前。
+留出验证完成：38 份完整轨迹、9 个剧本 ID、7405 检查点全精确，最大 3699 节点；真值未排除，17 次正式终猜均记录提交前概率。报告 `joint-guess-corpus-default24.json`、`joint-guess-corpus-imported10.json`、`joint-guess-corpus-hospital4.json` 在 2026-10-14 忽略目录。旧记录的决策来自不同源码；与当前两个策略的同观察比较分开统计。
+
+可选 `ParticleEnsembleProtagonistAgent(final_guess_policy="cast_map")` 已接入，默认／黑方内部仍 `latent_map`；两开发对弈 CLI 有相应开关。17 个真实终猜根两策略答案相同、均 2/17 终猜胜；四局新固定工作量配对均红胜 0/2，终猜前命令一致。独立四角色反例有 3 倍模型概率收益，实际棋力尚无提升证据。已将 `ai_self_play` 支持审计移至实际提交前，新增 scope，包含合法私密知识。BTX04 的舍入等概率排序已修复；相对容差 16ε、绝对零，不按真值改排序。详见 [终猜实验](cast-marginal-final-guess.md)。
 
 额外身份分组阶段完整 780 项通过（193.998 秒），35 项概率／审计专项通过；日志 `references/joint-guess-extra-partition-regression-20261013.txt` 被忽略。
 
-最新等价类别阶段完整 783 项通过（210.309 秒），38 项概率／审计专项通过；日志 `references/joint-guess-predicate-partition-regression-20261014.txt` 被忽略。正式行动和终猜选择尚未改，不据回放诊断宣称棋力提升。
+最新可选边缘 MAP 阶段完整 792 项通过（181.520 秒），相关专项 57 项通过；日志 `references/cast-map-stable-ties-regression-20261014.txt` 被忽略。日常行动和默认终猜未改，真实配对没有棋力提升证据。
 
 默认切换源码 Python 指纹 `63b77dfa833503ee7ba5a92f114fd903872e2214806ed98d6b5f1751b3e71c96`：53 项专项通过，完整 759 项通过（178.932 秒）。实际房间选择公平 AI 后，BTX-01G 第一天默认 192 次提议／12 行动世界，无回退，原子执行三张红牌到 reveal；本机耗时 2.246 秒，仅为单根烟测。前端未改。
 
@@ -35,7 +37,7 @@ BTX06 命令 57 的根因是宽泛能力来源析取要求 6 名角色完整展�
 
 ## 下一步
 
-1. 联合概率日志第一版完成；接续压缩大空间的多角色析取／额外身份分支，保留精确求和或明确不可用。再单独比较完整身份表边缘 MAP 与当前潜在世界 MAP 的正式终猜；不能归一化 top 候选、相乘角色边际或把 compatible_count 当概率分母。单 witness leave-one-out 归因和黑方预计泄露评分仍待做。
+1. 联合概率／压缩计数／边缘 MAP 实验已完成，默认暂不换终猜。以未区分世界为入口调查后验抽样与规划；精确分区可尝试完整身份／剧情后验抽样，保留旧重要性提议对照，验证密度与重演过滤。不能只抽代表或相乘边际。单 witness leave-one-out 归因和黑方预计泄露评分仍待做。
 2. FS-02G／BTX04／BTX06 的危险覆盖、联合防御候选和更早的资源准备；保留日末基线，短跨日规划单独消融。
 3. 信息收益与黑方实际信念／回应模型，先做终猜概率诊断再讨论信息隐藏与跨轮回价值。
 4. 扩默认矩阵版的 seed／标准与 Easy，再按开眼 → witness／矩阵 → 公平规划迁移 MC。更多未来项见路线图。
