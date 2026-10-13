@@ -6,6 +6,8 @@ against all supplied witnesses. No secret game state is an input.
 """
 
 from collections import Counter
+from dataclasses import dataclass
+from functools import lru_cache
 
 from .belief import (ConstraintBeliefSampler, FactorizedBeliefState,
                      HiddenWorldHypothesis)
@@ -15,6 +17,45 @@ from .catalog import MODULES
 from .engine import RuleError
 from .scenario import validate_scenario
 from .witness import FsbtxWitnessMatcher
+
+
+@dataclass(frozen=True)
+class RoleProposal:
+    world: HiddenWorldHypothesis
+    density: float
+
+
+@lru_cache(maxsize=64)
+def role_incident_placeholders(evidence):
+    """One legal schedule for role validation, independent of cast sampling.
+
+    Incidents are replaced by the culprit sampler before search. Reserving
+    known culprits and backtracking avoids accidental role-space exclusions.
+    """
+    known = {day: "part_timer" if cid == "part_timer_question" else cid
+             for day, cid in evidence.known_culprits}
+    characters = evidence.characters
+
+    @lru_cache(maxsize=None)
+    def assign(index, ordinary_used, serial_used):
+        if index == len(evidence.schedule):
+            return ()
+        day, kind = evidence.schedule[index]
+        serial = kind == "serial_murder"
+        options = (known[day],) if day in known else characters
+        for cid in options:
+            if cid not in characters:
+                continue
+            bit = 1 << characters.index(cid)
+            if ordinary_used & bit or (not serial and serial_used & bit):
+                continue
+            tail = assign(index + 1, ordinary_used | (0 if serial else bit),
+                          serial_used | (bit if serial else 0))
+            if tail is not None:
+                return ((day, kind, cid), *tail)
+        return None
+
+    return assign(0, 0, 0)
 
 
 def _random_cast(variant, module, rng):
@@ -65,6 +106,59 @@ def _random_cast(variant, module, rng):
 
 
 class MatrixWorldSampler:
+    def propose_roles(self, evidence, witnesses, count, *, rng, max_attempts=None):
+        """Repeated role draws with an explicit pre-rejection density.
+
+        Each variant's casts are uniform by completion counts. Residual hard
+        rejection has a common normalization constant, which cancels in
+        normalized importance weights. No uniqueness filtering is applied.
+        """
+        from .belief_posterior import variant_size
+
+        if type(count) is not int or count < 1:
+            raise ValueError("count must be a positive integer")
+        if max_attempts is not None and (type(max_attempts) is not int or max_attempts < 1):
+            raise ValueError("max_attempts must be a positive integer")
+        hard = tuple(w for w in FactorizedBeliefState._role_witnesses(witnesses)
+                     if w.strength == "hard")
+        view = {"module": evidence.module,
+                "characters": dict.fromkeys(evidence.characters, {}),
+                "known_roles": {cid: {"role": role} for cid, role in evidence.known_roles}}
+        try:
+            _, domains, _ = role_domains(view, hard)
+        except BeliefContradiction:
+            return ()
+        variants = plot_role_variants(evidence, domains, hard)
+        sized = tuple((v, variant_size(v, evidence.module)) for v in variants)
+        sized = tuple((v, size) for v, size in sized if size)
+        placeholders = role_incident_placeholders(evidence)
+        if not sized or placeholders is None:
+            return ()
+        incidents = [{"day": day, "kind": kind, "culprit": cid}
+                     for day, kind, cid in placeholders]
+        matcher = FsbtxWitnessMatcher()
+        results = []
+        for _ in range(max_attempts or max(64, count * 12)):
+            variant, size = rng.choice(sized)
+            cast = _random_cast(variant, evidence.module, rng)
+            if cast is None:
+                continue
+            try:
+                scenario = validate_scenario({
+                    "id": "belief-role-proposal", "title": "Weighted role proposal",
+                    "module": evidence.module, "days": evidence.days, "loops": evidence.loops,
+                    "main_plot": variant.main_plot, "subplots": list(variant.subplots),
+                    "cast": cast, "incidents": incidents, "table_talk": evidence.table_talk,
+                    **evidence.setup_fields()})
+            except RuleError:
+                continue
+            world = HiddenWorldHypothesis.from_scenario(scenario)
+            if matcher.matches(world, hard):
+                results.append(RoleProposal(world, 1.0 / (len(sized) * size)))
+                if len(results) == count:
+                    break
+        return tuple(results)
+
     def sample(self, evidence, witnesses, count, *, rng, max_attempts=None):
         if type(count) is not int or count < 1:
             raise ValueError("count must be a positive integer")

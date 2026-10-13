@@ -261,7 +261,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--compare-roots", action="store_true")
     parser.add_argument("--matrix-proposals", action="store_true",
-                        help="supplement underfilled identity proposals in fair root comparisons")
+                        help="importance-corrected matrix role proposals in fair root comparisons")
     parser.add_argument("--belief-log", type=Path,
                         help="save developer-only Chinese evidence changes and sampled roles")
     parser.add_argument("--strategy", choices=("strategic", "joint"))

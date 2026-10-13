@@ -16,7 +16,7 @@ from tests.test_belief_matrix import witness
 
 
 class MatrixSamplerTests(unittest.TestCase):
-    def test_normal_matrix_proposals_supplement_nonempty_underfilled_pool(self):
+    def test_corrected_matrix_proposals_replace_unknown_density_legacy_pool(self):
         scenario = ScenarioLibrary().get("official-btx-06-secret-that-was-kept")
         view = Game(scenario).protagonist_team_view()
         view["known_plots"] = ["bomb", "friends", "threads"]

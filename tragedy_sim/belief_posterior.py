@@ -6,6 +6,7 @@ The omitted uniform plot constant cancels in MAP and normalized posteriors.
 from collections import Counter
 from dataclasses import replace
 from functools import lru_cache
+from math import isfinite
 
 from .belief import FactorizedBeliefState
 from .belief_plot_constraints import _genders, plot_role_variants
@@ -56,9 +57,11 @@ class RolePosteriorTarget:
             raise ValueError("Role posterior target currently supports FS/BTX")
         initial = replace(evidence, known_roles=(), known_plots=(), known_culprits=())
         self.plot_sizes = dict(_initial_plot_sizes(initial))
+        self._canonical_sizes = {(main, tuple(sorted(subs))): size
+                                 for (main, subs), size in self.plot_sizes.items()}
 
     def prior_weight(self, world):
-        size = self.plot_sizes.get((world.main_plot, world.subplots), 0)
+        size = self._canonical_sizes.get((world.main_plot, tuple(sorted(world.subplots))), 0)
         return 1.0 / size if size else 0.0
 
     def weight(self, world, witnesses):
@@ -73,3 +76,34 @@ class RolePosteriorTarget:
         return {"version": self.version, "prior": "uniform_initial_plot_then_printed_cast",
                 "likelihood": "heuristic_exp2_soft_score",
                 "initial_plot_sets": len(self.plot_sizes)}
+
+
+class RoleImportancePool:
+    """A fixed batch with duplicate draws and proposal densities retained.
+
+    Recompute current evidence weights from scratch; q never changes. An
+    unknown-density legacy reservoir is deliberately not an input.
+    """
+    version = "matrix-role-importance-v1"
+
+    def __init__(self, proposals):
+        self.proposals = tuple(proposals)
+        if any(not isfinite(p.density) or not 0 < p.density <= 1 for p in self.proposals):
+            raise ValueError("Proposal densities must be finite and in (0, 1]")
+
+    def posterior(self, target, witnesses):
+        worlds, masses = {}, Counter()
+        for proposal in self.proposals:
+            key = FactorizedBeliefState._key(proposal.world)
+            worlds[key] = proposal.world
+            masses[key] += target.weight(proposal.world, witnesses) / proposal.density
+        return tuple((worlds[key], mass) for key, mass in masses.items() if mass > 0)
+
+    def diagnostics(self, target, witnesses):
+        weights = tuple(target.weight(p.world, witnesses) / p.density for p in self.proposals)
+        total = sum(weights)
+        square_sum = sum(weight * weight for weight in weights)
+        return {"estimator": self.version, "proposal_draws": len(weights),
+                "unique_roles": len({FactorizedBeliefState._key(p.world) for p in self.proposals}),
+                "effective_sample_size": total * total / square_sum if square_sum else 0.0,
+                "max_normalized_draw_weight": max(weights, default=0) / total if total else 0.0}

@@ -781,6 +781,8 @@ class FactorizedBeliefState:
         self._exact_roles = False
         self._plot_sizes: Counter[tuple[str, tuple[str, ...]]] = Counter()
         self.role_target = None
+        self.role_importance_pool = None
+        self._importance_diagnostics = None
 
     @staticmethod
     def _key(world: HiddenWorldHypothesis) -> tuple[Any, ...]:
@@ -845,6 +847,23 @@ class FactorizedBeliefState:
             self._exact_roles = len(evidence.characters) <= 6
             if self._exact_roles:
                 self._enumerate_roles(evidence)
+        # The corrected matrix estimator owns its complete proposal batch.
+        # Mixing an unknown-density legacy reservoir would alter its target.
+        if (self.matrix_proposals_enabled and not self._exact_roles
+                and evidence.module in {"FS", "BTX"}):
+            from .belief_matrix_sampler import MatrixWorldSampler
+            from .belief_posterior import RoleImportancePool
+            self.matrix_proposal_attempts += 1
+            proposals = MatrixWorldSampler().propose_roles(
+                evidence, role_witnesses, min(64, self.capacity), rng=self.matrix_rng)
+            self.matrix_proposal_worlds += len(proposals)
+            self.role_importance_pool = RoleImportancePool(proposals)
+            self._roles = {self._key(p.world): p.world for p in proposals}
+            self._importance_diagnostics = self.role_importance_pool.diagnostics(
+                self.role_target, role_witnesses)
+            return
+        self.role_importance_pool = None
+        self._importance_diagnostics = None
         self._roles = {key: world for key, world in self._roles.items()
                        if matcher.matches(world, role_witnesses)}
         # Keep a diverse reservoir across decisions, and continue proposing
@@ -862,18 +881,6 @@ class FactorizedBeliefState:
             proposed = self.sampler.sample(
                 evidence, min(64, self.capacity), rng=self.rng,
                 witnesses=hard_witnesses, condition_hard=True)
-        # A nonempty rejection pool can still cover very few identities.
-        # Supplement underfilled normal proposals, independently of the
-        # empty-pool recovery switch. Small-cast exhaustive pools stay exact.
-        target = min(64, self.capacity)
-        if (self.matrix_proposals_enabled and not self._exact_roles
-                and evidence.module in {"FS", "BTX"} and len(proposed) < target):
-            from .belief_matrix_sampler import MatrixWorldSampler
-            self.matrix_proposal_attempts += 1
-            extra = MatrixWorldSampler().sample(
-                evidence, hard_witnesses, target - len(proposed), rng=self.matrix_rng)
-            self.matrix_proposal_worlds += len(extra)
-            proposed = (*proposed, *extra)
         if (self.matrix_recovery_enabled and evidence.module in {"FS", "BTX"}
                 and not proposed and not self._roles):
             from .belief_matrix_sampler import MatrixWorldSampler
@@ -905,6 +912,7 @@ class FactorizedBeliefState:
             "matrix_proposal_attempts": self.matrix_proposal_attempts,
             "matrix_proposal_worlds": self.matrix_proposal_worlds,
             "posterior_target": self.role_target.diagnostics() if self.role_target else None,
+            "importance": dict(self._importance_diagnostics) if self._importance_diagnostics else None,
             "roles": [{"character": cid, "counts": dict(sorted(Counter(
                 dict(world.roles).get(cid) for world in worlds).items()))}
                 for cid in characters],
@@ -933,6 +941,8 @@ class FactorizedBeliefState:
         self._refresh_roles(evidence, witnesses)
         matcher = FsbtxWitnessMatcher()
         role_witnesses = self._role_witnesses(witnesses)
+        if self.role_importance_pool is not None:
+            return self.role_importance_pool.posterior(self.role_target, role_witnesses)
         return tuple((world, self.role_target.weight(world, role_witnesses)
                       if self.role_target else 2.0 ** matcher.soft_score(world, role_witnesses)
                       / (self._plot_sizes[(world.main_plot, world.subplots)]

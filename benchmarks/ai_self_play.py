@@ -110,6 +110,7 @@ class ProtagonistSearchRecord:
     belief_culprits: tuple[dict[str, Any], ...] = ()
     belief_dark_cards: tuple[dict[str, Any], ...] = ()
     placement_tendencies: tuple[dict[str, Any], ...] = ()
+    proposal_diagnostics: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -445,6 +446,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                 getattr(trace, "belief_source", None)))
             if (trace is not None and getattr(trace, "root_actions", ())
                     and trace.fallback != "joint_plan_followup"):
+                proposal_reader = getattr(getattr(protagonists[command["actor"]],
+                    "factorized_belief", None), "proposal_summary", None)
                 protagonist_searches.append(ProtagonistSearchRecord(
                     game.state.loop, game.state.round,
                     len(trace.root_actions),
@@ -457,7 +460,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                     getattr(trace, "evaluated_pairs", 0),
                     getattr(trace, "belief_culprits", ()),
                     getattr(trace, "belief_dark_cards", ()),
-                    getattr(trace, "placement_tendencies", ())))
+                    getattr(trace, "placement_tendencies", ()),
+                    proposal_reader() if proposal_reader else None))
         # This is the real match trajectory, not a tree rollout.  Real dispatch
         # preserves the complete public journal and per-seat observation
         # checkpoints used by persistent protagonist beliefs.
@@ -638,7 +642,7 @@ def main() -> None:
     parser.add_argument("--disable-matrix-recovery", action="store_true",
                         help="ablate protagonist matrix recovery after legacy proposals are empty")
     parser.add_argument("--matrix-proposals", action="store_true",
-                        help="supplement underfilled red identity proposals from matrix constraints")
+                        help="use importance-corrected matrix role proposals for red")
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,

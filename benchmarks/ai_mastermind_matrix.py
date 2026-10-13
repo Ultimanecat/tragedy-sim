@@ -41,7 +41,7 @@ def main() -> None:
     parser.add_argument("--protagonists", choices=("particle_ensemble", "oracle_script"),
                         default="particle_ensemble")
     parser.add_argument("--matrix-proposals", action="store_true",
-                        help="supplement underfilled red identity proposals; black reply stays baseline")
+                        help="importance-corrected matrix role proposals for red; black reply stays baseline")
     parser.add_argument("--joint-reply-model", choices=("public", "belief", "hidden", "full"),
                         default="public")
     parser.add_argument("--joint-information-weight", type=float, default=0.02,

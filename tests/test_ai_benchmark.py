@@ -22,6 +22,17 @@ from tragedy_sim.belief import FactorizedBeliefResult, FactorizedBeliefState
 
 
 class AbilityUsageTests(unittest.TestCase):
+    def test_matrix_importance_diagnostics_are_captured_per_root(self):
+        result = play("official-tragic-aiplay-btx-01g", 1, 2, 4, "fixed",
+                      "particle_ensemble", protagonist_nodes=2, protagonist_particles=4,
+                      matrix_proposals=True)
+        self.assertTrue(result.protagonist_searches)
+        for root in result.protagonist_searches:
+            diagnostic = root.proposal_diagnostics
+            self.assertEqual(diagnostic["posterior_target"]["version"], "uniform-printed-casts-v1")
+            self.assertEqual(diagnostic["importance"]["estimator"], "matrix-role-importance-v1")
+            self.assertGreater(diagnostic["importance"]["effective_sample_size"], 0)
+
     def test_matrix_recovery_ablation_is_recorded_without_changing_normal_match(self):
         results = [play("official-fs-01-first-script", 0, 2, 8, "fixed", "particle_ensemble",
                         protagonist_nodes=2, protagonist_particles=4, matrix_recovery=enabled)

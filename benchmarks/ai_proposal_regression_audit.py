@@ -30,6 +30,8 @@ from .ai_calibration_matrix import source_digest, write_report
 def _role_weights(state, witnesses):
     matcher = FsbtxWitnessMatcher()
     role_facts = state._role_witnesses(witnesses)
+    if state.role_importance_pool is not None:
+        return state.role_importance_pool.posterior(state.role_target, role_facts)
     return [(world, state.role_target.weight(world, role_facts) if state.role_target else
              2.0 ** matcher.soft_score(world, role_facts) /
              (state._plot_sizes[(world.main_plot, world.subplots)]
@@ -127,6 +129,7 @@ def resample_probe(state, evidence, witnesses, view, plans, *, counts, draws, se
     frozen._plot_sizes = state._plot_sizes.copy()
     frozen._exact_roles = state._exact_roles
     frozen.role_target = state.role_target
+    frozen.role_importance_pool = state.role_importance_pool
     determinizer = PublicStateDeterminizer()
     result = []
     for count in counts:
