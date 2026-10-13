@@ -11,7 +11,7 @@ from functools import lru_cache
 
 from .belief import (ConstraintBeliefSampler, FactorizedBeliefState,
                      HiddenWorldHypothesis)
-from .belief_matrix import BeliefContradiction, role_domains
+from .belief_matrix import BeliefContradiction, evidence_role_domains
 from .belief_plot_constraints import _genders, plot_role_variants
 from .catalog import MODULES
 from .engine import RuleError
@@ -126,11 +126,8 @@ class MatrixWorldSampler:
             raise ValueError("variant_policy must be uniform or prior")
         hard = tuple(w for w in FactorizedBeliefState._role_witnesses(witnesses)
                      if w.strength == "hard")
-        view = {"module": evidence.module,
-                "characters": dict.fromkeys(evidence.characters, {}),
-                "known_roles": {cid: {"role": role} for cid, role in evidence.known_roles}}
         try:
-            _, domains, _ = role_domains(view, hard)
+            _, domains, _ = evidence_role_domains(evidence, hard)
         except BeliefContradiction:
             return ()
         variants = plot_role_variants(evidence, domains, hard)
@@ -180,11 +177,8 @@ class MatrixWorldSampler:
     def sample(self, evidence, witnesses, count, *, rng, max_attempts=None):
         if type(count) is not int or count < 1:
             raise ValueError("count must be a positive integer")
-        view = {"module": evidence.module,
-                "characters": dict.fromkeys(evidence.characters, {}),
-                "known_roles": {cid: {"role": role} for cid, role in evidence.known_roles}}
         try:
-            _, domains, _ = role_domains(view, witnesses)
+            _, domains, _ = evidence_role_domains(evidence, witnesses)
         except BeliefContradiction:
             return ()
         variants = plot_role_variants(evidence, domains, witnesses)

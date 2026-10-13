@@ -103,6 +103,22 @@ def role_domains(view: Mapping[str, Any], witnesses: Sequence[PublicWitness]):
     return tuple(sorted(roles)), domains, sources
 
 
+def evidence_role_domains(evidence, witnesses):
+    """Reuse projection domains for an already sanitized public evidence value.
+
+    PublicEvidence drops public current-role reveals for Part-Timer and keeps
+    only received initial-identity answers. Preserve those as private answers
+    here; putting them back into known_roles would silently skip them.
+    """
+    return role_domains({
+        "module": evidence.module, "characters": dict.fromkeys(evidence.characters, {}),
+        "known_roles": {cid: {"role": role} for cid, role in evidence.known_roles},
+        "protagonist_knowledge": {"roles": {
+            **{cid: role for cid, role in evidence.known_roles if cid == "part_timer"},
+            **dict(evidence.known_initial_roles)}},
+    }, witnesses)
+
+
 def _matrix(values, domains, sources, count_rows=(), *, column_key="character"):
     counts = {str(row[column_key]): row["counts"] for row in count_rows}
     result = {}

@@ -55,7 +55,8 @@ class RolePosteriorTarget:
     def __init__(self, evidence):
         if evidence.module not in {"FS", "BTX"}:
             raise ValueError("Role posterior target currently supports FS/BTX")
-        initial = replace(evidence, known_roles=(), known_plots=(), known_culprits=())
+        self.evidence = evidence
+        initial = replace(evidence, known_roles=(), known_initial_roles=(), known_plots=(), known_culprits=())
         self.plot_sizes = dict(_initial_plot_sizes(initial))
         self._canonical_sizes = {(main, tuple(sorted(subs))): size
                                  for (main, subs), size in self.plot_sizes.items()}
@@ -71,7 +72,8 @@ class RolePosteriorTarget:
         from .witness import FsbtxWitnessMatcher
 
         matcher = FsbtxWitnessMatcher()
-        if not matcher.matches(world, witnesses):
+        if (not self.evidence.matches_roles(world.main_plot, world.subplots, world.roles)
+                or not matcher.matches(world, witnesses)):
             return 0.0
         return self.prior_weight(world) * (2.0 ** matcher.soft_score(world, witnesses))
 

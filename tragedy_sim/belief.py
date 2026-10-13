@@ -72,9 +72,19 @@ class PublicEvidence:
     known_culprits: tuple[tuple[int, str], ...]
     known_plots: tuple[str, ...]
     public_setup_json: str = '{}'
+    known_initial_roles: tuple[tuple[str, str], ...] = ()
 
     def setup_fields(self) -> dict[str, Any]:
         return json.loads(self.public_setup_json)
+
+    def matches_roles(self, main_plot, subplots, roles) -> bool:
+        """Condition role support on received answers and public observations."""
+        cast = dict(roles)
+        plots = (main_plot, *subplots)
+        return (set(self.known_plots).issubset(plots)
+                and all(cast.get(cid) == role for cid, role in self.known_initial_roles)
+                and all(_observed_role_matches(cast.get(cid), role, plots)
+                        for cid, role in self.known_roles))
 
     @classmethod
     def from_view(cls, view: Mapping[str, Any]) -> "PublicEvidence":
@@ -90,12 +100,13 @@ class PublicEvidence:
         # A successful private identity query reveals the initial script
         # role. It can be more precise than a public current-role reveal
         # after a temporary transformation such as BTX's Virus.
-        known.update({
+        initial = {
             ("part_timer" if cid == "part_timer_question" else cid): role
             for cid, role in view.get("protagonist_knowledge", {}).get(
                 "roles", {}).items()
             if isinstance(cid, str) and isinstance(role, str)
-        })
+        }
+        known.update(initial)
         known_roles = tuple(sorted(known.items()))
         known_culprits = tuple(sorted(
             (int(day), cid)
@@ -115,6 +126,7 @@ class PublicEvidence:
             known_culprits=known_culprits,
             known_plots=tuple(sorted(str(item) for item in view.get("known_plots", ()))),
             public_setup_json=json.dumps(view.get("public_setup", {}), sort_keys=True),
+            known_initial_roles=tuple(sorted(initial.items())),
         )
 
 
@@ -379,8 +391,7 @@ class CatalogBeliefSampler:
             return False
         roles = scenario["cast"]
         plots = (scenario["main_plot"], *scenario["subplots"])
-        if any(not _observed_role_matches(roles.get(cid), role, plots)
-               for cid, role in evidence.known_roles):
+        if not evidence.matches_roles(scenario["main_plot"], scenario["subplots"], roles):
             return False
         incidents_by_day: dict[int, set[str]] = {}
         for item in scenario["incidents"]:
@@ -492,6 +503,8 @@ class ConstraintBeliefSampler:
               rng: random.Random,
               forced: Mapping[str, str] | None = None) -> dict[str, str] | None:
         known = dict(evidence.known_roles)
+        initial_answers = dict(evidence.known_initial_roles)
+        known.update(initial_answers)
         remaining = slots.copy()
         assigned: dict[str, str] = {}
         forced = forced or {}
@@ -509,6 +522,8 @@ class ConstraintBeliefSampler:
                 return None
             assigned["irregular"] = rng.choice(options)
         for cid, role in forced.items():
+            if cid in initial_answers and initial_answers[cid] != role:
+                return None
             if cid not in evidence.characters or (cid in assigned and assigned[cid] != role):
                 return None
             if cid in assigned:
@@ -526,7 +541,7 @@ class ConstraintBeliefSampler:
             if cid not in evidence.characters:
                 return None
             options = [observed]
-            if observed == "serial" and "virus" in plots:
+            if observed == "serial" and "virus" in plots and cid not in initial_answers:
                 options.append("ordinary")
             rng.shuffle(options)
             initial = next((role for role in options
@@ -797,6 +812,12 @@ class FactorizedBeliefState:
         return world.main_plot, world.subplots, world.roles
 
     def _enumerate_roles(self, evidence: PublicEvidence) -> None:
+        if evidence.module in {"FS", "BTX"}:
+            from .belief_role_solver import enumerate_role_worlds
+            for world in enumerate_role_worlds(evidence):
+                self._roles[self._key(world)] = world
+                self._plot_sizes[(world.main_plot, world.subplots)] += 1
+            return
         for main, subplots, slots in self.sampler._plot_slot_sets(evidence):
             bag = list(slots.elements())
             characters = tuple(cid for cid in evidence.characters
@@ -874,7 +895,8 @@ class FactorizedBeliefState:
         self.role_importance_pool = None
         self._importance_diagnostics = None
         self._roles = {key: world for key, world in self._roles.items()
-                       if matcher.matches(world, role_witnesses)}
+                       if (evidence.matches_roles(world.main_plot, world.subplots, world.roles)
+                           and matcher.matches(world, role_witnesses))}
         # Keep a diverse reservoir across decisions, and continue proposing
         # scripts even when the reservoir is full. A witness can then promote
         # a previously unseen role assignment without any history replay.
@@ -903,7 +925,9 @@ class FactorizedBeliefState:
                 self._exact_roles = False
         for world in proposed:
             key = self._key(world)
-            if key in self._roles or not matcher.matches(world, role_witnesses):
+            if (key in self._roles or not evidence.matches_roles(
+                    world.main_plot, world.subplots, world.roles)
+                    or not matcher.matches(world, role_witnesses)):
                 continue
             if len(self._roles) >= self.capacity:
                 old = self.eviction_rng.choice(tuple(self._roles))
@@ -1012,11 +1036,12 @@ class FactorizedBeliefState:
     def _complete_assignment(cls, characters: tuple[str, ...],
                              domains: Mapping[str, tuple[str, ...]],
                              counts: Counter[str], fixed: Mapping[str, str], *,
-                             friend_gender_split: bool = False
+                             friend_gender_split: bool = False,
+                             used_friend_genders: tuple[bool, bool] = (False, False)
                              ) -> dict[str, str] | None:
         remaining = counts.copy()
         result = dict(fixed)
-        used_male = used_female = False
+        used_male, used_female = used_friend_genders
         for cid, role in fixed.items():
             if cid not in characters:
                 continue
@@ -1124,6 +1149,9 @@ class FactorizedBeliefState:
         the exact maximum score without enumerating millions of symmetric
         Ordinary placements.
         """
+        if evidence.module in {"FS", "BTX"}:
+            from .belief_role_solver import solve_role_map
+            return solve_role_map(evidence, self._role_witnesses(witnesses), top=top, solver=self)
         from .witness import FsbtxWitnessMatcher, WitnessStrength
 
         matcher = FsbtxWitnessMatcher()
