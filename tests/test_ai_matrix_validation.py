@@ -42,7 +42,7 @@ class MatrixEvaluationTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             path = Path(folder) / "evaluation.json"
             base = ["evaluate", "--scenario", "official-fs-01-first-script", "--seed", "0",
-                    "--output", str(path)]
+                    "--workers", "1", "--output", str(path)]
             with (patch("sys.argv", [*base, "--max-jobs", "1"]),
                   patch.object(evaluation, "play", side_effect=self.fake_play) as play,
                   patch.object(evaluation, "source_digest", return_value="frozen"), redirect_stdout(StringIO())):
@@ -71,7 +71,7 @@ class MatrixEvaluationTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             path = Path(folder) / "evaluation.json"
             with (patch("sys.argv", ["evaluate", "--scenario", "official-fs-01-first-script",
-                                     "--seed", "0", "--output", str(path)]),
+                                     "--seed", "0", "--workers", "1", "--output", str(path)]),
                   patch.object(evaluation, "play", side_effect=[self.completed(), RuntimeError("stopped")]),
                   patch.object(evaluation, "source_digest", return_value="frozen"),
                   redirect_stdout(StringIO()), self.assertRaisesRegex(RuntimeError, "stopped")):
@@ -94,7 +94,7 @@ class MatrixEvaluationTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             path = Path(folder) / "evaluation.json"
             argv = ["evaluate", "--scenario", "official-fs-01-first-script", "--seed", "0",
-                    "--comparison", "matrix_partition", "--output", str(path)]
+                    "--comparison", "matrix_partition", "--workers", "1", "--output", str(path)]
             with (patch("sys.argv", argv), patch.object(evaluation, "play", side_effect=self.fake_play) as calls,
                   patch.object(evaluation, "source_digest", return_value="frozen"), redirect_stdout(StringIO())):
                 evaluation.main()
@@ -110,7 +110,7 @@ class MatrixEvaluationTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             path = Path(folder) / "evaluation.json"
             with (patch("sys.argv", ["evaluate", "--scenario", "official-fs-01-first-script",
-                                     "--seed", "0", "--output", str(path)]),
+                                     "--seed", "0", "--workers", "1", "--output", str(path)]),
                   patch.object(evaluation, "play", side_effect=self.fake_play),
                   patch.object(evaluation, "source_digest", side_effect=["frozen", "frozen", "changed"]),
                   redirect_stdout(StringIO()), self.assertRaisesRegex(RuntimeError, "during the match")):
@@ -124,7 +124,7 @@ class MatrixEvaluationTests(unittest.TestCase):
             path = Path(folder) / "evaluation.json"
             # Completed report first; second fresh run must refuse overwriting.
             base = ["evaluate", "--scenario", "official-fs-01-first-script", "--seed", "0",
-                    "--output", str(path)]
+                    "--workers", "1", "--output", str(path)]
             with (patch("sys.argv", [*base, "--max-jobs", "1"]),
                   patch.object(evaluation, "play", side_effect=self.fake_play),
                   patch.object(evaluation, "source_digest", return_value="frozen"), redirect_stdout(StringIO())):
@@ -138,3 +138,66 @@ class MatrixEvaluationTests(unittest.TestCase):
             def get(self, sid): return {"cast": self.cast}
         self.assertNotEqual(evaluation.scenario_fingerprints(Library({"a": "key", "b": "ordinary"}), ("x",)),
                             evaluation.scenario_fingerprints(Library({"b": "ordinary", "a": "key"}), ("x",)))
+
+    def test_default_ten_seeds_process_width_and_fixed_work(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "evaluation.json"
+            with (patch("sys.argv", ["evaluate", "--scenario", "official-fs-01-first-script", "--output", str(path)]),
+                  patch.object(evaluation, "run_jobs", return_value=iter(())) as run,
+                  patch.object(evaluation, "source_digest", return_value="frozen"), redirect_stdout(StringIO())):
+                evaluation.main()
+            report = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(report["settings"]["seeds"], list(range(10)))
+            self.assertTrue(report["settings"]["fixed_work"])
+            self.assertEqual(run.call_args.kwargs["workers"], evaluation.DEFAULT_WORKERS)
+            self.assertEqual(len(run.call_args.args[0]), 20)
+            self.assertEqual(report["schema_version"], 2)
+
+    def test_resume_non_prefix_completion_and_fixed_work_width_change(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "evaluation.json"
+            base = ["evaluate", "--scenario", "official-fs-01-first-script", "--seed", "0", "--output", str(path)]
+            def second_only(jobs, worker, **kwargs):
+                job = jobs[1]
+                row = worker(job)
+                kwargs["validate"](job, row)
+                yield job, row, None
+            with (patch("sys.argv", [*base, "--workers", "4"]),
+                  patch.object(evaluation, "run_jobs", side_effect=second_only),
+                  patch.object(evaluation, "play", side_effect=self.fake_play),
+                  patch.object(evaluation, "source_digest", return_value="frozen"), redirect_stdout(StringIO())):
+                evaluation.main()
+            report = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual([r["variant"] for r in report["results"]], ["matrix"])
+            with (patch("sys.argv", [*base, "--resume", "--workers", "1"]),
+                  patch.object(evaluation, "play", side_effect=self.fake_play) as run,
+                  patch.object(evaluation, "source_digest", return_value="frozen"), redirect_stdout(StringIO())):
+                evaluation.main()
+            self.assertEqual(run.call_count, 1)
+            self.assertFalse(run.call_args.kwargs["matrix_proposals"])
+            report = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual([r["variant"] for r in report["results"]], ["legacy", "matrix"])
+            self.assertTrue(report["progress"]["complete"])
+
+    def test_resume_rejects_duplicate_unknown_ids_and_unverified_results(self):
+        job = ("a", 0, "matrix")
+        row = {"scenario": "a", "seed": 0, "variant": "matrix", "job_id": evaluation.job_id(job),
+               "replay_audit": {"verified": True}}
+        for rows in ((row, row), ({**row, "job_id": "wrong"},),
+                     ({**row, "scenario": "unknown"},), ({**row, "replay_audit": {}},)):
+            with self.subTest(rows=rows), self.assertRaises(ValueError):
+                evaluation.completed_jobs(rows, (job,))
+
+    def test_timed_resume_rejects_changed_worker_profile(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "evaluation.json"
+            base = ["evaluate", "--scenario", "official-fs-01-first-script", "--seed", "0", "--no-fixed-work",
+                    "--max-jobs", "1", "--output", str(path)]
+            with (patch("sys.argv", [*base, "--workers", "1"]),
+                  patch.object(evaluation, "play", side_effect=self.fake_play),
+                  patch.object(evaluation, "source_digest", return_value="frozen"), redirect_stdout(StringIO())):
+                evaluation.main()
+            with (patch("sys.argv", [*base, "--workers", "2", "--resume"]),
+                  patch.object(evaluation, "source_digest", return_value="frozen"),
+                  patch("sys.stderr", StringIO()), self.assertRaises(SystemExit)):
+                evaluation.main()

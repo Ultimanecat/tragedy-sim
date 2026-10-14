@@ -20,7 +20,7 @@ BTX06 命令 57 的根因是宽泛能力来源析取要求 6 名角色完整展�
 
 额外身份分组阶段完整 780 项通过（193.998 秒），35 项概率／审计专项通过；日志 `references/joint-guess-extra-partition-regression-20261013.txt` 被忽略。
 
-最新可选分区抽样阶段完整 805 项通过（190.376 秒），相关专项 72 项通过；日志 `references/partition-posterior-regression-20261014.txt` 被忽略。默认仍为 prior 矩阵重要性路径／latent_map。
+最新并发评测阶段完整 815 项通过（192.483 秒），并发／续跑／统计专项 17 项通过；日志 `references/parallel-evaluation-regression-20261014.txt` 被忽略。固定工作量四局串行／4 进程的完整决策／replay／胜负相同，28.37→9.18 秒。默认 AI 仍为 prior 矩阵重要性路径／latent_map，评测默认 4 进程、0–9 种子、固定工作量。
 
 实验抽样 `role_sampling_policy="exact_partition"` 已接入，两开发 CLI 有同名开关，比较工具 `--comparison matrix_partition`。按组总质量→整数均匀完整身份→条件剧情，显式 q；行动世界直接重抽完整分区，诊断池最多 192 次，保留独立 RNG 和超限回退。完整密度／排名支持与额外身份、性别、病毒、析取经独立枚举验证。源码指纹 `cf985efa…`：集中软证据身份 TV 0.0907→0.0664、ESS 72→192；六剧本 seed 0 固定小预算 12 局红胜旧 3/6、新 1/6，退化两对，不切默认。146 根／2131 命令硬支持／replay 全通过、无回退，详见 [抽样实验](exact-partition-role-sampling.md)。
 
@@ -115,7 +115,7 @@ python -X utf8 -m benchmarks.ai_mastermind_matrix --scenario official-btx-04-you
 
 遇到失败按：引擎结算 → 真值 hard 兼容 → 采样／重建 → 防御候选覆盖 → 同世界评分 → 信息轨迹／终猜模型。joint_plan_followup 是缓存后续牌；no_compatible_factor 查身份与当事人，no_legal_bundle 查联合候选／手牌／公开配置。不要只凭增加粒子后胜负变化归因于预算。
 
-校准串行、空闲机器运行；保留源码、剧本顺序、难度、seed、对手、horizon、节点、世界数和实际耗时。Easy 与标准共用秘密，不能视为独立剧本。报告 progress.complete／paired_summary 及真实进程决定任务状态，观察超时不重启。墙钟是软截止，原子评价可超限；证据时间单列。
+常规对照默认并发 4 进程、固定 seed 0–9、固定工作量；支持非顺序任务 ID 续跑，详见 [实验方法](ai-experiment-protocol.md)。限时用时校准保持串行、空闲机器。保留源码、剧本顺序、难度、seed、对手、horizon、节点、世界数和实际耗时。Easy 与标准共用秘密，不能视为独立剧本。报告 progress.complete／paired_summary 及真实进程决定任务状态，观察超时不重启。墙钟是软截止，原子评价可超限；证据时间单列。
 
 `references/` 被忽略，新 clone 没有本机图片和完整 JSON。专题报告有方法和摘要，按新输出路径重建；禁止 force-add 原始产物。原始规则图片优先，日文 wiki 仅作明确规则核对，不花大量时间搜索完整规则书。旧 HS／AH 已被 HSA／AHR 替代，OF 已删除，UP 主和仙人不在角色范围。
 

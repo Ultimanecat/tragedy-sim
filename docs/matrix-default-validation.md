@@ -12,9 +12,9 @@ FS／BTX 的身份硬域、剧情数量／析取与完整 matcher 已共用。�
 python -X utf8 -m benchmarks.ai_matrix_validation --output references/ai-calibration/matrix-validation-new.json
 ```
 
-默认六剧本：FS01、FS-02G、BTX-02G、BTX04、BTX-01G Easy、BTX06。seed 0／3，每组旧路径／prior 矩阵＋联合当事人，共 24 局。使用联合黑方、belief 回应模型、信息权重 0.02；黑方 24 节点／1000 ms，红方 8 候选／12 世界／1000 ms，depth 8、日末 horizon。证据维护另记耗时，软截止不保证端到端一秒。秒级实验与分钟级后续实验分别报告。
+当前默认六剧本：FS01、FS-02G、BTX-02G、BTX04、BTX-01G Easy、BTX06。固定 seed 0–9，旧路径／prior 矩阵＋联合当事人，共 120 局；并发 4 进程、固定工作量。联合黑方、belief 回应、信息权重 0.02；黑方 24 节点，红方 8 候选／12 世界，depth 8、日末 horizon。历史默认切换的 24 局使用 seed 0／3、双方 1000 ms，其结果保留原口径。现行流程见 [实验方法](ai-experiment-protocol.md)。
 
-`--max-jobs 4` 完成四局后退出；相同命令加 `--resume` 接着运行。续跑必须保持 Python 源码、所选剧本内容／字典顺序和预算完全一致。`--fixed-work` 同时关闭双方墙钟上限；`--variant uniform` 可显式增加变体选择消融。输出已存在时必须显式续跑或使用新路径。
+`--max-jobs 4` 最多新调度四局；加 `--resume` 只补缺失任务，不依赖连续前缀。源码、剧本内容／字典顺序和算法预算保持一致；`--workers 1` 串行，`--no-fixed-work` 显式使用限时模式，其 worker 数固定在资源配置中。`--variant uniform` 增加变体消融。schema 2 按唯一任务 ID 校验，旧报告保留；输出已存在时必须显式续跑或使用新路径。
 
 每局按实际 replay 重演全部命令，检查公开硬 witness 和身份知识保留真实初始剧本；每日红方根额外检查矩阵无错误硬排除。这些真值检查在对局后执行，不输入公平 AI。结果与配置核对、审计成功后原子保存；失败记录保留已有完整局数，不计未完成配对。
 

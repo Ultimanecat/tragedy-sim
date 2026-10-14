@@ -1,4 +1,4 @@
-"""Serial, resumable matrix-vs-legacy matches with mandatory replay audits.
+"""Parallel, resumable paired matches with mandatory replay audits.
 
 Freeze Python sources, selected scenario contents and search budgets. Audit
 private truth only after each match; never supply it to a protagonist policy.
@@ -9,7 +9,10 @@ from dataclasses import asdict
 import faulthandler
 import hashlib
 import json
+import os
+from functools import partial
 from pathlib import Path
+from time import perf_counter, process_time
 
 from tragedy_sim import Game
 from tragedy_sim.belief import HiddenWorldHypothesis, PublicEvidence
@@ -21,6 +24,8 @@ from .ai_belief_matrix_audit import audit_view
 from .ai_calibration_matrix import source_digest, write_report
 from .ai_cutoff_calibration import match_telemetry
 from .ai_self_play import play
+from .parallel_jobs import DEFAULT_WORKERS, job_id, peak_memory_mib, run_jobs
+from .ai_statistics import paired_outcomes
 
 
 DEFAULT_SCENARIOS = (
@@ -75,18 +80,65 @@ def paired_summary(results, *, comparison=("legacy", "matrix")):
     pairs = {}
     for row in results:
         pairs.setdefault((row["scenario"], row["seed"]), {})[row["variant"]] = row
-    outcomes = {"improved": 0, "regressed": 0, "both_red": 0, "both_black": 0}
-    for variants in pairs.values():
-        if not set(comparison).issubset(variants):
-            continue
-        old, new = (variants[v]["winner"] == "protagonists" for v in comparison)
-        key = "both_red" if old and new else "both_black" if not old and not new else "improved" if new else "regressed"
-        outcomes[key] += 1
-    return {"completed_pairs": sum(outcomes.values()), "comparison": list(comparison), **outcomes,
+    complete = {key: rows for key, rows in pairs.items() if set(comparison).issubset(rows)}
+    return {**paired_outcomes(complete.values(), comparison), "comparison": list(comparison),
+            "per_scenario": {sid: paired_outcomes([rows for (scenario, _), rows in complete.items() if scenario == sid], comparison)
+                             for sid in sorted({sid for sid, _ in pairs})},
             "variants": {v: {"matches": sum(r["variant"] == v for r in results),
                              "red_wins": sum(r["variant"] == v and r["winner"] == "protagonists"
                                              for r in results)}
                          for v in VARIANTS if any(r["variant"] == v for r in results)}}
+
+
+def _run_match_job(job, *, settings, sources, manifests):
+    """A single process owns a match and its replay verification."""
+    sid, seed, variant = job
+    library = ScenarioLibrary()
+    if source_digest() != sources or scenario_fingerprints(library, settings["scenarios"]) != manifests:
+        raise RuntimeError("Sources or selected scenarios changed during evaluation")
+    matrix, joint, policy = VARIANTS[variant]
+    role_policy = "exact_partition" if variant == "partition" else "importance"
+    started, cpu_started = perf_counter(), process_time()
+    faulthandler.dump_traceback_later(60, repeat=True)
+    try:
+        match = play(sid, seed, settings["mastermind_nodes"], settings["depth"], "joint", "particle_ensemble",
+                     protagonist_nodes=settings["protagonist_nodes"], protagonist_depth=settings["depth"],
+                     time_limit_ms=settings["mastermind_ms"],
+                     protagonist_time_limit_ms=settings["protagonist_ms"],
+                     protagonist_particles=settings["worlds"], matrix_proposals=matrix,
+                     joint_culprits=joint, matrix_variant_policy=policy, role_sampling_policy=role_policy,
+                     joint_reply_model="belief", joint_information_weight=0.02,
+                     capture_fallback_contexts=True, capture_replay=True)
+        if (match.scenario_id != sid or match.seed != seed
+                or match.matrix_proposals_enabled != matrix or match.joint_culprits_enabled != joint
+                or match.matrix_variant_policy != policy or match.role_sampling_policy != role_policy):
+            raise AssertionError("Returned match configuration differs from planned variant")
+        audit = audit_match(match)
+        if source_digest() != sources or scenario_fingerprints(library, settings["scenarios"]) != manifests:
+            raise RuntimeError("Sources or selected scenarios changed during the match")
+        return {**asdict(match), **match_telemetry(match), "scenario": sid,
+                "strategy": "joint", "variant": variant, "job_id": job_id(job),
+                "final_correct": sum(g.correct for g in match.final_guesses),
+                "final_total": len(match.final_guesses), "replay_audit": audit,
+                "execution": {"worker_pid": os.getpid(), "wall_seconds_including_audit": perf_counter() - started,
+                              "cpu_seconds_including_audit": process_time() - cpu_started,
+                              "peak_worker_memory_mib": peak_memory_mib()}}
+    finally:
+        faulthandler.cancel_dump_traceback_later()
+
+
+def completed_jobs(results, jobs):
+    """Validate a non-prefix checkpoint set; holes and completion order are legal."""
+    allowed = {job_id(job) for job in jobs}
+    completed = {}
+    for row in results:
+        key = job_id((row["scenario"], row["seed"], row["variant"]))
+        if key not in allowed or key in completed or row.get("job_id") != key:
+            raise ValueError("resume has duplicate, unknown or mismatched job IDs")
+        if not row.get("replay_audit", {}).get("verified"):
+            raise ValueError("resume requires audited completed matches")
+        completed[key] = row
+    return completed
 
 
 def main():
@@ -101,17 +153,19 @@ def main():
     parser.add_argument("--mastermind-ms", type=int, default=1000)
     parser.add_argument("--protagonist-ms", type=int, default=1000)
     parser.add_argument("--depth", type=int, default=8)
-    parser.add_argument("--fixed-work", action="store_true")
+    parser.add_argument("--fixed-work", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS,
+                        help="whole-match process concurrency; default up to 4")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--max-jobs", type=int)
     args = parser.parse_args()
     if (min(args.mastermind_nodes, args.protagonist_nodes, args.worlds,
-            args.mastermind_ms, args.protagonist_ms, args.depth) < 1
+            args.mastermind_ms, args.protagonist_ms, args.depth, args.workers) < 1
             or args.max_jobs is not None and args.max_jobs < 1):
         parser.error("budgets and max-jobs must be positive")
     scenarios = list(dict.fromkeys(args.scenarios or DEFAULT_SCENARIOS))
-    seeds = list(dict.fromkeys(args.seeds or (0, 3)))
+    seeds = list(dict.fromkeys(args.seeds or range(10)))
     comparison = ("matrix", "partition") if args.comparison == "matrix_partition" else ("legacy", "matrix")
     variants = list(dict.fromkeys(args.variants or comparison))
     library = ScenarioLibrary()
@@ -125,6 +179,10 @@ def main():
                 "mastermind": "joint", "reply_model": "belief", "information_weight": 0.02,
                 "horizon": "day", "fixed_work": args.fixed_work, "comparison": list(comparison)}
     sources = source_digest()
+    # Fixed work can resume with a different scheduling width. Timed search
+    # changes work performed under contention, so keep that resource profile.
+    if not args.fixed_work:
+        settings["timed_resource_profile"] = {"workers": args.workers}
     manifests = scenario_fingerprints(library, scenarios)
     jobs = [(sid, seed, variant) for i, sid in enumerate(scenarios)
             for j, seed in enumerate(seeds)
@@ -133,73 +191,71 @@ def main():
         if not args.output.exists():
             parser.error("resume report does not exist")
         report = json.loads(args.output.read_text(encoding="utf-8"))
-        if (report.get("schema_version") != 1 or report.get("sources") != sources
+        if (report.get("schema_version") != 2 or report.get("sources") != sources
                 or report.get("settings") != settings or report.get("scenario_fingerprints") != manifests):
             parser.error("resume requires unchanged sources, scenarios and budgets")
-        completed = [(r["scenario"], r["seed"], r["variant"]) for r in report["results"]]
-        if completed != jobs[:len(completed)] or len(completed) > len(jobs):
-            parser.error("resume results do not match the planned prefix")
-        if any(not r.get("replay_audit", {}).get("verified") for r in report["results"]):
-            parser.error("resume requires audited completed matches")
+        try:
+            completed = completed_jobs(report["results"], jobs)
+        except ValueError as error:
+            parser.error(str(error))
     else:
         if args.output.exists():
             parser.error("report exists; use --resume or a new output path")
-        report = {"schema_version": 1, "sources": sources, "settings": settings,
+        report = {"schema_version": 2, "sources": sources, "settings": settings,
                   "scenario_fingerprints": manifests, "results": []}
+        completed = {}
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
     def save():
-        report["progress"] = {"completed": len(report["results"]), "planned": len(jobs),
-                              "complete": len(report["results"]) == len(jobs)}
+        report["results"] = [completed[job_id(job)] for job in jobs if job_id(job) in completed]
+        report["progress"] = {"completed": len(completed), "planned": len(jobs),
+                              "complete": len(completed) == len(jobs)}
         report["paired_summary"] = paired_summary(report["results"], comparison=comparison)
         write_report(args.output, report)
 
-    report.pop("failed_job", None)
+    failures = {row["job_id"]: row for row in report.get("failed_jobs", ())}
+    execution = {"workers": args.workers, "fixed_work": args.fixed_work,
+                 "timing_comparable_to_serial": args.workers == 1, "completed": 0}
+    report.setdefault("executions", []).append(execution)
+    selected = [job for job in jobs if job_id(job) not in completed]
+    if args.max_jobs is not None:
+        selected = selected[:args.max_jobs]
+    started = perf_counter()
     save()
-    for index, (sid, seed, variant) in enumerate(jobs[len(report["results"]):]):
-        if args.max_jobs is not None and index >= args.max_jobs:
-            break
-        try:
-            if source_digest() != sources or scenario_fingerprints(library, scenarios) != manifests:
-                raise RuntimeError("Sources or selected scenarios changed during evaluation")
-            matrix, joint, policy = VARIANTS[variant]
-            role_policy = "exact_partition" if variant == "partition" else "importance"
-            faulthandler.dump_traceback_later(60, repeat=True)
-            try:
-                match = play(sid, seed, args.mastermind_nodes, args.depth, "joint", "particle_ensemble",
-                             protagonist_nodes=args.protagonist_nodes, protagonist_depth=args.depth,
-                             time_limit_ms=settings["mastermind_ms"],
-                             protagonist_time_limit_ms=settings["protagonist_ms"],
-                             protagonist_particles=args.worlds, matrix_proposals=matrix,
-                             joint_culprits=joint, matrix_variant_policy=policy,
-                             role_sampling_policy=role_policy,
-                             joint_reply_model="belief", joint_information_weight=0.02,
-                             capture_fallback_contexts=True, capture_replay=True)
-            finally:
-                faulthandler.cancel_dump_traceback_later()
-            if (match.scenario_id != sid or match.seed != seed
-                    or match.matrix_proposals_enabled != matrix or match.joint_culprits_enabled != joint
-                    or match.matrix_variant_policy != policy):
-                raise AssertionError("Returned match configuration differs from planned variant")
-            if match.role_sampling_policy != role_policy:
-                raise AssertionError("Returned role sampling policy differs from planned variant")
-            audit = audit_match(match)
-            if source_digest() != sources or scenario_fingerprints(library, scenarios) != manifests:
-                raise RuntimeError("Sources or selected scenarios changed during the match")
-            row = {**asdict(match), **match_telemetry(match), "scenario": sid,
-                   "strategy": "joint", "variant": variant,
-                   "final_correct": sum(g.correct for g in match.final_guesses),
-                   "final_total": len(match.final_guesses), "replay_audit": audit}
-            report["results"].append(row)
+    def validate(job, row):
+        if source_digest() != sources or scenario_fingerprints(library, scenarios) != manifests:
+            raise RuntimeError("Sources or selected scenarios changed before parent checkpoint")
+        completed_jobs((row,), (job,))
+    worker = partial(_run_match_job, settings=settings, sources=sources, manifests=manifests)
+    errors = []
+    try:
+        for job, row, error in run_jobs(selected, worker, workers=args.workers, validate=validate):
+            sid, seed, variant = job
+            key = job_id(job)
+            if error is not None:
+                failures[key] = {"job_id": key, "scenario": sid, "seed": seed, "variant": variant,
+                                 "error": f"{type(error).__name__}: {error}"}
+                report["failed_job"] = failures[key]
+                errors.append(error)
+            else:
+                completed[key] = row
+                failures.pop(key, None)
+                execution["completed"] += 1
+                print(f"{len(completed)}/{len(jobs)} {sid} seed={seed} {variant}: "
+                      f"{row['winner']}, final={row['final_correct']}/{row['final_total']}, "
+                      f"{row['elapsed_seconds']:.3f}s", flush=True)
+            report["failed_jobs"] = list(failures.values())
+            if failures:
+                report["failed_job"] = next(reversed(failures.values()))
+            else:
+                report.pop("failed_job", None)
+            execution["wall_seconds"] = perf_counter() - started
             save()
-            print(f"{len(report['results'])}/{len(jobs)} {sid} seed={seed} {variant}: "
-                  f"{match.winner}, final={row['final_correct']}/{row['final_total']}, "
-                  f"{match.elapsed_seconds:.3f}s", flush=True)
-        except Exception as error:
-            report["failed_job"] = {"scenario": sid, "seed": seed, "variant": variant,
-                                    "error": f"{type(error).__name__}: {error}"}
-            save()
-            raise
+    finally:
+        execution["wall_seconds"] = perf_counter() - started
+        save()
+    if errors:
+        raise errors[0]
 
 
 if __name__ == "__main__":
