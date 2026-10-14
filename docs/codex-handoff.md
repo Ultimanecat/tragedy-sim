@@ -4,6 +4,8 @@
 
 ## 最新状态
 
+用户提出有效操作剪枝和强力快速防守设计后，新增 `benchmarks/ai_defense_pruning_audit.py` 和 5 项反例测试，未改变生产 AI。FS01 失败根条件化实质域 13464／约 2.86 ms，BTX04 初始合成根 85404／13.62 ms；32 个 FS01 失败根计划×3 黑方路线实际结算约 1.125 秒。无效填充尚未纳入统计，筛选档不是完整战略证明。完整 827 项通过（194.083 秒），日志 `references/defense-pruning-design-regression-20261014.txt`。详细方案见 [联合防守设计](joint-defense-solver-design.md)，下一步按共享联合空间／明牌基准、暗牌反例迭代、轻量威胁筛选、公平迁移推进。
+
 最新暗牌防守阶段：完整 822 项通过（188.001 秒），日志 `references/dark-guard-regression-20261014.txt`。可选 `dark_card_policy="adversarial_guard"` 已实现，最多 8 个假设内合法进攻分支与一个联合撤离候选；默认仍 sampled，未新增大厅 ID。分支仅用于鲁棒行动评价，不进入 witness、角色／暗牌后验或证据 RNG。`dark_guard_scoring` 单独关闭新撤离候选。详细范围、命令与结果见 [防守审计](dark-attack-defense-audit.md)。
 
 同源码 `af0a4652…` 的 40 局／两剧本／seed 0–9 已全部完成，无失败任务：FS01 旧／新红胜 1/10、5/10，改善 5／退化 1；BTX04 均 0/10。guard 增加实际 rollout，固定候选／世界数不能称等工作量。共同根 4 个假设各 504 暗牌完整枚举：原危险世界存活 448／504，新计划各 504／504；这未穷举身份或所有能力顺序。原始报告 `dark-guard-vs-matrix-10seeds-fixed-work.json`、`fs01-dark-guard-final-exhaustive-audit.json` 在 2026-10-14 忽略目录。
