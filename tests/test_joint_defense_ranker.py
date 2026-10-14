@@ -10,7 +10,7 @@ from tragedy_sim.belief_dark_constraints import dark_card_domains
 from tragedy_sim.dark_attack_scenarios import marginal_dark_worlds, with_dark_bundle
 from tragedy_sim.engine import Placement
 from tragedy_sim.joint_action_space import JointActionSpace
-from tragedy_sim.joint_defense_ranker import BOARDS, CardProjectionModel, JointThreatRanker
+from tragedy_sim.joint_defense_ranker import BOARDS, CardProjectionModel, JointThreatRanker, TacticalWorldModel
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.oracle_protagonist import FullCardOracleProtagonistAgent, HiddenCardOracleProtagonistAgent
@@ -143,6 +143,23 @@ class JointDefenseRankerTests(unittest.TestCase):
                  "action_win": policy == "joint_threat"} for policy in ("legacy", "joint_threat")]
         summary = summarize(rows)
         self.assertEqual(summary["per_scenario"]["btx"]["improved"], 1)
+
+    def test_positive_counter_skills_do_not_receive_defensive_preparation_reward(self):
+        game = Game(ScenarioLibrary().get("official-btx-06-secret-that-was-kept"))
+        while game.state.phase != "protagonists":
+            game = game.search_transition(game.search_actions(game.controller)[0])
+        game.roles["journalist"] = game.roles["idol"] = "ordinary"
+        space = known_space(game)
+        model = TacticalWorldModel(game, space)
+        def give(target):
+            return model.score((next(p for p in space.domains[0] if p.card == "g1" and p.target == target),))
+        baseline = model.score(())
+        self.assertEqual(give("journalist"), baseline)
+        self.assertGreater(give("idol")[1], baseline[1])
+        game.roles["idol"] = "cultist"
+        refused = TacticalWorldModel(game, space)
+        idol = next(p for p in space.domains[0] if p.card == "g1" and p.target == "idol")
+        self.assertEqual(refused.score((idol,)), refused.score(()))
 
 
 if __name__ == "__main__":

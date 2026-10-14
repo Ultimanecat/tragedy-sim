@@ -295,6 +295,14 @@ class TacticalWorldModel:
             for a in self.abilities[i]:
                 if a.kind not in {"counter", "adjust", "guard", "protect", "relocate", "kill", "purify"}:
                     continue
+                # Positive counter abilities may be useful in a particular
+                # plan, but are not unconditional defensive preparation.
+                # Journalist has two positive abilities; rewarding both
+                # previously crowded out genuine defensive setup.
+                if a.kind == "counter" and (a.amount >= 0 or a.counter not in {"paranoia", "intrigue"}):
+                    continue
+                if roles[i] in REFUSAL and not a.unrefusable:
+                    continue
                 if g[i] < a.threshold and g[i] + 2 * self.remaining_days < a.threshold:
                     continue
                 preparation += 0.025 * (min(g[i], a.threshold) - min(self.base_g[i], a.threshold)) / max(1, a.threshold)
