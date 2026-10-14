@@ -154,6 +154,10 @@ class DefensiveProtagonistAgent(BaselineProtagonistAgent):
             threshold = ability.get("threshold")
             if type(threshold) is not int or not current < threshold <= current + amount:
                 continue
+            if (ability.get("kind") == "counter"
+                    and ability.get("counter") in {"paranoia", "intrigue"}
+                    and isinstance(ability.get("amount"), int) and ability["amount"] > 0):
+                continue
             value = cls._DEFENSIVE_EFFECTS.get(str(ability.get("kind")), 65)
             if ability.get("counter") == "paranoia" and ability.get("amount", 0) < 0:
                 value = max(value, 145)
@@ -206,6 +210,12 @@ class DefensiveProtagonistAgent(BaselineProtagonistAgent):
             return 0
         ui = offer.get("ui", {})
         effect = str(ui.get("effect"))
+        if (effect == "counter" and ui.get("counter") in {"paranoia", "intrigue"}
+                and isinstance(ui.get("amount"), int) and ui["amount"] > 0):
+            # A public defensive continuation has no proof that raising
+            # these counters helps. Prefer an optional pass. Search policies
+            # and human players retain the legal positive-counter choices.
+            return -1
         score = cls._DEFENSIVE_EFFECTS.get(effect, 20)
         target = ui.get("target")
         if effect in {"reveal", "learn_role"}:

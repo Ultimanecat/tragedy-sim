@@ -180,6 +180,33 @@ class AiPolicyTests(unittest.TestCase):
             participant="a", view=view, offers=[reveal, finish])["id"],
             "finish")
 
+    def test_defensive_continuation_skips_unproven_harmful_counter_gains(self):
+        view = {"phase": "goodwill", "characters": {}, "locations": {"hospital": 1}}
+        finish = {"id": "finish", "actor": "a", "type": "choose", "parameters": {"index": 2}}
+        for counter in ("paranoia", "intrigue"):
+            gain = {"id": "gain", "actor": "a", "type": "choose", "parameters": {"index": 1},
+                    "ui": {"effect": "counter", "counter": counter, "amount": 1, "target": "hospital"}}
+            for policy in (DefensiveProtagonistAgent, RiskAwareProtagonistAgent):
+                with self.subTest(counter=counter, policy=policy.__name__):
+                    agent = policy(random.Random(0))
+                    self.assertEqual(agent.choose_action(participant="a", view=view, offers=[gain, finish]), finish)
+                    self.assertEqual(agent.choose_action(participant="a", view=view, offers=[gain]), gain)
+
+    def test_defensive_continuation_keeps_counter_relief_and_goodwill_gain(self):
+        view = {"phase": "goodwill", "characters": {}, "locations": {}}
+        finish = {"id": "finish", "actor": "a", "type": "choose"}
+        for counter, amount in (("paranoia", -1), ("intrigue", -1), ("goodwill", 1)):
+            useful = {"id": "useful", "actor": "a", "type": "choose",
+                      "ui": {"effect": "counter", "counter": counter, "amount": amount}}
+            self.assertEqual(DefensiveProtagonistAgent().choose_action(
+                participant="a", view=view, offers=[finish, useful]), useful)
+
+    def test_harmful_counter_unlock_is_not_a_defensive_goodwill_bonus(self):
+        for counter in ("paranoia", "intrigue"):
+            character = {"goodwill": 0, "abilities": [{"threshold": 2, "kind": "counter",
+                                                         "counter": counter, "amount": 1}]}
+            self.assertEqual(DefensiveProtagonistAgent._ability_value(character, 2), 0)
+
     def test_risk_aware_protagonist_blocks_repeated_public_intrigue_target(self):
         view = {
             "loop": 2, "round": 1, "days": 4, "leader": "a",
