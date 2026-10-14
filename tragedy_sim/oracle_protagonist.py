@@ -38,6 +38,10 @@ class OracleTrace:
     rollout_horizon: str = "day"
     max_rollout_steps: int = 0
     terminal_samples: int = 0
+    candidate_policy: str = "legacy"
+    enumerated_bundles: int = 0
+    evaluated_bundles: int = 0
+    joint_space_fallback: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False))
@@ -61,15 +65,19 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
     def __init__(self, *, reveal_cards: bool, budget: SearchBudget | None = None,
                  scenario_count: int = 4, rng_seed: int = 0,
                  rollout_horizon: str = "day",
-                 script_aware_rollout: bool = True):
+                 script_aware_rollout: bool = True,
+                 candidate_policy: str = "legacy"):
         if rollout_horizon not in self.ROLLOUT_HORIZONS:
             raise ValueError("rollout_horizon must be day, loop, or match")
+        if type(candidate_policy) is not str or candidate_policy not in {"legacy", "joint_enumeration"}:
+            raise ValueError("candidate_policy must be legacy or joint_enumeration")
         self.reveal_cards = reveal_cards
         self.budget = budget or SearchBudget(node_limit=48, rollout_depth=24)
         self.scenario_count = max(1, scenario_count)
         self.rng_seed = rng_seed
         self.rollout_horizon = rollout_horizon
         self.script_aware_rollout = bool(script_aware_rollout)
+        self.candidate_policy = candidate_policy
         self.evaluator = ScenarioConditionedEvaluator()
         self.determinizer = PublicStateDeterminizer()
         self.fallback = DefensiveProtagonistAgent(random.Random(rng_seed))
@@ -653,10 +661,35 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
             return self.fallback.choose_action(
                 participant="team", view=view, offers=offers)
         root = worlds[0]
+        candidates = None
+        enumerated = 0
+        joint_space_fallback = None
+        if self.candidate_policy == "joint_enumeration":
+            from .joint_action_space import JointActionSpace, UnsupportedJointSpace
+            try:
+                space_view = view
+                if self.reveal_cards:
+                    # This explicitly cheating mode knows today's faces. The
+                    # blind mode must always retain the authorized dark view.
+                    faces = {p.target: p.card for p in root.state.pending if p.actor == "m"}
+                    space_view = {**view, "pending": [
+                        {**p, "card": faces[p["target"]]} if p.get("actor") == "m" else dict(p)
+                        for p in view.get("pending", ())]}
+                space = JointActionSpace(space_view, offers)
+                candidates, enumerated = space.ranked_bundles(
+                    lambda action: self._rank(action, view, root.scenario), self.budget.node_limit)
+            except UnsupportedJointSpace as error:
+                joint_space_fallback = str(error)
+        if candidates is None:
+            candidates = []
+            for index in range(self.budget.node_limit):
+                bundle = self._bundle(root, view, index)
+                candidates.append(bundle)
+        # Both proposal paths still use the authoritative first-seat offers.
+        proposed = candidates
         candidates = []
         seen = set()
-        for index in range(self.budget.node_limit):
-            bundle = self._bundle(root, view, index)
+        for bundle in proposed:
             signature = tuple(_key(command) for command in bundle)
             if (len(bundle) == self.remaining_placements(view) and bundle
                     and signature not in seen and signature[0] in keyed):
@@ -676,7 +709,8 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
             scores = []
             day_scores = []
             for root_world in worlds:
-                if deadline is not None and perf_counter() >= deadline and scores:
+                if (deadline is not None and perf_counter() >= deadline
+                        and scores and evaluations):
                     scores = []
                     day_scores = []
                     break
@@ -697,7 +731,7 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                             world, int(view["loop"]), int(view["round"])))
                     max_rollout_steps = max(max_rollout_steps, outcome[2])
                     terminal_samples += int(outcome[3])
-            if scores:
+            if len(scores) == len(worlds):
                 survival_rate = sum(survived for _, survived in scores) / len(scores)
                 mean_score = sum(score for score, _ in scores) / len(scores)
                 day_survival = (sum(survived for _, survived in day_scores)
@@ -741,21 +775,25 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                                       tuple(dict(command) for command in best),
                                       rollout_horizon=self.rollout_horizon,
                                       max_rollout_steps=max_rollout_steps,
-                                      terminal_samples=terminal_samples)
+                                      terminal_samples=terminal_samples,
+                                      candidate_policy=self.candidate_policy,
+                                      enumerated_bundles=enumerated,
+                                      evaluated_bundles=len(evaluations),
+                                      joint_space_fallback=joint_space_fallback)
         return keyed[_key(best[0])]
 
 
 class FullCardOracleProtagonistAgent(OracleProtagonistAgent):
     def __init__(self, budget: SearchBudget | None = None, *, rng_seed: int = 0,
-                 rollout_horizon: str = "day"):
+                 rollout_horizon: str = "day", candidate_policy: str = "legacy"):
         super().__init__(reveal_cards=True, budget=budget, rng_seed=rng_seed,
-                         rollout_horizon=rollout_horizon)
+                         rollout_horizon=rollout_horizon, candidate_policy=candidate_policy)
 
 
 class HiddenCardOracleProtagonistAgent(OracleProtagonistAgent):
     def __init__(self, budget: SearchBudget | None = None, *,
                  scenario_count: int = 4, rng_seed: int = 0,
-                 rollout_horizon: str = "day"):
+                 rollout_horizon: str = "day", candidate_policy: str = "legacy"):
         super().__init__(reveal_cards=False, budget=budget,
                          scenario_count=scenario_count, rng_seed=rng_seed,
-                         rollout_horizon=rollout_horizon)
+                         rollout_horizon=rollout_horizon, candidate_policy=candidate_policy)

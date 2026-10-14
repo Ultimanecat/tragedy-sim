@@ -4,6 +4,10 @@
 
 ## 最新状态
 
+共享空间首阶段已实现，入口 `joint_action_space.py`。两开眼可选 `candidate_policy="joint_enumeration"`、CLI `--oracle-candidate-policy joint_enumeration`；默认／公平红方／黑方内部回复未切换。18 项新专项与六剧本／18 合成根／288 引擎合法性抽样通过，完整 **845 项通过（193.648 秒）**，日志 `references/joint-action-space-common-batch-regression-20261014.txt`。明牌小域完整引擎最佳结果对照通过；支持前缀、限次资源、无效填充、必要防守合取／析取和联合排序回调。另修复两开眼原有限时首次完整共同批次／部分世界误计存活；最终源指纹 `7016e4c1…` 的 12 个固定工作量共同根决策与前一诊断相同。BTX 不安≥3 时，因病毒的全局 counter mutation 无效操作前提尚不完备，显式回退；不要把公开高不安当病毒硬事实。
+
+新路径依然只有启发式 shortlist：共同 FS01 根新明牌 4 节点退化，16／48 成功；新暗牌 16 成功，旧 16 失败。不是正式棋力结论。接下来优先联合威胁排序与精确轻量筛选、反例迭代，再公平迁移和 10 seed 批量验收。不要把“全域枚举”误报成“全域引擎模拟”。详见 [共享空间报告](joint-action-space.md)。
+
 用户提出有效操作剪枝和强力快速防守设计后，新增 `benchmarks/ai_defense_pruning_audit.py` 和 5 项反例测试，未改变生产 AI。FS01 失败根条件化实质域 13464／约 2.86 ms，BTX04 初始合成根 85404／13.62 ms；32 个 FS01 失败根计划×3 黑方路线实际结算约 1.125 秒。无效填充尚未纳入统计，筛选档不是完整战略证明。完整 827 项通过（194.083 秒），日志 `references/defense-pruning-design-regression-20261014.txt`。详细方案见 [联合防守设计](joint-defense-solver-design.md)，下一步按共享联合空间／明牌基准、暗牌反例迭代、轻量威胁筛选、公平迁移推进。
 
 最新暗牌防守阶段：完整 822 项通过（188.001 秒），日志 `references/dark-guard-regression-20261014.txt`。可选 `dark_card_policy="adversarial_guard"` 已实现，最多 8 个假设内合法进攻分支与一个联合撤离候选；默认仍 sampled，未新增大厅 ID。分支仅用于鲁棒行动评价，不进入 witness、角色／暗牌后验或证据 RNG。`dark_guard_scoring` 单独关闭新撤离候选。详细范围、命令与结果见 [防守审计](dark-attack-defense-audit.md)。

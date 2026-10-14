@@ -186,6 +186,7 @@ class MatchResult:
     dark_card_policy: str = "sampled"
     dark_attack_limit: int = 8
     dark_guard_proposals: bool = True
+    oracle_candidate_policy: str = "legacy"
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -360,6 +361,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          role_sampling_policy: str = "importance", role_partition_node_limit: int = 100_000,
          dark_card_policy: str = "sampled", dark_attack_limit: int = 8,
          dark_guard_proposals: bool = True,
+         oracle_candidate_policy: str = "legacy",
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     matrix_proposals, joint_culprits = _resolve_belief_options(
@@ -375,6 +377,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         raise ValueError("dark_guard_proposals must be boolean")
     if dark_card_policy != "sampled" and protagonist_strategy != "particle_ensemble":
         raise ValueError("adversarial_guard requires particle_ensemble protagonists")
+    if type(oracle_candidate_policy) is not str or oracle_candidate_policy not in {"legacy", "joint_enumeration"}:
+        raise ValueError("oracle_candidate_policy must be legacy or joint_enumeration")
+    if oracle_candidate_policy != "legacy" and protagonist_strategy not in {"oracle_cards", "oracle_script"}:
+        raise ValueError("joint_enumeration currently requires an oracle protagonist")
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -406,11 +412,13 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     if protagonist_strategy == "oracle_cards":
         team_ismcts = FullCardOracleProtagonistAgent(protagonist_budget,
                                                     rng_seed=seed,
-                                                    rollout_horizon=oracle_horizon)
+                                                    rollout_horizon=oracle_horizon,
+                                                    candidate_policy=oracle_candidate_policy)
     elif protagonist_strategy == "oracle_script":
         team_ismcts = HiddenCardOracleProtagonistAgent(protagonist_budget,
                                                       rng_seed=seed,
-                                                      rollout_horizon=oracle_horizon)
+                                                      rollout_horizon=oracle_horizon,
+                                                      candidate_policy=oracle_candidate_policy)
     elif protagonist_strategy == "particle_ensemble":
         team_ismcts = ParticleEnsembleProtagonistAgent(
             protagonist_budget,
@@ -646,6 +654,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         role_sampling_policy=role_sampling_policy, role_partition_node_limit=role_partition_node_limit,
         dark_card_policy=dark_card_policy, dark_attack_limit=dark_attack_limit,
         dark_guard_proposals=dark_guard_proposals,
+        oracle_candidate_policy=oracle_candidate_policy,
         final_role_candidates=final_role_candidates,
         final_true_setup_in_exact_space=final_true_setup_in_exact_space,
         final_true_setup_hard_compatible=final_true_setup_hard_compatible,
@@ -754,6 +763,7 @@ def main() -> None:
     parser.add_argument("--dark-card-policy", choices=("sampled", "adversarial_guard"), default="sampled")
     parser.add_argument("--dark-attack-limit", type=int, default=8)
     parser.add_argument("--dark-guard-proposals", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--oracle-candidate-policy", choices=("legacy", "joint_enumeration"), default="legacy")
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
@@ -770,6 +780,8 @@ def main() -> None:
         parser.error("dark attack limit must be positive")
     if args.dark_card_policy != "sampled" and args.protagonists != "particle_ensemble":
         parser.error("adversarial_guard requires particle_ensemble protagonists")
+    if args.oracle_candidate_policy != "legacy" and args.protagonists not in {"oracle_cards", "oracle_script"}:
+        parser.error("joint_enumeration currently requires oracle_cards or oracle_script")
     if (args.games < 1 or args.nodes < 1 or args.depth < 1
             or args.protagonist_nodes is not None and args.protagonist_nodes < 1
             or args.protagonist_depth is not None and args.protagonist_depth < 1
@@ -815,6 +827,7 @@ def main() -> None:
                               role_partition_node_limit=args.role_partition_node_limit,
                               dark_card_policy=args.dark_card_policy, dark_attack_limit=args.dark_attack_limit,
                               dark_guard_proposals=args.dark_guard_proposals,
+                              oracle_candidate_policy=args.oracle_candidate_policy,
                               disabled_witness_sources=tuple(
                                   args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,
