@@ -27,7 +27,8 @@ class MatrixEvaluationTests(unittest.TestCase):
                        matrix_proposals_enabled=kwargs["matrix_proposals"],
                        joint_culprits_enabled=kwargs["joint_culprits"],
                        matrix_variant_policy=kwargs["matrix_variant_policy"],
-                       role_sampling_policy=kwargs["role_sampling_policy"])
+                       role_sampling_policy=kwargs["role_sampling_policy"], dark_card_policy=kwargs["dark_card_policy"],
+                       dark_guard_proposals=kwargs["dark_guard_proposals"])
 
     def test_replay_audit_checks_every_command_and_winner(self):
         match = self.completed()

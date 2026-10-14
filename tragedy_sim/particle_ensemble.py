@@ -36,7 +36,9 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                  matrix_variant_policy: str = "prior",
                  final_guess_policy: str = "latent_map",
                  final_guess_node_limit: int = 100_000,
-                 role_sampling_policy: str = "importance", role_partition_node_limit: int = 100_000):
+                 role_sampling_policy: str = "importance", role_partition_node_limit: int = 100_000,
+                 dark_card_policy: str = "sampled", dark_attack_limit: int = 8,
+                 dark_guard_proposals: bool = True):
         if rollout_horizon not in {"day", "loop"}:
             raise ValueError("particle rollout_horizon must be day or loop")
         if (type(mastermind_policy_samples) is not int
@@ -57,6 +59,12 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             raise ValueError("final_guess_node_limit must be a positive integer")
         from .belief_partition_sampler import validate_role_sampling_options
         validate_role_sampling_options(role_sampling_policy, role_partition_node_limit, matrix_proposals)
+        if type(dark_card_policy) is not str or dark_card_policy not in {"sampled", "adversarial_guard"}:
+            raise ValueError("dark_card_policy must be sampled or adversarial_guard")
+        if type(dark_attack_limit) is not int or dark_attack_limit < 1:
+            raise ValueError("dark_attack_limit must be a positive integer")
+        if type(dark_guard_proposals) is not bool:
+            raise ValueError("dark_guard_proposals must be boolean")
         super().__init__(budget or SearchBudget(node_limit=24,
                                                 rollout_depth=12,
                                                 time_limit_ms=3000),
@@ -75,6 +83,9 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         self.information_reward_weight = float(information_reward_weight)
         self.final_guess_policy = final_guess_policy
         self.final_guess_node_limit = final_guess_node_limit
+        self.dark_card_policy = dark_card_policy
+        self.dark_attack_limit = dark_attack_limit
+        self.dark_guard_proposals = dark_guard_proposals
         self.oracle = OracleProtagonistAgent(
             reveal_cards=True, budget=self.budget, rng_seed=rng_seed,
             rollout_horizon=rollout_horizon, script_aware_rollout=False)
@@ -415,6 +426,15 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         # Give proposals and their evaluation the full action-search budget.
         deadline = (None if self.budget.time_limit_ms is None else
                     search_started + self.budget.time_limit_ms / 1000)
+        # These are adversarial evaluation branches, never posterior samples.
+        # Proposal generation and belief telemetry keep the original worlds.
+        if self.dark_card_policy == "adversarial_guard":
+            from .dark_attack_scenarios import attack_dark_worlds
+            evaluation_worlds = tuple((world, *attack_dark_worlds(world, view, limit=self.dark_attack_limit))
+                                      for world in worlds)
+        else:
+            evaluation_worlds = tuple((world,) for world in worlds)
+        dark_attack_probes = sum(len(variants) - 1 for variants in evaluation_worlds)
 
         # The proposal phase may inspect each *sampled* script, but never the
         # true game. All resulting bundles face the same world batch below.
@@ -579,6 +599,24 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             priorities.update(screening_proposals)
             priorities.update(information_proposals)
             proposals = self._prioritize_proposals(proposals, priorities, limit)
+        evacuation_count = 0
+        if self.dark_card_policy == "adversarial_guard" and self.dark_guard_proposals and limit > 1:
+            from .dark_attack_scenarios import evacuation_bundles
+            attack_proposals = {}
+            for world in worlds:
+                for bundle in evacuation_bundles(world, view, tuple(proposals.values())):
+                    signature = _key(bundle)
+                    if (signature not in proposals and _key(bundle[0]) in offers_by_key
+                            and self._apply_bundle(worlds[0], bundle) is not None):
+                        attack_proposals[signature] = bundle
+                        break
+                if attack_proposals:
+                    break
+            # Reserve one candidate for a joint evacuation, with the ordinary
+            # pool retained alongside it. This is an explicit proposal ablation.
+            if attack_proposals:
+                proposals = self._prioritize_proposals(proposals, attack_proposals, limit)
+                evacuation_count = len(attack_proposals)
         if not proposals:
             return self._fallback(participant, view, offers,
                                   "no_legal_bundle", len(witnesses))
@@ -598,29 +636,33 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             information_refusals: list[float] = []
             threads_risks: list[float] = []
             policy_rollouts = 0
-            for world in worlds:
-                successor = self._apply_bundle(world, bundle)
-                if successor is None:
-                    scores = []
-                    break
+            for world, variants in zip(worlds, evaluation_worlds):
                 strategies = self._mastermind_strategies(world)
                 policy_outcomes = []
                 policy_day_scores = []
-                for strategy in strategies:
-                    outcome = self.oracle._rollout_score(
-                        successor, position[0], position[1],
-                        mastermind_strategy=strategy,
-                        information_model=(information_model
-                                           if self.rollout_horizon == "day"
-                                           else None))
-                    policy_outcomes.append((
-                        outcome[0], outcome[1], *outcome[4:8], outcome[8]))
-                    if self.rollout_horizon != "day":
-                        policy_day_scores.append(self.oracle._day_score(
+                for variant in variants:
+                    successor = self._apply_bundle(variant, bundle)
+                    if successor is None:
+                        policy_outcomes = []
+                        break
+                    for strategy in strategies:
+                        outcome = self.oracle._rollout_score(
                             successor, position[0], position[1],
-                            mastermind_strategy=strategy))
-                    pairs += 1
-                    policy_rollouts += 1
+                            mastermind_strategy=strategy,
+                            information_model=(information_model
+                                               if self.rollout_horizon == "day"
+                                               else None))
+                        policy_outcomes.append((
+                            outcome[0], outcome[1], *outcome[4:8], outcome[8]))
+                        if self.rollout_horizon != "day":
+                            policy_day_scores.append(self.oracle._day_score(
+                                successor, position[0], position[1],
+                                mastermind_strategy=strategy))
+                        pairs += 1
+                        policy_rollouts += 1
+                if not policy_outcomes:
+                    scores = []
+                    break
                 # The script is uncertain to the protagonists, but the
                 # mastermind knows it and may choose any applicable route.
                 # Defend against the most dangerous sampled route per world.
@@ -691,6 +733,7 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                    "mean_value": row[4], "day_survivals": round(row[2] * len(worlds)),
                    "horizon_survivals": round(row[0] * len(worlds)),
                    "tail_value": row[1], "policy_rollouts": row[6]}
+                  | {"dark_card_policy": self.dark_card_policy, "dark_attack_probes": dark_attack_probes}
                   | {"information_value": row[7],
                      "information_bonus": row[8],
                      "information_future": row[9],
@@ -711,8 +754,12 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                          and perf_counter() >= deadline else "candidate_limit"),
             rollout_horizon=self.rollout_horizon,
             mastermind_policy_samples=self.mastermind_policy_samples,
-            mastermind_policy_aggregation="per_world_worst",
-            information_reward_weight=self.information_reward_weight)
+            mastermind_policy_aggregation=("per_world_worst_routes_and_attack_probes"
+                                           if self.dark_card_policy == "adversarial_guard" else "per_world_worst"),
+            information_reward_weight=self.information_reward_weight,
+            dark_card_policy=self.dark_card_policy, dark_attack_probes=dark_attack_probes,
+            dark_guard_proposals=self.dark_card_policy == "adversarial_guard" and self.dark_guard_proposals,
+            dark_evacuation_candidates=evacuation_count)
         if self.evidence_ledger.audit is not None:
             self.evidence_ledger.audit.record_samples(
                 view, roles, self.factorized_belief._culprits(evidence, witnesses), len(worlds),

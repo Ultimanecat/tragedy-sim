@@ -113,6 +113,8 @@ class ProtagonistSearchRecord:
     belief_dark_cards: tuple[dict[str, Any], ...] = ()
     placement_tendencies: tuple[dict[str, Any], ...] = ()
     proposal_diagnostics: dict[str, Any] | None = None
+    dark_card_policy: str = "sampled"
+    dark_attack_probes: int = 0
 
 
 @dataclass(frozen=True)
@@ -181,6 +183,9 @@ class MatchResult:
     final_role_candidates_scope: str | None = None
     role_sampling_policy: str = "importance"
     role_partition_node_limit: int = 100_000
+    dark_card_policy: str = "sampled"
+    dark_attack_limit: int = 8
+    dark_guard_proposals: bool = True
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -353,6 +358,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          final_guess_policy: str = "latent_map",
          final_guess_node_limit: int = 100_000,
          role_sampling_policy: str = "importance", role_partition_node_limit: int = 100_000,
+         dark_card_policy: str = "sampled", dark_attack_limit: int = 8,
+         dark_guard_proposals: bool = True,
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     matrix_proposals, joint_culprits = _resolve_belief_options(
@@ -360,6 +367,14 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     _validate_final_guess_options(protagonist_strategy, final_guess_policy, final_guess_node_limit)
     _validate_role_sampling_options(protagonist_strategy, role_sampling_policy,
                                     role_partition_node_limit, matrix_proposals)
+    if type(dark_card_policy) is not str or dark_card_policy not in {"sampled", "adversarial_guard"}:
+        raise ValueError("dark_card_policy must be sampled or adversarial_guard")
+    if type(dark_attack_limit) is not int or dark_attack_limit < 1:
+        raise ValueError("dark_attack_limit must be a positive integer")
+    if type(dark_guard_proposals) is not bool:
+        raise ValueError("dark_guard_proposals must be boolean")
+    if dark_card_policy != "sampled" and protagonist_strategy != "particle_ensemble":
+        raise ValueError("adversarial_guard requires particle_ensemble protagonists")
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -409,7 +424,9 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             matrix_proposals=matrix_proposals, joint_culprits=joint_culprits,
             matrix_variant_policy=matrix_variant_policy,
             final_guess_policy=final_guess_policy, final_guess_node_limit=final_guess_node_limit,
-            role_sampling_policy=role_sampling_policy, role_partition_node_limit=role_partition_node_limit)
+            role_sampling_policy=role_sampling_policy, role_partition_node_limit=role_partition_node_limit,
+            dark_card_policy=dark_card_policy, dark_attack_limit=dark_attack_limit,
+            dark_guard_proposals=dark_guard_proposals)
     if team_ismcts is not None and hasattr(team_ismcts, "factorized_belief"):
         team_ismcts.factorized_belief.matrix_recovery_enabled = matrix_recovery
     protagonists = {
@@ -538,7 +555,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                     getattr(trace, "belief_culprits", ()),
                     getattr(trace, "belief_dark_cards", ()),
                     getattr(trace, "placement_tendencies", ()),
-                    proposal_reader() if proposal_reader else None))
+                    proposal_reader() if proposal_reader else None,
+                    getattr(trace, "dark_card_policy", "sampled"), getattr(trace, "dark_attack_probes", 0)))
         if command.get("action") == "guess_all":
             policy = protagonists[command["actor"]]
             trace = getattr(policy, "last_trace", None)
@@ -626,6 +644,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         final_inference_scope=final_inference_scope,
         final_role_candidates_scope=final_role_candidates_scope,
         role_sampling_policy=role_sampling_policy, role_partition_node_limit=role_partition_node_limit,
+        dark_card_policy=dark_card_policy, dark_attack_limit=dark_attack_limit,
+        dark_guard_proposals=dark_guard_proposals,
         final_role_candidates=final_role_candidates,
         final_true_setup_in_exact_space=final_true_setup_in_exact_space,
         final_true_setup_hard_compatible=final_true_setup_hard_compatible,
@@ -731,6 +751,9 @@ def main() -> None:
     parser.add_argument("--final-guess-node-limit", type=int, default=100_000)
     parser.add_argument("--role-sampling-policy", choices=("importance", "exact_partition"), default="importance")
     parser.add_argument("--role-partition-node-limit", type=int, default=100_000)
+    parser.add_argument("--dark-card-policy", choices=("sampled", "adversarial_guard"), default="sampled")
+    parser.add_argument("--dark-attack-limit", type=int, default=8)
+    parser.add_argument("--dark-guard-proposals", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
@@ -743,6 +766,10 @@ def main() -> None:
                         default="day",
                         help="stable rollout boundary (particle ensemble supports day/loop)")
     args = parser.parse_args()
+    if args.dark_attack_limit < 1:
+        parser.error("dark attack limit must be positive")
+    if args.dark_card_policy != "sampled" and args.protagonists != "particle_ensemble":
+        parser.error("adversarial_guard requires particle_ensemble protagonists")
     if (args.games < 1 or args.nodes < 1 or args.depth < 1
             or args.protagonist_nodes is not None and args.protagonist_nodes < 1
             or args.protagonist_depth is not None and args.protagonist_depth < 1
@@ -786,6 +813,8 @@ def main() -> None:
                               final_guess_node_limit=args.final_guess_node_limit,
                               role_sampling_policy=args.role_sampling_policy,
                               role_partition_node_limit=args.role_partition_node_limit,
+                              dark_card_policy=args.dark_card_policy, dark_attack_limit=args.dark_attack_limit,
+                              dark_guard_proposals=args.dark_guard_proposals,
                               disabled_witness_sources=tuple(
                                   args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,

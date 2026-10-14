@@ -72,6 +72,10 @@ class IsmctsTrace:
     information_reward_weight: float = 0.0
     final_guess_policy: str | None = None
     final_guess_probability: dict[str, Any] | None = None
+    dark_card_policy: str = "sampled"
+    dark_attack_probes: int = 0
+    dark_guard_proposals: bool = False
+    dark_evacuation_candidates: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False,

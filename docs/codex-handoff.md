@@ -4,6 +4,12 @@
 
 ## 最新状态
 
+最新暗牌防守阶段：完整 822 项通过（188.001 秒），日志 `references/dark-guard-regression-20261014.txt`。可选 `dark_card_policy="adversarial_guard"` 已实现，最多 8 个假设内合法进攻分支与一个联合撤离候选；默认仍 sampled，未新增大厅 ID。分支仅用于鲁棒行动评价，不进入 witness、角色／暗牌后验或证据 RNG。`dark_guard_scoring` 单独关闭新撤离候选。详细范围、命令与结果见 [防守审计](dark-attack-defense-audit.md)。
+
+同源码 `af0a4652…` 的 40 局／两剧本／seed 0–9 已全部完成，无失败任务：FS01 旧／新红胜 1/10、5/10，改善 5／退化 1；BTX04 均 0/10。guard 增加实际 rollout，固定候选／世界数不能称等工作量。共同根 4 个假设各 504 暗牌完整枚举：原危险世界存活 448／504，新计划各 504／504；这未穷举身份或所有能力顺序。原始报告 `dark-guard-vs-matrix-10seeds-fixed-work.json`、`fs01-dark-guard-final-exhaustive-audit.json` 在 2026-10-14 忽略目录。
+
+用户最新优先级：检查防守联合空间和开眼暗牌。共同根各人 7 张牌、9 目标，172872 合法三牌；移除区域无效牌后 33624。开眼暗牌 4／8／16 提议选错，但其中有实际安全候选；其 9 个评价世界职员纵移 0/9。明牌开眼成功、暗牌 48 提议成功。因此后续先做共享系统化联合候选与暗牌反例搜索／穷举基准，避免继续添加定式或只调身份权重。
+
 公平 FS／BTX 粒子红方已默认使用 prior 矩阵重要性提议和合法联合当事人。主线构造器、房间工厂、self-play API／CLI、黑方对弈 CLI 一致；两处联合黑方内部红方模型显式保持旧提议＋旧当事人，避免同时更换对手。原始 `FactorizedBeliefState`／历史 ISMCTS 保留旧基线。
 
 新增独立 `final_guess_probability.py` 和可选逐命令概率审计：同身份表跨剧情汇总、精确计数无关排列，硬域／软评分／完整 matcher 保留。默认终猜和行动算法未改，另有可选边缘 MAP 实验。`ai_causal_audit --guess-probabilities --guess-probability-node-limit 100000` 记录最佳概率、旧猜测的新概率及推荐切换；`--guess-truth` 单独开启真值只读评分。日志默认关闭、不使用 RNG、不进入玩家 API／SSE。终猜提交需读 `context.submitted_guess_before_reveal`，终局公开答案后确定身份不能算行动时效果。
@@ -43,7 +49,7 @@ BTX06 命令 57 的根因是宽泛能力来源析取要求 6 名角色完整展�
 
 ## 下一步
 
-1. 联合概率／压缩计数／边缘 MAP／精确分区抽样实验已完成，默认暂不换。FS01 已定位到身份×暗牌进攻组合遗漏，先做合法暗牌离线枚举／敌对搜索基准，再评估分层提议或最坏暗牌目标，明确密度／目标区别；继续做同源码多 seed。Easy 是轨迹信息量不同，别按错误终猜调身份先验。单 witness leave-one-out 归因和黑方预计泄露评分仍待做。
+1. 联合概率／压缩计数／边缘 MAP／精确分区抽样及有限暗牌危险覆盖实验已完成，默认暂不换。先建设开眼／公平共用的系统化三牌候选和暗牌反例搜索，以小空间完整枚举校验；将候选覆盖和攻击场景覆盖分别消融。保留角色后验和鲁棒攻击分支的区别，继续同源码多 seed／留出根。Easy 是轨迹信息量不同，别按错误终猜调身份先验。单 witness leave-one-out 归因和黑方预计泄露评分仍待做。
 2. FS-02G／BTX04／BTX06 的危险覆盖、联合防御候选和更早的资源准备；保留日末基线，短跨日规划单独消融。
 3. 信息收益与黑方实际信念／回应模型，先做终猜概率诊断再讨论信息隐藏与跨轮回价值。
 4. 扩默认矩阵版的 seed／标准与 Easy，再按开眼 → witness／矩阵 → 公平规划迁移 MC。更多未来项见路线图。
@@ -59,6 +65,7 @@ BTX06 命令 57 的根因是宽泛能力来源析取要求 6 名角色完整展�
 | 矩阵／支持 | `belief_matrix.py`、`belief_plot_constraints.py`、`belief_matrix_sampler.py`、`belief_role_solver.py` | 硬域／数量／析取，合法完整分配，小空间枚举和 MAP |
 | 分区抽样 | `belief_partition_sampler.py` | 实验完整角色／剧情后验、整数排名、显式 q，诊断池与行动世界分离 |
 | 当事人／暗牌 | `belief_culprit_constraints.py`、`belief_culprit_posterior.py`、`belief_dark_constraints.py` | 联合重复限制及公开暗牌 all-different |
+| 暗牌进攻压力测试 | `dark_attack_scenarios.py`、`benchmarks/ai_dark_attack_audit.py` | 假设内有限攻击分支与联合撤离，离线完整合法牌面枚举，不改后验 |
 | witness | `witness_components.py`、`witness_rules/`、`witness.py` | 编译器读观察、matcher 检查世界，按规则集复用 |
 | 黑方／开眼 | `joint_mastermind.py`、`strategic_mcts.py`、`oracle_protagonist.py` | 三牌联合、红方回应；开眼仅诊断／趣味 |
 | 执行／网络 | `ai_registry.py`、`ai_decisions.py`、`service.py`、`rooms.py`、`server.py` | AiDecision 与 Trace 分离，revision、授权、SSE |
