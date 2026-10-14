@@ -104,27 +104,44 @@ def default_cases():
             ("btx_plot_soft", btx, (soft,)))
 
 
-def compare_case(name, evidence, witnesses, worlds, *, trials, capacity):
+def partition_cases():
+    """Uncalibrated soft channels test a concentrated target, not a real script."""
+    cases = default_cases()
+    btx = cases[3][1]
+    facts = (
+        PublicWitness("role_pressure", "brain", {"candidates": ["doctor"]},
+                      1, 1, "query", "stress.role", WitnessStrength.SOFT),
+        PublicWitness("loss_after_death", "girl", {"factor_key_possible": False},
+                      1, 1, "incident", "stress.death", WitnessStrength.SOFT),
+        PublicWitness("plot_pressure", "unknown", True,
+                      1, 1, "loop_end", "stress.plot", WitnessStrength.SOFT))
+    return (*cases, ("btx_plot_concentrated_soft", btx, (facts[0],) * 3 + (facts[1],) * 2 + (facts[2],) * 2))
+
+
+def compare_case(name, evidence, witnesses, worlds, *, trials, capacity, partition_proposals=False):
     exact = reference_posterior(evidence, witnesses, worlds)
     reference = marginals(exact)
     rows = []
     for seed in range(trials):
-        variants = (False, True) if seed % 2 == 0 else (True, False)
-        for matrix in variants:
+        variants = ("legacy", "matrix", "partition") if partition_proposals else ("legacy", "matrix")
+        shift = seed % len(variants)
+        variants = variants[shift:] + variants[:shift]
+        for variant in variants:
             state = FactorizedBeliefState(seed=seed, capacity=capacity,
-                                          matrix_proposals=matrix, matrix_recovery=False)
+                                          matrix_proposals=variant != "legacy", matrix_recovery=False,
+                                          role_sampling_policy=("exact_partition" if variant == "partition" else "importance"))
             started = perf_counter()
             posterior = state.role_posterior(evidence, witnesses)
             elapsed = perf_counter() - started
             if any(not evidence.matches_roles(world.main_plot, world.subplots, world.roles)
                    or not FsbtxWitnessMatcher().matches(world, witnesses) for world, _ in posterior):
                 raise AssertionError("Sampler violated hard evidence")
-            rows.append({"seed": seed, "variant": "matrix" if matrix else "legacy",
+            rows.append({"seed": seed, "variant": variant,
                          "seconds": elapsed, "candidates": len(posterior),
                          "errors": posterior_errors(reference, marginals(posterior)),
                          "diagnostics": state.proposal_summary()})
     summary = {}
-    for variant in ("legacy", "matrix"):
+    for variant in (("legacy", "matrix", "partition") if partition_proposals else ("legacy", "matrix")):
         selected = [row for row in rows if row["variant"] == variant]
         summary[variant] = {key: mean(row["errors"][key] for row in selected)
                             for key in selected[0]["errors"]}
@@ -140,26 +157,30 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--trials", type=int, default=16)
     parser.add_argument("--capacity", type=int, default=192)
+    parser.add_argument("--partition-proposals", action="store_true",
+                        help="compare exact partition role/plot posterior draws as a third policy")
     args = parser.parse_args()
     if min(args.trials, args.capacity) < 1:
         parser.error("trials and capacity must be positive")
     if args.output.exists():
         parser.error("report exists; choose a new output path")
-    report = {"sources": source_digest(), "settings": {"trials": args.trials, "capacity": args.capacity},
-              "progress": {"complete": False, "completed": 0, "planned": len(default_cases())}, "results": []}
+    cases = partition_cases() if args.partition_proposals else default_cases()
+    report = {"sources": source_digest(), "settings": {"trials": args.trials, "capacity": args.capacity,
+                                                      "partition_proposals": args.partition_proposals},
+              "progress": {"complete": False, "completed": 0, "planned": len(cases)}, "results": []}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     write_report(args.output, report)
     cache = {}
-    for name, evidence, witnesses in default_cases():
+    for name, evidence, witnesses in cases:
         if evidence not in cache:
             cache[evidence] = printed_worlds(evidence)
         row = compare_case(name, evidence, witnesses, cache[evidence],
-                           trials=args.trials, capacity=args.capacity)
+                           trials=args.trials, capacity=args.capacity, partition_proposals=args.partition_proposals)
         if source_digest() != report["sources"]:
             raise RuntimeError("Sources changed during accuracy evaluation")
         report["results"].append(row)
         report["progress"].update(completed=len(report["results"]),
-                                  complete=len(report["results"]) == len(default_cases()))
+                                  complete=len(report["results"]) == len(cases))
         write_report(args.output, report)
         print(f"{name}: {row['summary']}", flush=True)
 

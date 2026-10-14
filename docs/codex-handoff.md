@@ -20,7 +20,11 @@ BTX06 命令 57 的根因是宽泛能力来源析取要求 6 名角色完整展�
 
 额外身份分组阶段完整 780 项通过（193.998 秒），35 项概率／审计专项通过；日志 `references/joint-guess-extra-partition-regression-20261013.txt` 被忽略。
 
-最新可选边缘 MAP 阶段完整 792 项通过（181.520 秒），相关专项 57 项通过；日志 `references/cast-map-stable-ties-regression-20261014.txt` 被忽略。日常行动和默认终猜未改，真实配对没有棋力提升证据。
+最新可选分区抽样阶段完整 805 项通过（190.376 秒），相关专项 72 项通过；日志 `references/partition-posterior-regression-20261014.txt` 被忽略。默认仍为 prior 矩阵重要性路径／latent_map。
+
+实验抽样 `role_sampling_policy="exact_partition"` 已接入，两开发 CLI 有同名开关，比较工具 `--comparison matrix_partition`。按组总质量→整数均匀完整身份→条件剧情，显式 q；行动世界直接重抽完整分区，诊断池最多 192 次，保留独立 RNG 和超限回退。完整密度／排名支持与额外身份、性别、病毒、析取经独立枚举验证。源码指纹 `cf985efa…`：集中软证据身份 TV 0.0907→0.0664、ESS 72→192；六剧本 seed 0 固定小预算 12 局红胜旧 3/6、新 1/6，退化两对，不切默认。146 根／2131 命令硬支持／replay 全通过、无回退，详见 [抽样实验](exact-partition-role-sampling.md)。
+
+最具体反例：`partition-fs01-day3-common-root.json`，位于 2026-10-14 忽略目录。FS01 第 2 轮第 3 天，双方已知女学生关键／巫女杀人狂；2 候选扩大世界仍失败，8 候选含能防御的方案，但 48 世界把失败方案也判为全存活并按尾部值选择它。应先查身份×暗牌组合、黑方能力续演／确定化，别直接调软权重或加世界。概率日志 `partition-fs01-belief-probability-audit.json/.txt` 已完成。上述对局、共同根与完整回归均已结束。
 
 默认切换源码 Python 指纹 `63b77dfa833503ee7ba5a92f114fd903872e2214806ed98d6b5f1751b3e71c96`：53 项专项通过，完整 759 项通过（178.932 秒）。实际房间选择公平 AI 后，BTX-01G 第一天默认 192 次提议／12 行动世界，无回退，原子执行三张红牌到 reveal；本机耗时 2.246 秒，仅为单根烟测。前端未改。
 
@@ -37,7 +41,7 @@ BTX06 命令 57 的根因是宽泛能力来源析取要求 6 名角色完整展�
 
 ## 下一步
 
-1. 联合概率／压缩计数／边缘 MAP 实验已完成，默认暂不换终猜。以未区分世界为入口调查后验抽样与规划；精确分区可尝试完整身份／剧情后验抽样，保留旧重要性提议对照，验证密度与重演过滤。不能只抽代表或相乘边际。单 witness leave-one-out 归因和黑方预计泄露评分仍待做。
+1. 联合概率／压缩计数／边缘 MAP／精确分区抽样实验已完成，默认暂不换。以 FS01 共同根误判和 BTX 退化为入口，查完整危险组合、能力续演／状态重建和候选评分，再扩 seed／预算；精确抽样尚未带来胜率提升。不能只抽代表或相乘边际。单 witness leave-one-out 归因和黑方预计泄露评分仍待做。
 2. FS-02G／BTX04／BTX06 的危险覆盖、联合防御候选和更早的资源准备；保留日末基线，短跨日规划单独消融。
 3. 信息收益与黑方实际信念／回应模型，先做终猜概率诊断再讨论信息隐藏与跨轮回价值。
 4. 扩默认矩阵版的 seed／标准与 Easy，再按开眼 → witness／矩阵 → 公平规划迁移 MC。更多未来项见路线图。
@@ -51,6 +55,7 @@ BTX06 命令 57 的根因是宽泛能力来源析取要求 6 名角色完整展�
 | 后验 | `belief.py`、`belief_posterior.py` | 共同目标、分维维护、target/q 与重复质量 |
 | 终猜概率／日志 | `final_guess_probability.py`、`belief_audit.py`、`benchmarks/ai_causal_audit.py` | 精确完整身份表归一化、逐观察批次、离线真值查询隔离 |
 | 矩阵／支持 | `belief_matrix.py`、`belief_plot_constraints.py`、`belief_matrix_sampler.py`、`belief_role_solver.py` | 硬域／数量／析取，合法完整分配，小空间枚举和 MAP |
+| 分区抽样 | `belief_partition_sampler.py` | 实验完整角色／剧情后验、整数排名、显式 q，诊断池与行动世界分离 |
 | 当事人／暗牌 | `belief_culprit_constraints.py`、`belief_culprit_posterior.py`、`belief_dark_constraints.py` | 联合重复限制及公开暗牌 all-different |
 | witness | `witness_components.py`、`witness_rules/`、`witness.py` | 编译器读观察、matcher 检查世界，按规则集复用 |
 | 黑方／开眼 | `joint_mastermind.py`、`strategic_mcts.py`、`oracle_protagonist.py` | 三牌联合、红方回应；开眼仅诊断／趣味 |

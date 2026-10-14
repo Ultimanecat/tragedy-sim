@@ -13,7 +13,8 @@ from dataclasses import asdict
 from pathlib import Path
 from statistics import mean
 
-from .ai_self_play import _resolve_belief_options, _validate_final_guess_options, play
+from .ai_self_play import (_resolve_belief_options, _validate_final_guess_options,
+                          _validate_role_sampling_options, play)
 from .ai_cutoff_calibration import match_telemetry
 from .ai_calibration_matrix import source_digest, write_report
 
@@ -48,6 +49,8 @@ def main() -> None:
                         help="matrix variant proposal distribution; posterior target unchanged")
     parser.add_argument("--final-guess-policy", choices=("latent_map", "cast_map"), default="latent_map")
     parser.add_argument("--final-guess-node-limit", type=int, default=100_000)
+    parser.add_argument("--role-sampling-policy", choices=("importance", "exact_partition"), default="importance")
+    parser.add_argument("--role-partition-node-limit", type=int, default=100_000)
     parser.add_argument("--joint-reply-model", choices=("public", "belief", "hidden", "full"),
                         default="public")
     parser.add_argument("--joint-information-weight", type=float, default=0.02,
@@ -73,6 +76,8 @@ def main() -> None:
         args.matrix_proposals, args.joint_culprits = _resolve_belief_options(
             args.protagonists, args.matrix_proposals, args.joint_culprits)
         _validate_final_guess_options(args.protagonists, args.final_guess_policy, args.final_guess_node_limit)
+        _validate_role_sampling_options(args.protagonists, args.role_sampling_policy,
+                                        args.role_partition_node_limit, args.matrix_proposals)
     except ValueError as error:
         parser.error(str(error))
     scenarios = args.scenarios or DEFAULT_SCENARIOS
@@ -114,6 +119,8 @@ def main() -> None:
                         matrix_variant_policy=args.matrix_variant_policy,
                         final_guess_policy=args.final_guess_policy,
                         final_guess_node_limit=args.final_guess_node_limit,
+                        role_sampling_policy=args.role_sampling_policy,
+                        role_partition_node_limit=args.role_partition_node_limit,
                         joint_reply_model=args.joint_reply_model,
                         joint_information_weight=args.joint_information_weight,
                         capture_fallback_contexts=args.trace,
@@ -149,6 +156,8 @@ def main() -> None:
                     'final_guess_probability': match.final_guess_probability,
                     'final_inference_scope': match.final_inference_scope,
                     'final_role_candidates_scope': match.final_role_candidates_scope,
+                    'role_sampling_policy': match.role_sampling_policy,
+                    'role_partition_node_limit': match.role_partition_node_limit,
                     'matrix_proposal_attempts': match.protagonist_matrix_proposal_attempts,
                     'matrix_proposal_worlds': match.protagonist_matrix_proposal_worlds,
                 }

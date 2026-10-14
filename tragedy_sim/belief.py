@@ -787,7 +787,8 @@ class FactorizedBeliefState:
 
     def __init__(self, *, capacity: int = 192, seed: int = 0,
                  matrix_recovery: bool = True, matrix_proposals: bool = False,
-                 joint_culprits: bool = False, matrix_variant_policy: str = "prior"):
+                 joint_culprits: bool = False, matrix_variant_policy: str = "prior",
+                 role_sampling_policy: str = "importance", role_partition_node_limit: int = 100_000):
         if type(matrix_recovery) is not bool:
             raise ValueError("matrix_recovery must be boolean")
         if type(matrix_proposals) is not bool:
@@ -796,18 +797,26 @@ class FactorizedBeliefState:
             raise ValueError("joint_culprits must be boolean")
         if type(matrix_variant_policy) is not str or matrix_variant_policy not in {"uniform", "prior"}:
             raise ValueError("matrix_variant_policy must be uniform or prior")
+        from .belief_partition_sampler import validate_role_sampling_options
+        validate_role_sampling_options(role_sampling_policy, role_partition_node_limit, matrix_proposals)
         self.capacity = capacity
         self.matrix_recovery_enabled = matrix_recovery
         self.matrix_recovery_attempts = 0
         self.matrix_recovery_worlds = 0
         self.matrix_proposals_enabled = matrix_proposals
         self.matrix_variant_policy = matrix_variant_policy
+        self.role_sampling_policy = role_sampling_policy
+        self.role_partition_node_limit = role_partition_node_limit
+        self._role_partition_sampler = None
+        self._role_partition_key = None
+        self._partition_fallback = None
         self.joint_culprits_enabled = joint_culprits
         self._culprit_diagnostics = None
         self.matrix_proposal_attempts = 0
         self.matrix_proposal_worlds = 0
         self.rng = random.Random(seed)
         self.matrix_rng = random.Random(f"belief-matrix:{seed}")
+        self.partition_rng = random.Random(f"belief-partition:{seed}")
         self.eviction_rng = random.Random(f"belief-eviction:{seed}")
         self.sampler = ConstraintBeliefSampler()
         self._signature: tuple[Any, ...] | None = None
@@ -884,9 +893,31 @@ class FactorizedBeliefState:
             self._signature = signature
             self._roles.clear()
             self._plot_sizes.clear()
-            self._exact_roles = len(evidence.characters) <= 6
+            self._exact_roles = (len(evidence.characters) <= 6
+                                 and self.role_sampling_policy != "exact_partition")
             if self._exact_roles:
                 self._enumerate_roles(evidence)
+        self._partition_fallback = None
+        if self.role_sampling_policy == "exact_partition":
+            from .belief_partition_sampler import PartitionRoleSampler
+            from .belief_posterior import RoleImportancePool
+            key = evidence, tuple(witnesses)
+            if key != self._role_partition_key:
+                self._role_partition_sampler = PartitionRoleSampler(
+                    evidence, witnesses, node_limit=self.role_partition_node_limit)
+                self._role_partition_key = deepcopy(key)
+            partition = self._role_partition_sampler.partition
+            if partition.exact or partition.status == "no_compatible_worlds":
+                proposals = self._role_partition_sampler.propose_roles(
+                    min(192, self.capacity), rng=self.partition_rng)
+                self.role_importance_pool = RoleImportancePool(proposals)
+                self._roles = {self._key(p.world): p.world for p in proposals}
+                self._importance_diagnostics = self.role_importance_pool.diagnostics(
+                    self.role_target, role_witnesses)
+                return
+            # Incomplete/unsupported partitions never supply a partial batch.
+            # The unchanged matrix proposal path remains an explicit fallback.
+            self._partition_fallback = partition.status
         # The corrected matrix estimator owns its complete proposal batch.
         # Mixing an unknown-density legacy reservoir would alter its target.
         if (self.matrix_proposals_enabled and not self._exact_roles
@@ -958,6 +989,10 @@ class FactorizedBeliefState:
             "role_candidates": len(worlds), "exact": self._exact_roles,
             "matrix_proposals_enabled": self.matrix_proposals_enabled,
             "matrix_variant_policy": self.matrix_variant_policy,
+            "role_sampling_policy": self.role_sampling_policy,
+            "role_partition": (self._role_partition_sampler.diagnostics()
+                               if self._role_partition_sampler is not None else None),
+            "role_partition_fallback": self._partition_fallback,
             "matrix_proposal_attempts": self.matrix_proposal_attempts,
             "matrix_proposal_worlds": self.matrix_proposal_worlds,
             "posterior_target": self.role_target.diagnostics() if self.role_target else None,
@@ -1404,7 +1439,13 @@ class FactorizedBeliefState:
         attempts = 0
         while len(worlds) < count and attempts < count * 12:
             attempts += 1
-            role = rng.choices(roles, weights=weights, k=1)[0]
+            if (self.role_sampling_policy == "exact_partition"
+                    and self._role_partition_sampler.partition.exact):
+                # Fresh direct draws avoid a second resampling step from the
+                # finite diagnostic pool. They preserve the full role target.
+                role = self._role_partition_sampler.propose_roles(1, rng=rng)[0].world
+            else:
+                role = rng.choices(roles, weights=weights, k=1)[0]
             assignment = joint.sample(rng) if joint is not None else None
             incidents = tuple((day, kind, public_kind,
                                assignment[day] if assignment is not None else

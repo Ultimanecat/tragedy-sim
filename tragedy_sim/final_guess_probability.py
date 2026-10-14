@@ -148,6 +148,7 @@ class _CastGroup:
     representative: tuple[tuple[str, str], ...]
     completions: int
     per_cast_mass: float
+    latent_weights: tuple[tuple[str, tuple[str, ...], float], ...] = ()
 
     def contains(self, cast):
         return (tuple(sorted(Counter(cast.values()).items())) == self.counts
@@ -184,15 +185,36 @@ class JointGuessProbability:
             return None
         if not _gender_ok(guess, self._split):
             return 0.0
+        group = self._group_for(guess)
+        return group.per_cast_mass / self.total_mass if group is not None else 0.0
+
+    def _group_for(self, guess):
+        """Locate a cast partition without conditioning on a plot or truth."""
         extra_groups = self._index.get(tuple(sorted(Counter(guess.values()).items())), {})
         extra_key = tuple((cid, guess[cid]) for cid in self._extra_characters)
         row = extra_groups.get(extra_key)
         if row is None:
-            return 0.0
+            return None
         classifiers, groups = row
         group = groups.get(tuple(roles.get(guess[cid], -1) for cid, roles in classifiers))
-        return (group.per_cast_mass / self.total_mass
-                if group is not None and group.contains(guess) else 0.0)
+        return group if group is not None and group.contains(guess) else None
+
+    def role_probability_for(self, world):
+        """Joint initial roles/plots density; incident rows are placeholders.
+
+        This is a normalized role-model query, not a correlated full-world
+        density. Current independent culprit/dark dimensions stay separate.
+        """
+        guess = dict(world.roles)
+        # Validate completeness and gender identically to the cast query.
+        supported = self.probability_for(guess)
+        if supported is None or supported == 0.0:
+            return supported
+        group = self._group_for(guess)
+        key = world.main_plot, tuple(sorted(world.subplots))
+        mass = fsum(weight for main, subs, weight in group.latent_weights
+                    if (main, tuple(sorted(subs))) == key)
+        return mass / self.total_mass
 
     def to_dict(self):
         return {"version": "joint-cast-probability-v1", "status": self.status,
@@ -327,7 +349,7 @@ class JointGuessProbabilitySolver:
                     if cast is None:
                         return
                     roles = tuple(sorted(cast.items()))
-                    masses, seen = [], set()
+                    masses, latent_weights, seen = [], [], set()
                     for variant in selected:
                         plot_key = (variant.main_plot, tuple(sorted(variant.subplots)))
                         if plot_key in seen or any(cast[cid] not in allowed for cid, allowed in variant.domains.items()):
@@ -341,11 +363,12 @@ class JointGuessProbabilitySolver:
                         weight = target.weight(world, role_facts)
                         if weight:
                             masses.append(weight)
+                            latent_weights.append((variant.main_plot, variant.subplots, weight))
                             seen.add(plot_key)
                     mass = fsum(masses)
                     if mass:
                         group = _CastGroup(count_key, tuple(active_domains.items()), tuple(sorted(fixed.items())),
-                                           roles, completions, mass)
+                                           roles, completions, mass, tuple(latent_weights))
                         if tuple(signature) in rows:
                             raise AssertionError("Cast predicate partitions overlap")
                         rows[tuple(signature)] = group

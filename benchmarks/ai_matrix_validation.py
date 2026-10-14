@@ -32,7 +32,8 @@ DEFAULT_SCENARIOS = (
     "official-btx-06-secret-that-was-kept",
 )
 VARIANTS = {"legacy": (False, False, "uniform"),
-            "matrix": (True, True, "prior"), "uniform": (True, True, "uniform")}
+            "matrix": (True, True, "prior"), "uniform": (True, True, "uniform"),
+            "partition": (True, True, "prior")}
 
 
 def scenario_fingerprints(library, scenarios):
@@ -70,18 +71,18 @@ def audit_match(match):
             "all_hard_compatible": True, "matrix_truth_retained": True}
 
 
-def paired_summary(results):
+def paired_summary(results, *, comparison=("legacy", "matrix")):
     pairs = {}
     for row in results:
         pairs.setdefault((row["scenario"], row["seed"]), {})[row["variant"]] = row
     outcomes = {"improved": 0, "regressed": 0, "both_red": 0, "both_black": 0}
     for variants in pairs.values():
-        if not {"legacy", "matrix"}.issubset(variants):
+        if not set(comparison).issubset(variants):
             continue
-        old, new = (variants[v]["winner"] == "protagonists" for v in ("legacy", "matrix"))
+        old, new = (variants[v]["winner"] == "protagonists" for v in comparison)
         key = "both_red" if old and new else "both_black" if not old and not new else "improved" if new else "regressed"
         outcomes[key] += 1
-    return {"completed_pairs": sum(outcomes.values()), **outcomes,
+    return {"completed_pairs": sum(outcomes.values()), "comparison": list(comparison), **outcomes,
             "variants": {v: {"matches": sum(r["variant"] == v for r in results),
                              "red_wins": sum(r["variant"] == v and r["winner"] == "protagonists"
                                              for r in results)}
@@ -93,6 +94,7 @@ def main():
     parser.add_argument("--scenario", action="append", dest="scenarios")
     parser.add_argument("--seed", action="append", type=int, dest="seeds")
     parser.add_argument("--variant", action="append", choices=tuple(VARIANTS), dest="variants")
+    parser.add_argument("--comparison", choices=("legacy_matrix", "matrix_partition"), default="legacy_matrix")
     parser.add_argument("--mastermind-nodes", type=int, default=24)
     parser.add_argument("--protagonist-nodes", type=int, default=8)
     parser.add_argument("--worlds", type=int, default=12)
@@ -110,7 +112,8 @@ def main():
         parser.error("budgets and max-jobs must be positive")
     scenarios = list(dict.fromkeys(args.scenarios or DEFAULT_SCENARIOS))
     seeds = list(dict.fromkeys(args.seeds or (0, 3)))
-    variants = list(dict.fromkeys(args.variants or ("legacy", "matrix")))
+    comparison = ("matrix", "partition") if args.comparison == "matrix_partition" else ("legacy", "matrix")
+    variants = list(dict.fromkeys(args.variants or comparison))
     library = ScenarioLibrary()
     if any(library.get(sid)["module"] not in {"FS", "BTX"} for sid in scenarios):
         parser.error("matrix evaluation supports FS/BTX")
@@ -120,7 +123,7 @@ def main():
                 "mastermind_ms": None if args.fixed_work else args.mastermind_ms,
                 "protagonist_ms": None if args.fixed_work else args.protagonist_ms,
                 "mastermind": "joint", "reply_model": "belief", "information_weight": 0.02,
-                "horizon": "day", "fixed_work": args.fixed_work}
+                "horizon": "day", "fixed_work": args.fixed_work, "comparison": list(comparison)}
     sources = source_digest()
     manifests = scenario_fingerprints(library, scenarios)
     jobs = [(sid, seed, variant) for i, sid in enumerate(scenarios)
@@ -148,7 +151,7 @@ def main():
     def save():
         report["progress"] = {"completed": len(report["results"]), "planned": len(jobs),
                               "complete": len(report["results"]) == len(jobs)}
-        report["paired_summary"] = paired_summary(report["results"])
+        report["paired_summary"] = paired_summary(report["results"], comparison=comparison)
         write_report(args.output, report)
 
     report.pop("failed_job", None)
@@ -160,6 +163,7 @@ def main():
             if source_digest() != sources or scenario_fingerprints(library, scenarios) != manifests:
                 raise RuntimeError("Sources or selected scenarios changed during evaluation")
             matrix, joint, policy = VARIANTS[variant]
+            role_policy = "exact_partition" if variant == "partition" else "importance"
             faulthandler.dump_traceback_later(60, repeat=True)
             try:
                 match = play(sid, seed, args.mastermind_nodes, args.depth, "joint", "particle_ensemble",
@@ -168,6 +172,7 @@ def main():
                              protagonist_time_limit_ms=settings["protagonist_ms"],
                              protagonist_particles=args.worlds, matrix_proposals=matrix,
                              joint_culprits=joint, matrix_variant_policy=policy,
+                             role_sampling_policy=role_policy,
                              joint_reply_model="belief", joint_information_weight=0.02,
                              capture_fallback_contexts=True, capture_replay=True)
             finally:
@@ -176,6 +181,8 @@ def main():
                     or match.matrix_proposals_enabled != matrix or match.joint_culprits_enabled != joint
                     or match.matrix_variant_policy != policy):
                 raise AssertionError("Returned match configuration differs from planned variant")
+            if match.role_sampling_policy != role_policy:
+                raise AssertionError("Returned role sampling policy differs from planned variant")
             audit = audit_match(match)
             if source_digest() != sources or scenario_fingerprints(library, scenarios) != manifests:
                 raise RuntimeError("Sources or selected scenarios changed during the match")

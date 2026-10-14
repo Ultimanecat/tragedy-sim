@@ -35,7 +35,8 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                  matrix_proposals: bool = True, joint_culprits: bool = True,
                  matrix_variant_policy: str = "prior",
                  final_guess_policy: str = "latent_map",
-                 final_guess_node_limit: int = 100_000):
+                 final_guess_node_limit: int = 100_000,
+                 role_sampling_policy: str = "importance", role_partition_node_limit: int = 100_000):
         if rollout_horizon not in {"day", "loop"}:
             raise ValueError("particle rollout_horizon must be day or loop")
         if (type(mastermind_policy_samples) is not int
@@ -54,6 +55,8 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             raise ValueError("final_guess_policy must be latent_map or cast_map")
         if type(final_guess_node_limit) is not int or final_guess_node_limit < 1:
             raise ValueError("final_guess_node_limit must be a positive integer")
+        from .belief_partition_sampler import validate_role_sampling_options
+        validate_role_sampling_options(role_sampling_policy, role_partition_node_limit, matrix_proposals)
         super().__init__(budget or SearchBudget(node_limit=24,
                                                 rollout_depth=12,
                                                 time_limit_ms=3000),
@@ -61,6 +64,8 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                          survival_first=True)
         self.factorized_belief.matrix_proposals_enabled = matrix_proposals
         self.factorized_belief.matrix_variant_policy = matrix_variant_policy
+        self.factorized_belief.role_sampling_policy = role_sampling_policy
+        self.factorized_belief.role_partition_node_limit = role_partition_node_limit
         self.factorized_belief.joint_culprits_enabled = joint_culprits
         self.compiler = FsbtxWitnessCompiler(
             include_joint=joint_witness,

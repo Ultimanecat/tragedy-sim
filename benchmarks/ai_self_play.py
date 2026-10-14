@@ -179,6 +179,8 @@ class MatchResult:
     final_guess_probability: dict[str, Any] | None = None
     final_inference_scope: str | None = None
     final_role_candidates_scope: str | None = None
+    role_sampling_policy: str = "importance"
+    role_partition_node_limit: int = 100_000
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -297,6 +299,13 @@ def _validate_final_guess_options(protagonists, policy, node_limit):
         raise ValueError("cast_map requires particle_ensemble protagonists")
 
 
+def _validate_role_sampling_options(protagonists, policy, node_limit, matrix_proposals):
+    from tragedy_sim.belief_partition_sampler import validate_role_sampling_options
+    validate_role_sampling_options(policy, node_limit, matrix_proposals)
+    if policy != "importance" and protagonists != "particle_ensemble":
+        raise ValueError("exact_partition requires particle_ensemble protagonists")
+
+
 def _final_inference_diagnostics(game, policy, scenario):
     """Audit the legal decision snapshot before terminal answers are public."""
     if game.state.phase != "final_guess":
@@ -343,11 +352,14 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          matrix_variant_policy: str = "prior",
          final_guess_policy: str = "latent_map",
          final_guess_node_limit: int = 100_000,
+         role_sampling_policy: str = "importance", role_partition_node_limit: int = 100_000,
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     matrix_proposals, joint_culprits = _resolve_belief_options(
         protagonist_strategy, matrix_proposals, joint_culprits)
     _validate_final_guess_options(protagonist_strategy, final_guess_policy, final_guess_node_limit)
+    _validate_role_sampling_options(protagonist_strategy, role_sampling_policy,
+                                    role_partition_node_limit, matrix_proposals)
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -396,7 +408,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             information_reward_weight=information_reward_weight,
             matrix_proposals=matrix_proposals, joint_culprits=joint_culprits,
             matrix_variant_policy=matrix_variant_policy,
-            final_guess_policy=final_guess_policy, final_guess_node_limit=final_guess_node_limit)
+            final_guess_policy=final_guess_policy, final_guess_node_limit=final_guess_node_limit,
+            role_sampling_policy=role_sampling_policy, role_partition_node_limit=role_partition_node_limit)
     if team_ismcts is not None and hasattr(team_ismcts, "factorized_belief"):
         team_ismcts.factorized_belief.matrix_recovery_enabled = matrix_recovery
     protagonists = {
@@ -612,6 +625,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         final_guess_probability=final_guess_probability,
         final_inference_scope=final_inference_scope,
         final_role_candidates_scope=final_role_candidates_scope,
+        role_sampling_policy=role_sampling_policy, role_partition_node_limit=role_partition_node_limit,
         final_role_candidates=final_role_candidates,
         final_true_setup_in_exact_space=final_true_setup_in_exact_space,
         final_true_setup_hard_compatible=final_true_setup_hard_compatible,
@@ -715,6 +729,8 @@ def main() -> None:
     parser.add_argument("--final-guess-policy", choices=("latent_map", "cast_map"), default="latent_map",
                         help="particle final guessing only; action planner unchanged")
     parser.add_argument("--final-guess-node-limit", type=int, default=100_000)
+    parser.add_argument("--role-sampling-policy", choices=("importance", "exact_partition"), default="importance")
+    parser.add_argument("--role-partition-node-limit", type=int, default=100_000)
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
@@ -743,6 +759,8 @@ def main() -> None:
         args.matrix_proposals, args.joint_culprits = _resolve_belief_options(
             args.protagonists, args.matrix_proposals, args.joint_culprits)
         _validate_final_guess_options(args.protagonists, args.final_guess_policy, args.final_guess_node_limit)
+        _validate_role_sampling_options(args.protagonists, args.role_sampling_policy,
+                                        args.role_partition_node_limit, args.matrix_proposals)
     except ValueError as error:
         parser.error(str(error))
     library = ScenarioLibrary()
@@ -766,6 +784,8 @@ def main() -> None:
                               matrix_variant_policy=args.matrix_variant_policy,
                               final_guess_policy=args.final_guess_policy,
                               final_guess_node_limit=args.final_guess_node_limit,
+                              role_sampling_policy=args.role_sampling_policy,
+                              role_partition_node_limit=args.role_partition_node_limit,
                               disabled_witness_sources=tuple(
                                   args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,

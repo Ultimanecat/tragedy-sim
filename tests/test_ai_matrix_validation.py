@@ -26,7 +26,8 @@ class MatrixEvaluationTests(unittest.TestCase):
         return replace(self.completed(), scenario_id=args[0], seed=args[1],
                        matrix_proposals_enabled=kwargs["matrix_proposals"],
                        joint_culprits_enabled=kwargs["joint_culprits"],
-                       matrix_variant_policy=kwargs["matrix_variant_policy"])
+                       matrix_variant_policy=kwargs["matrix_variant_policy"],
+                       role_sampling_policy=kwargs["role_sampling_policy"])
 
     def test_replay_audit_checks_every_command_and_winner(self):
         match = self.completed()
@@ -88,6 +89,22 @@ class MatrixEvaluationTests(unittest.TestCase):
         self.assertEqual(summary["completed_pairs"], 1)
         self.assertEqual(summary["improved"], 1)
         self.assertEqual(summary["variants"]["matrix"], {"matches": 2, "red_wins": 1})
+
+    def test_partition_comparison_forwards_policy_and_uses_correct_pair_denominator(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "evaluation.json"
+            argv = ["evaluate", "--scenario", "official-fs-01-first-script", "--seed", "0",
+                    "--comparison", "matrix_partition", "--output", str(path)]
+            with (patch("sys.argv", argv), patch.object(evaluation, "play", side_effect=self.fake_play) as calls,
+                  patch.object(evaluation, "source_digest", return_value="frozen"), redirect_stdout(StringIO())):
+                evaluation.main()
+            self.assertEqual([call.kwargs["role_sampling_policy"] for call in calls.call_args_list],
+                             ["importance", "exact_partition"])
+            report = json.loads(path.read_text(encoding="utf-8"))
+            self.assertTrue(report["progress"]["complete"])
+            self.assertEqual(report["paired_summary"]["comparison"], ["matrix", "partition"])
+            self.assertEqual(report["paired_summary"]["completed_pairs"], 1)
+            self.assertEqual(report["paired_summary"]["both_black"], 1)
 
     def test_source_change_inside_match_does_not_publish_a_completed_result(self):
         with TemporaryDirectory() as folder:

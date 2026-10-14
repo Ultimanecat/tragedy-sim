@@ -74,7 +74,7 @@ python -X utf8 -m benchmarks.ai_causal_audit references/ai-calibration/2026-10-1
 
 运行时开发入口：`BeliefAuditTrail(probability_solver=JointGuessProbabilitySolver())`，赋给指定 AI 的 `evidence_ledger.audit`。固定工作量已验证行动不变；墙钟任务优先离线重演，因为额外诊断仍占实际响应时间。
 
-等价分支压缩、扩展轨迹精确覆盖和两种正式终猜比较均已完成，结果见下文及终猜实验文档。后续单独实现 witness 交互归因、黑方预计泄露评价和精确分区后验抽样；保持不可用状态，不以提高上限掩盖复杂度问题。
+等价分支压缩、扩展轨迹精确覆盖和两种正式终猜比较均已完成，结果见下文及终猜实验文档。[精确分区后验抽样实验](exact-partition-role-sampling.md)也已接入，保留为可选路径，默认不切换。后续单独实现 witness 交互归因和黑方预计泄露评价，并调查行动危险组合；保持不可用状态，不以提高上限掩盖复杂度问题。
 
 ## 完整轨迹烟测（2026-10-13）
 
