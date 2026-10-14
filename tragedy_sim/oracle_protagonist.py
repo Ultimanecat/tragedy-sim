@@ -42,6 +42,9 @@ class OracleTrace:
     enumerated_bundles: int = 0
     evaluated_bundles: int = 0
     joint_space_fallback: str | None = None
+    ranking_worlds: int = 0
+    tactical_projections: int = 0
+    policy_rollouts: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False))
@@ -69,8 +72,8 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                  candidate_policy: str = "legacy"):
         if rollout_horizon not in self.ROLLOUT_HORIZONS:
             raise ValueError("rollout_horizon must be day, loop, or match")
-        if type(candidate_policy) is not str or candidate_policy not in {"legacy", "joint_enumeration"}:
-            raise ValueError("candidate_policy must be legacy or joint_enumeration")
+        if type(candidate_policy) is not str or candidate_policy not in {"legacy", "joint_enumeration", "joint_threat"}:
+            raise ValueError("candidate_policy must be legacy, joint_enumeration or joint_threat")
         self.reveal_cards = reveal_cards
         self.budget = budget or SearchBudget(node_limit=48, rollout_depth=24)
         self.scenario_count = max(1, scenario_count)
@@ -664,7 +667,8 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
         candidates = None
         enumerated = 0
         joint_space_fallback = None
-        if self.candidate_policy == "joint_enumeration":
+        ranker = None
+        if self.candidate_policy in {"joint_enumeration", "joint_threat"}:
             from .joint_action_space import JointActionSpace, UnsupportedJointSpace
             try:
                 space_view = view
@@ -676,8 +680,23 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                         {**p, "card": faces[p["target"]]} if p.get("actor") == "m" else dict(p)
                         for p in view.get("pending", ())]}
                 space = JointActionSpace(space_view, offers)
+                if self.candidate_policy == "joint_threat":
+                    from .joint_defense_ranker import JointThreatRanker
+                    if not self.reveal_cards:
+                        from .dark_attack_scenarios import marginal_dark_worlds, attack_dark_worlds
+                        # Script-aware baseline: one known identity setup.
+                        # Marginals cover unary faces; joint templates retain
+                        # interactions. No true current black faces are read.
+                        expanded = (*worlds, *marginal_dark_worlds(root, view), *attack_dark_worlds(root, view))
+                        unique = {}
+                        for w in expanded:
+                            signature = tuple((p.target, p.card) for p in w.state.pending if p.actor == "m")
+                            unique.setdefault(signature, w)
+                        worlds = tuple(unique.values())
+                    ranker = JointThreatRanker(worlds, space)
                 candidates, enumerated = space.ranked_bundles(
-                    lambda action: self._rank(action, view, root.scenario), self.budget.node_limit)
+                    lambda action: self._rank(action, view, root.scenario), self.budget.node_limit,
+                    joint_rank=ranker, distinct_effects=ranker is not None)
             except UnsupportedJointSpace as error:
                 joint_space_fallback = str(error)
         if candidates is None:
@@ -699,6 +718,7 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
             return self.fallback.choose_action(
                 participant="team", view=view, offers=offers)
         evaluations = []
+        policy_rollouts = 0
         max_rollout_steps = terminal_samples = 0
         public_targets = tuple(sorted(str(item.get("target"))
                                       for item in view.get("pending", ())
@@ -723,14 +743,18 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                         break
                     world = world.search_transition(legal[_key(command)])
                 if world is not None:
-                    outcome = self._rollout_score(
-                        world, int(view["loop"]), int(view["round"]))
+                    routes = self._mastermind_strategy_options(root_world) if ranker is not None else (None,)
+                    outcomes = [self._rollout_score(world, int(view["loop"]), int(view["round"]),
+                                                    mastermind_strategy=route) for route in routes]
+                    policy_rollouts += len(outcomes)
+                    outcome = min(outcomes, key=lambda row: (row[1], row[0]))
                     scores.append(outcome[:2])
                     if self.rollout_horizon != "day":
-                        day_scores.append(self._day_score(
-                            world, int(view["loop"]), int(view["round"])))
-                    max_rollout_steps = max(max_rollout_steps, outcome[2])
-                    terminal_samples += int(outcome[3])
+                        day_scores.append(min((self._day_score(world, int(view["loop"]), int(view["round"]),
+                                                               mastermind_strategy=route) for route in routes),
+                                              key=lambda row: (row[1], row[0])))
+                    max_rollout_steps = max(max_rollout_steps, *(o[2] for o in outcomes))
+                    terminal_samples += sum(int(o[3]) for o in outcomes)
             if len(scores) == len(worlds):
                 survival_rate = sum(survived for _, survived in scores) / len(scores)
                 mean_score = sum(score for score, _ in scores) / len(scores)
@@ -779,7 +803,10 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                                       candidate_policy=self.candidate_policy,
                                       enumerated_bundles=enumerated,
                                       evaluated_bundles=len(evaluations),
-                                      joint_space_fallback=joint_space_fallback)
+                                      joint_space_fallback=joint_space_fallback,
+                                      ranking_worlds=len(worlds) if ranker is not None else 0,
+                                      tactical_projections=ranker.projections if ranker is not None else 0,
+                                      policy_rollouts=policy_rollouts)
         return keyed[_key(best[0])]
 
 

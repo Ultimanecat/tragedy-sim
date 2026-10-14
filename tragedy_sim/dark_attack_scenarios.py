@@ -79,6 +79,30 @@ def _complete(domains, forced, preferred):
     return visit(0)
 
 
+def marginal_dark_worlds(source, view):
+    """Cover each legal slot/face in a complete all-different assignment.
+
+    These are one-factor probes around a sampled baseline, not probabilities
+    and not full Cartesian coverage. Other slots may change to free a forced
+    physical card. Include the baseline and deduplicate full assignments.
+    """
+    _, domains, targets = dark_card_domains(view)
+    placements = [p for p in source.state.pending if p.actor == "m"]
+    preferred = {str(i): p.card for i, p in enumerate(placements)}
+    result, seen = [], set()
+    for slot in domains:
+        for face in sorted(domains[slot]):
+            completed = _complete(domains, {slot: face}, preferred)
+            if completed is None:
+                raise AssertionError("an arc-supported slot/face lacked a full assignment")
+            signature = tuple(completed[s] for s in domains)
+            if signature in seen:
+                continue
+            seen.add(signature)
+            result.append(with_dark_bundle(source, tuple(Placement("m", completed[s], targets[s]) for s in domains)))
+    return tuple(result)
+
+
 def attack_dark_worlds(source, view, *, limit=8):
     """Up to ``limit`` extra legal probes, prioritized by current role threats.
 
@@ -115,6 +139,8 @@ def attack_dark_worlds(source, view, *, limit=8):
     keys = [cid for cid in live if source._has(cid, "key")]
     victims = [cid for cid in live if source._has(cid, "key") or source._has(cid, "friend")]
     for killer in (cid for cid in live if source._has(cid, "killer")):
+        for face in ("i2", "i1"):
+            add(force(killer, face))
         for key in keys:
             move = movement(killer, characters[key].location)
             alignment = force(killer, move) if move else None

@@ -194,7 +194,7 @@ class JointActionSpace:
                     continue
             yield plan
 
-    def ranked_bundles(self, rank, limit, *, requirements=(), joint_rank=None):
+    def ranked_bundles(self, rank, limit, *, requirements=(), joint_rank=None, distinct_effects=False):
         """Scan the whole space; shortlist by a supplied ordering, not proof.
 
         Node limits bound expensive engine evaluations. The ranker can later
@@ -204,11 +204,21 @@ class JointActionSpace:
             raise ValueError("shortlist limit must be a positive integer")
         values = {p: rank(p.command()) for domain in self.domains for p in domain}
         enumerated = 0
+        signatures = set()
+        once = {c.id for c in HERO_CARDS if c.once_per_loop}
 
         def scored():
             nonlocal enumerated
             for plan in self.iter_plans(requirements):
                 enumerated += 1
+                if distinct_effects:
+                    # A shortlist ordering equivalence, not an exhaustive
+                    # future-policy certificate. Keep every scarce owner.
+                    signature = (tuple(sorted(p.effect for p in plan if p not in self.filler_placements)),
+                                 tuple(sorted((p.actor, p.card) for p in plan if p.card in once)))
+                    if signature in signatures:
+                        continue
+                    signatures.add(signature)
                 value = joint_rank(plan) if joint_rank is not None else sum(values[p] for p in plan)
                 fields = value if isinstance(value, tuple) else (value,)
                 yield tuple(-v for v in fields), plan
