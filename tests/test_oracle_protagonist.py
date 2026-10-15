@@ -23,6 +23,70 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_informed_relief_looks_at_future_fatal_event(self):
+        from benchmarks.ai_self_play import _policy_offer
+        game = protagonist_position("official-btx-06-secret-that-was-kept")
+        game.state.phase = "goodwill"
+        game.state.round = 3
+        game.state.locations["hospital"] = 2
+        for cid in ("worker", "journalist"):
+            game.state.characters[cid].paranoia = 3
+        game.state.characters["idol"].goodwill = 3
+        view = game.protagonist_team_view()
+        before = deepcopy(game.view("m"))
+        offers = [_policy_offer(game, p) for p in game.action_offers(game.controller)]
+        agent = HiddenCardOracleProtagonistAgent()
+        chosen = agent.choose_game_action(participant="team", game=game, offers=offers)
+        self.assertEqual(chosen["ui"]["target"], "journalist")
+        self.assertGreater(agent.skill_evaluations, 1)
+        self.assertEqual(game.view("m"), before)
+        public = HiddenCardOracleProtagonistAgent(skill_information="public")
+        self.assertIs(public._skill_offers(object(), offers), offers)
+        self.assertEqual(view, game.protagonist_team_view())
+
+    def test_oracle_skill_context_is_private_and_keeps_dark_faces_hidden(self):
+        from tragedy_sim.oracle_protagonist import OracleProtagonistAgent
+        game = protagonist_position("official-btx-06-secret-that-was-kept")
+        view = game.protagonist_team_view()
+        original = deepcopy(view)
+        agent = HiddenCardOracleProtagonistAgent()
+        informed = agent._skill_view(game, view)
+        self.assertEqual(informed["known_culprits"]["4"], "journalist")
+        self.assertEqual(informed["known_roles"]["outsider"]["role"], "friend")
+        self.assertTrue(all(p["card"] is None for p in informed["pending"] if p["actor"] == "m"))
+        self.assertEqual(view, original)
+        fair = OracleProtagonistAgent(reveal_cards=True, script_aware_rollout=False)
+        self.assertIs(fair._skill_view(object(), view), view)  # no private world attributes may be read
+        public = HiddenCardOracleProtagonistAgent(skill_information="public")
+        self.assertIs(public._skill_view(object(), view), view)
+        for invalid in (True, [], "cheat"):
+            with self.assertRaises(ValueError):
+                HiddenCardOracleProtagonistAgent(skill_information=invalid)
+
+    def test_known_nonvirus_oracle_can_search_high_paranoia(self):
+        from benchmarks.ai_self_play import _policy_offer
+        from tragedy_sim.joint_action_space import JointActionSpace, UnsupportedJointSpace
+        game = protagonist_position("official-btx-06-secret-that-was-kept")
+        game.state.characters["journalist"].paranoia = 3
+        view = game.protagonist_team_view()
+        with self.assertRaises(UnsupportedJointSpace):
+            JointActionSpace(view, game.search_actions(game.controller))
+        agent = FullCardOracleProtagonistAgent(SearchBudget(node_limit=1), candidate_policy="joint_counterexample")
+        agent.choose_game_action(participant="team", game=game,
+                                 offers=[_policy_offer(game, p) for p in game.action_offers(game.controller)])
+        self.assertIsNone(agent.last_trace.joint_space_fallback)
+        self.assertGreater(agent.last_trace.enumerated_bundles, 0)
+
+    def test_known_virus_oracle_keeps_high_paranoia_guard(self):
+        from benchmarks.ai_self_play import _policy_offer
+        game = protagonist_position("official-btx-09-those-with-antibodies")
+        ordinary = next(cid for cid, role in game.roles.items() if role == "ordinary")
+        game.state.characters[ordinary].paranoia = 3
+        agent = FullCardOracleProtagonistAgent(SearchBudget(node_limit=1), candidate_policy="joint_counterexample")
+        agent.choose_game_action(participant="team", game=game,
+                                 offers=[_policy_offer(game, p) for p in game.action_offers(game.controller)])
+        self.assertIn("mutation invariants", agent.last_trace.joint_space_fallback)
+
     def test_proposal_schedule_preserves_prefix_and_advances_without_cycles(self):
         agent = FullCardOracleProtagonistAgent()
         prefix = (0, 1, 10, 2, 11, 3, 12, 4, 13, 5, 14, 6,

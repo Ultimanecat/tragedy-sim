@@ -230,9 +230,37 @@ class DefensiveProtagonistAgent(BaselineProtagonistAgent):
             expected = 1 if view.get("module") == "FS" else 2
             if len(view.get("known_plots", ())) >= expected:
                 score = 0
+        elif effect == "kill":
+            # Baseline continuations need an observed benefit before killing.
+            # Dedicated search keeps every legal kill option available.
+            role = cls._known_role(view, target)
+            safe_roles = {"ordinary", "killer", "brain", "conspiracy", "serial", "cultist", "curmudgeon", "witch"}
+            if view.get("module") not in {"FS", "BTX"} or role not in safe_roles:
+                return -1
+            urgency = cls._known_culprit_urgency(view, target)
+            return max(urgency, 110 if role in {"killer", "brain", "conspiracy", "serial"} else -1)
+        elif effect == "revive":
+            role = cls._known_role(view, target)
+            if role in {"key", "friend", "factor"}:
+                return 300
+            if role in {"killer", "brain", "conspiracy", "serial"}:
+                return -1
         if (ui.get("counter") == "paranoia"
                 and isinstance(ui.get("amount"), int) and ui["amount"] < 0):
             score = max(score, 150)
+            character = view.get("characters", {}).get(target, {})
+            if "paranoia" in character:
+                paranoia = int(character["paranoia"])
+                if paranoia <= 0:
+                    return 0
+                score += min(paranoia, 9) * 10 + cls._known_culprit_urgency(view, target)
+        if (effect == "counter" and ui.get("counter") == "intrigue"
+                and isinstance(ui.get("amount"), int) and ui["amount"] < 0):
+            value = view.get("characters", {}).get(target, {}).get("intrigue")
+            if value is None:
+                value = view.get("locations", {}).get(target)
+            if value == 0:
+                return 0
         return score
 
     def choose_action(self, *, participant: str, view: dict[str, Any],

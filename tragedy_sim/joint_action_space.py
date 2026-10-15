@@ -62,14 +62,16 @@ def _move(location, faces, forbidden):
 
 
 class JointActionSpace:
-    def __init__(self, view, offers):
+    def __init__(self, view, offers, *, global_counter_mutation_excluded=False):
+        if type(global_counter_mutation_excluded) is not bool:
+            raise ValueError("counter mutation invariant must be boolean")
         if view.get("module") not in {"FS", "BTX"} or view.get("phase") != "protagonists":
             raise UnsupportedJointSpace("FS/BTX protagonist placement phase required")
         if set(view.get("locations", ())) != set(COORDS):
             raise UnsupportedJointSpace("standard four-board layout required")
         if any(c.get("echo_board_actions") for c in view.get("characters", {}).values()):
             raise UnsupportedJointSpace("board echoes require engine-level equivalence")
-        if view.get("module") == "BTX" and any(
+        if view.get("module") == "BTX" and not global_counter_mutation_excluded and any(
                 c.get("alive") and c.get("present") and c.get("paranoia", 0) >= 3
                 for c in view.get("characters", {}).values()):
             # Virus checks all living characters on any counter mutation,

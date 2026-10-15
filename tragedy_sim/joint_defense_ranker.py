@@ -222,6 +222,13 @@ class TacticalWorldModel:
             if servant in live and target in c.follow_targets and loc[servant] == loc[target]:
                 return servant in critical and not self.guards[servant]
             return True
+        def removable(target):
+            if has(target, "time_traveler") or self.guards[target] or c.ids[target] == "part_timer":
+                return False
+            return not (c.servant in live and target in c.follow_targets and loc[c.servant] == loc[target])
+        def ready_kill(target):
+            return (target not in critical and removable(target)
+                    and any(a.kind == "kill" and scoped(source, a, target) for source, a in ready))
         hero_protection = self.protected or any(a.kind == "protect" for _, a in ready)
         risk = 0
         serials = [i for i in live if has(i, "serial")]
@@ -239,8 +246,8 @@ class TacticalWorldModel:
                 forced_serial_victims.update(possible_victims)
         risk += sum(3 if has(i, "key") else 1 for i in serial_victims if death_fails(i))
         for killer in (i for i in live if has(i, "killer")):
-            can_kill = any(a.kind == "kill" and scoped(source, a, killer) for source, a in ready)
-            if (killer in forced_serial_victims and not self.guards[killer]) or can_kill:
+            can_kill = ready_kill(killer)
+            if (killer in forced_serial_victims and removable(killer)) or can_kill:
                 continue
             if i_pressure[killer] - relief(killer, "intrigue") >= 4 and not hero_protection:
                 risk += 4
@@ -259,7 +266,7 @@ class TacticalWorldModel:
             score = p_pressure[culprit] - relief(culprit, "paranoia")
             if c.ids[culprit] == "ai":
                 score += g[culprit] + i_pressure[culprit] + self.guards[culprit] + self.ai_extra[culprit]
-            prevented = any(a.kind == "prevent_incident" and source == culprit for source, a in ready)
+            prevented = (ready_kill(culprit) or any(a.kind == "prevent_incident" and source == culprit for source, a in ready))
             if culprit in live and score >= CHARACTERS[c.ids[culprit]].limit and not prevented:
                 kind = self.today["kind"]
                 if kind == "suicide":

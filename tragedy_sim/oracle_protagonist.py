@@ -70,7 +70,10 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                  scenario_count: int = 4, rng_seed: int = 0,
                  rollout_horizon: str = "day",
                  script_aware_rollout: bool = True,
-                 candidate_policy: str = "legacy"):
+                 candidate_policy: str = "legacy", skill_information: str = "script"):
+        if type(skill_information) is not str or skill_information not in {"public", "script"}:
+            raise ValueError("skill_information must be public or script")
+        self.skill_information = skill_information
         if rollout_horizon not in self.ROLLOUT_HORIZONS:
             raise ValueError("rollout_horizon must be day, loop, or match")
         if type(candidate_policy) is not str or candidate_policy not in {"legacy", "joint_enumeration", "joint_threat", "joint_counterexample"}:
@@ -90,6 +93,7 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
         self._loop_plans: dict[tuple[int, int, tuple[str, ...]],
                                tuple[str, ...]] = {}
         self.last_trace: OracleTrace | None = None
+        self.skill_evaluations = 0
 
     @property
     def plan_name(self) -> str:
@@ -421,10 +425,69 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
         ).hexdigest()
         policy = DefensiveProtagonistAgent(random.Random(state_seed))
         chosen = policy.choose_action(
-            participant="team", view=world.protagonist_team_view(),
-            offers=offers)
+            participant="team", view=self._skill_view(world, world.protagonist_team_view()),
+            offers=self._skill_offers(world, offers))
         return actions[next(i for i, offer in enumerate(offers)
                             if offer["id"] == chosen["id"])]
+
+    def _skill_view(self, world: Game, view: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Private oracle context; never published as public knowledge.
+
+        Fair rollout helpers explicitly disable script_aware_rollout and
+        retain exactly their authorized observation, including known roles.
+        Current dark faces are never copied into this context.
+        """
+        if not self.script_aware_rollout or self.skill_information == "public":
+            return view
+        culprits = {}
+        for incident in world.scenario["incidents"]:
+            cid = incident["culprit"]
+            if (cid == "part_timer" and "part_timer_question" in world.state.characters
+                    and not world.state.characters[cid].alive
+                    and world.state.characters["part_timer_question"].present):
+                cid = "part_timer_question"
+            culprits[str(incident["day"])] = cid
+        return {**view, "known_roles": {cid: {"role": role} for cid, role in world.roles.items()},
+                "known_culprits": culprits}
+
+    def _skill_offers(self, world: Game, offers):
+        """Rank relief targets by one real transition and existing value.
+
+        Only the deliberately informed oracle does this. This reorders a
+        continuation policy, not the legal engine or the joint search space.
+        Keep ordered values and deterministic ties; no nested day rollouts.
+        """
+        if (not self.script_aware_rollout or self.skill_information == "public"
+                or world.state.phase != "goodwill" or world.module not in {"FS", "BTX"}):
+            return offers
+        groups = {}
+        for offer in offers:
+            ui = offer.get("ui", {})
+            if (ui.get("effect") == "counter" and ui.get("counter") in {"paranoia", "intrigue"}
+                    and isinstance(ui.get("amount"), int) and ui["amount"] < 0):
+                groups.setdefault(ui["counter"], []).append(offer)
+        excluded = set()
+        view = self._skill_view(world, world.protagonist_team_view())
+        for group in groups.values():
+            if len(group) < 2:
+                continue
+            scores = []
+            for offer in group:
+                after = world.search_transition(_command(offer))
+                self.skill_evaluations += 1
+                successors = [after]
+                if after.state.phase == "refusal":
+                    # Even an unrefusable/ordinary source first enters the
+                    # explicit acceptance window. Apply the forced response;
+                    # optional refusals get their pessimistic actual value.
+                    responses = after.search_actions(after.controller)
+                    successors = [after.search_transition(response) for response in responses]
+                    self.skill_evaluations += len(successors)
+                scores.append((min(self._cutoff_value(child, world.state.round) for child in successors),
+                               self.fallback._choice_score(offer, view), offer))
+            best = max(scores, key=lambda x: x[:2])[2]
+            excluded.update(o["id"] for o in group if o["id"] != best["id"])
+        return [offer for offer in offers if offer["id"] not in excluded]
 
     @staticmethod
     def _policy_state_key(world: Game) -> str:
@@ -651,7 +714,7 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                            for cid in view.get("guess_remaining", ())}
                 return {**offers[0], "arguments": {"guesses": guesses}}
             return self.fallback.choose_action(
-                participant="team", view=view, offers=offers)
+                participant="team", view=self._skill_view(game, view), offers=self._skill_offers(game, offers))
 
         started = perf_counter()
         deadline = (None if self.budget.time_limit_ms is None else
@@ -682,7 +745,13 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                     space_view = {**view, "pending": [
                         {**p, "card": faces[p["target"]]} if p.get("actor") == "m" else dict(p)
                         for p in view.get("pending", ())]}
-                space = JointActionSpace(space_view, offers)
+                invariant = (root.module == "BTX" and "virus" not in root.scenario["subplots"])
+                if invariant:
+                    # Both oracles explicitly know the script. A fair caller
+                    # needs a proved invariant over its entire support first.
+                    space = JointActionSpace(space_view, offers, global_counter_mutation_excluded=True)
+                else:
+                    space = JointActionSpace(space_view, offers)
                 if self.candidate_policy in {"joint_threat", "joint_counterexample"}:
                     from .joint_defense_ranker import JointThreatRanker
                     if not self.reveal_cards:
@@ -833,15 +902,15 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
 
 class FullCardOracleProtagonistAgent(OracleProtagonistAgent):
     def __init__(self, budget: SearchBudget | None = None, *, rng_seed: int = 0,
-                 rollout_horizon: str = "day", candidate_policy: str = "legacy"):
+                 rollout_horizon: str = "day", candidate_policy: str = "legacy", skill_information: str = "script"):
         super().__init__(reveal_cards=True, budget=budget, rng_seed=rng_seed,
-                         rollout_horizon=rollout_horizon, candidate_policy=candidate_policy)
+                         rollout_horizon=rollout_horizon, candidate_policy=candidate_policy, skill_information=skill_information)
 
 
 class HiddenCardOracleProtagonistAgent(OracleProtagonistAgent):
     def __init__(self, budget: SearchBudget | None = None, *,
                  scenario_count: int = 4, rng_seed: int = 0,
-                 rollout_horizon: str = "day", candidate_policy: str = "legacy"):
+                 rollout_horizon: str = "day", candidate_policy: str = "legacy", skill_information: str = "script"):
         super().__init__(reveal_cards=False, budget=budget,
                          scenario_count=scenario_count, rng_seed=rng_seed,
-                         rollout_horizon=rollout_horizon, candidate_policy=candidate_policy)
+                         rollout_horizon=rollout_horizon, candidate_policy=candidate_policy, skill_information=skill_information)

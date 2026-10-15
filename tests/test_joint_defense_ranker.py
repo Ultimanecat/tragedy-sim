@@ -27,6 +27,25 @@ def known_space(game):
 
 
 class JointDefenseRankerTests(unittest.TestCase):
+    def test_ready_culprit_kill_prevents_incident_but_guards_and_friend_do_not(self):
+        game = Game(ScenarioLibrary().get("official-btx-06-secret-that-was-kept"))
+        while game.state.phase != "protagonists":
+            game = game.search_transition(game.search_actions(game.controller)[0])
+        game.state.round = 4
+        game.state.locations["hospital"] = 2
+        game.state.characters["journalist"].paranoia = 2
+        game.state.characters["outsider"].location = "city"
+        game.state.characters["outsider"].goodwill = 4
+        space = known_space(game)
+        safe = TacticalWorldModel(game, space).score(())[0]
+        game.guards["journalist"] = 1
+        guarded = TacticalWorldModel(game, space).score(())[0]
+        self.assertLess(safe, guarded)
+        game.guards.clear()
+        game.roles["journalist"] = "friend"
+        critical = TacticalWorldModel(game, space).score(())[0]
+        self.assertLess(safe, critical)
+
     def test_marginal_probes_cover_every_supported_slot_face(self):
         game = threat_root()
         game.dispatch("a", "play", card="g1", target="doctor")

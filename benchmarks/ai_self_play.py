@@ -187,6 +187,8 @@ class MatchResult:
     dark_attack_limit: int = 8
     dark_guard_proposals: bool = True
     oracle_candidate_policy: str = "legacy"
+    oracle_skill_information: str = "script"
+    oracle_skill_evaluations: int = 0
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -362,6 +364,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          dark_card_policy: str = "sampled", dark_attack_limit: int = 8,
          dark_guard_proposals: bool = True,
          oracle_candidate_policy: str = "legacy",
+         oracle_skill_information: str = "script",
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     matrix_proposals, joint_culprits = _resolve_belief_options(
@@ -381,6 +384,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         raise ValueError("invalid oracle_candidate_policy")
     if oracle_candidate_policy != "legacy" and protagonist_strategy not in {"oracle_cards", "oracle_script"}:
         raise ValueError("joint_enumeration currently requires an oracle protagonist")
+    if type(oracle_skill_information) is not str or oracle_skill_information not in {"public", "script"}:
+        raise ValueError("oracle_skill_information must be public or script")
+    if oracle_skill_information != "script" and protagonist_strategy not in {"oracle_cards", "oracle_script"}:
+        raise ValueError("oracle skill information requires an oracle protagonist")
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -413,12 +420,12 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         team_ismcts = FullCardOracleProtagonistAgent(protagonist_budget,
                                                     rng_seed=seed,
                                                     rollout_horizon=oracle_horizon,
-                                                    candidate_policy=oracle_candidate_policy)
+                                                    candidate_policy=oracle_candidate_policy, skill_information=oracle_skill_information)
     elif protagonist_strategy == "oracle_script":
         team_ismcts = HiddenCardOracleProtagonistAgent(protagonist_budget,
                                                       rng_seed=seed,
                                                       rollout_horizon=oracle_horizon,
-                                                      candidate_policy=oracle_candidate_policy)
+                                                      candidate_policy=oracle_candidate_policy, skill_information=oracle_skill_information)
     elif protagonist_strategy == "particle_ensemble":
         team_ismcts = ParticleEnsembleProtagonistAgent(
             protagonist_budget,
@@ -655,6 +662,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         dark_card_policy=dark_card_policy, dark_attack_limit=dark_attack_limit,
         dark_guard_proposals=dark_guard_proposals,
         oracle_candidate_policy=oracle_candidate_policy,
+        oracle_skill_information=oracle_skill_information,
+        oracle_skill_evaluations=getattr(team_ismcts, "skill_evaluations", 0),
         final_role_candidates=final_role_candidates,
         final_true_setup_in_exact_space=final_true_setup_in_exact_space,
         final_true_setup_hard_compatible=final_true_setup_hard_compatible,
@@ -764,6 +773,7 @@ def main() -> None:
     parser.add_argument("--dark-attack-limit", type=int, default=8)
     parser.add_argument("--dark-guard-proposals", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--oracle-candidate-policy", choices=("legacy", "joint_enumeration", "joint_threat", "joint_counterexample"), default="legacy")
+    parser.add_argument("--oracle-skill-information", choices=("public", "script"), default="script")
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
@@ -828,6 +838,7 @@ def main() -> None:
                               dark_card_policy=args.dark_card_policy, dark_attack_limit=args.dark_attack_limit,
                               dark_guard_proposals=args.dark_guard_proposals,
                               oracle_candidate_policy=args.oracle_candidate_policy,
+                              oracle_skill_information=args.oracle_skill_information,
                               disabled_witness_sources=tuple(
                                   args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,

@@ -22,6 +22,44 @@ def offer(action_type, **parameters):
 
 
 class AiPolicyTests(unittest.TestCase):
+    def test_relief_prefers_real_counters_and_known_culprit(self):
+        view = {"module": "BTX", "round": 4, "known_culprits": {"4": "journalist"},
+                "characters": {"journalist": {"paranoia": 2}, "informer": {"paranoia": 0},
+                               "idol": {"paranoia": 3}}, "locations": {"hospital": 0}}
+        def relief(target, counter="paranoia"):
+            return {"id": target, "type": "choose", "ui": {"effect": "counter", "target": target,
+                                                            "counter": counter, "amount": -1}}
+        finish = {"id": "finish", "type": "choose"}
+        agent = DefensiveProtagonistAgent(random.Random(0))
+        self.assertEqual(agent.choose_action(participant="team", view=view,
+                                             offers=[relief("informer"), finish]), finish)
+        self.assertEqual(agent.choose_action(participant="team", view=view,
+                                             offers=[relief("hospital", "intrigue"), finish]), finish)
+        self.assertEqual(agent.choose_action(participant="team", view=view,
+                                             offers=[relief("idol"), relief("journalist")])["id"], "journalist")
+
+    def test_killing_requires_known_safe_target_and_benefit(self):
+        view = {"module": "BTX", "round": 2, "known_culprits": {"4": "journalist"},
+                "known_roles": {"journalist": {"role": "ordinary"}, "worker": {"role": "friend"},
+                                "doctor": {"role": "brain"}}}
+        def kill(target):
+            return {"id": target, "type": "choose", "ui": {"effect": "kill", "target": target}}
+        finish = {"id": "finish", "type": "choose"}
+        agent = DefensiveProtagonistAgent(random.Random(0))
+        for target in ("worker", "unknown"):
+            self.assertEqual(agent.choose_action(participant="team", view=view, offers=[kill(target), finish]), finish)
+        for target in ("journalist", "doctor"):
+            self.assertEqual(agent.choose_action(participant="team", view=view, offers=[kill(target), finish])["id"], target)
+
+    def test_revive_prefers_friend_and_skips_known_attacker(self):
+        view = {"known_roles": {"worker": {"role": "friend"}, "doctor": {"role": "brain"}}}
+        def revive(target):
+            return {"id": target, "type": "choose", "ui": {"effect": "revive", "target": target}}
+        finish = {"id": "finish", "type": "choose"}
+        agent = DefensiveProtagonistAgent(random.Random(0))
+        self.assertEqual(agent.choose_action(participant="team", view=view, offers=[revive("worker"), revive("doctor")])["id"], "worker")
+        self.assertEqual(agent.choose_action(participant="team", view=view, offers=[revive("doctor"), finish]), finish)
+
     def setUp(self):
         self.view = {
             "round": 1,
