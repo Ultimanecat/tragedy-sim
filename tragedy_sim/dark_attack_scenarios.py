@@ -6,9 +6,28 @@ Keep these probes outside belief counts, probability estimates and witness.
 """
 
 from .belief_dark_constraints import dark_card_domains
-from .cards import COORDS
+from .cards import COORDS, deck
 from .engine import Placement
 from itertools import permutations
+
+
+def tactical_dark_key(bundle, locations):
+    """FS/BTX immediate-effect class, retaining limited-card consumption.
+
+    Group only already-legal concrete assignments. Keep their members for
+    engine probes, future hands, observations, and policy RNG differences.
+    """
+    cards = deck("m")
+    effects, limited = [], []
+    for p in bundle:
+        card = cards[p.card]
+        effect, amount = card.effect, card.amount
+        if p.target in locations and effect != "intrigue":
+            effect, amount = "noop", 0
+        effects.append((p.target, effect, amount))
+        if card.once_per_loop:
+            limited.append(p.card)
+    return tuple(effects), tuple(sorted(limited))
 
 
 def legal_dark_bundles(view):

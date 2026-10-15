@@ -715,7 +715,7 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                     worlds, candidates, counterexample_stats = refine_defense(
                         root, view, space, worlds, candidates,
                         lambda action: self._rank(action, view, root.scenario), self.budget.node_limit,
-                        verify_loss, deadline=deadline)
+                        verify_loss, deadline=deadline, ranker=ranker)
                     enumerated += counterexample_stats["enumerated_bundles"]
             except UnsupportedJointSpace as error:
                 joint_space_fallback = str(error)
@@ -825,8 +825,7 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                                       evaluated_bundles=len(evaluations),
                                       joint_space_fallback=joint_space_fallback,
                                       ranking_worlds=len(worlds) if ranker is not None else 0,
-                                      tactical_projections=(ranker.projections + (counterexample_stats or {}).get("ranking_projections", 0)
-                                                            if ranker is not None else 0),
+                                      tactical_projections=ranker.projections if ranker is not None else 0,
                                       policy_rollouts=policy_rollouts,
                                       counterexample_search=counterexample_stats)
         return keyed[_key(best[0])]

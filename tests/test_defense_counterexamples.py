@@ -5,10 +5,11 @@ from unittest.mock import patch
 import unittest
 
 from tests.test_dark_attack_scenarios import threat_root
-from tragedy_sim.dark_attack_scenarios import legal_dark_bundles, with_dark_bundle
+from tragedy_sim.dark_attack_scenarios import legal_dark_bundles, tactical_dark_key, with_dark_bundle
 from tragedy_sim.defense_counterexamples import refine_defense
 from tragedy_sim.engine import Placement
 from tragedy_sim.joint_action_space import JointActionSpace
+from tragedy_sim.joint_defense_ranker import JointThreatRanker, TacticalWorldModel
 from tragedy_sim.oracle_protagonist import HiddenCardOracleProtagonistAgent
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
 from tragedy_sim.search import SearchBudget
@@ -96,6 +97,71 @@ class DefenseCounterexampleTests(unittest.TestCase):
         other.roles["girl"] = "ordinary"
         with self.assertRaisesRegex(ValueError, "one role"):
             refine_defense(game, game.protagonist_team_view(), None, (game, other), (), lambda _: 0, 1, lambda *_: False)
+
+    def test_board_noops_merge_but_limited_consumption_stays_distinct(self):
+        def key(face):
+            return tactical_dark_key((Placement("m", face, "school"),), {"school": 0})
+        self.assertEqual(key("h"), key("fg"))
+        self.assertEqual(key("p1a"), key("p-1"))
+        self.assertNotEqual(key("i1"), key("i2"))
+        self.assertNotEqual(key("i1"), key("h"))
+        self.assertNotEqual(key("d"), key("h"))
+        self.assertEqual(tactical_dark_key((Placement("m", "p1a", "girl"),), {}),
+                         tactical_dark_key((Placement("m", "p1b", "girl"),), {}))
+
+    def test_grouped_scan_preserves_raw_probe_order_and_candidates(self):
+        game = threat_root()
+        view = game.protagonist_team_view()
+        space = JointActionSpace(view, game.search_actions(game.controller))
+        candidates, _ = space.ranked_bundles(lambda _: 0, 2)
+        outputs, probes = [], []
+        for compressed in (False, True):
+            observed = []
+            def reject(world, _):
+                observed.append(tuple(p.card for p in world.state.pending if p.actor == "m"))
+                return False
+            with patch("tragedy_sim.defense_counterexamples.TacticalWorldModel") as model:
+                model.return_value.score.return_value = (1, 0)
+                outputs.append(refine_defense(game, view, space, (game,), candidates, lambda _: 0, 2,
+                                               reject, probe_limit=4, compress=compressed))
+            probes.append(observed)
+        self.assertEqual(probes[0], probes[1])
+        self.assertEqual(outputs[0][:2], outputs[1][:2])
+        self.assertEqual(outputs[0][2]["legal_assignments"], outputs[1][2]["legal_assignments"])
+        self.assertLess(outputs[1][2]["tactical_groups"], outputs[0][2]["tactical_groups"])
+        self.assertLess(outputs[1][2]["tactical_checks"], outputs[0][2]["tactical_checks"])
+
+    def test_all_group_members_have_identical_projected_risk(self):
+        game = regression_root()
+        view = game.protagonist_team_view()
+        space = JointActionSpace(view, game.search_actions(game.controller))
+        plan = next(space.iter_plans())
+        scores = {}
+        for faces in legal_dark_bundles(view):
+            key = tactical_dark_key(faces, view["locations"])
+            score = TacticalWorldModel(with_dark_bundle(game, faces), space).score(plan)
+            if key in scores:
+                self.assertEqual(scores[key], score)
+            scores[key] = score
+
+    def test_incremental_ranking_exactly_matches_fresh_world_order(self):
+        game = threat_root()
+        view = game.protagonist_team_view()
+        space = JointActionSpace(view, game.search_actions(game.controller))
+        from itertools import islice
+        worlds = tuple(with_dark_bundle(game, p) for p in islice(legal_dark_bundles(view), 4))
+        plans = list(islice(space.iter_plans(), 20))
+        for capacity in (0, 1, 64):
+            ranker = JointThreatRanker(worlds[:2], space, cache_limit=capacity)
+            for plan in plans:
+                ranker(plan)
+            ranker.add_worlds(worlds[2:])
+            fresh = JointThreatRanker(worlds, space)
+            for plan in plans:
+                self.assertEqual(ranker(plan), fresh(plan))
+            if capacity == 64:
+                self.assertEqual(ranker.projections, fresh.projections)
+            self.assertLessEqual(len(ranker.cache), capacity)
 
 
 if __name__ == "__main__":

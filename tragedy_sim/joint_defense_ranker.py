@@ -317,6 +317,7 @@ class JointThreatRanker:
     """
 
     def __init__(self, worlds, space, *, cache_limit=32768):
+        self.space = space
         self.models = tuple(TacticalWorldModel(w, space) for w in worlds)
         if not self.models:
             raise ValueError("joint ranking requires common worlds")
@@ -324,18 +325,26 @@ class JointThreatRanker:
         self.cache_limit = cache_limit
         self.projections = 0
 
+    def add_worlds(self, worlds):
+        """Append common scenarios; existing cached prefixes stay reusable."""
+        self.models += tuple(TacticalWorldModel(w, self.space) for w in worlds)
+
     def __call__(self, plan):
         signature = tuple(sorted(p.effect for p in plan))
         row = self.cache.get(signature)
-        if row is None:
-            outcomes = [model.score(plan) for model in self.models]
+        evaluated = row[0] if row is not None else 0
+        if evaluated < len(self.models):
+            outcomes = [model.score(plan) for model in self.models[evaluated:]]
             self.projections += len(outcomes)
-            row = (sum(risk == 0 for risk, _ in outcomes) / len(outcomes),
-                   -max(risk for risk, _ in outcomes), sum(value for _, value in outcomes) / len(outcomes))
+            # Keep the original ordered values. Summing rounded partial means
+            # can reorder nearly tied plans; a fresh full ranker must agree.
+            values = (row[3] if row is not None else ()) + tuple(value for _, value in outcomes)
+            row = (len(self.models), (row[1] if row is not None else 0) + sum(risk == 0 for risk, _ in outcomes),
+                   max(row[2] if row is not None else 0, max(risk for risk, _ in outcomes)), values)
             self.cache[signature] = row
             if len(self.cache) > self.cache_limit:
                 self.cache.popitem(last=False)
-        else:
+        if signature in self.cache:
             self.cache.move_to_end(signature)
         scarce = sum(p.card in {"fm", "g2", "p-1"} for p in plan)
-        return row[0], row[1], row[2] - 0.025 * scarce
+        return row[1] / row[0], -row[2], sum(row[3]) / row[0] - 0.025 * scarce
