@@ -22,6 +22,32 @@ from tragedy_sim.belief import FactorizedBeliefResult, FactorizedBeliefState
 
 
 class AbilityUsageTests(unittest.TestCase):
+    def test_oracle_planning_telemetry_is_captured_once_per_new_trace(self):
+        for mode in ("oracle_cards", "oracle_script"):
+            with self.subTest(mode=mode):
+                result = play("official-fs-01-first-script", 1, 1, 4, "fixed", mode,
+                              protagonist_nodes=1, capture_replay=True)
+                positions = {(p.loop, p.day) for p in result.protagonist_plays}
+                records = result.oracle_searches
+                self.assertEqual(len(records), len(positions))
+                self.assertEqual({(r.loop, r.day) for r in records}, positions)
+                self.assertGreater(result.protagonist_search_seconds, 0)
+                self.assertEqual(result.protagonist_search_seconds,
+                                 sum(r.trace["elapsed_ms"] for r in records) / 1000)
+                for r in records:
+                    self.assertGreater(r.trace["elapsed_ms"], 0)
+                    commands = [{"actor": p.actor, "action": "play", "card": p.card, "target": p.target}
+                                for p in result.protagonist_plays if (p.loop, p.day) == (r.loop, r.day)]
+                    self.assertEqual(r.trace["selected_bundle"], commands)
+                    self.assertEqual(r.actor, commands[0]["actor"])
+                    values = r.trace["candidate_values"]
+                    self.assertEqual(len(values), r.trace["evaluated_bundles"])
+                    self.assertEqual(sum(v["selected"] for v in values), 1)
+                    chosen = max(values, key=lambda v: v["selection_key"])
+                    self.assertTrue(chosen["selected"])
+                    self.assertEqual(chosen["bundle"], commands)
+                self.assertEqual(result.protagonist_searches, ())
+
     def test_matrix_importance_diagnostics_are_captured_per_root(self):
         result = play("official-tragic-aiplay-btx-01g", 1, 2, 4, "fixed",
                       "particle_ensemble", protagonist_nodes=2, protagonist_particles=4,

@@ -25,7 +25,7 @@ from tragedy_sim.ismcts import (IsmctsProtagonistAgent,
                                 LegacyIsmctsProtagonistAgent,
                                 SurvivalIsmctsProtagonistAgent)
 from tragedy_sim.oracle_protagonist import (FullCardOracleProtagonistAgent,
-                                             HiddenCardOracleProtagonistAgent)
+                                             HiddenCardOracleProtagonistAgent, OracleTrace)
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
 from tragedy_sim.belief import HiddenWorldHypothesis, PublicEvidence
 from tragedy_sim.belief_posterior import RolePosteriorTarget
@@ -118,6 +118,15 @@ class ProtagonistSearchRecord:
 
 
 @dataclass(frozen=True)
+class OracleSearchRecord:
+    """Offline planning trace, captured once despite cached second/third cards."""
+    loop: int
+    day: int
+    actor: str
+    trace: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class AbilityUsageRecord:
     source: str
     ability: str
@@ -191,6 +200,7 @@ class MatchResult:
     oracle_skill_evaluations: int = 0
     oracle_future_incident_policy: str = "legacy"
     oracle_dark_state_policy: str = "mean"
+    oracle_searches: tuple[OracleSearchRecord, ...] = ()
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -488,6 +498,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     protagonist_plays: list[ProtagonistPlayRecord] = []
     mastermind_plays: list[MastermindPlayRecord] = []
     protagonist_searches: list[ProtagonistSearchRecord] = []
+    oracle_searches: list[OracleSearchRecord] = []
+    last_oracle_traces: dict[int, OracleTrace] = {}
     protagonist_fallback_contexts: list[dict[str, Any]] = []
     protagonist_evidence_ms = protagonist_search_ms = 0.0
     started = perf_counter()
@@ -544,7 +556,13 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                 game.state.loop, game.state.round,
                 command["card"], command["target"]))
         if command.get("action") == "play" and command.get("actor") != "m":
-            trace = getattr(protagonists[command["actor"]], "last_trace", None)
+            policy = protagonists[command["actor"]]
+            trace = getattr(policy, "last_trace", None)
+            if isinstance(trace, OracleTrace) and trace is not last_oracle_traces.get(id(policy)):
+                last_oracle_traces[id(policy)] = trace
+                oracle_searches.append(OracleSearchRecord(
+                    game.state.loop, game.state.round, command["actor"], trace.to_dict()))
+                protagonist_search_ms += trace.elapsed_ms
             if (capture_fallback_contexts and trace is not None
                     and getattr(trace, "fallback", None) in {
                         "no_compatible_factor", "composition_invalid", "no_particles",
@@ -686,6 +704,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         protagonist_plays=tuple(protagonist_plays),
         mastermind_plays=tuple(mastermind_plays),
         protagonist_searches=tuple(protagonist_searches),
+        oracle_searches=tuple(oracle_searches),
         protagonist_evidence_seconds=protagonist_evidence_ms / 1000,
         protagonist_search_seconds=protagonist_search_ms / 1000,
         ability_usage=_ability_usage(game.state.events),

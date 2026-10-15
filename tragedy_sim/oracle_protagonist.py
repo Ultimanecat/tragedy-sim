@@ -47,6 +47,7 @@ class OracleTrace:
     policy_rollouts: int = 0
     counterexample_search: dict[str, Any] | None = None
     dark_state_policy: str = "mean"
+    candidate_values: tuple[dict[str, Any], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False))
@@ -917,7 +918,14 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                                       ranking_worlds=len(worlds) if ranker is not None else 0,
                                       tactical_projections=ranker.projections if ranker is not None else 0,
                                       policy_rollouts=policy_rollouts,
-                                      counterexample_search=counterexample_stats, dark_state_policy=self.dark_state_policy)
+                                      counterexample_search=counterexample_stats, dark_state_policy=self.dark_state_policy,
+                                      candidate_values=tuple({
+                                          "bundle": tuple(dict(command) for command in row[4]),
+                                          "survival_rate": row[0], "day_survival_rate": row[2],
+                                          "state_value": row[1], "day_state_value": row[3],
+                                          "selection_key": self._evaluation_key(row),
+                                          "selected": row[4] == best,
+                                      } for row in evaluations))
         return keyed[_key(best[0])]
 
 
