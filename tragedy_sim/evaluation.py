@@ -243,32 +243,46 @@ class ScenarioConditionedEvaluator:
         for day, kind, culprit_id in context.incidents:
             if day < state.round or day in resolved_days:
                 continue
+            culprit_id = self.incident_culprit(game, culprit_id)
             culprit = state.characters.get(culprit_id)
             if culprit is None or not culprit.present or not culprit.alive:
                 continue
             limit = max(1, CHARACTERS[culprit_id].limit)
             progress = _threshold_progress(culprit.paranoia, limit)
             deadline = 1.0 / (1.0 + 0.18 * max(0, day - state.round))
-            impact = 0.18
-            if kind in {"murder", "faraway"}:
-                victims = [c for c in state.characters.values()
-                           if c.present and c.alive and c.id != culprit_id
-                           and (c.location == culprit.location if kind == "murder"
-                                else c.intrigue >= 2)]
-                if any(game._has(c.id, "key") or roles[c.id] == "friend"
-                       for c in victims):
-                    impact = 0.52
-            elif kind == "suicide":
-                impact = 0.62 if (game._has(culprit_id, "key")
-                                  or roles[culprit_id] == "friend") else 0.16
-            elif kind == "hospital":
-                board = state.locations["hospital"]
-                impact = 0.70 if board >= 2 else 0.38 if board >= 1 else 0.18
-            elif kind == "butterfly" and context.main_plot == "change":
-                impact = 0.76
+            impact = self.incident_impact(game, context, kind, culprit_id)
             self._add(items, f"incident:{day}:{kind}:{culprit_id}", impact,
                       progress * deadline,
                       f"第 {day} 天事件；当事人不安 {culprit.paranoia}/{limit}")
+
+    @staticmethod
+    def incident_culprit(game: SearchGame, cid: str) -> str:
+        characters = game.state.characters
+        if (cid == "part_timer" and "part_timer_question" in characters
+                and not characters[cid].alive and characters["part_timer_question"].present):
+            return "part_timer_question"
+        return cid
+
+    @staticmethod
+    def incident_impact(game: SearchGame, context: ScenarioEvaluationContext,
+                        kind: str, culprit_id: str) -> float:
+        """Existing FS/BTX consequence weights, shared with future defense."""
+        state, roles = game.state, game.roles
+        culprit = state.characters[culprit_id]
+        if kind in {"murder", "faraway"}:
+            victims = [c for c in state.characters.values()
+                       if c.present and c.alive and c.id != culprit_id
+                       and (c.location == culprit.location if kind == "murder" else c.intrigue >= 2)]
+            if any(game._has(c.id, "key") or roles[c.id] == "friend" for c in victims):
+                return 0.52
+        elif kind == "suicide":
+            return 0.62 if game._has(culprit_id, "key") or roles[culprit_id] == "friend" else 0.16
+        elif kind == "hospital":
+            board = state.locations["hospital"]
+            return 0.70 if board >= 2 else 0.38 if board >= 1 else 0.18
+        elif kind == "butterfly" and context.main_plot == "change":
+            return 0.76
+        return 0.18
 
     def evaluate(self, game: SearchGame) -> PositionEvaluation:
         if game.winner is not None:

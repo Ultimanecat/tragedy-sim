@@ -23,6 +23,26 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_fatal_future_pressure_values_reducing_over_threshold_paranoia(self):
+        from benchmarks.ai_self_play import _policy_offer
+        game = protagonist_position("official-btx-06-secret-that-was-kept")
+        game.state.phase = "goodwill"
+        game.state.round = 3
+        game.state.locations["hospital"] = 2
+        game.state.characters["worker"].paranoia = 2
+        game.state.characters["journalist"].paranoia = 3
+        game.state.characters["idol"].goodwill = 3
+        offers = [_policy_offer(game, a) for a in game.action_offers(game.controller)]
+        legacy = HiddenCardOracleProtagonistAgent(future_incident_policy="legacy")
+        improved = HiddenCardOracleProtagonistAgent(future_incident_policy="impact")
+        self.assertEqual(legacy.choose_game_action(participant="team", game=game, offers=offers)["ui"]["target"], "worker")
+        self.assertEqual(improved.choose_game_action(participant="team", game=game, offers=offers)["ui"]["target"], "journalist")
+        game.state.locations["hospital"] = 0
+        self.assertEqual(improved.choose_game_action(participant="team", game=game, offers=offers)["ui"]["target"], "worker")
+        for invalid in (False, [], "soon"):
+            with self.assertRaises(ValueError):
+                HiddenCardOracleProtagonistAgent(future_incident_policy=invalid)
+
     def test_informed_relief_looks_at_future_fatal_event(self):
         from benchmarks.ai_self_play import _policy_offer
         game = protagonist_position("official-btx-06-secret-that-was-kept")

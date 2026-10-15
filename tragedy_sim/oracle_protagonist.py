@@ -70,7 +70,11 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                  scenario_count: int = 4, rng_seed: int = 0,
                  rollout_horizon: str = "day",
                  script_aware_rollout: bool = True,
-                 candidate_policy: str = "legacy", skill_information: str = "script"):
+                 candidate_policy: str = "legacy", skill_information: str = "script",
+                 future_incident_policy: str = "legacy"):
+        if type(future_incident_policy) is not str or future_incident_policy not in {"legacy", "impact"}:
+            raise ValueError("future_incident_policy must be legacy or impact")
+        self.future_incident_policy = future_incident_policy
         if type(skill_information) is not str or skill_information not in {"public", "script"}:
             raise ValueError("skill_information must be public or script")
         self.skill_information = skill_information
@@ -441,11 +445,7 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
             return view
         culprits = {}
         for incident in world.scenario["incidents"]:
-            cid = incident["culprit"]
-            if (cid == "part_timer" and "part_timer_question" in world.state.characters
-                    and not world.state.characters[cid].alive
-                    and world.state.characters["part_timer_question"].present):
-                cid = "part_timer_question"
+            cid = self.evaluator.incident_culprit(world, incident["culprit"])
             culprits[str(incident["day"])] = cid
         return {**view, "known_roles": {cid: {"role": role} for cid, role in world.roles.items()},
                 "known_culprits": culprits}
@@ -572,12 +572,16 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
             if any(world.roles.get(c.id) == "killer" for c in company):
                 key_exposure += 0.04 + 0.035 * key.intrigue
         incident_pressure = 0.0
+        context = self.evaluator.context_for(world.scenario) if self.future_incident_policy == "impact" else None
         for incident in world.scenario.get("incidents", ()):
             if incident["day"] <= start_day:
                 continue
-            culprit = world.state.characters.get(incident["culprit"])
-            if culprit is not None and culprit.alive:
-                incident_pressure += 0.035 * culprit.paranoia / (
+            culprit_id = self.evaluator.incident_culprit(world, incident["culprit"])
+            culprit = world.state.characters.get(culprit_id)
+            if culprit is not None and culprit.alive and culprit.present:
+                weight = (0.2 * self.evaluator.incident_impact(world, context, incident["kind"], culprit.id)
+                          if context is not None else 0.035)
+                incident_pressure += weight * culprit.paranoia / (
                     1 + incident["day"] - start_day)
         return (0.55 + 0.22 * value - 0.15 * plot_pressure
                 - 0.06 * killer_pressure - 0.035 * key_pressure
@@ -902,15 +906,19 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
 
 class FullCardOracleProtagonistAgent(OracleProtagonistAgent):
     def __init__(self, budget: SearchBudget | None = None, *, rng_seed: int = 0,
-                 rollout_horizon: str = "day", candidate_policy: str = "legacy", skill_information: str = "script"):
+                 rollout_horizon: str = "day", candidate_policy: str = "legacy", skill_information: str = "script",
+                 future_incident_policy: str = "legacy"):
         super().__init__(reveal_cards=True, budget=budget, rng_seed=rng_seed,
-                         rollout_horizon=rollout_horizon, candidate_policy=candidate_policy, skill_information=skill_information)
+                         rollout_horizon=rollout_horizon, candidate_policy=candidate_policy, skill_information=skill_information,
+                         future_incident_policy=future_incident_policy)
 
 
 class HiddenCardOracleProtagonistAgent(OracleProtagonistAgent):
     def __init__(self, budget: SearchBudget | None = None, *,
                  scenario_count: int = 4, rng_seed: int = 0,
-                 rollout_horizon: str = "day", candidate_policy: str = "legacy", skill_information: str = "script"):
+                 rollout_horizon: str = "day", candidate_policy: str = "legacy", skill_information: str = "script",
+                 future_incident_policy: str = "legacy"):
         super().__init__(reveal_cards=False, budget=budget,
                          scenario_count=scenario_count, rng_seed=rng_seed,
-                         rollout_horizon=rollout_horizon, candidate_policy=candidate_policy, skill_information=skill_information)
+                         rollout_horizon=rollout_horizon, candidate_policy=candidate_policy, skill_information=skill_information,
+                         future_incident_policy=future_incident_policy)

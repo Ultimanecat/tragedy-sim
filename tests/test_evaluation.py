@@ -33,6 +33,24 @@ def synthetic_avenger_hideous():
 
 
 class ScenarioEvaluationContextTests(unittest.TestCase):
+    def test_runtime_replacement_remains_an_incident_route(self):
+        scenario = example_scenario("BTX")
+        scenario["cast"]["part_timer"] = scenario["cast"].pop("doctor")
+        scenario["incidents"][0]["culprit"] = "part_timer"
+        game = Game(validate_scenario(scenario))
+        while game.state.phase != "mastermind":
+            game = game.search_transition(game.search_actions(game.controller)[0])
+        incident = next(i for i in game.scenario["incidents"] if i["culprit"] == "part_timer")
+        game.state.round = incident["day"]
+        game.state.characters["part_timer"].alive = False
+        game._prepare_day_start()
+        game.state.characters["part_timer_question"].paranoia = 3
+        evaluator = ScenarioConditionedEvaluator()
+        self.assertEqual(evaluator.incident_culprit(game, "part_timer"), "part_timer_question")
+        route = contribution(evaluator.evaluate(game), f"incident:{incident['day']}:")
+        self.assertIsNotNone(route)
+        self.assertIn("part_timer_question", route.key)
+
     def test_all_recorded_fs_btx_scripts_compile_and_are_cached(self):
         library = ScenarioLibrary()
         scripts = [library.get(item["id"]) for item in library.list()

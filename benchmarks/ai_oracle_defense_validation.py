@@ -20,14 +20,17 @@ from .parallel_jobs import DEFAULT_WORKERS, job_id, run_jobs
 
 def run_match(job, *, settings, sources):
     sid, seed, variant = job
-    policy = settings["candidate"] if settings.get("skill_ablation") else variant
+    policy = settings["candidate"] if settings.get("skill_ablation") or settings.get("future_ablation") else variant
     skill_information = variant if settings.get("skill_ablation") else settings.get("skill_information", "script")
+    future = variant if settings.get("future_ablation") else settings.get("future_incident_policy", "legacy")
     if source_digest() != sources:
         raise RuntimeError("evaluation sources changed")
     match = play(sid, seed, settings["black_nodes"], 8, "joint", settings["oracle"],
                  protagonist_nodes=settings["red_nodes"], joint_reply_model="belief",
-                 oracle_candidate_policy=policy, oracle_skill_information=skill_information, capture_replay=True)
-    if match.oracle_candidate_policy != policy or match.oracle_skill_information != skill_information:
+                 oracle_candidate_policy=policy, oracle_skill_information=skill_information,
+                 oracle_future_incident_policy=future, capture_replay=True)
+    if (match.oracle_candidate_policy != policy or match.oracle_skill_information != skill_information
+            or match.oracle_future_incident_policy != future):
         raise AssertionError("returned oracle configuration differs from planned job")
     audit = audit_match(match)
     if source_digest() != sources:
@@ -62,8 +65,12 @@ def main():
     parser.add_argument("--candidate", choices=("joint_threat", "joint_counterexample"), default="joint_threat")
     parser.add_argument("--skill-information", choices=("public", "script"), default="script")
     parser.add_argument("--skill-ablation", action="store_true", help="compare public/script skill context on --candidate")
+    parser.add_argument("--future-ablation", action="store_true", help="compare legacy/impact future pressure on --candidate")
+    parser.add_argument("--future-incident-policy", choices=("legacy", "impact"), default="legacy")
     args = parser.parse_args()
-    if not args.skill_ablation and args.baseline == args.candidate:
+    if args.skill_ablation and args.future_ablation:
+        parser.error("choose only one ablation dimension")
+    if not args.skill_ablation and not args.future_ablation and args.baseline == args.candidate:
         parser.error("comparison policies must differ")
     if min(args.black_nodes, args.red_nodes, args.workers) < 1 or args.max_jobs is not None and args.max_jobs < 1:
         parser.error("budgets, workers and max-jobs must be positive")
@@ -74,9 +81,10 @@ def main():
     settings = {"scenarios": scenarios, "seeds": sorted(set(args.seed or range(10))),
                 "oracle": args.oracle, "black_nodes": args.black_nodes, "red_nodes": args.red_nodes,
                 "scope": "action_wins_exclude_oracle_final_answers", "fixed_work": True,
-                "comparison": ["public", "script"] if args.skill_ablation else [args.baseline, args.candidate],
+                "comparison": ["public", "script"] if args.skill_ablation else ["legacy", "impact"] if args.future_ablation else [args.baseline, args.candidate],
                 "skill_ablation": args.skill_ablation, "candidate": args.candidate,
-                "skill_information": args.skill_information}
+                "skill_information": args.skill_information, "future_ablation": args.future_ablation,
+                "future_incident_policy": args.future_incident_policy}
     sources = source_digest()
     manifests = scenario_fingerprints(library, scenarios)
     jobs = [(sid, seed, policy) for sid in scenarios for seed in settings["seeds"]
