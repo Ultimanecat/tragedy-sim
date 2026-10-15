@@ -24,6 +24,55 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class ParticleEnsembleTests(unittest.TestCase):
+    def test_joint_candidates_use_public_space_and_preserve_posterior_mass(self):
+        for placed in (0, 1, 2):
+            with self.subTest(placed=placed):
+                game = protagonist_position()
+                for _ in range(placed):
+                    game = game.search_transition(game.search_actions(game.controller)[0])
+                view = game.protagonist_team_view()
+                before = deepcopy(view)
+                offers = [_policy_offer(game, a) for a in game.action_offers(game.controller)]
+                agent = ParticleEnsembleProtagonistAgent(SearchBudget(node_limit=2, seed=3),
+                    particle_count=2, rng_seed=3, candidate_policy="joint_threat",
+                    dark_card_policy="adversarial_guard", dark_attack_limit=2)
+                chosen = agent.choose_action(participant="team", view=view, offers=offers)
+                self.assertIn(chosen, offers)
+                trace = agent.last_trace
+                self.assertEqual(trace.candidate_policy, "joint_threat")
+                diagnostics = trace.joint_candidate_diagnostics
+                self.assertTrue(diagnostics["used"])
+                self.assertEqual(diagnostics["posterior_groups"], trace.particles)
+                self.assertAlmostEqual(sum(diagnostics["group_masses"]), 1)
+                self.assertGreater(diagnostics["enumerated_bundles"], 0)
+                for role in trace.belief_roles:
+                    self.assertEqual(sum(role["counts"].values()), trace.particles)
+                for row in trace.root_actions:
+                    self.assertEqual(row["visits"], trace.particles)
+                    self.assertEqual(len(row["bundle"]), 3 - placed)
+                    self.assertIsNotNone(agent._apply_bundle(game, row["bundle"]))
+                self.assertEqual(view, before)
+                self.assertEqual(game.protagonist_team_view(), before)
+
+    def test_joint_space_unsupported_path_keeps_legacy_candidates_and_decision(self):
+        game = protagonist_position("official-btx-06-secret-that-was-kept")
+        next(iter(game.state.characters.values())).paranoia = 3
+        view = game.protagonist_team_view()
+        offers = [_policy_offer(game, a) for a in game.action_offers(game.controller)]
+        agents = [ParticleEnsembleProtagonistAgent(SearchBudget(node_limit=2, seed=4),
+                   particle_count=2, rng_seed=4, candidate_policy=policy)
+                  for policy in ("legacy", "joint_threat")]
+        choices = [agent.choose_action(participant="team", view=deepcopy(view), offers=offers) for agent in agents]
+        self.assertEqual(choices[0], choices[1])
+        self.assertEqual(agents[0].last_trace.root_actions, agents[1].last_trace.root_actions)
+        self.assertFalse(agents[1].last_trace.joint_candidate_diagnostics["used"])
+        self.assertIn("high-paranoia", agents[1].last_trace.joint_candidate_diagnostics["fallback"])
+
+    def test_candidate_policy_rejects_invalid_configuration(self):
+        for value in (True, [], "unknown"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                ParticleEnsembleProtagonistAgent(candidate_policy=value)
+
     def test_large_candidate_budget_advances_past_tactical_prefix(self):
         game = protagonist_position()
         view = deepcopy(game.protagonist_team_view())

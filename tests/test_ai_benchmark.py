@@ -22,6 +22,15 @@ from tragedy_sim.belief import FactorizedBeliefResult, FactorizedBeliefState
 
 
 class AbilityUsageTests(unittest.TestCase):
+    def test_joint_protagonist_candidate_options_are_strict(self):
+        for value in (True, [], "unknown"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                play("unused", 0, 1, 4, "fixed", "particle_ensemble",
+                     protagonist_candidate_policy=value)
+        with self.assertRaisesRegex(ValueError, "particle_ensemble"):
+            play("unused", 0, 1, 4, "fixed", "defensive",
+                 protagonist_candidate_policy="joint_threat")
+
     def test_oracle_planning_telemetry_is_captured_once_per_new_trace(self):
         for mode in ("oracle_cards", "oracle_script"):
             with self.subTest(mode=mode):

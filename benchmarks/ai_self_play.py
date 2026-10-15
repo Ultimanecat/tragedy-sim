@@ -115,6 +115,8 @@ class ProtagonistSearchRecord:
     proposal_diagnostics: dict[str, Any] | None = None
     dark_card_policy: str = "sampled"
     dark_attack_probes: int = 0
+    candidate_policy: str = "legacy"
+    joint_candidate_diagnostics: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -201,6 +203,7 @@ class MatchResult:
     oracle_future_incident_policy: str = "legacy"
     oracle_dark_state_policy: str = "mean"
     oracle_searches: tuple[OracleSearchRecord, ...] = ()
+    protagonist_candidate_policy: str = "legacy"
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -379,6 +382,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          oracle_skill_information: str = "script",
          oracle_future_incident_policy: str = "legacy",
          oracle_dark_state_policy: str = "mean",
+         protagonist_candidate_policy: str = "legacy",
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     matrix_proposals, joint_culprits = _resolve_belief_options(
@@ -386,6 +390,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     _validate_final_guess_options(protagonist_strategy, final_guess_policy, final_guess_node_limit)
     _validate_role_sampling_options(protagonist_strategy, role_sampling_policy,
                                     role_partition_node_limit, matrix_proposals)
+    if type(protagonist_candidate_policy) is not str or protagonist_candidate_policy not in {"legacy", "joint_threat"}:
+        raise ValueError("protagonist_candidate_policy must be legacy or joint_threat")
+    if protagonist_candidate_policy != "legacy" and protagonist_strategy != "particle_ensemble":
+        raise ValueError("joint protagonist candidates require particle_ensemble")
     if type(dark_card_policy) is not str or dark_card_policy not in {"sampled", "adversarial_guard"}:
         raise ValueError("dark_card_policy must be sampled or adversarial_guard")
     if type(dark_attack_limit) is not int or dark_attack_limit < 1:
@@ -465,7 +473,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             final_guess_policy=final_guess_policy, final_guess_node_limit=final_guess_node_limit,
             role_sampling_policy=role_sampling_policy, role_partition_node_limit=role_partition_node_limit,
             dark_card_policy=dark_card_policy, dark_attack_limit=dark_attack_limit,
-            dark_guard_proposals=dark_guard_proposals)
+            dark_guard_proposals=dark_guard_proposals, candidate_policy=protagonist_candidate_policy)
     if team_ismcts is not None and hasattr(team_ismcts, "factorized_belief"):
         team_ismcts.factorized_belief.matrix_recovery_enabled = matrix_recovery
     protagonists = {
@@ -603,7 +611,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                     getattr(trace, "belief_dark_cards", ()),
                     getattr(trace, "placement_tendencies", ()),
                     proposal_reader() if proposal_reader else None,
-                    getattr(trace, "dark_card_policy", "sampled"), getattr(trace, "dark_attack_probes", 0)))
+                    getattr(trace, "dark_card_policy", "sampled"), getattr(trace, "dark_attack_probes", 0),
+                    getattr(trace, "candidate_policy", "legacy"), getattr(trace, "joint_candidate_diagnostics", None)))
         if command.get("action") == "guess_all":
             policy = protagonists[command["actor"]]
             trace = getattr(policy, "last_trace", None)
@@ -705,6 +714,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         mastermind_plays=tuple(mastermind_plays),
         protagonist_searches=tuple(protagonist_searches),
         oracle_searches=tuple(oracle_searches),
+        protagonist_candidate_policy=protagonist_candidate_policy,
         protagonist_evidence_seconds=protagonist_evidence_ms / 1000,
         protagonist_search_seconds=protagonist_search_ms / 1000,
         ability_usage=_ability_usage(game.state.events),
@@ -811,6 +821,7 @@ def main() -> None:
     parser.add_argument("--oracle-skill-information", choices=("public", "script"), default="script")
     parser.add_argument("--oracle-future-incident-policy", choices=("legacy", "impact"), default="legacy")
     parser.add_argument("--oracle-dark-state-policy", choices=("mean", "worst"), default="mean")
+    parser.add_argument("--protagonist-candidate-policy", choices=("legacy", "joint_threat"), default="legacy")
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
@@ -878,6 +889,7 @@ def main() -> None:
                               oracle_skill_information=args.oracle_skill_information,
                               oracle_future_incident_policy=args.oracle_future_incident_policy,
                               oracle_dark_state_policy=args.oracle_dark_state_policy,
+                              protagonist_candidate_policy=args.protagonist_candidate_policy,
                               disabled_witness_sources=tuple(
                                   args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,

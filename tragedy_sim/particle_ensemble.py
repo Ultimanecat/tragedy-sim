@@ -38,7 +38,10 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                  final_guess_node_limit: int = 100_000,
                  role_sampling_policy: str = "importance", role_partition_node_limit: int = 100_000,
                  dark_card_policy: str = "sampled", dark_attack_limit: int = 8,
-                 dark_guard_proposals: bool = True):
+                 dark_guard_proposals: bool = True, candidate_policy: str = "legacy"):
+        if type(candidate_policy) is not str or candidate_policy not in {"legacy", "joint_threat"}:
+            raise ValueError("candidate_policy must be legacy or joint_threat")
+        self.candidate_policy = candidate_policy
         if rollout_horizon not in {"day", "loop"}:
             raise ValueError("particle rollout_horizon must be day or loop")
         if (type(mastermind_policy_samples) is not int
@@ -617,6 +620,25 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             if attack_proposals:
                 proposals = self._prioritize_proposals(proposals, attack_proposals, limit)
                 evacuation_count = len(attack_proposals)
+        joint_diagnostics = None
+        if self.candidate_policy == "joint_threat":
+            from .hypothesis_defense import HypothesisThreatRanker
+            from .joint_action_space import JointActionSpace, UnsupportedJointSpace
+            try:
+                space = JointActionSpace(view, offers)
+                ranker = HypothesisThreatRanker(evaluation_worlds, space)
+                bundles, enumerated = space.ranked_bundles(
+                    lambda _: 0, limit, joint_rank=ranker, distinct_effects=True)
+                proposals = {_key(bundle): bundle for bundle in bundles}
+                evacuation_count = 0  # Legacy reserved proposals were replaced.
+                joint_diagnostics = {
+                    "used": True, "posterior_groups": len(worlds),
+                    "group_masses": ranker.weights,
+                    "dark_scenarios": tuple(len(group) for group in evaluation_worlds),
+                    "enumerated_bundles": enumerated, "projections": ranker.projections,
+                }
+            except UnsupportedJointSpace as error:
+                joint_diagnostics = {"used": False, "fallback": str(error)}
         if not proposals:
             return self._fallback(participant, view, offers,
                                   "no_legal_bundle", len(witnesses))
@@ -759,7 +781,8 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             information_reward_weight=self.information_reward_weight,
             dark_card_policy=self.dark_card_policy, dark_attack_probes=dark_attack_probes,
             dark_guard_proposals=self.dark_card_policy == "adversarial_guard" and self.dark_guard_proposals,
-            dark_evacuation_candidates=evacuation_count)
+            dark_evacuation_candidates=evacuation_count,
+            candidate_policy=self.candidate_policy, joint_candidate_diagnostics=joint_diagnostics)
         if self.evidence_ledger.audit is not None:
             self.evidence_ledger.audit.record_samples(
                 view, roles, self.factorized_belief._culprits(evidence, witnesses), len(worlds),
