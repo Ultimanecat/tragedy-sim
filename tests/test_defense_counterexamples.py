@@ -151,17 +151,19 @@ class DefenseCounterexampleTests(unittest.TestCase):
         from itertools import islice
         worlds = tuple(with_dark_bundle(game, p) for p in islice(legal_dark_bundles(view), 4))
         plans = list(islice(space.iter_plans(), 20))
-        for capacity in (0, 1, 64):
-            ranker = JointThreatRanker(worlds[:2], space, cache_limit=capacity)
-            for plan in plans:
-                ranker(plan)
-            ranker.add_worlds(worlds[2:])
-            fresh = JointThreatRanker(worlds, space)
-            for plan in plans:
-                self.assertEqual(ranker(plan), fresh(plan))
-            if capacity == 64:
-                self.assertEqual(ranker.projections, fresh.projections)
-            self.assertLessEqual(len(ranker.cache), capacity)
+        for policy in ("mean", "worst"):
+            for capacity in (0, 1, 64):
+                with self.subTest(policy=policy, capacity=capacity):
+                    ranker = JointThreatRanker(worlds[:2], space, cache_limit=capacity, state_policy=policy)
+                    for plan in plans:
+                        ranker(plan)
+                    ranker.add_worlds(worlds[2:])
+                    fresh = JointThreatRanker(worlds, space, state_policy=policy)
+                    for plan in plans:
+                        self.assertEqual(ranker(plan), fresh(plan))
+                    if capacity == 64:
+                        self.assertEqual(ranker.projections, fresh.projections)
+                    self.assertLessEqual(len(ranker.cache), capacity)
 
 
 if __name__ == "__main__":

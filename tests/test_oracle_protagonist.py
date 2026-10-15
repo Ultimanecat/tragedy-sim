@@ -23,6 +23,27 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_public_rollout_worlds_never_read_true_runtime_roles(self):
+        from tragedy_sim.oracle_protagonist import OracleProtagonistAgent
+
+        class UnreadableRoles(dict):
+            def __iter__(self):
+                raise AssertionError("private runtime identities were read")
+
+            def keys(self):
+                raise AssertionError("private runtime identities were read")
+
+        game = protagonist_position("official-btx-09-those-with-antibodies")
+        view = game.protagonist_team_view()
+        expected = dict(game.roles)
+        game.roles = UnreadableRoles(game.roles)
+        with self.assertRaisesRegex(AssertionError, "private runtime"):
+            dict(game.roles)
+        agent = OracleProtagonistAgent(reveal_cards=False, script_aware_rollout=False)
+        worlds = agent._worlds(game, view, random.Random(0))
+        self.assertTrue(worlds)
+        self.assertTrue(all(w.roles == expected for w in worlds))
+
     def test_script_oracle_preserves_current_runtime_roles_after_virus(self):
         game = protagonist_position("official-btx-09-those-with-antibodies")
         cid = next(cid for cid, role in game.roles.items() if role == "ordinary")
