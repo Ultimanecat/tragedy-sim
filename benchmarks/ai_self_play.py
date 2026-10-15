@@ -377,8 +377,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         raise ValueError("dark_guard_proposals must be boolean")
     if dark_card_policy != "sampled" and protagonist_strategy != "particle_ensemble":
         raise ValueError("adversarial_guard requires particle_ensemble protagonists")
-    if type(oracle_candidate_policy) is not str or oracle_candidate_policy not in {"legacy", "joint_enumeration", "joint_threat"}:
-        raise ValueError("oracle_candidate_policy must be legacy, joint_enumeration or joint_threat")
+    if type(oracle_candidate_policy) is not str or oracle_candidate_policy not in {"legacy", "joint_enumeration", "joint_threat", "joint_counterexample"}:
+        raise ValueError("invalid oracle_candidate_policy")
     if oracle_candidate_policy != "legacy" and protagonist_strategy not in {"oracle_cards", "oracle_script"}:
         raise ValueError("joint_enumeration currently requires an oracle protagonist")
     library = ScenarioLibrary()
@@ -763,7 +763,7 @@ def main() -> None:
     parser.add_argument("--dark-card-policy", choices=("sampled", "adversarial_guard"), default="sampled")
     parser.add_argument("--dark-attack-limit", type=int, default=8)
     parser.add_argument("--dark-guard-proposals", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--oracle-candidate-policy", choices=("legacy", "joint_enumeration", "joint_threat"), default="legacy")
+    parser.add_argument("--oracle-candidate-policy", choices=("legacy", "joint_enumeration", "joint_threat", "joint_counterexample"), default="legacy")
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,

@@ -34,9 +34,9 @@ def run_match(job, *, settings, sources):
             "final_total": len(match.final_guesses)}
 
 
-def summarize(rows):
+def summarize(rows, comparison=("legacy", "joint_threat")):
     action_rows = [{**r, "winner": "protagonists" if r["action_win"] else "mastermind"} for r in rows]
-    return paired_summary(action_rows, comparison=("legacy", "joint_threat"))
+    return paired_summary(action_rows, comparison=comparison)
 
 
 def main():
@@ -50,7 +50,11 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--max-jobs", type=int)
+    parser.add_argument("--baseline", choices=("legacy", "joint_threat"), default="legacy")
+    parser.add_argument("--candidate", choices=("joint_threat", "joint_counterexample"), default="joint_threat")
     args = parser.parse_args()
+    if args.baseline == args.candidate:
+        parser.error("comparison policies must differ")
     if min(args.black_nodes, args.red_nodes, args.workers) < 1 or args.max_jobs is not None and args.max_jobs < 1:
         parser.error("budgets, workers and max-jobs must be positive")
     scenarios = list(dict.fromkeys(args.scenario))
@@ -59,11 +63,12 @@ def main():
         parser.error("FS/BTX required")
     settings = {"scenarios": scenarios, "seeds": sorted(set(args.seed or range(10))),
                 "oracle": args.oracle, "black_nodes": args.black_nodes, "red_nodes": args.red_nodes,
-                "scope": "action_wins_exclude_oracle_final_answers", "fixed_work": True}
+                "scope": "action_wins_exclude_oracle_final_answers", "fixed_work": True,
+                "comparison": [args.baseline, args.candidate]}
     sources = source_digest()
     manifests = scenario_fingerprints(library, scenarios)
     jobs = [(sid, seed, policy) for sid in scenarios for seed in settings["seeds"]
-            for policy in (("legacy", "joint_threat") if seed % 2 == 0 else ("joint_threat", "legacy"))]
+            for policy in (settings["comparison"] if seed % 2 == 0 else settings["comparison"][::-1])]
     if args.resume:
         report = json.loads(args.output.read_text(encoding="utf-8"))
         if report.get("settings") != settings or report.get("sources") != sources or report.get("scenario_fingerprints") != manifests:
@@ -78,7 +83,7 @@ def main():
     def save():
         report["results"] = [completed[job_id(j)] for j in jobs if job_id(j) in completed]
         report["progress"] = {"completed": len(completed), "planned": len(jobs), "complete": len(completed) == len(jobs)}
-        report["action_summary"] = summarize(report["results"])
+        report["action_summary"] = summarize(report["results"], comparison=tuple(settings["comparison"]))
         write_report(args.output, report)
     def validate(job, row):
         if source_digest() != sources or scenario_fingerprints(library, scenarios) != manifests:

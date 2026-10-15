@@ -45,6 +45,7 @@ class OracleTrace:
     ranking_worlds: int = 0
     tactical_projections: int = 0
     policy_rollouts: int = 0
+    counterexample_search: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False))
@@ -72,8 +73,8 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                  candidate_policy: str = "legacy"):
         if rollout_horizon not in self.ROLLOUT_HORIZONS:
             raise ValueError("rollout_horizon must be day, loop, or match")
-        if type(candidate_policy) is not str or candidate_policy not in {"legacy", "joint_enumeration", "joint_threat"}:
-            raise ValueError("candidate_policy must be legacy, joint_enumeration or joint_threat")
+        if type(candidate_policy) is not str or candidate_policy not in {"legacy", "joint_enumeration", "joint_threat", "joint_counterexample"}:
+            raise ValueError("invalid oracle candidate_policy")
         self.reveal_cards = reveal_cards
         self.budget = budget or SearchBudget(node_limit=48, rollout_depth=24)
         self.scenario_count = max(1, scenario_count)
@@ -668,7 +669,9 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
         enumerated = 0
         joint_space_fallback = None
         ranker = None
-        if self.candidate_policy in {"joint_enumeration", "joint_threat"}:
+        counterexample_stats = None
+        separation_rollouts = 0
+        if self.candidate_policy in {"joint_enumeration", "joint_threat", "joint_counterexample"}:
             from .joint_action_space import JointActionSpace, UnsupportedJointSpace
             try:
                 space_view = view
@@ -680,7 +683,7 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                         {**p, "card": faces[p["target"]]} if p.get("actor") == "m" else dict(p)
                         for p in view.get("pending", ())]}
                 space = JointActionSpace(space_view, offers)
-                if self.candidate_policy == "joint_threat":
+                if self.candidate_policy in {"joint_threat", "joint_counterexample"}:
                     from .joint_defense_ranker import JointThreatRanker
                     if not self.reveal_cards:
                         from .dark_attack_scenarios import marginal_dark_worlds, attack_dark_worlds
@@ -697,6 +700,23 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                 candidates, enumerated = space.ranked_bundles(
                     lambda action: self._rank(action, view, root.scenario), self.budget.node_limit,
                     joint_rank=ranker, distinct_effects=ranker is not None)
+                if self.candidate_policy == "joint_counterexample" and not self.reveal_cards:
+                    from .defense_counterexamples import refine_defense
+                    def verify_loss(hypothesis, commands):
+                        nonlocal separation_rollouts
+                        after = hypothesis
+                        for command in commands:
+                            after = after.search_transition(command)
+                        for route in self._mastermind_strategy_options(hypothesis):
+                            separation_rollouts += 1
+                            if not self._day_score(after, position[0], position[1], mastermind_strategy=route)[1]:
+                                return True
+                        return False
+                    worlds, candidates, counterexample_stats = refine_defense(
+                        root, view, space, worlds, candidates,
+                        lambda action: self._rank(action, view, root.scenario), self.budget.node_limit,
+                        verify_loss, deadline=deadline)
+                    enumerated += counterexample_stats["enumerated_bundles"]
             except UnsupportedJointSpace as error:
                 joint_space_fallback = str(error)
         if candidates is None:
@@ -718,7 +738,7 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
             return self.fallback.choose_action(
                 participant="team", view=view, offers=offers)
         evaluations = []
-        policy_rollouts = 0
+        policy_rollouts = separation_rollouts
         max_rollout_steps = terminal_samples = 0
         public_targets = tuple(sorted(str(item.get("target"))
                                       for item in view.get("pending", ())
@@ -805,8 +825,10 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                                       evaluated_bundles=len(evaluations),
                                       joint_space_fallback=joint_space_fallback,
                                       ranking_worlds=len(worlds) if ranker is not None else 0,
-                                      tactical_projections=ranker.projections if ranker is not None else 0,
-                                      policy_rollouts=policy_rollouts)
+                                      tactical_projections=(ranker.projections + (counterexample_stats or {}).get("ranking_projections", 0)
+                                                            if ranker is not None else 0),
+                                      policy_rollouts=policy_rollouts,
+                                      counterexample_search=counterexample_stats)
         return keyed[_key(best[0])]
 
 
