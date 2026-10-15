@@ -4,6 +4,8 @@
 
 ## 最新状态
 
+新增开眼实验 `dark_state_policy=mean|worst`（默认 mean）：身份内对暗牌取最低状态分，同时用于轻量候选排序和真实续演；当前存活排序及限次成本保持。worst 排序器拒绝混合身份／剧本。完整879项通过，四剧本16局均审计通过，最终两版8/8，轮回失败2→0：BTX04 seed1/6由各先输一轮改为首轮胜。更强黑方16预算、BTX04／06各10 seed共40局已启动，报告 `references/ai-calibration/2026-10-16/dark-state-btx-10seeds-black16.json`，须读取progress确认完成；进程工具session88968，源码指纹fa420597…，评测期间不修改Python。另已修复病毒变身后开眼暗牌样本遗失当前身份；公平 helper 不复制私密身份。公平主线未切换，未来需先身份内评价暗牌、再按后验聚合身份。见 [保守状态估值](dark-state-defense.md)。
+
 最新实验 `future_incident_policy=legacy|impact`（默认 legacy，公平内部 helper 未切换），共享既有事件影响权重计算未封顶的未来不安成本，解决已达临界后的额外防守代价低估；临时工运行时当事人也统一解析。完整 875 项通过，四剧本两种子16局均审计通过，最终两版均8/8；BTX06 seed6从先输两轮变首轮胜。BTX04 Day2平均状态分让关键人物吃密谋+2，下一步身份内暗牌最坏状态值，而非继续靠样本次数稀释风险；见 [未来事件成本](future-incident-defense.md)。
 
 最新阶段见 [开眼技能执行](oracle-skill-execution.md)：明确零值降计数、角色相关杀人／复活、私密技能上下文、真实接受／拒绝后的目标估值、已知无病毒高不安不变量。公共技能基线影响双方续演，公平 helper 明确 `script_aware_rollout=False` 不读私密属性。可用 public/script 技能消融，额外转换次数独立统计；完整 873 项通过。BTX06 seed1/6 四局均最终行动胜，但 script seed6 先输两轮。下一步未来致命事件超额不安成本／防线准备，未证明总体棋力提升。

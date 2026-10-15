@@ -190,6 +190,7 @@ class MatchResult:
     oracle_skill_information: str = "script"
     oracle_skill_evaluations: int = 0
     oracle_future_incident_policy: str = "legacy"
+    oracle_dark_state_policy: str = "mean"
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -367,6 +368,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          oracle_candidate_policy: str = "legacy",
          oracle_skill_information: str = "script",
          oracle_future_incident_policy: str = "legacy",
+         oracle_dark_state_policy: str = "mean",
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     matrix_proposals, joint_culprits = _resolve_belief_options(
@@ -394,6 +396,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         raise ValueError("oracle future incident policy must be legacy or impact")
     if oracle_future_incident_policy != "legacy" and protagonist_strategy not in {"oracle_cards", "oracle_script"}:
         raise ValueError("future incident policy requires an oracle protagonist")
+    if type(oracle_dark_state_policy) is not str or oracle_dark_state_policy not in {"mean", "worst"}:
+        raise ValueError("oracle dark state policy must be mean or worst")
+    if oracle_dark_state_policy != "mean" and protagonist_strategy not in {"oracle_cards", "oracle_script"}:
+        raise ValueError("dark state policy requires an oracle protagonist")
     library = ScenarioLibrary()
     scenario = library.get(scenario_id)
     game = Game(scenario)
@@ -427,13 +433,13 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
                                                     rng_seed=seed,
                                                     rollout_horizon=oracle_horizon,
                                                     candidate_policy=oracle_candidate_policy, skill_information=oracle_skill_information,
-                                                    future_incident_policy=oracle_future_incident_policy)
+                                                    future_incident_policy=oracle_future_incident_policy, dark_state_policy=oracle_dark_state_policy)
     elif protagonist_strategy == "oracle_script":
         team_ismcts = HiddenCardOracleProtagonistAgent(protagonist_budget,
                                                       rng_seed=seed,
                                                       rollout_horizon=oracle_horizon,
                                                       candidate_policy=oracle_candidate_policy, skill_information=oracle_skill_information,
-                                                      future_incident_policy=oracle_future_incident_policy)
+                                                      future_incident_policy=oracle_future_incident_policy, dark_state_policy=oracle_dark_state_policy)
     elif protagonist_strategy == "particle_ensemble":
         team_ismcts = ParticleEnsembleProtagonistAgent(
             protagonist_budget,
@@ -673,6 +679,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         oracle_skill_information=oracle_skill_information,
         oracle_skill_evaluations=getattr(team_ismcts, "skill_evaluations", 0),
         oracle_future_incident_policy=oracle_future_incident_policy,
+        oracle_dark_state_policy=oracle_dark_state_policy,
         final_role_candidates=final_role_candidates,
         final_true_setup_in_exact_space=final_true_setup_in_exact_space,
         final_true_setup_hard_compatible=final_true_setup_hard_compatible,
@@ -784,6 +791,7 @@ def main() -> None:
     parser.add_argument("--oracle-candidate-policy", choices=("legacy", "joint_enumeration", "joint_threat", "joint_counterexample"), default="legacy")
     parser.add_argument("--oracle-skill-information", choices=("public", "script"), default="script")
     parser.add_argument("--oracle-future-incident-policy", choices=("legacy", "impact"), default="legacy")
+    parser.add_argument("--oracle-dark-state-policy", choices=("mean", "worst"), default="mean")
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
@@ -850,6 +858,7 @@ def main() -> None:
                               oracle_candidate_policy=args.oracle_candidate_policy,
                               oracle_skill_information=args.oracle_skill_information,
                               oracle_future_incident_policy=args.oracle_future_incident_policy,
+                              oracle_dark_state_policy=args.oracle_dark_state_policy,
                               disabled_witness_sources=tuple(
                                   args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,

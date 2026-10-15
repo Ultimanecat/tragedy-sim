@@ -27,6 +27,33 @@ def known_space(game):
 
 
 class JointDefenseRankerTests(unittest.TestCase):
+    def test_worst_state_preserves_possible_future_loss_instead_of_averaging(self):
+        from tragedy_sim.joint_action_space import JointPlacement
+        from unittest.mock import Mock
+        game = threat_root()
+        space = JointActionSpace(game.protagonist_team_view(), game.search_actions(game.controller))
+        a = (JointPlacement("a", "g1", "girl"),)
+        b = (JointPlacement("a", "g1", "doctor"),)
+        results = {"mean": [], "worst": []}
+        for policy in results:
+            ranker = JointThreatRanker((game,), space, state_policy=policy)
+            ranker.models = tuple(Mock(score=lambda plan, i=i: (0, (0, 0, -0.3)[i] if plan == a else -0.12)) for i in range(3))
+            results[policy] = [ranker(a), ranker(b)]
+        self.assertGreater(results["mean"][0], results["mean"][1])
+        self.assertLess(results["worst"][0], results["worst"][1])
+
+    def test_worst_state_rejects_mixed_identity_support_including_append(self):
+        game = threat_root()
+        space = JointActionSpace(game.protagonist_team_view(), game.search_actions(game.controller))
+        other = game.search_clone()
+        other.roles["girl"] = "ordinary"
+        with self.assertRaisesRegex(ValueError, "one identity"):
+            JointThreatRanker((game, other), space, state_policy="worst")
+        ranker = JointThreatRanker((game,), space, state_policy="worst")
+        with self.assertRaisesRegex(ValueError, "one identity"):
+            ranker.add_worlds((other,))
+        self.assertEqual(len(ranker.models), 1)
+
     def test_ready_culprit_kill_prevents_incident_but_guards_and_friend_do_not(self):
         game = Game(ScenarioLibrary().get("official-btx-06-secret-that-was-kept"))
         while game.state.phase != "protagonists":

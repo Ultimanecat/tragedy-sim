@@ -23,6 +23,38 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_script_oracle_preserves_current_runtime_roles_after_virus(self):
+        game = protagonist_position("official-btx-09-those-with-antibodies")
+        cid = next(cid for cid, role in game.roles.items() if role == "ordinary")
+        game.state.characters[cid].paranoia = 2
+        game._change(cid, "paranoia", 1)
+        self.assertEqual(game.roles[cid], "serial")
+        game._change(cid, "paranoia", -1)
+        agent = HiddenCardOracleProtagonistAgent(dark_state_policy="worst")
+        view = game.protagonist_team_view()
+        before = deepcopy(view)
+        worlds = agent._worlds(game, view, random.Random(0))
+        self.assertTrue(worlds)
+        self.assertTrue(all(w.roles[cid] == "serial" for w in worlds))
+        self.assertEqual(game.protagonist_team_view(), before)
+
+    def test_worst_hidden_state_blocks_key_intrigue_before_the_last_day(self):
+        from benchmarks.ai_self_play import _policy_offer
+        game = Game(ScenarioLibrary().get("official-btx-04-young-womens-battlefield"))
+        while game.state.phase != "mastermind":
+            game = game.search_transition(game.search_actions(game.controller)[0])
+        for card, target in (("i2", "maiden"), ("p1a", "girl"), ("p1b", "class_rep")):
+            game.dispatch("m", "play", card=card, target=target)
+        game.state.round = 2
+        game.state.characters["class_rep"].paranoia = game.state.characters["worker"].paranoia = 1
+        game.state.characters["girl"].goodwill = game.state.characters["nurse"].goodwill = 1
+        agent = HiddenCardOracleProtagonistAgent(SearchBudget(node_limit=1), candidate_policy="joint_counterexample",
+                                                future_incident_policy="impact", dark_state_policy="worst")
+        agent.choose_game_action(participant="team", game=game,
+                                 offers=[_policy_offer(game, a) for a in game.action_offers(game.controller)])
+        self.assertTrue(any(p["card"] == "fi" and p["target"] == "maiden" for p in agent.last_trace.selected_bundle))
+        self.assertEqual(agent.last_trace.dark_state_policy, "worst")
+
     def test_fatal_future_pressure_values_reducing_over_threshold_paranoia(self):
         from benchmarks.ai_self_play import _policy_offer
         game = protagonist_position("official-btx-06-secret-that-was-kept")

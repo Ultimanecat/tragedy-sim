@@ -7,6 +7,7 @@ interaction are still decided by the real engine for shortlisted plans.
 
 from collections import OrderedDict
 from dataclasses import dataclass
+import json
 
 from .cards import COORDS, deck
 from .catalog import CHARACTERS, REFUSAL
@@ -14,6 +15,10 @@ from .catalog import CHARACTERS, REFUSAL
 
 BOARDS = tuple(COORDS)
 BOARD_ID = {b: i for i, b in enumerate(BOARDS)}
+
+
+def _identity_key(world):
+    return tuple(sorted(world.roles.items())), json.dumps(world.scenario, sort_keys=True, ensure_ascii=False)
 
 
 @dataclass(frozen=True)
@@ -323,7 +328,16 @@ class JointThreatRanker:
     probabilities are modified by this tactical ordering.
     """
 
-    def __init__(self, worlds, space, *, cache_limit=32768):
+    def __init__(self, worlds, space, *, cache_limit=32768, state_policy="mean"):
+        if type(state_policy) is not str or state_policy not in {"mean", "worst"}:
+            raise ValueError("state_policy must be mean or worst")
+        self.state_policy = state_policy
+        worlds = tuple(worlds)
+        if not worlds:
+            raise ValueError("joint ranking requires common worlds")
+        self.identity = _identity_key(worlds[0])
+        if state_policy == "worst" and any(_identity_key(w) != self.identity for w in worlds):
+            raise ValueError("worst dark state requires one identity hypothesis")
         self.space = space
         self.models = tuple(TacticalWorldModel(w, space) for w in worlds)
         if not self.models:
@@ -334,6 +348,9 @@ class JointThreatRanker:
 
     def add_worlds(self, worlds):
         """Append common scenarios; existing cached prefixes stay reusable."""
+        worlds = tuple(worlds)
+        if self.state_policy == "worst" and any(_identity_key(w) != self.identity for w in worlds):
+            raise ValueError("worst dark state requires one identity hypothesis")
         self.models += tuple(TacticalWorldModel(w, self.space) for w in worlds)
 
     def __call__(self, plan):
@@ -354,4 +371,5 @@ class JointThreatRanker:
         if signature in self.cache:
             self.cache.move_to_end(signature)
         scarce = sum(p.card in {"fm", "g2", "p-1"} for p in plan)
-        return row[1] / row[0], -row[2], sum(row[3]) / row[0] - 0.025 * scarce
+        value = min(row[3]) if self.state_policy == "worst" else sum(row[3]) / row[0]
+        return row[1] / row[0], -row[2], value - 0.025 * scarce

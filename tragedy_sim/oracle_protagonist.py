@@ -46,6 +46,7 @@ class OracleTrace:
     tactical_projections: int = 0
     policy_rollouts: int = 0
     counterexample_search: dict[str, Any] | None = None
+    dark_state_policy: str = "mean"
 
     def to_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(asdict(self), ensure_ascii=False))
@@ -71,7 +72,10 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                  rollout_horizon: str = "day",
                  script_aware_rollout: bool = True,
                  candidate_policy: str = "legacy", skill_information: str = "script",
-                 future_incident_policy: str = "legacy"):
+                 future_incident_policy: str = "legacy", dark_state_policy: str = "mean"):
+        if type(dark_state_policy) is not str or dark_state_policy not in {"mean", "worst"}:
+            raise ValueError("dark_state_policy must be mean or worst")
+        self.dark_state_policy = dark_state_policy
         if type(future_incident_policy) is not str or future_incident_policy not in {"legacy", "impact"}:
             raise ValueError("future_incident_policy must be legacy or impact")
         self.future_incident_policy = future_incident_policy
@@ -355,6 +359,11 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
             world = self.determinizer.determinize(
                 hypothesis, evidence, view, rng=rng, history_prior=True)
             if world is not None:
+                if self.script_aware_rollout:
+                    # Deliberately script-informed oracle also retains the
+                    # current runtime identities (e.g. resolved BTX virus).
+                    # No pending faces or private mastermind hand are read.
+                    world.roles = dict(game.roles)
                 worlds.append(world)
         # Force a few script-relevant but publicly possible dark faces into
         # the comparison. Uniform draws can omit a rare one-use i2 entirely.
@@ -769,7 +778,7 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                             signature = tuple((p.target, p.card) for p in w.state.pending if p.actor == "m")
                             unique.setdefault(signature, w)
                         worlds = tuple(unique.values())
-                    ranker = JointThreatRanker(worlds, space)
+                    ranker = JointThreatRanker(worlds, space, state_policy=self.dark_state_policy)
                 candidates, enumerated = space.ranked_bundles(
                     lambda action: self._rank(action, view, root.scenario), self.budget.node_limit,
                     joint_rank=ranker, distinct_effects=ranker is not None)
@@ -851,10 +860,14 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
             if len(scores) == len(worlds):
                 survival_rate = sum(survived for _, survived in scores) / len(scores)
                 mean_score = sum(score for score, _ in scores) / len(scores)
+                if self.dark_state_policy == "worst":
+                    mean_score = min(score for score, _ in scores)
                 day_survival = (sum(survived for _, survived in day_scores)
                                 / len(day_scores) if day_scores else survival_rate)
                 day_mean = (sum(score for score, _ in day_scores) / len(day_scores)
                             if day_scores else mean_score)
+                if day_scores and self.dark_state_policy == "worst":
+                    day_mean = min(score for score, _ in day_scores)
                 # Save scarce one-use cards unless they actually improve
                 # survival or the resulting board.  This matters across days.
                 scarce = sum(command["card"] in {"fm", "g2", "p-1"}
@@ -900,25 +913,25 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                                       ranking_worlds=len(worlds) if ranker is not None else 0,
                                       tactical_projections=ranker.projections if ranker is not None else 0,
                                       policy_rollouts=policy_rollouts,
-                                      counterexample_search=counterexample_stats)
+                                      counterexample_search=counterexample_stats, dark_state_policy=self.dark_state_policy)
         return keyed[_key(best[0])]
 
 
 class FullCardOracleProtagonistAgent(OracleProtagonistAgent):
     def __init__(self, budget: SearchBudget | None = None, *, rng_seed: int = 0,
                  rollout_horizon: str = "day", candidate_policy: str = "legacy", skill_information: str = "script",
-                 future_incident_policy: str = "legacy"):
+                 future_incident_policy: str = "legacy", dark_state_policy: str = "mean"):
         super().__init__(reveal_cards=True, budget=budget, rng_seed=rng_seed,
                          rollout_horizon=rollout_horizon, candidate_policy=candidate_policy, skill_information=skill_information,
-                         future_incident_policy=future_incident_policy)
+                         future_incident_policy=future_incident_policy, dark_state_policy=dark_state_policy)
 
 
 class HiddenCardOracleProtagonistAgent(OracleProtagonistAgent):
     def __init__(self, budget: SearchBudget | None = None, *,
                  scenario_count: int = 4, rng_seed: int = 0,
                  rollout_horizon: str = "day", candidate_policy: str = "legacy", skill_information: str = "script",
-                 future_incident_policy: str = "legacy"):
+                 future_incident_policy: str = "legacy", dark_state_policy: str = "mean"):
         super().__init__(reveal_cards=False, budget=budget,
                          scenario_count=scenario_count, rng_seed=rng_seed,
                          rollout_horizon=rollout_horizon, candidate_policy=candidate_policy, skill_information=skill_information,
-                         future_incident_policy=future_incident_policy)
+                         future_incident_policy=future_incident_policy, dark_state_policy=dark_state_policy)
