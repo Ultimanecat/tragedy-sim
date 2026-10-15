@@ -65,6 +65,11 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
     controls_protagonist_team = True
     uses_public_view = True
 
+    @staticmethod
+    def _evaluation_key(row):
+        """Both raw survival dimensions precede state shaping/diversity."""
+        return row[0], row[2], row[1], row[3]
+
     ROLLOUT_HORIZONS = frozenset({"day", "loop", "match"})
 
     def __init__(self, *, reveal_cards: bool, budget: SearchBudget | None = None,
@@ -883,11 +888,10 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                     for (loop, day, targets), previous in self._loop_plans.items()
                     if loop < position[0] and day == position[1]
                     and targets == public_targets)
-                # A failed loop with the same public targets is evidence that
-                # repeating an identical entire plan is inadequate.  Keep
-                # immediate safety primary: this is smaller than one failed
-                # world in the usual sampled set.
-                evaluations.append((survival_rate - 0.06 * repetitions,
+                # Prefer a different equally safe plan after a failed loop.
+                # Never subtract shaping from either raw survival dimension:
+                # a fixed penalty can outweigh a loss in a larger world batch.
+                evaluations.append((survival_rate,
                                     mean_score - 0.12 * repetitions,
                                     day_survival, day_mean + resource_value,
                                     bundle, survival_rate))
@@ -895,7 +899,7 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
             return self.fallback.choose_action(
                 participant="team", view=view, offers=offers)
         _, _, _, _, best, survival = max(
-            evaluations, key=lambda item: item[:4])
+            evaluations, key=self._evaluation_key)
         self._plan = [dict(command) for command in best[1:]]
         self._loop_plans[(position[0], position[1], public_targets)] = tuple(
             _key(command) for command in best)

@@ -23,6 +23,42 @@ def protagonist_position(scenario_id="official-fs-01-first-script"):
 
 
 class OracleProtagonistTests(unittest.TestCase):
+    def test_raw_survival_precedes_repetition_and_state_values(self):
+        from benchmarks.ai_self_play import _policy_offer
+        from tragedy_sim.belief_planner import _key
+
+        for count in (4, 31):
+            for case in ("repeated_safe", "day_survival", "equally_safe_diversity"):
+                with self.subTest(worlds=count, case=case):
+                    game = protagonist_position()
+                    game.state.loop = 2
+                    view = game.protagonist_team_view()
+                    before = deepcopy(game.view("m"))
+                    safe = tuple({"actor": actor, "action": "play", "card": "g1", "target": target}
+                                 for actor, target in zip(view["protagonist_order"], ("girl", "worker", "maiden")))
+                    alternative = ({**safe[0], "target": "doctor"}, *safe[1:])
+                    agent = FullCardOracleProtagonistAgent(SearchBudget(node_limit=2),
+                        rollout_horizon="loop" if case == "day_survival" else "day")
+                    if case != "day_survival":
+                        targets = tuple(sorted(p["target"] for p in view["pending"] if p["actor"] == "m"))
+                        agent._loop_plans[(1, view["round"], targets)] = tuple(_key(c) for c in safe)
+                    if case == "day_survival":
+                        outcomes = [(0., False, 1, False)] * count + [(1., False, 1, False)] * count
+                    else:
+                        outcomes = ([(0., True, 1, False)] * count
+                                    + [(0., case == "equally_safe_diversity", 1, False)]
+                                    + [(0., True, 1, False)] * (count - 1))
+                    days = [(0., True)] * count + [(0., False)] + [(0., True)] * (count - 1)
+                    with patch.object(agent, "_worlds", return_value=(game,) * count), \
+                         patch.object(agent, "_bundle", side_effect=(safe, alternative)), \
+                         patch.object(agent, "_rollout_score", side_effect=outcomes), \
+                         patch.object(agent, "_day_score", side_effect=days):
+                        agent.choose_game_action(participant="team", game=game,
+                            offers=[_policy_offer(game, a) for a in game.action_offers(game.controller)])
+                    expected = alternative if case == "equally_safe_diversity" else safe
+                    self.assertEqual(agent.last_trace.selected_bundle, expected)
+                    self.assertEqual(game.view("m"), before)
+
     def test_public_rollout_worlds_never_read_true_runtime_roles(self):
         from tragedy_sim.oracle_protagonist import OracleProtagonistAgent
 
