@@ -394,14 +394,14 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         raise ValueError("protagonist_candidate_policy must be legacy or joint_threat")
     if protagonist_candidate_policy != "legacy" and protagonist_strategy != "particle_ensemble":
         raise ValueError("joint protagonist candidates require particle_ensemble")
-    if type(dark_card_policy) is not str or dark_card_policy not in {"sampled", "adversarial_guard"}:
-        raise ValueError("dark_card_policy must be sampled or adversarial_guard")
+    if type(dark_card_policy) is not str or dark_card_policy not in {"sampled", "adversarial_guard", "marginal_guard"}:
+        raise ValueError("dark_card_policy must be sampled, adversarial_guard or marginal_guard")
     if type(dark_attack_limit) is not int or dark_attack_limit < 1:
         raise ValueError("dark_attack_limit must be a positive integer")
     if type(dark_guard_proposals) is not bool:
         raise ValueError("dark_guard_proposals must be boolean")
     if dark_card_policy != "sampled" and protagonist_strategy != "particle_ensemble":
-        raise ValueError("adversarial_guard requires particle_ensemble protagonists")
+        raise ValueError("dark attack probes require particle_ensemble protagonists")
     if type(oracle_candidate_policy) is not str or oracle_candidate_policy not in {"legacy", "joint_enumeration", "joint_threat", "joint_counterexample"}:
         raise ValueError("invalid oracle_candidate_policy")
     if oracle_candidate_policy != "legacy" and protagonist_strategy not in {"oracle_cards", "oracle_script"}:
@@ -814,7 +814,7 @@ def main() -> None:
     parser.add_argument("--final-guess-node-limit", type=int, default=100_000)
     parser.add_argument("--role-sampling-policy", choices=("importance", "exact_partition"), default="importance")
     parser.add_argument("--role-partition-node-limit", type=int, default=100_000)
-    parser.add_argument("--dark-card-policy", choices=("sampled", "adversarial_guard"), default="sampled")
+    parser.add_argument("--dark-card-policy", choices=("sampled", "adversarial_guard", "marginal_guard"), default="sampled")
     parser.add_argument("--dark-attack-limit", type=int, default=8)
     parser.add_argument("--dark-guard-proposals", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--oracle-candidate-policy", choices=("legacy", "joint_enumeration", "joint_threat", "joint_counterexample"), default="legacy")
@@ -837,7 +837,7 @@ def main() -> None:
     if args.dark_attack_limit < 1:
         parser.error("dark attack limit must be positive")
     if args.dark_card_policy != "sampled" and args.protagonists != "particle_ensemble":
-        parser.error("adversarial_guard requires particle_ensemble protagonists")
+        parser.error("dark attack probes require particle_ensemble protagonists")
     if args.oracle_candidate_policy != "legacy" and args.protagonists not in {"oracle_cards", "oracle_script"}:
         parser.error("joint_enumeration currently requires oracle_cards or oracle_script")
     if (args.games < 1 or args.nodes < 1 or args.depth < 1

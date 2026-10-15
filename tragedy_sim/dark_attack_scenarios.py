@@ -122,6 +122,22 @@ def marginal_dark_worlds(source, view):
     return tuple(result)
 
 
+def marginal_guard_worlds(source, view, *, limit=8):
+    """Original draw plus templates and all supported slot/face probes.
+
+    Keep physical faces/resources; deduplicate only identical complete dark
+    signatures. This is one hypothesis's adversarial group, never extra mass.
+    Coverage is marginal plus bounded templates, not full Cartesian minimax.
+    """
+    variants = (source, *attack_dark_worlds(source, view, limit=limit),
+                *marginal_dark_worlds(source, view))
+    unique = {}
+    for world in variants:
+        signature = tuple((p.target, p.card) for p in world.state.pending if p.actor == "m")
+        unique.setdefault(signature, world)
+    return tuple(unique.values())
+
+
 def attack_dark_worlds(source, view, *, limit=8):
     """Up to ``limit`` extra legal probes, prioritized by current role threats.
 

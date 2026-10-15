@@ -5,7 +5,8 @@ from math import perm
 import unittest
 
 from tragedy_sim import Game
-from tragedy_sim.dark_attack_scenarios import attack_dark_worlds, evacuation_bundles, legal_dark_bundles, with_dark_bundle
+from tragedy_sim.dark_attack_scenarios import (attack_dark_worlds, evacuation_bundles, legal_dark_bundles,
+                                             marginal_dark_worlds, marginal_guard_worlds, with_dark_bundle)
 from tragedy_sim.engine import Placement
 from tragedy_sim.oracle_protagonist import OracleProtagonistAgent
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
@@ -28,7 +29,69 @@ def threat_root():
     return game
 
 
+def bystander_root():
+    game = Game(ScenarioLibrary().get("official-fs-01-first-script"))
+    while game.state.phase != "mastermind":
+        game = game.search_transition(game.search_actions(game.controller)[0])
+    for face, target in (("fg", "girl"), ("p1a", "student"), ("h", "hospital")):
+        game.dispatch("m", "play", card=face, target=target)
+    game.state.round = game.scenario["days"]
+    for cid in ("girl", "maiden", "student"):
+        game.state.characters[cid].location = "shrine"
+    game.state.characters["police"].location = "city"
+    for cid in ("doctor", "worker"):
+        game.state.characters[cid].alive = False
+    return game
+
+
 class DarkAttackScenariosTests(unittest.TestCase):
+    def test_marginal_guard_covers_legal_slots_and_keeps_templates_without_mass_duplicates(self):
+        game = threat_root()
+        game.dispatch("a", "play", card="g1", target="doctor")
+        view = game.protagonist_team_view()
+        view["pending"][0]["card"] = "h"
+        view.setdefault("public_setup", {}).setdefault("special_rules", {})["disabled_mastermind_cards"] = ["v"]
+        before = deepcopy(game.view("m"))
+        signature = lambda world: tuple((p.card, p.target) for p in world.state.pending if p.actor == "m")
+        variants = marginal_guard_worlds(game, view, limit=2)
+        signatures = [signature(w) for w in variants]
+        self.assertIs(variants[0], game)
+        self.assertEqual(len(signatures), len(set(signatures)))
+        self.assertTrue({signature(w) for w in marginal_dark_worlds(game, view)}.issubset(signatures))
+        self.assertTrue({signature(w) for w in attack_dark_worlds(game, view, limit=2)}.issubset(signatures))
+        for world in variants:
+            self.assertEqual([p for p in world.state.pending if p.actor != "m"],
+                             [p for p in game.state.pending if p.actor != "m"])
+            self.assertEqual(world.roles, game.roles)
+            self.assertEqual(world.scenario, game.scenario)
+        self.assertEqual(game.view("m"), before)
+
+    def test_removing_bystander_is_found_without_changing_identity_hypothesis(self):
+        game = bystander_root()
+        view = game.protagonist_team_view()
+        before = deepcopy(game.view("m"))
+        bundle = ({"actor": "a", "action": "play", "card": "fi", "target": "girl"},
+                  {"actor": "b", "action": "play", "card": "g1", "target": "city"},
+                  {"actor": "c", "action": "play", "card": "g1", "target": "hospital"})
+        oracle = OracleProtagonistAgent(reveal_cards=True, script_aware_rollout=False)
+        def survives(world, plan=bundle):
+            return oracle._day_score(ParticleEnsembleProtagonistAgent._apply_bundle(world, plan),
+                                     game.state.loop, game.state.round)[1]
+        old = (game, *attack_dark_worlds(game, view))
+        self.assertTrue(all(survives(w) for w in old))
+        expanded = marginal_guard_worlds(game, view)
+        failures = [w for w in expanded if not survives(w)]
+        self.assertTrue(failures)
+        self.assertTrue(any(any(p.target == "student" and p.card in {"h", "v", "d"}
+                               for p in w.state.pending) for w in failures))
+        from tragedy_sim.hypothesis_defense import HypothesisThreatRanker
+        from tragedy_sim.joint_action_space import JointActionSpace
+        space = JointActionSpace(view, game.search_actions(game.controller))
+        ranker = HypothesisThreatRanker((expanded,), space)
+        plans, _ = space.ranked_bundles(lambda _: 0, 4, joint_rank=ranker, distinct_effects=True)
+        self.assertTrue(any(all(survives(w, plan) for w in expanded) for plan in plans))
+        self.assertEqual(game.view("m"), before)
+
     def test_full_enumeration_matches_public_all_different_and_visible_faces(self):
         game = threat_root()
         view = game.protagonist_team_view()
@@ -111,10 +174,10 @@ class DarkAttackScenariosTests(unittest.TestCase):
         offers = [_policy_offer(game, a) for a in game.action_offers(game.controller)]
         agents = [ParticleEnsembleProtagonistAgent(SearchBudget(node_limit=4, seed=3), particle_count=4,
                                                    rng_seed=3, dark_card_policy=policy, dark_guard_proposals=False)
-                  for policy in ("sampled", "adversarial_guard")]
+                  for policy in ("sampled", "adversarial_guard", "marginal_guard")]
         for agent in agents:
             agent.choose_action(participant="team", view=deepcopy(game.protagonist_team_view()), offers=offers)
-        a, b = agents
+        a, b, c = agents
         self.assertEqual([row["bundle"] for row in a.last_trace.root_actions],
                          [row["bundle"] for row in b.last_trace.root_actions])
         self.assertEqual(a.last_trace.belief_roles, b.last_trace.belief_roles)
@@ -122,6 +185,13 @@ class DarkAttackScenariosTests(unittest.TestCase):
         self.assertEqual(a.factorized_belief.matrix_rng.getstate(), b.factorized_belief.matrix_rng.getstate())
         self.assertGreater(b.last_trace.dark_attack_probes, 0)
         self.assertGreater(b.last_trace.evaluated_pairs, a.last_trace.evaluated_pairs)
+        self.assertEqual([row["bundle"] for row in a.last_trace.root_actions],
+                         [row["bundle"] for row in c.last_trace.root_actions])
+        self.assertEqual(a.last_trace.belief_roles, c.last_trace.belief_roles)
+        self.assertEqual(a.last_trace.belief_culprits, c.last_trace.belief_culprits)
+        self.assertEqual(a.last_trace.belief_dark_cards, c.last_trace.belief_dark_cards)
+        self.assertEqual(a.factorized_belief.matrix_rng.getstate(), c.factorized_belief.matrix_rng.getstate())
+        self.assertGreaterEqual(c.last_trace.evaluated_pairs, b.last_trace.evaluated_pairs)
 
     def test_joint_evacuation_respects_actor_hands_and_partial_submissions(self):
         game = threat_root()

@@ -62,8 +62,8 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             raise ValueError("final_guess_node_limit must be a positive integer")
         from .belief_partition_sampler import validate_role_sampling_options
         validate_role_sampling_options(role_sampling_policy, role_partition_node_limit, matrix_proposals)
-        if type(dark_card_policy) is not str or dark_card_policy not in {"sampled", "adversarial_guard"}:
-            raise ValueError("dark_card_policy must be sampled or adversarial_guard")
+        if type(dark_card_policy) is not str or dark_card_policy not in {"sampled", "adversarial_guard", "marginal_guard"}:
+            raise ValueError("dark_card_policy must be sampled, adversarial_guard or marginal_guard")
         if type(dark_attack_limit) is not int or dark_attack_limit < 1:
             raise ValueError("dark_attack_limit must be a positive integer")
         if type(dark_guard_proposals) is not bool:
@@ -431,7 +431,11 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                     search_started + self.budget.time_limit_ms / 1000)
         # These are adversarial evaluation branches, never posterior samples.
         # Proposal generation and belief telemetry keep the original worlds.
-        if self.dark_card_policy == "adversarial_guard":
+        if self.dark_card_policy == "marginal_guard":
+            from .dark_attack_scenarios import marginal_guard_worlds
+            evaluation_worlds = tuple(marginal_guard_worlds(world, view, limit=self.dark_attack_limit)
+                                      for world in worlds)
+        elif self.dark_card_policy == "adversarial_guard":
             from .dark_attack_scenarios import attack_dark_worlds
             evaluation_worlds = tuple((world, *attack_dark_worlds(world, view, limit=self.dark_attack_limit))
                                       for world in worlds)
@@ -603,7 +607,7 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             priorities.update(information_proposals)
             proposals = self._prioritize_proposals(proposals, priorities, limit)
         evacuation_count = 0
-        if self.dark_card_policy == "adversarial_guard" and self.dark_guard_proposals and limit > 1:
+        if self.dark_card_policy != "sampled" and self.dark_guard_proposals and limit > 1:
             from .dark_attack_scenarios import evacuation_bundles
             attack_proposals = {}
             for world in worlds:
@@ -776,11 +780,12 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                          and perf_counter() >= deadline else "candidate_limit"),
             rollout_horizon=self.rollout_horizon,
             mastermind_policy_samples=self.mastermind_policy_samples,
-            mastermind_policy_aggregation=("per_world_worst_routes_and_attack_probes"
+            mastermind_policy_aggregation=("per_world_worst_routes_and_marginal_probes"
+                                           if self.dark_card_policy == "marginal_guard" else "per_world_worst_routes_and_attack_probes"
                                            if self.dark_card_policy == "adversarial_guard" else "per_world_worst"),
             information_reward_weight=self.information_reward_weight,
             dark_card_policy=self.dark_card_policy, dark_attack_probes=dark_attack_probes,
-            dark_guard_proposals=self.dark_card_policy == "adversarial_guard" and self.dark_guard_proposals,
+            dark_guard_proposals=self.dark_card_policy != "sampled" and self.dark_guard_proposals,
             dark_evacuation_candidates=evacuation_count,
             candidate_policy=self.candidate_policy, joint_candidate_diagnostics=joint_diagnostics)
         if self.evidence_ledger.audit is not None:

@@ -40,7 +40,8 @@ VARIANTS = {"legacy": (False, False, "uniform"),
             "matrix": (True, True, "prior"), "uniform": (True, True, "uniform"),
             "partition": (True, True, "prior"), "dark_guard": (True, True, "prior"),
             "dark_guard_scoring": (True, True, "prior"),
-            "joint_candidates": (True, True, "prior"), "joint_candidates_guard": (True, True, "prior")}
+            "joint_candidates": (True, True, "prior"), "joint_candidates_guard": (True, True, "prior"),
+            "joint_candidates_marginal": (True, True, "prior")}
 
 
 def scenario_fingerprints(library, scenarios):
@@ -100,7 +101,8 @@ def _run_match_job(job, *, settings, sources, manifests):
         raise RuntimeError("Sources or selected scenarios changed during evaluation")
     matrix, joint, policy = VARIANTS[variant]
     role_policy = "exact_partition" if variant == "partition" else "importance"
-    dark_policy = "adversarial_guard" if variant.startswith("dark_guard") or variant == "joint_candidates_guard" else "sampled"
+    dark_policy = ("marginal_guard" if variant == "joint_candidates_marginal" else "adversarial_guard"
+                   if variant.startswith("dark_guard") or variant == "joint_candidates_guard" else "sampled")
     candidate_policy = "joint_threat" if variant.startswith("joint_candidates") else "legacy"
     guard_proposals = variant != "dark_guard_scoring"
     started, cpu_started = perf_counter(), process_time()
@@ -158,7 +160,7 @@ def main():
     parser.add_argument("--seed", action="append", type=int, dest="seeds")
     parser.add_argument("--variant", action="append", choices=tuple(VARIANTS), dest="variants")
     parser.add_argument("--comparison", choices=("legacy_matrix", "matrix_partition", "matrix_dark_guard",
-                                               "matrix_joint_candidates", "guard_joint_candidates"), default="legacy_matrix")
+                                               "matrix_joint_candidates", "guard_joint_candidates", "joint_marginal_guard"), default="legacy_matrix")
     parser.add_argument("--mastermind-nodes", type=int, default=24)
     parser.add_argument("--protagonist-nodes", type=int, default=8)
     parser.add_argument("--worlds", type=int, default=12)
@@ -179,6 +181,7 @@ def main():
     scenarios = list(dict.fromkeys(args.scenarios or DEFAULT_SCENARIOS))
     seeds = list(dict.fromkeys(args.seeds or range(10)))
     comparison = {"matrix_partition": ("matrix", "partition"),
+                  "joint_marginal_guard": ("joint_candidates_guard", "joint_candidates_marginal"),
                   "matrix_joint_candidates": ("matrix", "joint_candidates"),
                   "guard_joint_candidates": ("dark_guard", "joint_candidates_guard"),
                   "matrix_dark_guard": ("matrix", "dark_guard"), "legacy_matrix": ("legacy", "matrix")}[args.comparison]
