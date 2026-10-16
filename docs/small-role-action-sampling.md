@@ -18,18 +18,40 @@ FS01、marginal_guard、seed0、第2轮第4天，精确后验包含4套完整身
 
 ## 实验
 
-当前为忽略目录中的原型，尚未接入生产接口；生产源码指纹 `b55296ad…`。
+原型使用冻结生产源码指纹 `b55296ad…`。生产实现指纹 `9c41de0c…`，可选接口已验收，默认仍IID。
 
 - 同一个失败根：IID所选三牌在三条既有黑方技能路线下全部失败；残差方案覆盖4套身份，新三牌在相同三条真实引擎路线下全部存活，行动样本仍4个。这里没有证明任意技能路线／全部暗牌下必胜。
 - 7项原型专项通过：完整等质量覆盖、非均匀抽样质量与下界、零质量、非法参数、联合组合认证、完整matcher及不耗RNG回退。
 - FS01 seed0–9，黑方4候选、红方4候选、4行动世界，固定工作量、4进程：IID红胜6/10，残差5/10，改善seed0／4／7，退化seed2／5／6／9；3组同胜负。48根／693命令回放、公开硬证据及矩阵真值审计通过。
 - 48根中22根启用，26根因身份支持超过4而回退；新策略没有增加行动世界数量，但认证有额外成本。此结果不支持默认切换或总体棋力提升。
+- 生产完整 **907项通过（271.093秒）**，其中12项行动抽样专项，联合当事人支持成员查询与CLI路由另有测试。临时目录专项在沙箱受限后以相同范围提升权限重跑，无测试跳过。
+- 生产20局配对复跑完成：10局IID与原冻结源码、10局残差与原型，全部完整决策／replay／技能／失败／终猜及逐根身份、当事人、暗牌统计、候选评分一致，103根／1498命令审计通过。仍为6/10→5/10、3改善／4退化，配对p=1.0；复跑用于行为等价，不追加为独立胜率样本。报告`fair-residual-production-10seeds.json`及`verify_residual_production.json`。
 
 原始资料在 `references/ai-calibration/2026-10-16/`：`audit_marginal_seed0_identity_mass`、`probe_small_role_composition`、`probe_residual_defense`、`prototype_residual_matches`，JSON与同名脚本配套。原型脚本有独立SHA256，和生产指纹一起记录；references不提交到Git，本文保留可复现方法和结论。
 
 ## 下一步
 
-1. 保留IID对照，接入可选、可审计的残差抽样，并验证回退与原版完整行为等价；不改大厅默认。
+1. 可选接入、生产／原型完整对局等价及IID／旧版行为等价已完成；保留IID默认，不改大厅入口。
 2. 对退化种子比较同一授权根：角色支持、当事人、暗牌攻击集、候选及实际续演分别审计，区分遗漏、错误估计及前日准备。
 3. 若对局无法验证提升，优先候选条件化联合暗牌反例及有限跨日防御；避免反复针对一个失败角色调概率。
 4. 更大行动样本数及完整小支持集显式加权规划仍是独立成本／棋力对照，不能用单根修复代替完整对局结果。
+
+## 生产接口与审计
+
+`ParticleEnsembleProtagonistAgent(action_role_sampling_policy="residual_small")`；默认`iid`。self-play CLI提供`--action-role-sampling-policy residual_small`，限公平粒子红方。矩阵评测`--comparison marginal_role_sampling`固定marginal_guard和joint_threat，仅切换抽样。大厅和黑方回复模型不切换。
+
+每根`proposal_diagnostics.action_role_sampling`记录请求／实际模式、精确支持大小、认证组合数及回退原因；启用时记录按同一顺序排列的角色／剧情键、原归一化质量和实际副本数。零概率不生成副本。日志为开发者离线资料，不进入玩家视图或SSE。
+
+```powershell
+python -X utf8 -m benchmarks.ai_matrix_validation --scenario official-fs-01-first-script --comparison marginal_role_sampling --mastermind-nodes 4 --protagonist-nodes 4 --worlds 4 --workers 4 --output references/ai-calibration/fair-residual-new.json
+```
+
+## 退化审计：身份覆盖后仍有联合暗牌遗漏
+
+FS01 seed2，第2轮第2天，残差版覆盖4套身份各一次，女学生关键人物／巫女杀人狂均4/4；4个当事人样本中也有“当天谋杀由职员引发”。所选`fi女学生＋h职员＋v巫女`在96个额外边缘攻击分支及既有技能路线下仍被评为4/4存活。
+
+固定该授权根及其原4个角色／当事人样本，决定完成后枚举合法三张暗牌：其中一个世界的首个合法组合`d女学生＋fg职员＋fp医生`已在`incident_pressure`路线确认主人公失败，而该世界的全部marginal_guard分支没有失败。其他3个世界各504套均未找到失败；有反例的世界在首个失败时停止，未冒称完成全部4×504穷举。
+
+这次退化具有明确的攻击覆盖缺口，角色完整覆盖仍不能补足联合暗牌遗漏。下一步优先把已有开眼的候选条件化反例组件迁移到公平规划：每个原角色／当事人组内添加经引擎确认的攻击，所有候选在共同更新后的攻击集复评，组质量保持不变。新增攻击不得写入witness或当作后验抽样。跨日与当事人方差仍保留独立审计。
+
+原始`audit_residual_seed2_joint_gap.py/.json`复现并断言了与保存轨迹相同的完整三牌。只有选牌完成后进行假设世界攻击检查，真实剧本不参与公平选牌。

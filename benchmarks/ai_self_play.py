@@ -204,6 +204,7 @@ class MatchResult:
     oracle_dark_state_policy: str = "mean"
     oracle_searches: tuple[OracleSearchRecord, ...] = ()
     protagonist_candidate_policy: str = "legacy"
+    action_role_sampling_policy: str = "iid"
 
 
 def _ability_usage(events: Sequence[dict[str, Any]]) -> tuple[AbilityUsageRecord, ...]:
@@ -383,6 +384,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
          oracle_future_incident_policy: str = "legacy",
          oracle_dark_state_policy: str = "mean",
          protagonist_candidate_policy: str = "legacy",
+         action_role_sampling_policy: str = "iid",
          cutoff_observer: Callable[[Game, dict[str, Any]], None] | None = None
          ) -> MatchResult:
     matrix_proposals, joint_culprits = _resolve_belief_options(
@@ -390,6 +392,10 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
     _validate_final_guess_options(protagonist_strategy, final_guess_policy, final_guess_node_limit)
     _validate_role_sampling_options(protagonist_strategy, role_sampling_policy,
                                     role_partition_node_limit, matrix_proposals)
+    if type(action_role_sampling_policy) is not str or action_role_sampling_policy not in {"iid", "residual_small"}:
+        raise ValueError("action_role_sampling_policy must be iid or residual_small")
+    if action_role_sampling_policy != "iid" and protagonist_strategy != "particle_ensemble":
+        raise ValueError("action role resampling requires particle_ensemble protagonists")
     if type(protagonist_candidate_policy) is not str or protagonist_candidate_policy not in {"legacy", "joint_threat"}:
         raise ValueError("protagonist_candidate_policy must be legacy or joint_threat")
     if protagonist_candidate_policy != "legacy" and protagonist_strategy != "particle_ensemble":
@@ -473,7 +479,8 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
             final_guess_policy=final_guess_policy, final_guess_node_limit=final_guess_node_limit,
             role_sampling_policy=role_sampling_policy, role_partition_node_limit=role_partition_node_limit,
             dark_card_policy=dark_card_policy, dark_attack_limit=dark_attack_limit,
-            dark_guard_proposals=dark_guard_proposals, candidate_policy=protagonist_candidate_policy)
+            dark_guard_proposals=dark_guard_proposals, candidate_policy=protagonist_candidate_policy,
+            action_role_sampling_policy=action_role_sampling_policy)
     if team_ismcts is not None and hasattr(team_ismcts, "factorized_belief"):
         team_ismcts.factorized_belief.matrix_recovery_enabled = matrix_recovery
     protagonists = {
@@ -715,6 +722,7 @@ def play(scenario_id: str, seed: int, nodes: int, depth: int,
         protagonist_searches=tuple(protagonist_searches),
         oracle_searches=tuple(oracle_searches),
         protagonist_candidate_policy=protagonist_candidate_policy,
+        action_role_sampling_policy=action_role_sampling_policy,
         protagonist_evidence_seconds=protagonist_evidence_ms / 1000,
         protagonist_search_seconds=protagonist_search_ms / 1000,
         ability_usage=_ability_usage(game.state.events),
@@ -822,6 +830,7 @@ def main() -> None:
     parser.add_argument("--oracle-future-incident-policy", choices=("legacy", "impact"), default="legacy")
     parser.add_argument("--oracle-dark-state-policy", choices=("mean", "worst"), default="mean")
     parser.add_argument("--protagonist-candidate-policy", choices=("legacy", "joint_threat"), default="legacy")
+    parser.add_argument("--action-role-sampling-policy", choices=("iid", "residual_small"), default="iid")
     parser.add_argument("--disable-witness-source", action="append", default=[],
                         help="ablate one witness source (repeatable)")
     parser.add_argument("--mastermind-policy-samples", type=int, default=3,
@@ -834,6 +843,8 @@ def main() -> None:
                         default="day",
                         help="stable rollout boundary (particle ensemble supports day/loop)")
     args = parser.parse_args()
+    if args.action_role_sampling_policy != "iid" and args.protagonists != "particle_ensemble":
+        parser.error("action role resampling requires particle_ensemble protagonists")
     if args.dark_attack_limit < 1:
         parser.error("dark attack limit must be positive")
     if args.dark_card_policy != "sampled" and args.protagonists != "particle_ensemble":
@@ -890,6 +901,7 @@ def main() -> None:
                               oracle_future_incident_policy=args.oracle_future_incident_policy,
                               oracle_dark_state_policy=args.oracle_dark_state_policy,
                               protagonist_candidate_policy=args.protagonist_candidate_policy,
+                              action_role_sampling_policy=args.action_role_sampling_policy,
                               disabled_witness_sources=tuple(
                                   args.disable_witness_source),
                               oracle_horizon=args.oracle_horizon,

@@ -53,6 +53,21 @@ class JointCulpritPosterior:
         return (ordinary_used | (0 if serial else bit),
                 serial_used | (bit if serial else 0))
 
+    def supports_assignment(self, assignment):
+        """Read-only joint-support membership, using the same repeat rules."""
+        if set(assignment) != {day for day, _ in self.schedule}:
+            return False
+        ordinary_used = serial_used = 0
+        for index, (day, _) in enumerate(self.schedule):
+            cid = assignment[day]
+            if cid not in self.domains[day]:
+                return False
+            masks = self._advance(index, cid, ordinary_used, serial_used)
+            if masks is None:
+                return False
+            ordinary_used, serial_used = masks
+        return True
+
     def sample(self, rng):
         """One direct conditional draw; no retry loop or forbidden repeats."""
         if not self.partition:

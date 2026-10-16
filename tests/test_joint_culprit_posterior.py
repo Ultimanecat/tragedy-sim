@@ -31,6 +31,18 @@ def enumerate_assignments(schedule, domains, weights):
 
 
 class JointCulpritTests(unittest.TestCase):
+    def test_support_membership_matches_independent_enumeration(self):
+        schedule=((1,'serial_murder'),(2,'suicide'),(3,'serial_murder'))
+        domains={day:('girl','doctor') for day,_ in schedule}
+        weights={day:dict.fromkeys(domains[day],1) for day,_ in schedule}
+        reference=enumerate_assignments(schedule,domains,weights)
+        posterior=JointCulpritPosterior(schedule,domains,weights)
+        for choices in product(('girl','doctor'),repeat=3):
+            self.assertEqual(posterior.supports_assignment(dict(zip((1,2,3),choices))),choices in reference)
+        self.assertFalse(posterior.supports_assignment({1:'girl'}))
+        self.assertFalse(posterior.supports_assignment({1:'girl',2:'doctor',3:'unknown'}))
+        self.assertFalse(posterior.supports_assignment({1:'girl',2:'doctor',3:'girl',4:'girl'}))
+
     def test_marginals_and_actual_draws_match_conditional_product_reference(self):
         schedule = ((1, "serial_murder"), (2, "suicide"), (3, "serial_murder"))
         domains = {1: ("girl", "doctor", "maiden"), 2: ("girl", "doctor"),

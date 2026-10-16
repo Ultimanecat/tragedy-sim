@@ -38,7 +38,10 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                  final_guess_node_limit: int = 100_000,
                  role_sampling_policy: str = "importance", role_partition_node_limit: int = 100_000,
                  dark_card_policy: str = "sampled", dark_attack_limit: int = 8,
-                 dark_guard_proposals: bool = True, candidate_policy: str = "legacy"):
+                 dark_guard_proposals: bool = True, candidate_policy: str = "legacy",
+                 action_role_sampling_policy: str = "iid"):
+        if type(action_role_sampling_policy) is not str or action_role_sampling_policy not in {"iid", "residual_small"}:
+            raise ValueError("action_role_sampling_policy must be iid or residual_small")
         if type(candidate_policy) is not str or candidate_policy not in {"legacy", "joint_threat"}:
             raise ValueError("candidate_policy must be legacy or joint_threat")
         self.candidate_policy = candidate_policy
@@ -78,6 +81,7 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         self.factorized_belief.role_sampling_policy = role_sampling_policy
         self.factorized_belief.role_partition_node_limit = role_partition_node_limit
         self.factorized_belief.joint_culprits_enabled = joint_culprits
+        self.factorized_belief.action_role_sampling_policy = action_role_sampling_policy
         self.compiler = FsbtxWitnessCompiler(
             include_joint=joint_witness,
             disabled_sources=disabled_witness_sources)

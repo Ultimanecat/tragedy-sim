@@ -812,6 +812,8 @@ class FactorizedBeliefState:
         self._partition_fallback = None
         self.joint_culprits_enabled = joint_culprits
         self._culprit_diagnostics = None
+        self.action_role_sampling_policy = "iid"
+        self._action_role_diagnostics = None
         self.matrix_proposal_attempts = 0
         self.matrix_proposal_worlds = 0
         self.rng = random.Random(seed)
@@ -999,6 +1001,7 @@ class FactorizedBeliefState:
             "importance": dict(self._importance_diagnostics) if self._importance_diagnostics else None,
             "joint_culprits_enabled": self.joint_culprits_enabled,
             "culprit_posterior": dict(self._culprit_diagnostics) if self._culprit_diagnostics else None,
+            "action_role_sampling": deepcopy(self._action_role_diagnostics),
             "roles": [{"character": cid, "counts": dict(sorted(Counter(
                 dict(world.roles).get(cid) for world in worlds).items()))}
                 for cid in characters],
@@ -1407,10 +1410,12 @@ class FactorizedBeliefState:
         if count < 1:
             raise ValueError("count must be positive")
         self._culprit_diagnostics = None
+        self._action_role_diagnostics = {"requested": self.action_role_sampling_policy, "used": "iid"}
         ranked_roles = self.role_posterior(evidence, witnesses)
         culprits = self._culprits(evidence, witnesses)
         sizes = tuple((day, len(options)) for day, options in sorted(culprits.items()))
         if not ranked_roles or any(not options for options in culprits.values()):
+            self._action_role_diagnostics["fallback"] = "no_compatible_factor"
             return FactorizedBeliefResult((), len(ranked_roles), sizes,
                                           "no_compatible_factor")
         matcher = FsbtxWitnessMatcher()
@@ -1434,12 +1439,23 @@ class FactorizedBeliefState:
                 {day: dict(zip(culprits[day], weights)) for day, weights in culprit_weights.items()})
             self._culprit_diagnostics = joint.diagnostics()
             if not joint.partition:
+                self._action_role_diagnostics["fallback"] = "no_compatible_factor"
                 return FactorizedBeliefResult((), len(roles), sizes, "no_compatible_factor")
+        planned_roles = None
+        if self.action_role_sampling_policy == "residual_small":
+            from .action_role_sampling import certified_residual_roles
+            planned_roles, self._action_role_diagnostics = certified_residual_roles(
+                roles, weights, evidence, witnesses, culprits, joint, count,
+                exact=self._exact_roles, rng=rng)
+        elif self.action_role_sampling_policy != "iid":
+            raise ValueError("action_role_sampling_policy must be iid or residual_small")
         worlds = []
         attempts = 0
         while len(worlds) < count and attempts < count * 12:
             attempts += 1
-            if (self.role_sampling_policy == "exact_partition"
+            if planned_roles is not None:
+                role = planned_roles[len(worlds)]
+            elif (self.role_sampling_policy == "exact_partition"
                     and self._role_partition_sampler.partition.exact):
                 # Fresh direct draws avoid a second resampling step from the
                 # finite diagnostic pool. They preserve the full role target.
@@ -1456,6 +1472,8 @@ class FactorizedBeliefState:
             try:
                 world.materialize(evidence)
             except RuleError:
+                if planned_roles is not None:
+                    raise AssertionError("Certified role composition unexpectedly rejected")
                 continue
             worlds.append(world)
         return FactorizedBeliefResult(tuple(worlds), len(roles), sizes,

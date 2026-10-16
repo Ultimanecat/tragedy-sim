@@ -41,7 +41,8 @@ VARIANTS = {"legacy": (False, False, "uniform"),
             "partition": (True, True, "prior"), "dark_guard": (True, True, "prior"),
             "dark_guard_scoring": (True, True, "prior"),
             "joint_candidates": (True, True, "prior"), "joint_candidates_guard": (True, True, "prior"),
-            "joint_candidates_marginal": (True, True, "prior")}
+            "joint_candidates_marginal": (True, True, "prior"),
+            "joint_candidates_residual_marginal": (True, True, "prior")}
 
 
 def scenario_fingerprints(library, scenarios):
@@ -101,9 +102,10 @@ def _run_match_job(job, *, settings, sources, manifests):
         raise RuntimeError("Sources or selected scenarios changed during evaluation")
     matrix, joint, policy = VARIANTS[variant]
     role_policy = "exact_partition" if variant == "partition" else "importance"
-    dark_policy = ("marginal_guard" if variant == "joint_candidates_marginal" else "adversarial_guard"
+    dark_policy = ("marginal_guard" if variant in {"joint_candidates_marginal", "joint_candidates_residual_marginal"} else "adversarial_guard"
                    if variant.startswith("dark_guard") or variant == "joint_candidates_guard" else "sampled")
     candidate_policy = "joint_threat" if variant.startswith("joint_candidates") else "legacy"
+    action_sampling = "residual_small" if variant == "joint_candidates_residual_marginal" else "iid"
     guard_proposals = variant != "dark_guard_scoring"
     started, cpu_started = perf_counter(), process_time()
     faulthandler.dump_traceback_later(60, repeat=True)
@@ -117,12 +119,14 @@ def _run_match_job(job, *, settings, sources, manifests):
                      dark_card_policy=dark_policy,
                      dark_guard_proposals=guard_proposals,
                      protagonist_candidate_policy=candidate_policy,
+                     action_role_sampling_policy=action_sampling,
                      joint_reply_model="belief", joint_information_weight=0.02,
                      capture_fallback_contexts=True, capture_replay=True)
         if (match.scenario_id != sid or match.seed != seed
                 or match.matrix_proposals_enabled != matrix or match.joint_culprits_enabled != joint
                 or match.matrix_variant_policy != policy or match.role_sampling_policy != role_policy
-                or match.dark_card_policy != dark_policy or match.protagonist_candidate_policy != candidate_policy):
+                or match.dark_card_policy != dark_policy or match.protagonist_candidate_policy != candidate_policy
+                or match.action_role_sampling_policy != action_sampling):
             raise AssertionError("Returned match configuration differs from planned variant")
         if match.dark_guard_proposals != guard_proposals:
             raise AssertionError("Returned dark proposal policy differs from planned variant")
@@ -160,7 +164,8 @@ def main():
     parser.add_argument("--seed", action="append", type=int, dest="seeds")
     parser.add_argument("--variant", action="append", choices=tuple(VARIANTS), dest="variants")
     parser.add_argument("--comparison", choices=("legacy_matrix", "matrix_partition", "matrix_dark_guard",
-                                               "matrix_joint_candidates", "guard_joint_candidates", "joint_marginal_guard"), default="legacy_matrix")
+                                               "matrix_joint_candidates", "guard_joint_candidates", "joint_marginal_guard",
+                                               "marginal_role_sampling"), default="legacy_matrix")
     parser.add_argument("--mastermind-nodes", type=int, default=24)
     parser.add_argument("--protagonist-nodes", type=int, default=8)
     parser.add_argument("--worlds", type=int, default=12)
@@ -181,6 +186,7 @@ def main():
     scenarios = list(dict.fromkeys(args.scenarios or DEFAULT_SCENARIOS))
     seeds = list(dict.fromkeys(args.seeds or range(10)))
     comparison = {"matrix_partition": ("matrix", "partition"),
+                  "marginal_role_sampling": ("joint_candidates_marginal", "joint_candidates_residual_marginal"),
                   "joint_marginal_guard": ("joint_candidates_guard", "joint_candidates_marginal"),
                   "matrix_joint_candidates": ("matrix", "joint_candidates"),
                   "guard_joint_candidates": ("dark_guard", "joint_candidates_guard"),

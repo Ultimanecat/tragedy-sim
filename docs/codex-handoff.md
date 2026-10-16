@@ -4,17 +4,13 @@
 
 ## 当前状态与在途任务
 
-- 2026-10-16续接：旧评测session54764已消失，提升权限只读检查确认无存活Python后，用严格`--resume`续跑缺失2局，保留38局检查点。当前session46455，已保存39/40，最后BTX04 seed8 marginal仍在计算。生产Python继续冻结。FS01残差抽样原型10seed已完成（session90869正常退出），6/10→5/10、3改善／4退化，48根／693命令审计通过；只修实际红方，黑方内部模型不改。7项原型测试通过；尚未接入生产，不切默认。见 [小支持行动抽样](small-role-action-sampling.md)。忽略目录草稿及结果需新会话读取；当前明确下一步为可选接入／回退等价回归和退化审计。
-- 最新工作区源码 `b55296ad…`：可选 `dark_card_policy=marginal_guard` 已实现，保留模板＋合法逐槽单牌覆盖；75项专项、完整893项通过（256.794秒）。定向seed6／9旧双败→新双胜，19根／282命令审计，旧对照与上一版本行为相同。40局FS01／BTX04各10seed评测session54764仍运行，报告 `references/ai-calibration/2026-10-16/fair-marginal-guard-10seeds.json`，显式8进程，期间冻结生产Python。测试session61099、烟测68476已正常退出。
-- FS01完整子集旧7/10→新6/10，改善2／退化3，不能因两个定向修复就换默认。新seed0末日精确角色支持4套各.25，职员杀手边际.25，但4个行动样本全部给职员传谣者，漏防杀手密谋4杀主人公。hard及矩阵未排除真相。审计 `audit_marginal_seed0_identity_mass.json`；下一步优先解决小型精确支持被重复抽样遗漏：IID基线、更大样本对照、保留原质量的完整小支持规划，含角色／当事人联合合法性及所有评分维度一致加权；之后再加联合暗牌反例。见 [覆盖报告](fair-marginal-guard.md)。
-- 最新公平联合候选首阶段源码 `7cbbc3ad…`：完整890项通过，默认legacy对Git四组／47根／663命令行为相同。`candidate_policy=joint_threat`为可选实验，按原后验抽样分组、组内暗牌保守排序、按质量聚合；真实引擎评分与信念不变。40局FS01／BTX04各10seed已全部完成：红胜6/20→10/20，6改善／2退化，p=.289，442根／6508命令审计通过，默认不换。session10725／35603／92484／54300均正常退出，无在途任务，见 [阶段报告](fair-joint-candidates.md)。
-- 下一明确缺口：FS01 seed9第2轮第4天，四个身份样本都已知关键人物／杀人狂，guard未覆盖移走男学生形成单独相处；逐槽合法暗牌覆盖各找到1个致命分支。同信念补覆盖后4个新方案在扩展场景通过真实引擎。下一版单独新增边缘覆盖，保留攻击模板、不变后验质量；再做候选条件化联合反例。seed6谋杀另审计，不泛化同一归因。
-- 公平 FS／BTX 红方默认 prior 矩阵重要性提议＋合法联合当事人，终猜 `latent_map`、暗牌 `sampled`。原始因子状态／历史 ISMCTS 和联合黑方内部回复仍保留旧基线。没有新增矩阵大厅 ID。
-- 两开眼保留明确作弊标注。候选 `joint_counterexample`、未来事件 `impact`、暗牌状态 `worst` 仍为实验开关，未切换大厅默认或公平主线。
-- 源码 `fa420597…` 的 BTX04／06、seed0–9、两版40局已完成，session88968正常退出：行动胜 mean16/20、worst20/20，改善4／退化0，轮回失败20→0。BTX04为6/10→10/10，BTX06均10/10。354根／5686命令回放、公开硬证据与矩阵真值审计通过；配对p=.125，不称普遍／统计显著优势。开眼终猜不算行动胜，见 [暗牌保守估值](dark-state-defense.md)。
-- 随后已修复重复惩罚侵入存活率：31/31旧计划曾被30/31新计划超越；现在原始全horizon存活率、当日存活率先于状态奖励／重复惩罚。4／31世界、长horizon及同安全性时变化计划的正式测试、82项专项、完整881项通过（253.634秒）。
-- 源码 `bb2259bb…` 的安全修复完整回归、四剧本16局均完成。新旧16/16局完整决策、replay、技能、轮回失败与终猜相同，96根／1536命令审计通过；安全修复不另称真实棋力提升。报告 `references/ai-calibration/2026-10-16/survival-priority-cross-script-smoke.json`。
-- 最新源码 `da172a34…`：开眼日志／计时已修复，`oracle_searches`保存新规划trace与候选评分，按实际新trace去重；`protagonist_search_seconds`恢复累计三牌规划时间。65项专项、完整882项通过（230.343秒），8组完整前后对局66根／940命令行为相同。session35782／68672／32216均正常退出，无在途任务。报告方法及计时边界见 [搜索记录](oracle-search-telemetry.md)。
+- 当前生产Python指纹 `9c41de0c…`：可选 `action_role_sampling_policy=residual_small` 已接入公平红方、self-play及矩阵评测；完整907项通过（271.093秒），12项抽样专项。默认IID、sampled暗牌、legacy候选及大厅／黑方内部回复均未切换。小精确支持逐项认证合法联合当事人后做残差抽样；未知／超预算／组合相关拒绝明确回退IID且不耗额外抽样RNG，诊断记录原质量和实际副本数。见 [行动抽样](small-role-action-sampling.md)。
+- 本阶段所有任务已正常退出，无在途评测：full test12661、生产配对94744、原型90869、恢复旧评测46455、联合攻击审计76019。旧54764已消失，确认无存活Python后严格resume补末2局，原38局保留。不要继续轮询这些句柄，也不要重跑已完成样本。
+- 源码 `b55296ad…` 的边缘攻击覆盖40局全部完成：FS01旧guard7/10→marginal6/10，BTX04为3/10→0/10，总计10/20→6/20、2改善／6退化、p=.289；449根／6902命令审计通过，不切默认。最后BTX04一局约519秒，联合排序成本仍高。报告 `fair-marginal-guard-10seeds.json`，见 [边缘覆盖](fair-marginal-guard.md)。
+- FS01残差原型10seed：IID6/10→残差5/10、3改善／4退化。生产20局复跑已验证：IID10局与冻结旧版、残差10局与原型，完整决策／replay／技能／失败／终猜及逐根候选评分全部一致；103根／1498命令审计通过，不把复跑重复计入胜率。报告 `fair-residual-production-10seeds.json`、`verify_residual_production.json`。
+- 最新明确缺口：seed0末日“后验职员杀手.25、行动4样本全遗漏”已在同根以4套完整支持修复；seed2第2轮第2天身份4套和谋杀当事人职员都已覆盖，边缘攻击仍把所选三牌判全存活。固定同根／原样本的合法联合牌检查找到 `d女学生+fg职员+fp医生` 在incident_pressure路线致败，所有marginal分支均漏测。原始 `audit_residual_seed2_joint_gap.py/.json`；下步优先公平的候选条件化反例，不能继续仅调身份概率。
+- 前期公平联合候选 `7cbbc3ad…` 40局为6/20→10/20，6改善／2退化、p=.289，442根／6508命令审计通过；开眼worst暗牌状态40局16/20→20/20，均为有限实验，保持开关。详细历史读专题文档，不再等待已退出旧进程。
+- 保护用户附件 `.codex-remote-attachments/`；`references/` 忽略，不强制提交。当前无前端改动。
 
 ## 已完成的关键基础
 
@@ -29,7 +25,7 @@
 
 1. 安全排序修复及完整回归／16局行为对照已完成，不再重复等待旧进程。
 2. 日志计时修复已验收，后续调优读取候选selection_key／存活／状态值解释决策；不要重启旧评测。三牌规划耗时仍不等于所有技能选择或端到端耗时。
-3. 公平联合候选及边缘暗牌覆盖均已实现，当前先等40局完整结果；已知小型精确角色支持仍被4次有放回行动抽样遗漏，优先加权行动覆盖／更大预算对照。角色与当事人联合合法性、原质量及全评分维度必须保持；之后再加候选条件化联合暗牌反例。压力分支不增加身份质量，不把不同身份统一取最坏。
+3. 公平联合候选、边缘覆盖及残差抽样均已实现并跑完对照，默认不变。优先迁移候选条件化联合暗牌反例：在每个原角色／当事人组内查证并加攻击，所有候选在共同扩展场景复评，原组质量不变。已有seed2真实授权根及引擎反例，先写可提交的合成回归；不能让不同组各自选最佳计划再平均。更大预算／完整小支持显式加权和BTX04跨日准备另做消融。
 4. 增加留出FS／BTX标准／Easy及11角色BTX-41；先开眼诊断，再公平规划。黑方升级、信息隐藏／终猜概率、短跨日分别实验。MC的witness／矩阵迁移在公开规划可靠后启动，其他长期项读路线图。
 
 ## 代码入口
@@ -40,7 +36,7 @@
 | --- | --- |
 | 正式裁判／阶段 | `game.py`、`engine.py`、`phases/`、`effects/`、`rulesets/` |
 | 公平规划／世界重建 | `particle_ensemble.py`、`belief_planner.py` |
-| 身份／剧情后验 | `belief.py`、`belief_posterior.py`、`belief_matrix*.py`、`belief_role_solver.py`、`belief_partition_sampler.py` |
+| 身份／剧情后验 | `belief.py`、`belief_posterior.py`、`belief_matrix*.py`、`belief_role_solver.py`、`belief_partition_sampler.py`、`action_role_sampling.py` |
 | 当事人／暗牌域 | `belief_culprit_constraints.py`、`belief_culprit_posterior.py`、`belief_dark_constraints.py` |
 | 终猜／审计 | `final_guess_probability.py`、`belief_audit.py`；另有 `benchmarks/ai_causal_audit.py` |
 | 防守空间／攻击 | `joint_action_space.py`、`joint_defense_ranker.py`、`dark_attack_scenarios.py`、`defense_counterexamples.py` |

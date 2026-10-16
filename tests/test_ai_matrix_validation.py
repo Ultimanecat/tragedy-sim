@@ -29,7 +29,22 @@ class MatrixEvaluationTests(unittest.TestCase):
                        matrix_variant_policy=kwargs["matrix_variant_policy"],
                        role_sampling_policy=kwargs["role_sampling_policy"], dark_card_policy=kwargs["dark_card_policy"],
                        dark_guard_proposals=kwargs["dark_guard_proposals"],
-                       protagonist_candidate_policy=kwargs.get("protagonist_candidate_policy", "legacy"))
+                       protagonist_candidate_policy=kwargs.get("protagonist_candidate_policy", "legacy"),
+                       action_role_sampling_policy=kwargs.get("action_role_sampling_policy", "iid"))
+
+    def test_role_sampling_comparison_keeps_attack_and_candidate_policies_fixed(self):
+        with TemporaryDirectory() as folder:
+            path=Path(folder)/'evaluation.json'
+            with (patch('sys.argv',['evaluate','--scenario','official-fs-01-first-script','--seed','0',
+                                   '--comparison','marginal_role_sampling','--workers','1','--output',str(path)]),
+                  patch.object(evaluation,'play',side_effect=self.fake_play) as runner,
+                  patch.object(evaluation,'source_digest',return_value='frozen'),redirect_stdout(StringIO())):
+                evaluation.main()
+            calls=runner.call_args_list
+            self.assertEqual([c.kwargs['action_role_sampling_policy'] for c in calls],['iid','residual_small'])
+            self.assertEqual([c.kwargs['dark_card_policy'] for c in calls],['marginal_guard']*2)
+            self.assertEqual([c.kwargs['protagonist_candidate_policy'] for c in calls],['joint_threat']*2)
+            self.assertTrue(json.loads(path.read_text(encoding='utf-8'))['progress']['complete'])
 
     def test_marginal_comparison_routes_same_joint_candidates_and_distinct_attack_policies(self):
         with TemporaryDirectory() as folder:
