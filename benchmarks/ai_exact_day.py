@@ -68,10 +68,12 @@ def main():
     parser.add_argument("--nodes", type=int, default=10000)
     parser.add_argument("--time-ms", type=int, default=10000)
     parser.add_argument("--max-depth", type=int, default=256)
+    parser.add_argument("--backend", choices=("reference", "cached"), default="reference")
+    parser.add_argument("--cache-capacity", type=int, default=100000)
     parser.add_argument("--warmstart", type=Path, help="JSON array of complete red bundles; full domain remains")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    if min(args.nodes, args.time_ms, args.max_depth, args.loop, args.day) < 1:
+    if min(args.nodes, args.time_ms, args.max_depth, args.loop, args.day, args.cache_capacity) < 1:
         parser.error("budgets and positions must be positive")
     sources = source_digest()
     try:
@@ -79,7 +81,8 @@ def main():
                          loop=args.loop, day=args.day, targets=args.targets)
         starts = json.loads(args.warmstart.read_text(encoding="utf-8")) if args.warmstart else ()
         work = WorkLimit(node_limit=args.nodes, time_limit_ms=args.time_ms)
-        result = PureDaySolver(max_depth=args.max_depth).solve(game, warmstarts=starts, work=work)
+        solver = PureDaySolver(max_depth=args.max_depth, backend=args.backend, cache_capacity=args.cache_capacity)
+        result = solver.solve(game, warmstarts=starts, work=work)
     except ValueError as error:
         parser.error(str(error))
     if sources != source_digest():
@@ -88,11 +91,17 @@ def main():
               "scenario_digest": hashlib.sha256(json.dumps(game.scenario,ensure_ascii=False).encode()).hexdigest(),
               "position": [game.state.loop, game.state.round],
               "black_targets": [p.target for p in game.state.pending if p.actor == "m"],
-              "settings": {"nodes": args.nodes, "time_ms": args.time_ms, "max_depth": args.max_depth},
+              "settings": {"nodes": args.nodes, "time_ms": args.time_ms, "max_depth": args.max_depth,
+                           "backend": args.backend, "cache_capacity": args.cache_capacity},
               "root_setup_commands": game.history,
               "known_script": True, "fair_policy": False,
               "certified_pure_value": result.bounds.exact,
               "result": asdict(result)}
+    if args.backend == "cached":
+        output["cache"] = {**asdict(solver.continuation.stats), "entries": len(solver.continuation.values),
+                           "compact_clones": solver.kernel.compact_clones,
+                           "fallback_clones": solver.kernel.fallback_clones,
+                           "version": solver.kernel.version}
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         write_report(args.output, output)

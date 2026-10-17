@@ -7,7 +7,7 @@ from .cards import CompleteCardSpace
 from .continuation import DayContinuationSolver, ValueBounds, WorkLimit
 
 
-def commit_pair(world, red, black):
+def commit_pair(world, red, black, *, kernel=None):
     """Counterfactual card faces on a full clone; real root stays untouched."""
     existing = [p for p in world.state.pending if p.actor == "m"]
     available = set(world.state.hands["m"]) | {p.card for p in existing}
@@ -16,12 +16,12 @@ def commit_pair(world, red, black):
             or any(p.actor != "m" for p in black) or len(set(faces)) != len(faces)
             or not set(faces).issubset(available)):
         raise ValueError("black bundle must preserve legal distinct physical cards and target slots")
-    clone = world.clone()
+    clone = world.clone() if kernel is None else kernel.clone(world)
     replacements = iter(black)
     clone.state.pending = [next(replacements) if p.actor == "m" else p for p in clone.state.pending]
     clone.state.hands["m"] = [c for c in clone._deck("m") if c in available and c not in faces]
     for command in red:
-        clone = clone.transition(command).game
+        clone = clone.transition(command).game if kernel is None else kernel.transition(clone, command)
     if clone.state.phase != "reveal":
         raise ValueError("both complete bundles must end at reveal")
     return clone
@@ -58,8 +58,16 @@ class PureDaySolver:
     other red rows. Unknown budget-limited cells retain [0,1].
     """
 
-    def __init__(self, *, max_depth=256):
-        self.continuation = DayContinuationSolver(max_depth=max_depth)
+    def __init__(self, *, max_depth=256, backend="reference", cache_capacity=100000):
+        if backend not in {"reference", "cached"}:
+            raise ValueError("backend must be reference or cached")
+        self.kernel = None
+        if backend == "cached":
+            from .cached import CachedDayContinuationSolver
+            self.continuation = CachedDayContinuationSolver(max_depth=max_depth, capacity=cache_capacity)
+            self.kernel = self.continuation.kernel
+        else:
+            self.continuation = DayContinuationSolver(max_depth=max_depth)
 
     def solve(self, world, *, warmstarts=(), work=None):
         started = perf_counter()
@@ -104,7 +112,7 @@ class PureDaySolver:
             for faces in black:
                 if work.exhausted():
                     break
-                after = commit_pair(world, plan, faces)
+                after = commit_pair(world, plan, faces, kernel=self.kernel)
                 card_edges += len(plan)
                 result = self.continuation.solve(after, work=work)
                 continuation_reasons.update(result.stop_reasons)

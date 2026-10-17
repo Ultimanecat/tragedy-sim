@@ -88,6 +88,18 @@ class DayContinuationSolver:
             raise ValueError("max_depth must be a positive integer")
         self.max_depth = max_depth
 
+    def _transition(self, current, action):
+        return current.transition(action).game
+
+    def _cache_key(self, current, position):
+        return None
+
+    def _lookup(self, key):
+        return None
+
+    def _store(self, key, result):
+        pass
+
     def solve(self, world, *, position=None, work=None):
         if not isinstance(world, Game) or world.module != "FS":
             raise ValueError("exact day continuation currently requires an FS Game")
@@ -118,6 +130,15 @@ class DayContinuationSolver:
             if depth >= self.max_depth:
                 local_reasons.add("depth_limit")
                 return ValueBounds(0, 1), None
+            cache_key = self._cache_key(current, position)
+            cached = self._lookup(cache_key)
+            if cached is not None:
+                return cached
+
+            def finish(bounds, action):
+                result = (bounds, action)
+                self._store(cache_key, result)
+                return result
             actor = current.controller
             if actor not in {"m", "a", "b", "c"}:
                 raise RuntimeError("nonterminal day node has no legal controller")
@@ -135,7 +156,7 @@ class DayContinuationSolver:
                     work.reasons.add("time_limit")
                     local_reasons.add("time_limit")
                     return (ValueBounds(lower, 1) if maximize else ValueBounds(0, upper)), best_action
-                child = current.transition(action).game
+                child = self._transition(current, action)
                 work.transitions += 1
                 bounds, _ = visit(child, depth + 1)
                 if maximize:
@@ -143,17 +164,17 @@ class DayContinuationSolver:
                     if bounds.lower > best_bound:
                         best_action, best_bound = dict(action), bounds.lower
                     if lower == 1:
-                        return ValueBounds(1, 1), best_action
+                        return finish(ValueBounds(1, 1), best_action)
                 else:
                     lower, upper = min(lower, bounds.lower), min(upper, bounds.upper)
                     if bounds.upper < best_bound:
                         best_action, best_bound = dict(action), bounds.upper
                     if upper == 0:
-                        return ValueBounds(0, 0), best_action
+                        return finish(ValueBounds(0, 0), best_action)
                 if work.exhausted() and index + 1 < len(actions):
                     local_reasons.update(work.reasons)
                     return (ValueBounds(lower, 1) if maximize else ValueBounds(0, upper)), best_action
-            return ValueBounds(lower, upper), best_action
+            return finish(ValueBounds(lower, upper), best_action)
 
         bounds, action = visit(world, 0)
         return DayResult(bounds, work.nodes - nodes_before, work.transitions - edges_before,

@@ -73,6 +73,18 @@ class ExactDayCommandTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "sources changed"):
                 evaluation.main()
 
+    def test_cached_backend_is_optional_and_reports_its_work(self):
+        with (patch("sys.argv", ["exact-day", "--backend", "cached", "--nodes", "1"]),
+              patch.object(evaluation, "source_digest", return_value="frozen"),
+              redirect_stdout(StringIO()) as output):
+            evaluation.main()
+        report = json.loads(output.getvalue())
+        self.assertEqual(report["settings"]["backend"], "cached")
+        self.assertFalse(report["certified_pure_value"])
+        self.assertGreater(report["cache"]["compact_clones"], 0)
+        self.assertEqual(report["cache"]["fallback_clones"], 0)
+        self.assertEqual(report["cache"]["version"], "fs-detached-v1")
+
 
 if __name__ == "__main__":
     unittest.main()

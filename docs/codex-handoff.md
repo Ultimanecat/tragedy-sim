@@ -4,9 +4,9 @@
 
 ## 当前状态与下一步
 
-- 核心方向及长期接口见 [联合行动博弈内核](certified-day-game-design.md)。T0.1已新增独立基准，默认AI未改；后续依次接续局价值、有限跨日和跨轮回，最终优化整局获胜概率。
-- 下一项T0.2无损压缩／缓存：保留`day_game/`当前完整transition版本作裁判。专项19项通过，真实FS01根10秒仍[0,1]，不能报告无解；读 [基准实现与限制](exact-day-baseline.md)。后续T0.3混合／Double Oracle→T0.4公平迁移→T1–T3，顺序只在 [路线图](future-roadmap.md)维护。
-- 当前Python指纹 `43c9dba9…`；完整回归926项通过（274.335秒，`references/exact-day-regression-20261017.txt`），其中新增专项19项。此前20局／103根／1498命令与冻结IID／残差原型完整行为一致。默认仍IID、sampled暗牌和legacy候选；可选实验不自动切换默认。
+- 核心方向及长期接口见 [联合行动博弈内核](certified-day-game-design.md)。T0.1独立基准及T0.2a规则／信息键、精确值缓存与少诊断拷贝已实现；默认AI未改，后续目标为整局获胜概率。
+- 下一项T0.2b局部压缩：先审计手牌／弃牌顺序规范化，再做有支持范围与回退的局部效果程序，保留完整transition作裁判。读 [基准](exact-day-baseline.md)和 [缓存审计](exact-day-cache.md)；真实FS01大根仍未闭合，不能报告无解。后续T0.3混合／Double Oracle→T0.4公平迁移→T1–T3，顺序只在 [路线图](future-roadmap.md)维护。
+- 当前Python指纹 `fbb59e0f…`；完整回归940项通过（285.070秒，`references/exact-day-cache-regression-20261017.txt`），日末基准／缓存专项33项。此前20局／103根／1498命令与冻结IID／残差原型完整行为一致。默认仍IID、sampled暗牌和legacy候选；可选实验不自动切换默认。
 - 已确认单因素暗牌遗漏：FS01 seed2根中保护性的“职员不安−1”掩盖“女学生斜移＋职员不减不安”的联合攻击。四组控制结算评分／引擎一致，见 [因果报告](joint-dark-probe-miss.md)。尚未证明该根有统一必胜防守，优先全域对抗验收，勿只调身份概率。
 - 当前无在途评测，不再轮询旧句柄。历史版本、实验数字、旧任务ID与原交接全文见 [归档](archive/README.md)；`references/`中的本机原始资料不会随新clone提供。
 
@@ -28,7 +28,7 @@
 | 当事人／暗牌域 | `belief_culprit_constraints.py`、`belief_culprit_posterior.py`、`belief_dark_constraints.py` |
 | 终猜／审计 | `final_guess_probability.py`、`belief_audit.py`；另有 `benchmarks/ai_causal_audit.py` |
 | 防守空间／攻击 | `joint_action_space.py`、`joint_defense_ranker.py`、`dark_attack_scenarios.py`、`defense_counterexamples.py` |
-| 完整日末基准 | `day_game/cards.py`、`continuation.py`、`pure.py`；诊断入口`benchmarks/ai_exact_day.py`，测试`tests/test_day_game.py` |
+| 完整日末基准／缓存 | `day_game/{cards,continuation,pure,keys,kernel,cached}.py`；`benchmarks/ai_exact_day.py --backend cached`（默认reference），测试`tests/test_day_game*.py` |
 | witness／AI | `witness_components.py`、`witness_rules/`、`witness.py`；`joint_mastermind.py`、`strategic_mcts.py`、`oracle_protagonist.py` |
 | 执行／网络／存档 | `ai_registry.py`、`ai_decisions.py`、`service.py`、`rooms.py`、`server.py`、`scenario_library.py`、`replay.py`、`transcript.py` |
 
