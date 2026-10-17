@@ -1,12 +1,12 @@
-# Codex 会话交接（2026-10-16）
+# Codex 会话交接（2026-10-17）
 
 先执行 `git status --short --branch`、`git log -8 --oneline`。以当前源码、[AI路线图](future-roadmap.md)和本页为准；专题报告保存历史证据，不按历史段落的“下一步”重复开发。保护用户附件 `.codex-remote-attachments/`。
 
 ## 当前状态与下一步
 
-- 核心方向已确认，尚未实现：[联合行动博弈内核](certified-day-game-design.md)。以当日完整对抗为战术基础，后续依次接续局价值、有限跨日和跨轮回，最终优化整局获胜概率；证明／近似边界见设计稿。
-- 当前下一项为路线图T0.1：单个FS已知世界／暗牌的完整合法行动域及日末能力树，保留独立穷举裁判。后续T0.2压缩→T0.3混合／Double Oracle→T0.4公平迁移，之后T1–T3长期扩展。具体顺序只在 [路线图](future-roadmap.md)维护。
-- 当前生产Python指纹 `9c41de0c…`；上次完整回归907项通过，20局／103根／1498命令与冻结IID／残差原型完整行为一致。默认仍IID、sampled暗牌和legacy候选；可选实验未验证稳定整体优势，不自动切换默认。
+- 核心方向及长期接口见 [联合行动博弈内核](certified-day-game-design.md)。T0.1已新增独立基准，默认AI未改；后续依次接续局价值、有限跨日和跨轮回，最终优化整局获胜概率。
+- 下一项T0.2无损压缩／缓存：保留`day_game/`当前完整transition版本作裁判。专项19项通过，真实FS01根10秒仍[0,1]，不能报告无解；读 [基准实现与限制](exact-day-baseline.md)。后续T0.3混合／Double Oracle→T0.4公平迁移→T1–T3，顺序只在 [路线图](future-roadmap.md)维护。
+- 当前Python指纹 `43c9dba9…`；完整回归926项通过（274.335秒，`references/exact-day-regression-20261017.txt`），其中新增专项19项。此前20局／103根／1498命令与冻结IID／残差原型完整行为一致。默认仍IID、sampled暗牌和legacy候选；可选实验不自动切换默认。
 - 已确认单因素暗牌遗漏：FS01 seed2根中保护性的“职员不安−1”掩盖“女学生斜移＋职员不减不安”的联合攻击。四组控制结算评分／引擎一致，见 [因果报告](joint-dark-probe-miss.md)。尚未证明该根有统一必胜防守，优先全域对抗验收，勿只调身份概率。
 - 当前无在途评测，不再轮询旧句柄。历史版本、实验数字、旧任务ID与原交接全文见 [归档](archive/README.md)；`references/`中的本机原始资料不会随新clone提供。
 
@@ -28,6 +28,7 @@
 | 当事人／暗牌域 | `belief_culprit_constraints.py`、`belief_culprit_posterior.py`、`belief_dark_constraints.py` |
 | 终猜／审计 | `final_guess_probability.py`、`belief_audit.py`；另有 `benchmarks/ai_causal_audit.py` |
 | 防守空间／攻击 | `joint_action_space.py`、`joint_defense_ranker.py`、`dark_attack_scenarios.py`、`defense_counterexamples.py` |
+| 完整日末基准 | `day_game/cards.py`、`continuation.py`、`pure.py`；诊断入口`benchmarks/ai_exact_day.py`，测试`tests/test_day_game.py` |
 | witness／AI | `witness_components.py`、`witness_rules/`、`witness.py`；`joint_mastermind.py`、`strategic_mcts.py`、`oracle_protagonist.py` |
 | 执行／网络／存档 | `ai_registry.py`、`ai_decisions.py`、`service.py`、`rooms.py`、`server.py`、`scenario_library.py`、`replay.py`、`transcript.py` |
 
