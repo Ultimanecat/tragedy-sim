@@ -9,6 +9,8 @@ import unittest
 from tests.test_day_game import root, commit, brute_day
 from tests import test_day_game as gold_tests
 from tragedy_sim import Game
+from tragedy_sim.scenario_library import ScenarioLibrary
+from tragedy_sim.engine import Placement
 from tragedy_sim.day_game import DayContinuationSolver, WorkLimit, ValueBounds, CompleteCardSpace, commit_pair, PureDaySolver
 from tragedy_sim.day_game.cached import CachedDayContinuationSolver
 from tragedy_sim.day_game.kernel import FsTransitionKernel
@@ -25,6 +27,51 @@ def assert_same_rule_state(test, actual, expected):
 
 
 class DayGameKeyTests(unittest.TestCase):
+    def test_hand_order_is_irrelevant_but_owners_and_multiplicities_are_preserved(self):
+        world = commit(root())
+        reordered = world.clone()
+        for cards in reordered.state.hands.values():
+            cards.reverse()
+        self.assertEqual(rule_state_key(world), rule_state_key(reordered))
+        self.assertEqual(information_key(world), information_key(reordered))
+        reordered.state.hands["a"].append("fm")
+        self.assertNotEqual(rule_state_key(world), rule_state_key(reordered))
+        reordered = world.clone()
+        reordered.state.hands["a"].remove("fm")
+        reordered.state.hands["b"].append("fm")
+        self.assertNotEqual(rule_state_key(world), rule_state_key(reordered))
+
+    def test_discard_order_changes_recovery_option_meaning_and_must_not_be_normalized(self):
+        scenario = ScenarioLibrary().get("official-fs-01-first-script")
+        scenario["cast"]["class_rep"] = scenario["cast"].pop("worker")
+        scenario["cast"]["class_rep"], scenario["cast"]["student"] = "ordinary", "killer"
+        for incident in scenario["incidents"]:
+            if incident["culprit"] == "worker":
+                incident["culprit"] = "class_rep"
+        world = Game(scenario)
+        world.state.phase = "goodwill"
+        for char in world.state.characters.values():
+            char.alive = char.id == "class_rep"
+        world.state.characters["class_rep"].goodwill = 2
+        world.state.discarded["a"] = ["fm", "g2"]
+        for card in world.state.discarded["a"]:
+            world.state.hands["a"].remove(card)
+        reordered = world.clone()
+        reordered.state.discarded["a"].reverse()
+        self.assertNotEqual(rule_state_key(world), rule_state_key(reordered))
+        action = {"actor": "a", "action": "choose", "index": 1}
+        first = world.transition(action).game
+        second = reordered.transition(action).game
+        self.assertEqual(first.state.phase, "refusal")
+        self.assertEqual(second.state.phase, "refusal")
+        accept = {"actor": "m", "action": "choose", "index": 1}
+        first = first.transition(accept).game
+        second = second.transition(accept).game
+        self.assertIn("fm", first.state.hands["a"])
+        self.assertNotIn("g2", first.state.hands["a"])
+        self.assertIn("g2", second.state.hands["a"])
+        self.assertNotIn("fm", second.state.hands["a"])
+
     def test_keys_retain_all_rule_fields_and_ignore_only_output_history(self):
         world = commit(root())
         original = rule_state_key(world)
@@ -154,6 +201,36 @@ class DayGameKernelTests(unittest.TestCase):
 
 
 class DayGameCacheTests(unittest.TestCase):
+    def test_actual_cast_counterexample_is_preserved_after_hand_normalization(self):
+        # A superficially safe key-character defense still loses to Killer's
+        # 4-intrigue hero attack: Worker i1 + Doctor diagonal + Brain ability.
+        world = commit(root(("fg", "i1", "d"), actual_cast=True),
+                       (("v", "girl"), ("p-1", "worker"), ("v", "police")))
+        actual = CachedDayContinuationSolver().solve(world)
+        self.assertEqual(actual.bounds, ValueBounds(0, 0))
+        self.assertEqual(brute_day(world, (2, 2)), 0)
+
+    def test_board_bluff_columns_share_rule_value_but_keep_different_revealed_observations(self):
+        world = gold_tests.PureDayTests().quiet_root()
+        red = next(CompleteCardSpace(world).red_bundles())
+        variants = []
+        for faces in (("h", "v", "fp"), ("fp", "v", "h")):
+            black = tuple(Placement("m", card, target) for card, target in
+                          zip(faces, ("hospital", "shrine", "city")))
+            after = commit_pair(world, red, black)
+            while after.state.phase in {"reveal", "action_counters"}:
+                after = after.transition(after.legal_actions(after.controller)[0]).game
+            variants.append(after)
+        first, second = variants
+        self.assertNotEqual(first.state.hands, second.state.hands)
+        self.assertEqual(rule_state_key(first), rule_state_key(second))
+        self.assertNotEqual(information_key(first), information_key(second))
+        solver = CachedDayContinuationSolver()
+        self.assertEqual(solver.solve(first).bounds, ValueBounds(1, 1))
+        hit_before = solver.stats.hits
+        self.assertEqual(solver.solve(second).bounds, ValueBounds(1, 1))
+        self.assertGreater(solver.stats.hits, hit_before)
+
     def test_complete_ability_values_match_independent_brute_force(self):
         solver = CachedDayContinuationSolver()
         for faces in (("v", "p-1", "h"), ("d", "p-1", "h"), ("v", "fg", "h"), ("d", "fg", "h")):

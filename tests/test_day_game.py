@@ -12,9 +12,10 @@ from tragedy_sim.day_game.continuation import day_boundary_value
 from tragedy_sim.scenario_library import ScenarioLibrary
 
 
-def root(faces=("d", "fg", "h")):
+def root(faces=("d", "fg", "h"), *, actual_cast=False):
     scenario = ScenarioLibrary().get("official-fs-01-first-script")
-    scenario["cast"]["worker"], scenario["cast"]["student"] = "ordinary", "killer"
+    if not actual_cast:
+        scenario["cast"]["worker"], scenario["cast"]["student"] = "ordinary", "killer"
     world = Game(scenario)
     while world.state.phase != "mastermind":
         world = world.transition(world.legal_actions(world.controller)[0]).game

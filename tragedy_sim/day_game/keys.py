@@ -56,8 +56,23 @@ def freeze(value):
             raise UnsupportedKey("unrecognized dataclass")
         names = [f.name for f in fields(value)]
         names += [name for name in vars(value) if name not in names] if hasattr(value, "__dict__") else []
-        return (type(value), tuple((name, freeze(getattr(value, name))) for name in names
-                                  if not (type(value) is State and name == "events")))
+        result = []
+        for name in names:
+            if type(value) is State and name == "events":
+                continue
+            item = getattr(value, name)
+            if (type(value) is State and name == "hands" and type(item) is dict
+                    and all(type(actor) is str and type(cards) is list
+                            and all(type(card) is str for card in cards) for actor, cards in item.items())):
+                # FS card access is by ID/membership; views enumerate in deck
+                # order. Keep seat owners and multiplicities. Discards MUST
+                # retain order: recovery abilities address numbered options.
+                encoded = ("physical-hand-multisets-v1",
+                           tuple((actor, tuple(sorted(cards))) for actor, cards in item.items()))
+            else:
+                encoded = freeze(item)
+            result.append((name, encoded))
+        return (type(value), tuple(result))
     raise UnsupportedKey(f"unsupported key value: {type(value).__name__}")
 
 
@@ -91,7 +106,7 @@ class InformationKey:
 def rule_state_key(world):
     if not audited_fs(world):
         raise UnsupportedKey("only the audited built-in FS Game supports rule keys")
-    return RuleStateKey("fs-rule-v1", id(world.ruleset),
+    return RuleStateKey("fs-rule-v2-hand-multisets", id(world.ruleset),
                         tuple((name, freeze(value)) for name, value in world.__dict__.items()
                               if name not in NON_RULE_HISTORY | {"ruleset"}))
 
