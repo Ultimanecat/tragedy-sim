@@ -5,6 +5,7 @@ The supplied world is explicitly script-informed, never a fair-player API.
 """
 
 from itertools import product
+from collections import Counter
 
 from ..dark_attack_scenarios import legal_dark_bundles
 from ..game import Game
@@ -52,7 +53,23 @@ class CompleteCardSpace:
     def black_bundles(self):
         yield from legal_dark_bundles(self.view)
 
+    def count_red(self):
+        """Exact product cardinality, summing target multiplicities only."""
+        counts = tuple(Counter(a["target"] for a in domain) for domain in self.domains)
+        total = 0
+        for targets in product(*(tuple(c) for c in counts)):
+            if len(set(targets)) == len(targets):
+                multiplicity = 1
+                for actor_counts, target in zip(counts, targets):
+                    multiplicity *= actor_counts[target]
+                total += multiplicity
+        return total
+
     def contains(self, plan):
+        if (not isinstance(plan, (tuple, list)) or len(plan) != len(self.actors)
+                or any(type(p) is not dict or set(p) != {"actor", "action", "card", "target"}
+                       or any(type(v) is not str for v in p.values()) for p in plan)):
+            return False
         return (len(plan) == len(self.actors)
                 and len({p.get("target") for p in plan}) == len(plan)
                 and all(p.get("actor") == actor and p.get("action") == "play"

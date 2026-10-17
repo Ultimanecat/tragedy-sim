@@ -1,6 +1,6 @@
 """Diagnostic roots and machine-readable bounded certificates."""
 
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import asdict
 from io import StringIO
 import json
@@ -108,6 +108,38 @@ class ExactDayCommandTests(unittest.TestCase):
         self.assertEqual(report["cache"]["edges"]["version"], "fs-transition-observation-edge-v1")
         self.assertGreater(report["cache"]["edges"]["stores"], 0)
         self.assertLessEqual(report["cache"]["edges"]["entries"], 8)
+
+    def test_mixed_mode_reports_exact_rational_certificate_and_executable_joint_plans(self):
+        from tests.test_day_game_mixed_engine import matching_root
+        with (patch("sys.argv", ["exact-day", "--mode", "mixed", "--backend", "cached", "--epsilon", "0",
+                                  "--nodes", "100000", "--time-ms", "30000"]),
+              patch.object(evaluation, "load_root", return_value=matching_root()),
+              patch.object(evaluation, "source_digest", return_value="frozen"),
+              redirect_stdout(StringIO()) as output):
+            evaluation.main()
+        report = json.loads(output.getvalue())
+        self.assertTrue(report["certified_mixed_value"])
+        self.assertFalse(report["fair_policy"])
+        self.assertEqual(report["result"]["lower_bound"]["fraction"], "2/3")
+        self.assertEqual(report["result"]["gap"]["fraction"], "0")
+        self.assertEqual(report["result"]["numeric_error_bound"]["fraction"], "0")
+        self.assertEqual(report["mixed_work"]["row_domain"], 240)
+        self.assertTrue(all(len(row["plan"]) == 3 for row in report["result"]["red"]))
+        self.assertTrue(all(c["action"] == "play" for row in report["result"]["red"] for c in row["plan"]))
+
+    def test_mixed_budget_and_bad_epsilon_do_not_print_false_optimality(self):
+        with (patch("sys.argv", ["exact-day", "--mode", "mixed", "--backend", "cached", "--nodes", "1"]),
+              patch.object(evaluation, "source_digest", return_value="frozen"),
+              redirect_stdout(StringIO()) as output):
+            evaluation.main()
+        report = json.loads(output.getvalue())
+        self.assertFalse(report["certified_mixed_value"])
+        self.assertEqual(report["result"]["lower_bound"]["fraction"], "0")
+        self.assertEqual(report["result"]["upper_bound"]["fraction"], "1")
+        with (patch("sys.argv", ["exact-day", "--mode", "mixed", "--epsilon", "-1"]),
+              redirect_stdout(StringIO()), redirect_stderr(StringIO())):
+            with self.assertRaises(SystemExit):
+                evaluation.main()
 
 
 if __name__ == "__main__":

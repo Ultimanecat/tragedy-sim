@@ -351,7 +351,7 @@ npm run test:e2e
 - [规则集能力矩阵与扩展契约](docs/ruleset-capability-matrix.md)。
 - [双方 AI 阶段性总结](docs/ai-current-state.md)：现有策略、信息边界、基准结论与后续优先级。
 - [AI 当前路线图](docs/future-roadmap.md)：实施顺序、验收边界及历史归档入口。
-- [联合行动博弈内核设计](docs/certified-day-game-design.md)：共享核心算法、混合策略、长期扩展及论文引用；[FS精确基准](docs/exact-day-baseline.md)、[牌效／观察边缓存](docs/exact-day-local-programs.md)已独立实现，默认AI不变。
+- [联合行动博弈内核设计](docs/certified-day-game-design.md)：共享核心算法、长期扩展及论文引用；实现报告见 [FS精确基准](docs/exact-day-baseline.md)、[牌效／观察边缓存](docs/exact-day-local-programs.md)、[精确混合策略](docs/exact-day-mixed-strategies.md)，默认AI不变。
 - [AI 调优与规则集扩展指南](docs/ai-tuning-guide.md)：self-play、witness、启发式奖励、失败局诊断与验收流程。
 
 引擎与界面分离，可直接调用：
