@@ -77,6 +77,7 @@ class MatrixGame:
     def __init__(self, matrix):
         self.values = matrix_values(matrix)
         self.row_count, self.column_count = len(self.values), len(self.values[0])
+        self.row_domain_key = ("matrix-row-indices-v1", self.row_count)
         self.utility = RationalInterval(min(min(row) for row in self.values), max(max(row) for row in self.values))
 
     def rows(self):

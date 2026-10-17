@@ -42,6 +42,7 @@ class EngineDayGame:
         self._columns = tuple(self._space.black_bundles())
         self._column_set = frozenset(self._columns)
         self.row_count, self.column_count = self._space.count_red(), len(self._columns)
+        self.row_domain_key = ("fs-physical-red-v1", self._space.actors, self._space._domain_keys)
         if not self.row_count or not self.column_count:
             raise ValueError("empty legal card domain")
         self.kernel = None

@@ -71,13 +71,20 @@ def verify_matrix_solution(matrix, solution):
     return True
 
 
-def solve_matrix(matrix, *, pivot_limit=100000, deadline=None):
-    """Bland-rule primal simplex on max 1'z, Bz<=1, z>=0, B=A+shift>0.
+@dataclass(frozen=True)
+class LinearSolution:
+    primal: tuple[Fraction, ...]
+    dual: tuple[Fraction, ...]
+    value: Fraction
+    pivots: int
 
-    At the optimum, normalized primal z gives the column strategy, normalized
-    dual slack prices give the row strategy; value=1/sum(z)-shift. Positive B
-    gives a feasible slack start and a bounded LP, so no phase-I solver is used.
-    Limits abort with MatrixLimit; an unfinished tableau is never certified.
+
+def solve_nonnegative_lp(matrix, rhs, objective, *, pivot_limit=100000, deadline=None):
+    """Exact max c'x subject to Mx<=rhs, x>=0, with rhs>=0.
+
+    A feasible slack start includes zero-RHS/degenerate constraints. Bland's
+    rule prevents cycling. This helper deliberately has no phase-I solver.
+    Every returned solution passes original primal/dual feasibility checks.
     """
     if type(pivot_limit) is not int or pivot_limit < 1:
         raise ValueError("pivot_limit must be a positive integer")
@@ -91,13 +98,17 @@ def solve_matrix(matrix, *, pivot_limit=100000, deadline=None):
     check_time()
     values = matrix_values(matrix)
     m, n = len(values), len(values[0])
-    minimum = min(min(row) for row in values)
-    shift = 1 - minimum if minimum <= 0 else Fraction(0)
+    try:
+        rhs, objective = tuple(map(rational, rhs)), tuple(map(rational, objective))
+    except TypeError as error:
+        raise ValueError("LP rhs and objective must be numeric sequences") from error
+    if len(rhs) != m or len(objective) != n or any(v < 0 for v in rhs):
+        raise ValueError("LP dimensions must match and rhs must be nonnegative")
     table = []
     for i, row in enumerate(values):
         check_time()
-        table.append([v + shift for v in row] + [Fraction(i == k) for k in range(m)] + [Fraction(1)])
-    table.append([Fraction(-1)] * n + [Fraction(0)] * (m + 1))
+        table.append(list(row) + [Fraction(i == k) for k in range(m)] + [rhs[i]])
+    table.append([-v for v in objective] + [Fraction(0)] * (m + 1))
     basis, pivots = list(range(n, n + m)), 0
     while True:
         check_time()
@@ -108,7 +119,7 @@ def solve_matrix(matrix, *, pivot_limit=100000, deadline=None):
             raise MatrixLimit("pivot_limit")
         candidates = [i for i in range(m) if table[i][entering] > 0]
         if not candidates:
-            raise RuntimeError("positive packing game unexpectedly has an unbounded LP")
+            raise ValueError("linear program is unbounded")
         leaving = min(candidates, key=lambda i: (table[i][-1] / table[i][entering], basis[i]))
         divisor = table[leaving][entering]
         pivot = [v / divisor for v in table[leaving]]
@@ -119,16 +130,34 @@ def solve_matrix(matrix, *, pivot_limit=100000, deadline=None):
                 table[i] = [v - factor * p for v, p in zip(table[i], pivot)]
         basis[leaving] = entering
         pivots += 1
-    column_scaled = [Fraction(0)] * n
+    primal = [Fraction(0)] * n
     for i, variable in enumerate(basis):
         if variable < n:
-            column_scaled[variable] = table[i][-1]
-    row_scaled = table[-1][n:n + m]
+            primal[variable] = table[i][-1]
+    dual = table[-1][n:n + m]
+    value = sum(c*x for c, x in zip(objective, primal))
+    if (any(x < 0 for x in primal) or any(y < 0 for y in dual)
+            or any(sum(a*x for a, x in zip(row, primal)) > b for row, b in zip(values, rhs))
+            or any(sum(dual[i]*values[i][j] for i in range(m)) < objective[j] for j in range(n))
+            or value != sum(b*y for b, y in zip(rhs, dual)) or value != table[-1][-1]):
+        raise RuntimeError("inconsistent exact primal/dual LP solution")
+    check_time()
+    return LinearSolution(tuple(primal), tuple(dual), value, pivots)
+
+
+def solve_matrix(matrix, *, pivot_limit=100000, deadline=None):
+    """Positive packing reduction; original matrix certificate is rechecked."""
+    values = matrix_values(matrix)
+    m, n = len(values), len(values[0])
+    minimum = min(min(row) for row in values)
+    shift = 1 - minimum if minimum <= 0 else Fraction(0)
+    packed = solve_nonnegative_lp(tuple(tuple(v + shift for v in row) for row in values),
+                                  [1]*m, [1]*n, pivot_limit=pivot_limit, deadline=deadline)
+    column_scaled, row_scaled = packed.primal, packed.dual
     total = sum(column_scaled)
-    if total <= 0 or total != sum(row_scaled) or total != table[-1][-1]:
+    if total <= 0 or total != sum(row_scaled) or total != packed.value:
         raise RuntimeError("inconsistent primal/dual packing objectives")
     solution = MatrixSolution(tuple(v / total for v in row_scaled), tuple(v / total for v in column_scaled),
-                              1 / total - shift, pivots)
-    check_time()
+                              1 / total - shift, packed.pivots)
     verify_matrix_solution(values, solution)
     return solution

@@ -91,6 +91,9 @@ class DayContinuationSolver:
     def _transition(self, current, action):
         return current.transition(action).game
 
+    def _actions(self, current, actor):
+        return current.legal_actions(actor)
+
     def _cache_key(self, current, position):
         return None
 
@@ -142,7 +145,7 @@ class DayContinuationSolver:
             actor = current.controller
             if actor not in {"m", "a", "b", "c"}:
                 raise RuntimeError("nonterminal day node has no legal controller")
-            actions = current.legal_actions(actor)
+            actions = self._actions(current, actor)
             if not actions:
                 raise RuntimeError("nonterminal day node has no legal actions")
             work.nodes += 1

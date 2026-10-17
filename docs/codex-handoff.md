@@ -5,8 +5,9 @@
 ## 当前状态与下一步
 
 - 核心方向及长期接口见 [联合行动博弈内核](certified-day-game-design.md)。T0.1–T0.3已完成；精确混合策略实现与验证见 [专项报告](exact-day-mixed-strategies.md)。默认AI未改，最终目标为整局获胜概率。
-- 下一项T0.4：共同红牌分布、世界分块黑方回应、原后验质量及观察一致的续演。先冻结合法续演政策，再单独扩展信息集能力树；不要对每个世界独立优化红方续招后平均。完整transition继续作裁判，后续顺序只在 [路线图](future-roadmap.md)维护。
-- 当前Python指纹 `32ae8798…`；完整回归993项通过（310.546秒，`references/exact-day-mixed-regression-20261017.txt`），混合策略专项31项通过。FS01压力根60秒得到全域界[1/2,1]，返回两套红牌各1/2；独立原生引擎504列／509单元格核验保障1/2。该根仍未证明最优值，不能报告无解；详见专项报告。此前固定单候选499存活／5失败为列计数，不是对弈胜率。默认仍IID、sampled暗牌和legacy候选。
+- T0.4进行中：[分块LP／共同红牌分布／原质量保留／固定授权续演](exact-day-fair-worlds.md)已实现。下一步连接现有联合后验与原质量，审计重建失败质量及实际FS根；再改善观察政策、单独扩展信息集能力树。不要逐世界优化红方续招后平均，完整transition继续作裁判。
+- 当前Python指纹 `7c083674…`；完整回归1018项通过（294.953秒，`references/exact-day-bayesian-regression-20261017.txt`）。T0.4两假设校准的返回红牌经原生1440列核验，两世界各保障1；人为指定已覆盖质量0.9后区间[0.9,1]，未核实为实际后验。60秒cached检查尚未完成，优先审计能力树／缓存成本，见公平内核报告。
+- T0.3历史FS01第2轮第2天压力根的全域界仍为[1/2,1]，两个红牌各1/2经原生504列／509单元格核验保障1/2，未证明最优；此前499存活／5失败为单候选列计数，均不是对弈胜率。默认仍IID、sampled暗牌和legacy候选。
 - 已确认单因素暗牌遗漏：FS01 seed2根中保护性的“职员不安−1”掩盖“女学生斜移＋职员不减不安”的联合攻击。四组控制结算评分／引擎一致，见 [因果报告](joint-dark-probe-miss.md)。尚未证明该根有统一必胜防守，优先全域对抗验收，勿只调身份概率。
 - 当前无在途评测，不再轮询旧句柄。历史版本、实验数字、旧任务ID与原交接全文见 [归档](archive/README.md)；`references/`中的本机原始资料不会随新clone提供。
 
@@ -30,6 +31,7 @@
 | 防守空间／攻击 | `joint_action_space.py`、`joint_defense_ranker.py`、`dark_attack_scenarios.py`、`defense_counterexamples.py` |
 | 完整日末基准／缓存 | `day_game/{cards,continuation,pure,keys,kernel,cached,local_cards,compiled,edges}.py`；`benchmarks/ai_exact_day.py --backend compiled`（默认reference），测试`tests/test_day_game*.py` |
 | 精确混合策略 | `day_game/{matrix,zero_sum,engine_game}.py`；`benchmarks/ai_exact_day.py --mode mixed --backend cached`；有理数LP、完整域最优回应、Double Oracle与可靠区间 |
+| 有限世界公平内核 | `day_game/{bayesian_matrix,bayesian,fair_engine}.py`；`benchmarks/ai_bayesian_day.py --worlds <json>`；世界分块回应、原质量／遗漏质量、固定授权续演，尚未接入实战后验 |
 | witness／AI | `witness_components.py`、`witness_rules/`、`witness.py`；`joint_mastermind.py`、`strategic_mcts.py`、`oracle_protagonist.py` |
 | 执行／网络／存档 | `ai_registry.py`、`ai_decisions.py`、`service.py`、`rooms.py`、`server.py`、`scenario_library.py`、`replay.py`、`transcript.py` |
 
@@ -45,6 +47,7 @@
 - 数值缓存只服务已知剧本／当日0/1；不能拿来做公平信息集或新续局效用。观察边缓存默认关闭，使用`--edge-cache-capacity N`显式开启；资源原序、完整历史和可变别名入键。紧凑副本不导出完整replay；反事实替换须同步剧作家自己记忆中的牌面，保持红方暗置信息不变。
 - T0.3续演读取完整状态，包括私密能力使用标志；知道剧本仍不保证知道这些字段。当前证书只适用于报告声明的完整状态续演模型；单世界迁移也要审计信息集。压力根返回策略在独立核验中没有非平凡红方能力选择，保障未依赖该私密历史。
 - 混合策略JSON以`fraction`为准，`value`只作显示；受限矩阵值不等于全域值，界由完整域最优回应给出。未知单元格保留收益范围，不写作0；合法无效果牌也可能影响混合博弈。`DoubleOracle`只可对同一不可变收益模型续跑。
+- T0.4每世界质量使用原概率，遗漏质量保留区间，粒子质量加总1不自动证明完整。`--complete-posterior`仅为调用者断言；当前CLI输入假设未自动核实为实际后验，固定跳过技能政策较弱，不能据此报告实战棋力。观察政策不读取私密命令占位符／序号；旧保守信息缓存键不能直接当选招输入。
 - 当前引擎末日好感≤2时允许时间旅行者宣败，需3才能挡住；禁止好感无效，失败时间点为末日日末可选窗口，区别于轮回结束。若改阈值必须同步规则、witness、估值和测试。因果线按上一轮好感产生下一轮不安。
 - 初始身份、当前身份、能力来源、替代死亡分开。查询返回当前身份，病毒下杀人狂可来自初始平民；安全初始推导另存，不被重查覆盖。原临时工平民答案不能揭露初始身份，替身需映射回初始列。
 - 拒绝／申请／同身份群调查不自动给单人答案；硬witness保留全部合法解释。只用结构化timing、kind、公开快照，中文文案、标题、剧本ID不作证据。
