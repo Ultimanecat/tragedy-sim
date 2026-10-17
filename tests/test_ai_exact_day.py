@@ -85,6 +85,30 @@ class ExactDayCommandTests(unittest.TestCase):
         self.assertEqual(report["cache"]["fallback_clones"], 0)
         self.assertEqual(report["cache"]["version"], "fs-detached-v1")
 
+    def test_compiled_backend_records_program_and_rule_key_versions(self):
+        with (patch("sys.argv", ["exact-day", "--backend", "compiled", "--nodes", "1"]),
+              patch.object(evaluation, "source_digest", return_value="frozen"),
+              redirect_stdout(StringIO()) as output):
+            evaluation.main()
+        report = json.loads(output.getvalue())
+        self.assertEqual(report["settings"]["backend"], "compiled")
+        self.assertFalse(report["certified_pure_value"])
+        self.assertEqual(report["cache"]["rule_key_version"], "fs-rule-v2-hand-multisets")
+        self.assertEqual(report["cache"]["local_program_version"], "fs-local-card-program-v1")
+        self.assertEqual(report["cache"]["programs"]["movements"], 1)
+        self.assertEqual(report["cache"]["programs"]["fallbacks"], 0)
+
+    def test_optional_observation_edge_cache_reports_capacity_and_work(self):
+        with (patch("sys.argv", ["exact-day", "--backend", "compiled", "--nodes", "1", "--edge-cache-capacity", "8"]),
+              patch.object(evaluation, "source_digest", return_value="frozen"),
+              redirect_stdout(StringIO()) as output):
+            evaluation.main()
+        report = json.loads(output.getvalue())
+        self.assertEqual(report["settings"]["edge_cache_capacity"], 8)
+        self.assertEqual(report["cache"]["edges"]["version"], "fs-transition-observation-edge-v1")
+        self.assertGreater(report["cache"]["edges"]["stores"], 0)
+        self.assertLessEqual(report["cache"]["edges"]["entries"], 8)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -208,6 +208,49 @@ class ExactDayTreeTests(unittest.TestCase):
 
 
 class PureDayTests(unittest.TestCase):
+    def test_counterfactual_black_faces_keep_private_commands_and_replay_consistent(self):
+        from benchmarks.ai_exact_day import load_root
+        from tragedy_sim.day_game.kernel import FsTransitionKernel
+
+        world = load_root("official-fs-01-first-script")
+        before = deepcopy(world.history)
+        space = CompleteCardSpace(world)
+        red = next(space.red_bundles())
+        black = next(space.black_bundles())
+        for kernel in (None, FsTransitionKernel(), FsTransitionKernel(compiled=True, edge_cache_capacity=8)):
+            with self.subTest(kernel=kernel):
+                after = commit_pair(world, red, black, kernel=kernel)
+                plays = [command for command in after.history if command["actor"] == "m" and command["action"] == "play"]
+                self.assertEqual([(c["card"], c["target"]) for c in plays], [(p.card, p.target) for p in black])
+                if kernel is None:
+                    self.assertEqual([record.command for record in after.decisions], after.history)
+                replayed = Game(after.scenario)
+                for command in after.history:
+                    replayed.dispatch(**command)
+                self.assertEqual(replayed.state, after.state)
+                self.assertEqual(replayed.roles, after.roles)
+        self.assertEqual(world.history, before)
+
+    def test_counterfactual_history_supports_red_prefix_and_truncated_recorded_tail(self):
+        from benchmarks.ai_exact_day import load_root
+        from dataclasses import replace
+
+        world = load_root("official-fs-01-first-script")
+        space = CompleteCardSpace(world)
+        red, black = next(space.red_bundles()), next(space.black_bundles())
+        partial = world.transition(red[0]).game
+        after = commit_pair(partial, red[1:], black)
+        replayed = Game(after.scenario)
+        for command in after.history:
+            replayed.dispatch(**command)
+        self.assertEqual(replayed.state, after.state)
+        short = world.clone()
+        short.history = short.history[-1:]
+        short.decisions = [replace(short.decisions[-1], number=1)]
+        after = commit_pair(short, red, black)
+        self.assertEqual(after.history[0]["card"], black[-1].card)
+        self.assertEqual([record.command for record in after.decisions], after.history)
+
     def quiet_root(self):
         world = Game(ScenarioLibrary().get("official-fs-01-first-script"))
         while world.state.phase != "mastermind":

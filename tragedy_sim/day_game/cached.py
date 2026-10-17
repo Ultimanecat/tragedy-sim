@@ -27,14 +27,14 @@ class CachedDayContinuationSolver(DayContinuationSolver):
     These keys/values cannot be reused for the later fair information-set game.
     """
 
-    def __init__(self, *, max_depth=256, capacity=100000):
+    def __init__(self, *, max_depth=256, capacity=100000, compiled=False, edge_cache_capacity=0):
         super().__init__(max_depth=max_depth)
         if type(capacity) is not int or capacity < 1:
             raise ValueError("cache capacity must be a positive integer")
         self.capacity = capacity
         self.values = OrderedDict()
         self.stats = CacheStats()
-        self.kernel = FsTransitionKernel()
+        self.kernel = FsTransitionKernel(compiled=compiled, edge_cache_capacity=edge_cache_capacity)
 
     def _transition(self, current, action):
         return self.kernel.transition(current, action)

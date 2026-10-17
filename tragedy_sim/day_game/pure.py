@@ -1,10 +1,41 @@
 """Full-domain pure maximin using exact known-world continuation bounds."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from time import perf_counter
+
+from ..transcript import describe_decision
 
 from .cards import CompleteCardSpace
 from .continuation import DayContinuationSolver, ValueBounds, WorkLimit
+
+
+def _rewrite_committed_faces(clone, replacements):
+    """Keep mastermind's own remembered choices consistent in a hypothesis.
+
+    FS placements have no intervening effects. Public placement events and all
+    red checkpoints hide these faces, so those histories must stay unchanged.
+    Search inputs with a truncated history rewrite only their recorded suffix.
+    """
+    count = min(len(clone.history), len(clone.state.pending))
+    if not count:
+        return
+    recorded, pending = clone.history[-count:], clone.state.pending[-count:]
+    if any(command.get("action") != "play" or command.get("actor") != placement.actor
+           or command.get("target") != placement.target for command, placement in zip(recorded, pending)):
+        return
+    faces = {p.target: p.card for p in replacements}
+    changed = {}
+    for index, placement in zip(range(len(clone.history)-count, len(clone.history)), pending):
+        if placement.actor == "m":
+            command = {**clone.history[index], "card": faces[placement.target]}
+            clone.history[index] = command
+            changed[index+1] = command
+    for index, record in enumerate(clone.decisions):
+        if record.number in changed:
+            command = changed[record.number]
+            arguments = {k: v for k, v in command.items() if k not in {"actor", "action"}}
+            clone.decisions[index] = replace(record, arguments=arguments,
+                                             description=describe_decision(clone, "m", "play", arguments))
 
 
 def commit_pair(world, red, black, *, kernel=None):
@@ -17,6 +48,7 @@ def commit_pair(world, red, black, *, kernel=None):
             or not set(faces).issubset(available)):
         raise ValueError("black bundle must preserve legal distinct physical cards and target slots")
     clone = world.clone() if kernel is None else kernel.clone(world)
+    _rewrite_committed_faces(clone, black)
     replacements = iter(black)
     clone.state.pending = [next(replacements) if p.actor == "m" else p for p in clone.state.pending]
     clone.state.hands["m"] = [c for c in clone._deck("m") if c in available and c not in faces]
@@ -58,13 +90,16 @@ class PureDaySolver:
     other red rows. Unknown budget-limited cells retain [0,1].
     """
 
-    def __init__(self, *, max_depth=256, backend="reference", cache_capacity=100000):
-        if backend not in {"reference", "cached"}:
-            raise ValueError("backend must be reference or cached")
+    def __init__(self, *, max_depth=256, backend="reference", cache_capacity=100000, edge_cache_capacity=0):
+        if backend not in {"reference", "cached", "compiled"}:
+            raise ValueError("backend must be reference, cached or compiled")
+        if type(edge_cache_capacity) is not int or edge_cache_capacity < 0 or (backend == "reference" and edge_cache_capacity):
+            raise ValueError("edge cache requires a cached/compiled backend and a nonnegative capacity")
         self.kernel = None
-        if backend == "cached":
+        if backend in {"cached", "compiled"}:
             from .cached import CachedDayContinuationSolver
-            self.continuation = CachedDayContinuationSolver(max_depth=max_depth, capacity=cache_capacity)
+            self.continuation = CachedDayContinuationSolver(max_depth=max_depth, capacity=cache_capacity,
+                                                           compiled=backend == "compiled", edge_cache_capacity=edge_cache_capacity)
             self.kernel = self.continuation.kernel
         else:
             self.continuation = DayContinuationSolver(max_depth=max_depth)

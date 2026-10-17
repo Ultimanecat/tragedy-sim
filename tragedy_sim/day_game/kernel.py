@@ -13,9 +13,18 @@ from .keys import DIAGNOSTICS, UnsupportedKey, audited_fs, rule_state_key
 class FsTransitionKernel:
     version = "fs-detached-v1"
 
-    def __init__(self):
+    def __init__(self, *, compiled=False, edge_cache_capacity=0):
+        if type(compiled) is not bool:
+            raise ValueError("compiled must be a bool")
+        self.compiled = compiled
         self.compact_clones = 0
         self.fallback_clones = 0
+        from .compiled import ProgramStats
+        self.program_stats = ProgramStats()
+        if type(edge_cache_capacity) is not int or edge_cache_capacity < 0:
+            raise ValueError("edge_cache_capacity must be a nonnegative integer")
+        from .edges import TransitionEdgeCache
+        self.edges = TransitionEdgeCache(edge_cache_capacity) if edge_cache_capacity else None
 
     def clone(self, world):
         try:
@@ -34,6 +43,10 @@ class FsTransitionKernel:
         return deepcopy(world, memo)
 
     def transition(self, world, action):
+        key = self.edges.key(world, action) if self.edges is not None else None
+        cached = self.edges.get(key) if self.edges is not None else None
+        if cached is not None:
+            return cached
         command = deepcopy(dict(action))
         actor, action = command.pop("actor"), command.pop("action")
         fallbacks_before = self.fallback_clones
@@ -42,5 +55,11 @@ class FsTransitionKernel:
             return world.transition({"actor": actor, "action": action, **command}).game
         # Failure can discard this detached successor. The caller's world is
         # never partially mutated; validation/authorization still use the engine.
-        clone._dispatch(actor, action, command, atomic=False, record_observation=False)
+        if self.compiled:
+            from .compiled import dispatch_compiled
+            dispatch_compiled(clone, actor, action, command, self.program_stats)
+        else:
+            clone._dispatch(actor, action, command, atomic=False, record_observation=False)
+        if self.edges is not None:
+            self.edges.store(key, world, clone)
         return clone
