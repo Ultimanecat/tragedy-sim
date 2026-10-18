@@ -6,6 +6,7 @@ The omitted uniform plot constant cancels in MAP and normalized posteriors.
 from collections import Counter
 from dataclasses import replace
 from functools import lru_cache
+from fractions import Fraction
 from math import isfinite
 
 from .belief import FactorizedBeliefState
@@ -81,6 +82,21 @@ class RolePosteriorTarget:
         return {"version": self.version, "prior": "uniform_initial_plot_then_printed_cast",
                 "likelihood": "heuristic_exp2_soft_score",
                 "initial_plot_sets": len(self.plot_sizes)}
+
+    def rational_weight(self, world, witnesses):
+        """Exact printed prior times a frozen decimal heuristic likelihood.
+
+        The prior uses its counted integer denominator. exp2 soft likelihoods
+        retain the existing floating model's decimal value; this is not an
+        assertion that heuristic likelihoods are calibrated probabilities.
+        """
+        from .witness import FsbtxWitnessMatcher
+        matcher = FsbtxWitnessMatcher()
+        size = self._canonical_sizes.get((world.main_plot, tuple(sorted(world.subplots))), 0)
+        if (not size or not self.evidence.matches_roles(world.main_plot, world.subplots, world.roles)
+                or not matcher.matches(world, witnesses)):
+            return Fraction(0)
+        return Fraction(str(2.0**matcher.soft_score(world, witnesses)))/size
 
 
 class RoleImportancePool:

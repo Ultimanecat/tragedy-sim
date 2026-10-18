@@ -1405,8 +1405,6 @@ class FactorizedBeliefState:
 
     def sample(self, evidence: PublicEvidence, witnesses: Sequence[Any],
                count: int, *, rng: random.Random) -> FactorizedBeliefResult:
-        from .witness import FsbtxWitnessMatcher
-
         if count < 1:
             raise ValueError("count must be positive")
         self._culprit_diagnostics = None
@@ -1418,19 +1416,12 @@ class FactorizedBeliefState:
             self._action_role_diagnostics["fallback"] = "no_compatible_factor"
             return FactorizedBeliefResult((), len(ranked_roles), sizes,
                                           "no_compatible_factor")
-        matcher = FsbtxWitnessMatcher()
         roles = tuple(world for world, _ in ranked_roles)
         weights = [weight for _, weight in ranked_roles]
-        culprit_witnesses = tuple(w for w in witnesses if w.kind in {
-            "culprit_is", "culprit_in", "incident_happened",
-            "incident_not_happened"})
-        culprit_weights = {
-            day: [2.0 ** matcher.soft_score(HiddenWorldHypothesis(
-                "belief-culprit", "", (), (),
-                ((day, kind, kind, cid),)), culprit_witnesses)
-                  for cid in culprits[day]]
-            for day, kind in evidence.schedule
-        }
+        from .belief_culprit_posterior import culprit_likelihood_weights
+        likelihoods = culprit_likelihood_weights(evidence.schedule, culprits, witnesses)
+        culprit_weights = {day: [likelihoods[day][cid] for cid in culprits[day]]
+                           for day, _ in evidence.schedule}
         joint = None
         if self.joint_culprits_enabled:
             from .belief_culprit_posterior import joint_culprit_posterior

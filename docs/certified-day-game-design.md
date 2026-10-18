@@ -1,6 +1,6 @@
 # 联合行动博弈内核：算法设计与长期扩展（2026-10-17）
 
-本文维护核心算法设计。T0.1已有 [FS完整行动域／日末纯策略基准](exact-day-baseline.md)；T0.2已有 [规则／信息键与精确值缓存](exact-day-cache.md)、[局部牌效程序与观察边](exact-day-local-programs.md)；T0.3的混合策略见 [专项报告](exact-day-mixed-strategies.md)。T0.4已实现 [分块LP／固定授权续演基础](exact-day-fair-worlds.md)，联合后验接入、信息集策略及长期规划仍待完成，默认AI保持不变。目标是用无损压缩、按需收益计算和可验证的最优回应，建立可靠的安全判定。
+本文维护核心算法设计。T0.1已有 [FS完整行动域／日末纯策略基准](exact-day-baseline.md)；T0.2已有 [规则／信息键与精确值缓存](exact-day-cache.md)、[局部牌效程序与观察边](exact-day-local-programs.md)；T0.3的混合策略见 [专项报告](exact-day-mixed-strategies.md)。T0.4已实现 [分块LP／固定授权续演](exact-day-fair-worlds.md)及 [公开联合后验桥](public-posterior-day.md)，完整隐藏历史、信息集策略及长期规划仍待完成，默认AI保持不变。目标是用无损压缩、按需收益计算和可验证的最优回应，建立可靠的安全判定。
 
 ## 文档定位
 

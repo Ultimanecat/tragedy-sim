@@ -1,4 +1,4 @@
-# AI 路线图（2026-10-17）
+# AI 路线图（2026-10-18）
 
 本页只维护现状、下一步和验收标准。算法与论文见 [核心设计](certified-day-game-design.md)，开发入口见 [交接说明](codex-handoff.md)，历史实验见 [归档](archive/README.md)。
 
@@ -16,7 +16,7 @@ T0.1–T0.3已验收，T0.4进行中；每阶段验证、提交并推送。
 | T0.1 精确基准 ✓ | [完整合法域／日末能力树](exact-day-baseline.md)，独立穷举核对。 |
 | T0.2 无损压缩 ✓ | [状态键／缓存](exact-day-cache.md)、[局部效果／观察边](exact-day-local-programs.md)，资源与信息保真。 |
 | T0.3 混合策略 ✓ | [精确LP／Double Oracle](exact-day-mixed-strategies.md)、完整域最优回应与L/U/gap；未知保留区间。 |
-| T0.4 公平迁移（进行中） | [分块LP／固定授权续演](exact-day-fair-worlds.md)已实现；待接入现有联合后验及原质量、完成实际根审计，再扩展信息集能力策略。 |
+| T0.4 公平迁移（进行中） | [分块LP／固定续演](exact-day-fair-worlds.md)、[公开联合后验桥](public-posterior-day.md)已接通；待隐藏历史支持、验证成本优化及信息集能力策略。 |
 | T1 续局价值 | 独立日末估值接口，评价整局获胜概率；一次求解冻结效用及更新模型。 |
 | T2 有限跨日 | 先2日再3日，按授权观察更新witness／后验，保留资源与信息分支。 |
 | T3 跨轮回 | 失败后重置棋盘并保留合法知识；真实整局终结置0/1，验证风险／信息取舍。 |

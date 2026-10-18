@@ -10,6 +10,18 @@ from functools import lru_cache
 from math import isfinite
 
 
+def culprit_likelihood_weights(schedule, domains, witnesses):
+    """Shared unary soft factors; no sampler RNG or private script input."""
+    from .belief import HiddenWorldHypothesis
+    from .belief_culprit_constraints import CULPRIT_WITNESS_KINDS
+    from .witness import FsbtxWitnessMatcher
+    facts = tuple(w for w in witnesses if w.kind in CULPRIT_WITNESS_KINDS)
+    matcher = FsbtxWitnessMatcher()
+    return {day: {cid: 2.0**matcher.soft_score(HiddenWorldHypothesis(
+        "belief-culprit", "", (), (), ((day, kind, kind, cid),)), facts) for cid in domains[day]}
+        for day, kind in schedule}
+
+
 class JointCulpritPosterior:
     version = "legal-joint-culprits-v1"
 
