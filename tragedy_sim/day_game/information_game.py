@@ -5,7 +5,7 @@ card domains remain explicitly restricted; they are not global certificates.
 Truncation and missing posterior mass have [0,1] leaves, never guessed values.
 """
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from fractions import Fraction as Q
 import hashlib
 import json
@@ -52,6 +52,13 @@ def _remember(recall, information, action):
     return _digest((recall, information, action))
 
 
+def column_identity(column):
+    """Physical action identity, stable across selected-domain permutations."""
+    if len(column) == 2 and type(column[0]) is int:
+        return _key(dict(history=column[0], faces=[asdict(p) for p in column[1]]))
+    return _key(dict(faces=[asdict(p) for p in column]))
+
+
 @dataclass(frozen=True)
 class InformationTree:
     lower: object
@@ -67,10 +74,11 @@ class InformationTree:
     root_plans: tuple = ()
     scope: str = "FS/native-abilities/authorized-perfect-recall/day-survival-v1"
     source_scope: str = "caller-supplied-finite-setup-types"
+    root_columns: tuple = ()
 
 
 class _Builder:
-    def __init__(self, *, work, max_depth, tree_node_limit):
+    def __init__(self, *, work, max_depth, tree_node_limit, fixed_behavior=None):
         if type(max_depth) is not int or max_depth < 1 or type(tree_node_limit) is not int or tree_node_limit < 1:
             raise ValueError("information tree limits must be positive integers")
         self.work = WorkLimit(node_limit=10000) if work is None else work
@@ -78,6 +86,7 @@ class _Builder:
         self.max_depth, self.tree_node_limit = max_depth, tree_node_limit
         self.unknown, self.reasons = 0, set()
         self.tree_nodes = 0
+        self.fixed_behavior = fixed_behavior
 
     def account(self, count=1):
         self.tree_nodes += count
@@ -106,8 +115,12 @@ class _Builder:
         self.work.nodes += 1
         index = int(world.controller == "m")
         information = authorized_information(world, actions, recall[index])
+        player = "black" if index else "red"
+        fixed = self.fixed_behavior is not None and self.fixed_behavior.player == player
+        distribution = (self.fixed_behavior.choices(information, actions) if fixed else
+                        tuple((a, None) for a in sorted(actions, key=_key)))
         lower, upper = [], []
-        for action in sorted(actions, key=_key):
+        for action, probability in distribution:
             name = _key(action)
             if self.work.exhausted():
                 lo, hi = self.unknown_leaf("/".join(sorted(self.work.reasons)))
@@ -117,17 +130,19 @@ class _Builder:
                 memory = list(recall)
                 memory[index] = _remember(recall[index], information, name)
                 lo, hi = self.visit(successor, position, tuple(memory), depth+1)
-            lower.append((name, lo))
-            upper.append((name, hi))
-        if len(actions) == 1:
+            lower.append((probability if fixed else name, lo))
+            upper.append((probability if fixed else name, hi))
+        if len(distribution) == 1:
             # Forced steps have no strategic choice. Their authorized
             # observations/own action STILL enter recall before the child.
             return lower[0][1], upper[0][1]
         self.account()
-        player = "black" if index else "red"
+        if fixed:
+            return Chance(tuple(lower)), Chance(tuple(upper))
         return Decision(player, information, tuple(lower)), Decision(player, information, tuple(upper))
 
-    def finish(self, lower, upper, *, root_complete, belief_complete, root_information=None, root_plans=(), source_scope=None):
+    def finish(self, lower, upper, *, root_complete, belief_complete, root_information=None, root_plans=(), source_scope=None,
+               root_columns=()):
         deadline = None if self.work.time_limit_ms is None else self.work.started+self.work.time_limit_ms/1000
         lower_model = build_sequence_game(lower, node_limit=self.tree_node_limit, max_depth=self.max_depth+5, deadline=deadline)
         upper_model = (build_sequence_game(upper, node_limit=self.tree_node_limit, max_depth=self.max_depth+5, deadline=deadline)
@@ -135,9 +150,9 @@ class _Builder:
         tree = InformationTree(lower_model, upper_model, not self.unknown, self.unknown,
             tuple(sorted(self.reasons)), self.work.nodes-self.before[0], self.work.transitions-self.before[1],
             root_complete, belief_complete, root_information, root_plans)
-        if source_scope is not None:
-            from dataclasses import replace
-            tree = replace(tree, source_scope=source_scope)
+        from dataclasses import replace
+        tree = replace(tree, root_columns=root_columns,
+                       source_scope=tree.source_scope if source_scope is None else source_scope)
         return tree
 
 
@@ -197,14 +212,14 @@ def build_root_information_tree(model, rows, columns, *, work=None, max_depth=12
     for block, selected in zip(model.blocks, columns):
         black_lo, black_hi = [], []
         black_info = "m/root-faces/" + block.label
-        for column_index, column in enumerate(selected):
+        for column in selected:
             if isinstance(block.game, HistoryDayGame):
                 variant, faces = block.game.variants[column[0]], column[1]
             else:
                 variant, faces = block.game, column
             # Internal label identifies an action known to its own player.
             # It never enters the red information identity or recall.
-            black_action = str(column_index)
+            black_action = column_identity(column)
             red_lo, red_hi = [], []
             for action, row in plans:
                 if builder.work.exhausted():
@@ -228,7 +243,9 @@ def build_root_information_tree(model, rows, columns, *, work=None, max_depth=12
     root_complete = (len(rows) == model.row_count and all(len(c) == b.game.column_count for b, c in zip(model.blocks, columns)))
     return builder.finish(Chance(tuple(lower)), Chance(tuple(upper)), root_complete=root_complete,
                           belief_complete=model.belief_domain_complete, root_information=root_info, root_plans=plans,
-                          source_scope=model.scope)
+                          source_scope=model.scope,
+                          root_columns=tuple((b.label, tuple((column_identity(c), c) for c in cols))
+                                             for b, cols in zip(model.blocks, columns)))
 
 
 @dataclass(frozen=True)

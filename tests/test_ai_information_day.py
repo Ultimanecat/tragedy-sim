@@ -34,6 +34,13 @@ class InformationCommandTests(unittest.TestCase):
             self.assertFalse(result["result"]["certified_optimal"])
             self.assertEqual(result["result"]["bounds"]["lower"]["fraction"], "0")
             self.assertEqual(result["result"]["bounds"]["upper"]["fraction"], "1")
+            full = self.invoke(["--view", str(view_path), "--warmstart", str(plan_path), "--nodes", "1",
+                                "--mode", "full-responses"])
+            self.assertIn("full-root-information-responses", full["result"]["scope"])
+            self.assertFalse(full["result"]["certified_optimal"])
+            self.assertFalse(full["result"]["best_response_complete"])
+            self.assertEqual(full["result"]["bounds"]["lower"]["fraction"], "0")
+            self.assertTrue(full["result"]["lower_strategy"]["red_cards"])
 
     def test_worlds_input_and_lp_limit_return_no_unverified_strategy(self):
         root = load_root("official-fs-01-first-script")

@@ -159,7 +159,8 @@ class SequenceSolution:
 def _flow_check(form, realization):
     if len(realization) != len(form.sequences) or any(type(x) is not Q or x < 0 for x in realization):
         raise ValueError("invalid nonnegative realization vector")
-    if any(sum(a*x for a, x in zip(row, realization)) != int(i == 0) for i, row in enumerate(form.flow())):
+    if realization[0] != 1 or any(sum(realization[i] for i in info.sequences) != realization[info.parent]
+                                  for info in form.information_sets):
         raise ValueError("realization flow is not normalized")
 
 
@@ -230,3 +231,65 @@ def behavioral_policy(form, realization):
                                   if realization[info.parent] else Q(1, len(info.actions)))
                                  for action, index in zip(info.actions, info.sequences)))
                  for info in form.information_sets)
+
+
+@dataclass(frozen=True)
+class SequenceBestResponse:
+    value: Q
+    realization: tuple
+    potential: tuple
+
+
+def sequence_best_response(game, player, opponent, *, deadline=None):
+    """Sparse sequence-flow DP against a FROZEN opponent realization.
+
+    Opponent/nature reach coefficients are independent of our own realization.
+    Each own information set chooses one child; multiple information sets with
+    the same parent add their counterfactual values. No policy product or LP.
+    An independent sparse flow/dual certificate is checked before returning.
+    """
+    if player not in {"red", "black"} or type(game) is not SequenceGame:
+        raise ValueError("a sequence game and valid response player are required")
+    if deadline is not None and (type(deadline) not in {int, float} or not isfinite(deadline)):
+        raise ValueError("deadline must be a finite monotonic-clock value")
+
+    def check_time():
+        if deadline is not None and perf_counter() >= deadline:
+            raise MatrixLimit("time_limit")
+
+    check_time()
+    form, other = (game.red, game.black) if player == "red" else (game.black, game.red)
+    _flow_check(other, opponent)
+    coefficients = [Q(0)]*len(form.sequences)
+    for red, black, mass, utility in game.leaves:
+        check_time()
+        own, opposing = (red, black) if player == "red" else (black, red)
+        coefficients[own] += mass*utility*opponent[opposing]
+    children = [[] for _ in form.sequences]
+    for index, info in enumerate(form.information_sets):
+        children[info.parent].append(index)
+    values, choices, prices = list(coefficients), {}, [Q(0)]*(len(form.information_sets)+1)
+    for parent in reversed(range(len(values))):
+        check_time()
+        for index in children[parent]:
+            info = form.information_sets[index]
+            choice = (max if player == "red" else min)(info.sequences, key=lambda s: values[s])
+            choices[index] = choice
+            prices[index+1] = values[choice]
+            values[parent] += values[choice]
+    realization = [Q(0)]*len(values)
+    realization[0], prices[0] = Q(1), values[0]
+    for index, info in enumerate(form.information_sets):
+        realization[choices[index]] = realization[info.parent]
+    _flow_check(form, realization)
+    dual = [Q(0)]*len(values)
+    dual[0] = prices[0]
+    for info, price in zip(form.information_sets, prices[1:]):
+        dual[info.parent] -= price
+        for sequence in info.sequences:
+            dual[sequence] += price
+    if (any((d < c if player == "red" else d > c) for d, c in zip(dual, coefficients))
+            or sum(x*c for x, c in zip(realization, coefficients)) != values[0]):
+        raise RuntimeError("sequence best response failed original sparse flow/dual checks")
+    check_time()
+    return SequenceBestResponse(values[0], tuple(realization), tuple(prices))

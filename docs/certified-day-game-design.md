@@ -1,6 +1,6 @@
 # 联合行动博弈内核：算法设计与长期扩展（2026-10-17）
 
-本文维护核心算法设计。T0.1已有 [FS完整行动域／日末纯策略基准](exact-day-baseline.md)；T0.2已有 [规则／信息键与精确值缓存](exact-day-cache.md)、[局部牌效程序与观察边](exact-day-local-programs.md)；T0.3的混合策略见 [专项报告](exact-day-mixed-strategies.md)。T0.4已有 [分块LP／固定续演](exact-day-fair-worlds.md)、[公开后验桥](public-posterior-day.md)、[兼容历史](compatible-history-day.md)与[原生信息集能力树](information-set-day.md)，信息集全域回应及长期规划仍待完成，默认AI保持不变。目标是用无损压缩、按需收益计算和可验证的最优回应，建立可靠的安全判定。
+本文维护核心算法设计。T0.1已有 [FS完整行动域／日末纯策略基准](exact-day-baseline.md)；T0.2已有 [规则／信息键与精确值缓存](exact-day-cache.md)、[局部牌效程序与观察边](exact-day-local-programs.md)；T0.3的混合策略见 [专项报告](exact-day-mixed-strategies.md)。T0.4已有 [公开后验桥](public-posterior-day.md)、[兼容历史](compatible-history-day.md)、[原生信息集树](information-set-day.md)与[全域回应](information-set-responses.md)，公开根压缩／预算及长期规划仍待完成，默认AI保持不变。目标是用无损压缩、按需收益计算和可验证的最优回应，建立可靠的安全判定。
 
 ## 文档定位
 
@@ -89,6 +89,8 @@
 精确最优回应与精确收益下，有限策略博弈最终收敛；最坏情况仍可能展开整个行动空间。已有工作给出了这一方法；本项目的效果编译、阶段缓存和信息约束需要另行实现／验证。[McMahan、Gordon、Blum，ICML 2003](https://www.cs.cmu.edu/~avrim/Papers/mgb.pdf)
 
 当前启发式可用于初始化R0／B0、安排攻击检查顺序，不能替代全域分离检查后仍声称最优。允许预算耗尽返回当前策略，但保留尚未闭合的上下界和未完成维度。
+
+能力策略尚未冻结时，当前新路径在每轮受限根域上解完整信息集树；随后冻结双方的合法域外延伸，按全域回应重新给出L/U。根牌身份及技能recall在候选重排后保持稳定。完整公式和预算证据见全域回应报告，不能沿用逐世界开眼单元格构成的静态矩阵。
 
 ## 5. 多世界公平版本：避免黑方策略笛卡尔积
 

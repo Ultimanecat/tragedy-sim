@@ -14,6 +14,7 @@ from time import perf_counter
 from tragedy_sim.day_game.continuation import WorkLimit
 from tragedy_sim.day_game.fair_engine import bayesian_engine_game
 from tragedy_sim.day_game.information_game import build_root_information_tree, solve_information_tree
+from tragedy_sim.day_game.information_oracle import InformationDoubleOracle
 from tragedy_sim.day_game.matrix import MatrixLimit
 from tragedy_sim.day_game.posterior import PublicWorldPosterior, PosteriorUnavailable, reconstruct_public_roots
 from .ai_bayesian_day import load_worlds
@@ -36,6 +37,10 @@ def main():
     inputs.add_argument("--worlds", type=Path)
     inputs.add_argument("--view", type=Path)
     parser.add_argument("--warmstart", type=Path, required=True, help="finite common root red bundles, not a full-domain assertion")
+    parser.add_argument("--mode", choices=("selected", "full-responses"), default="selected")
+    parser.add_argument("--iterations", type=int, default=32)
+    parser.add_argument("--epsilon", default="1/100")
+    parser.add_argument("--response-candidates", type=int, help="optional per-response cutoff, never a complete-domain assertion")
     parser.add_argument("--own-commands", type=Path)
     parser.add_argument("--world-limit", type=int, default=2)
     parser.add_argument("--posterior-nodes", type=int, default=100000)
@@ -51,13 +56,15 @@ def main():
     parser.add_argument("--lp-pivots", type=int, default=100000)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    for name in ("world_limit", "posterior_nodes", "black_limit", "nodes", "time_ms", "max_depth", "tree_nodes", "lp_cells", "lp_pivots"):
+    for name in ("world_limit", "posterior_nodes", "black_limit", "nodes", "time_ms", "max_depth", "tree_nodes", "lp_cells", "lp_pivots", "iterations"):
         if getattr(args, name) < 1:
             parser.error(name + " must be positive")
     if args.view and args.complete_posterior:
         parser.error("--complete-posterior is a caller assertion for --worlds only")
     if args.history_nodes is not None and args.history_nodes < 1:
         parser.error("history_nodes must be positive")
+    if args.response_candidates is not None and args.response_candidates < 1:
+        parser.error("response_candidates must be positive")
     sources, started, tree, solved = source_digest(), perf_counter(), None, None
     evidence_report = None
     try:
@@ -79,11 +86,18 @@ def main():
         evidence_seconds = perf_counter()-started
         work = WorkLimit(node_limit=args.nodes, time_limit_ms=args.time_ms)
         try:
-            tree = build_root_information_tree(model, rows, columns, work=work, max_depth=args.max_depth,
-                                               tree_node_limit=args.tree_nodes)
-            solved = solve_information_tree(tree, deadline=work.started+args.time_ms/1000,
-                                            pivot_limit=args.lp_pivots, lp_cell_limit=args.lp_cells)
-            reason = "complete_selected_game" if tree.continuation_complete else "interval_tree"
+            if args.mode == "full-responses":
+                solved = InformationDoubleOracle(model, seed_rows=rows, seed_columns=columns).solve(work=work,
+                    epsilon=args.epsilon, max_iterations=args.iterations, max_depth=args.max_depth,
+                    tree_node_limit=args.tree_nodes, lp_cell_limit=args.lp_cells, pivot_limit=args.lp_pivots,
+                    response_candidate_limit=args.response_candidates)
+                reason = solved.stop_reason
+            else:
+                tree = build_root_information_tree(model, rows, columns, work=work, max_depth=args.max_depth,
+                                                   tree_node_limit=args.tree_nodes)
+                solved = solve_information_tree(tree, deadline=work.started+args.time_ms/1000,
+                                                pivot_limit=args.lp_pivots, lp_cell_limit=args.lp_cells)
+                reason = "complete_selected_game" if tree.continuation_complete else "interval_tree"
         except MatrixLimit as error:
             reason = error.reason
         result = dict(sources=sources, private_diagnostic=True, room_strategy=False, horizon="day",

@@ -9,7 +9,7 @@ import unittest
 
 from tragedy_sim.day_game.matrix import MatrixLimit, solve_matrix
 from tragedy_sim.day_game.sequence_form import (Chance, Decision, Terminal, behavioral_policy,
-    build_sequence_game, solve_sequence_game, verify_sequence_solution)
+    build_sequence_game, solve_sequence_game, verify_sequence_solution, sequence_best_response)
 
 
 def pure_matrix(root):
@@ -98,6 +98,29 @@ class SequenceFormTests(unittest.TestCase):
             self.assertEqual(solved.value, expected, seed)
             self.assertTrue(verify_sequence_solution(model, solved))
             self.assertLess(len(model.red.sequences), len(pure_matrix(tree)))
+            matrix = pure_matrix(tree)
+            for player in ("red", "black"):
+                form = model.black if player == "red" else model.red
+                opponent = [Q(0)]*len(form.sequences)
+                opponent[0] = Q(1)
+                independent = []
+                for info in form.information_sets:
+                    raw = [rng.randrange(1, 5) for _ in info.actions]
+                    probabilities = tuple(Q(p, sum(raw)) for p in raw)
+                    independent.append(probabilities)
+                    for sequence, p in zip(info.sequences, probabilities):
+                        opponent[sequence] = opponent[info.parent]*p
+                weights = []
+                for choices in product(*independent):
+                    p = Q(1)
+                    for q in choices:
+                        p *= q
+                    weights.append(p)
+                if player == "red":
+                    expected_br = max(sum(p*v for p, v in zip(weights, row)) for row in matrix)
+                else:
+                    expected_br = min(sum(p*matrix[i][j] for i, p in enumerate(weights)) for j in range(len(matrix[0])))
+                self.assertEqual(sequence_best_response(model, player, tuple(opponent)).value, expected_br, (seed, player))
 
     def test_chance_only_and_one_sided_games_allow_negative_values(self):
         for root, expected in ((Terminal(-3), -3), (Chance(((Q(1, 3), Terminal(2)), (Q(2, 3), Terminal(-1)))), 0),
