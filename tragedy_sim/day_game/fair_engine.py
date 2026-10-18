@@ -33,13 +33,13 @@ def public_policy_input(world, offers=()):
 @dataclass(frozen=True)
 class PublicSkipOptionalPolicy:
     """Deterministic observation-only baseline; deliberately not a strong AI."""
-    version: str = "public-skip-optional-v1"
+    version: str = "public-skip-optional-v2"
 
     def choose(self, information):
         commands = information.to_dict()["offers"]
         if not commands:
             raise ValueError("red policy received an empty legal menu")
-        return next((a for a in commands if a["action"] == "pass"), commands[0])
+        return next((a for a in commands if a["action"] in {"pass", "next"}), commands[0])
 
 
 @dataclass

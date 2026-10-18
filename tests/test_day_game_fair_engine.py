@@ -37,6 +37,29 @@ def brute_fixed_day(world, position, policy):
 
 
 class FairEngineTests(unittest.TestCase):
+    def test_skip_policy_uses_native_next_instead_of_activating_optional_goodwill(self):
+        world = root(actual_cast=True)
+        world.state.phase = "goodwill"
+        world.state.leader = "a"
+        world.state.characters["doctor"].goodwill = 2
+        world._timing_window = None
+        actions = world.legal_actions("a")
+        self.assertTrue(any(a["action"] == "choose" for a in actions))
+        expected = dict(actor="a", action="next")
+        self.assertIn(expected, actions)
+        for backend in ("reference", "cached", "compiled"):
+            solver = FixedPolicyDayContinuation(PublicSkipOptionalPolicy(), backend=backend)
+            self.assertEqual(solver._actions(world, "a"), [expected])
+        self.assertEqual(PublicSkipOptionalPolicy().version, "public-skip-optional-v2")
+
+    def test_skip_policy_preserves_forced_choices_without_a_next_offer(self):
+        commands = [dict(actor="a", action="choose", index=i) for i in (1, 2)]
+        policy = PublicSkipOptionalPolicy()
+        self.assertEqual(policy.choose(InformationState.create("team", dict(offers=commands))), commands[0])
+        for action in ("pass", "next"):
+            offers = [*commands, dict(actor="a", action=action)]
+            self.assertEqual(policy.choose(InformationState.create("team", dict(offers=offers))), offers[-1])
+
     def test_concrete_skip_policy_depends_only_on_identical_legal_menus(self):
         policy = PublicSkipOptionalPolicy()
         for seed in range(10):
