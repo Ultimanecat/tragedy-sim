@@ -5,10 +5,11 @@
 ## 当前状态与下一步
 
 - 核心方向及长期接口见 [联合行动博弈内核](certified-day-game-design.md)。T0.1–T0.3已完成；精确混合策略实现与验证见 [专项报告](exact-day-mixed-strategies.md)。默认AI未改，最终目标为整局获胜概率。
-- T0.4进行中：[分块公平内核及菜单缓存](exact-day-fair-worlds.md)、[公开联合后验桥](public-posterior-day.md)和[兼容隐藏历史](compatible-history-day.md)已验收。中途根可用独立`history_node_limit`重放完整事件／自身命令；同setup多历史作为对抗列，原质量只计一次。预算不完整需拒绝或显式`allow_state_prior`，后者不认证完整隐藏状态。下一步改善观察政策和信息集能力树，完整transition继续作裁判。
-- 当前Python指纹 `44b61875…`；131项全部日末内核回归通过（50.791秒，`references/exact-day-skip-v2-regression-20261018.txt`），三个JSON命令入口19项通过。父阶段`bfc136fc…`完整回归1055项通过（366.656秒，`references/exact-day-history-regression-20261018.txt`）；全量退出0，HTTP收尾出现一次连接中断后台日志，功能断言均通过。
+- T0.4进行中：已有[分块公平内核](exact-day-fair-worlds.md)、[公开后验桥](public-posterior-day.md)、[兼容隐藏历史](compatible-history-day.md)及[原生信息集能力树](information-set-day.md)。后者同时优化两方能力，保留合法观察与己方recall；有限根牌集已接入精确序列形式。下一步完整域信息集最优回应、合法域外策略延伸及预算验收，随后T1–T3。默认AI未改。
+- 当前Python指纹 `039cdd09…`；完整回归1078项通过（350.900秒，`references/exact-day-information-regression-20261018.txt`）。序列形式与独立完整纯策略矩阵对照10seed及Kuhn64×64均一致；原生两世界救援值1/2，查询／拒绝后再救援值1，返回策略经原生最坏回应重放复核。
 - FS01压力根的12个setup均完成51节点历史重建，原质量1/10，无状态先验质量；原生可变状态核对见历史支持报告。内置菜单依赖特化已验收，自定义／子类政策仍保留授权历史。两世界固定24项2.844→0.497秒为旧v1性能证据；不外推到新政策或整局棋力。
-- `PublicSkipOptionalPolicy`已修至v2：同时识别原生`next`及兼容`pass`，强制选择保留合法首项。旧v1在原生菜单中可能实际发动技能，读历史报告时注意版本。v2通用／菜单特化的固定24项结果一致；默认房间AI未改变。下一步推进更强的观察政策与信息集能力策略，再按T1–T3扩展。
+- `PublicSkipOptionalPolicy`已修至v2：同时识别原生`next`及兼容`pass`，强制选择保留合法首项。旧v1在原生菜单中可能实际发动技能，读历史报告时注意版本。v2通用／菜单特化的固定24项结果一致。
+- 新信息集诊断`benchmarks.ai_information_day`支持公开视图／显式世界和有限根牌集。`InformationSolution.bounds`只针对所选根域，不能当成原DO的全域L/U。不可按每个世界／单元格独立优化红方技能再缓存静态矩阵；必须共用信息集策略。信息集recall包含自己的决策观察及动作，强制单步消去时也保留；扩展到动态身份／跨日时继续审计未在当前投影保留的历史答案。
 - T0.3历史FS01第2轮第2天压力根的全域界仍为[1/2,1]，两个红牌各1/2经原生504列／509单元格核验保障1/2，未证明最优；此前499存活／5失败为单候选列计数，均不是对弈胜率。默认仍IID、sampled暗牌和legacy候选。
 - 已确认单因素暗牌遗漏：FS01 seed2根中保护性的“职员不安−1”掩盖“女学生斜移＋职员不减不安”的联合攻击。四组控制结算评分／引擎一致，见 [因果报告](joint-dark-probe-miss.md)。尚未证明该根有统一必胜防守，优先全域对抗验收，勿只调身份概率。
 - 当前无在途评测，不再轮询旧句柄。历史版本、实验数字、旧任务ID与原交接全文见 [归档](archive/README.md)；`references/`中的本机原始资料不会随新clone提供。
@@ -35,6 +36,7 @@
 | 精确混合策略 | `day_game/{matrix,zero_sum,engine_game}.py`；`benchmarks/ai_exact_day.py --mode mixed --backend cached`；有理数LP、完整域最优回应、Double Oracle与可靠区间 |
 | 有限世界公平内核 | `day_game/{bayesian_matrix,bayesian,fair_engine}.py`；`benchmarks/ai_bayesian_day.py --worlds <json>`；显式世界输入，公开后验入口见下一行 |
 | 公开后验桥 | `day_game/{posterior,public_day}.py`、`benchmarks/ai_public_day.py --view <json>`；只读团队视图，共用角色分区／合法联合当事人，保留失败质量与重建范围 |
+| 信息集能力优化 | `day_game/{sequence_form,information_game}.py`；`benchmarks/ai_information_day.py --view <json> --warmstart <plans>`，根域有限时只认证所给树，尚无全域信息集回应器 |
 | witness／AI | `witness_components.py`、`witness_rules/`、`witness.py`；`joint_mastermind.py`、`strategic_mcts.py`、`oracle_protagonist.py` |
 | 执行／网络／存档 | `ai_registry.py`、`ai_decisions.py`、`service.py`、`rooms.py`、`server.py`、`scenario_library.py`、`replay.py`、`transcript.py` |
 
