@@ -78,7 +78,7 @@ python -X utf8 -m unittest tests.test_day_game_posterior tests.test_ai_public_da
 
 完整回归1038项通过（276.580秒，`references/exact-day-public-posterior-final-20261018.txt`）；修复角色顺序前的回归已取消，其日志不作为通过证据。共用当事人权重的旧采样／RNG回归通过，默认AI不变。
 
-同源码24个固定单元格的cProfile归因显示：两后端收益相同，均展开1524个能力节点；cached的1524次值查询全部未命中，`_cache_key`累计约5.11秒，包含大量授权历史构造。reference的主要成本是深拷贝。累计时间可重叠，且剖析与回归并发，不能当作空闲墙钟性能基线。数据在`fixed-policy-context-profile-final.json`；下一步优先按政策实际信息依赖优化，任意历史相关政策仍须保留完整授权历史。
+特化前同源码24个固定单元格的cProfile归因显示：两后端收益相同，均展开1524个能力节点；cached的1524次值查询全部未命中，`_cache_key`累计约5.11秒，包含大量授权历史构造。reference的主要成本是深拷贝。累计时间可重叠，且剖析与回归并发，不能当作空闲墙钟性能基线。数据在`fixed-policy-context-profile-final.json`；后续 [菜单依赖特化及对照](exact-day-fair-worlds.md)已实现，任意历史相关政策仍保留完整授权历史。
 
 ## 6. 下一步
 

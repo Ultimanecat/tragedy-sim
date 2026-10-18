@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 from tragedy_sim.day_game.public_day import solve_public_day
-from .ai_bayesian_day import result_payload
+from .ai_bayesian_day import GenericSkipPolicy, continuation_work, result_payload
 from .ai_calibration_matrix import source_digest, write_report
 from .ai_exact_day import rational_json
 
@@ -28,6 +28,8 @@ def report_payload(solved):
                               approximated_state_mass=roots.approximated_state_mass, failures=roots.failures)
     return rational_json(dict(posterior=posterior, reconstruction=reconstruction,
                               result=result_payload(solved.result) if solved.result is not None else None,
+                              work=[dict(world=b.label, **continuation_work(b.game)) for b in solved.model.blocks]
+                              if solved.model is not None else [],
                               stop_reason=solved.stop_reason, evidence_seconds=solved.evidence_elapsed_seconds,
                               action_seconds=solved.action_elapsed_seconds))
 
@@ -40,6 +42,7 @@ def main():
     parser.add_argument("--posterior-nodes", type=int, default=100000)
     parser.add_argument("--allow-state-prior", action="store_true")
     parser.add_argument("--backend", choices=("reference", "cached", "compiled"), default="reference")
+    parser.add_argument("--generic-context-baseline", action="store_true", help="same policy with conservative full context")
     parser.add_argument("--nodes", type=int, default=100000)
     parser.add_argument("--time-ms", type=int, default=10000)
     parser.add_argument("--payoff-limit", type=int, default=100000)
@@ -58,6 +61,7 @@ def main():
         seeds = json.loads(args.warmstart.read_text(encoding="utf-8")) if args.warmstart else ()
         solved = solve_public_day(view, own_commands=commands, world_limit=args.world_limit,
                                   posterior_node_limit=args.posterior_nodes, allow_state_prior=args.allow_state_prior,
+                                  policy=GenericSkipPolicy() if args.generic_context_baseline else None,
                                   backend=args.backend, max_depth=args.max_depth, cache_capacity=args.cache_capacity,
                                   node_limit=args.nodes, time_limit_ms=args.time_ms, payoff_limit=args.payoff_limit,
                                   epsilon=args.epsilon, max_iterations=args.iterations, pivot_limit=args.lp_pivots,

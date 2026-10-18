@@ -44,6 +44,17 @@ class PublicDayTests(unittest.TestCase):
             solved = solve_public_day(view, node_limit=1)
         self.assertIsNotNone(solved.result)
 
+    def test_generic_skip_ablation_keeps_policy_and_uses_conservative_context(self):
+        from benchmarks.ai_bayesian_day import GenericSkipPolicy
+        view = constrained_view(unknown=(), known_culprits=True)
+        specialized = solve_public_day(view, node_limit=1)
+        generic = solve_public_day(view, node_limit=1, policy=GenericSkipPolicy())
+        self.assertEqual(specialized.result.red, generic.result.red)
+        self.assertEqual(specialized.result.lower_bound, generic.result.lower_bound)
+        self.assertEqual(specialized.result.upper_bound, generic.result.upper_bound)
+        self.assertEqual(generic.model.blocks[0].game.continuation.context_mode, "authorized-history-v1")
+        self.assertEqual(specialized.model.blocks[0].game.continuation.context_mode, "audited-menu-only-v1")
+
     def test_action_clock_starts_after_posterior_and_reconstruction(self):
         events = []
         original_source, original_roots, original_work = module.PublicWorldPosterior, module.reconstruct_public_roots, module.WorkLimit

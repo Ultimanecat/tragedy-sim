@@ -1,7 +1,10 @@
 """Authorized continuation inputs and true-engine finite-world payoff checks."""
 
 from fractions import Fraction as Q
+import json
+import random
 import unittest
+from unittest.mock import patch
 
 from tests.test_day_game import root
 from tests.test_day_game_mixed_engine import matching_root
@@ -34,6 +37,94 @@ def brute_fixed_day(world, position, policy):
 
 
 class FairEngineTests(unittest.TestCase):
+    def test_concrete_skip_policy_depends_only_on_identical_legal_menus(self):
+        policy = PublicSkipOptionalPolicy()
+        for seed in range(10):
+            rng = random.Random(seed)
+            for index in range(40):
+                offers = [dict(actor="a", action="choose", option=i) for i in range(1, rng.randrange(2, 6))]
+                if index % 2:
+                    offers.append(dict(actor="a", action="pass"))
+                rng.shuffle(offers)
+                offers.sort(key=lambda a: json.dumps(a, sort_keys=True, ensure_ascii=False, separators=(",", ":")))
+                full = InformationState.create("team", dict(offers=offers,
+                    state=dict(events=[dict(kind=f"event-{seed}-{index}")], loop=rng.randrange(1, 5)),
+                    own_commands=[dict(actor="a", action="play", card=f"card-{index}")]))
+                menu = InformationState.create("team", dict(offers=offers))
+                self.assertNotEqual(full.key, menu.key)
+                self.assertEqual(policy.choose(full), policy.choose(menu))
+
+    def test_audited_menu_context_matches_generic_policy_on_every_controlled_cell(self):
+        class GenericSkip:
+            version = PublicSkipOptionalPolicy().version
+
+            def choose(self, observation):
+                return PublicSkipOptionalPolicy().choose(observation)
+
+        world = matching_root()
+        golden = FixedPolicyDayGame(world, policy=GenericSkip(), backend="reference")
+        plans, columns = tuple(golden.rows())[:3], tuple(golden.columns())
+        values = {(i, j): golden.evaluate(row, column, SearchBudget()).lower
+                  for i, row in enumerate(plans) for j, column in enumerate(columns)}
+        for backend in ("reference", "cached", "compiled"):
+            optimized = FixedPolicyDayGame(world, backend=backend)
+            for (i, j), value in values.items():
+                evaluated = optimized.evaluate(plans[i], columns[j], SearchBudget())
+                self.assertTrue(evaluated.exact)
+                self.assertEqual(evaluated.lower, value)
+            self.assertEqual(optimized.continuation.context_stats.full_inputs, 0)
+            self.assertGreater(optimized.continuation.context_stats.menu_inputs, 0)
+        self.assertGreater(golden.continuation.context_stats.full_inputs, 0)
+        self.assertEqual(golden.continuation.context_mode, "authorized-history-v1")
+
+    def test_menu_policy_never_builds_full_node_observation_and_history_cache_can_hit(self):
+        model = FixedPolicyDayGame(matching_root())
+        row, column = next(model.rows()), next(model.columns())
+        with patch("tragedy_sim.day_game.fair_engine.public_policy_input", side_effect=AssertionError("full node context")):
+            result = model.evaluate(row, column, SearchBudget())
+        self.assertTrue(result.exact)
+        after = commit_pair(model._root, red_commands(row), column)
+        other = after.clone()
+        other._event("public_test", "new observed text")
+        hits = model.continuation.stats.hits
+        reused = model.continuation.solve(other)
+        self.assertEqual(reused.bounds.lower, result.lower)
+        self.assertEqual(reused.nodes, 0)
+        self.assertGreater(model.continuation.stats.hits, hits)
+
+    def test_policy_and_continuation_subclasses_do_not_inherit_audited_scope(self):
+        class DerivedPolicy(PublicSkipOptionalPolicy):
+            pass
+
+        class DerivedContinuation(FixedPolicyDayContinuation):
+            pass
+
+        for continuation in (FixedPolicyDayContinuation(DerivedPolicy()),
+                             DerivedContinuation(PublicSkipOptionalPolicy())):
+            self.assertEqual(continuation.context_mode, "authorized-history-v1")
+
+    def test_menu_specialization_preserves_both_safe_and_joint_killer_attack_values(self):
+        from tests.test_day_game import root as pressure_root
+
+        class GenericSkip:
+            version = PublicSkipOptionalPolicy().version
+
+            def choose(self, information):
+                return PublicSkipOptionalPolicy().choose(information)
+
+        world = pressure_root(actual_cast=True)
+        reference = FixedPolicyDayGame(world, policy=GenericSkip(), backend="reference")
+        row = reference.plan((dict(actor="c", action="play", card="fm", target="girl"),
+                              dict(actor="a", action="play", card="fi", target="worker"),
+                              dict(actor="b", action="play", card="v", target="maiden")))
+        faces = (("d", "fg", "h"), ("i1", "d", "fg"))
+        columns = tuple(next(c for c in reference.columns() if tuple(p.card for p in c) == cards) for cards in faces)
+        values = tuple(reference.evaluate(row, c, SearchBudget()).lower for c in columns)
+        self.assertEqual(values, (1, 0))
+        for backend in ("cached", "compiled"):
+            optimized = FixedPolicyDayGame(world, backend=backend)
+            self.assertEqual(tuple(optimized.evaluate(row, c, SearchBudget()).lower for c in columns), values)
+
     def test_private_roles_flags_faces_and_hidden_command_counts_do_not_enter_policy_input(self):
         first = root(("d", "fg", "h"))
         second = root(("v", "p-1", "h"))
@@ -114,12 +205,24 @@ class FairEngineTests(unittest.TestCase):
             frozen._check_policy()
 
     def test_observation_conditioned_value_cache_keeps_distinct_public_histories(self):
-        model = FixedPolicyDayGame(matching_root())
+        class HistoryPolicy:
+            version = "history-dependent-test-v1"
+
+            def choose(self, observation):
+                # An arbitrary client may inspect all authorized state. No
+                # dependency claim is inferred from a matching version name.
+                return PublicSkipOptionalPolicy().choose(observation)
+
+        model = FixedPolicyDayGame(matching_root(), policy=HistoryPolicy())
         after = commit_pair(model._root, red_commands(next(model.rows())), next(model.columns()))
         other = after.clone()
         other._event("public_test", "a different public history")
         position = (after.state.loop, after.state.round)
         self.assertNotEqual(model.continuation._cache_key(after, position), model.continuation._cache_key(other, position))
+        self.assertEqual(model.continuation.context_mode, "authorized-history-v1")
+        menu_only = FixedPolicyDayGame(matching_root())
+        self.assertEqual(menu_only.continuation._cache_key(after, position), menu_only.continuation._cache_key(other, position))
+        self.assertEqual(menu_only.continuation.context_mode, "audited-menu-only-v1")
         with self.assertRaises(ValueError):
             FixedPolicyDayContinuation(object())
 

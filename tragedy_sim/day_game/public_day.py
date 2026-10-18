@@ -38,7 +38,7 @@ class PublicDaySolve:
 
 
 def solve_public_day(view, *, own_commands=(), world_limit=12, posterior_node_limit=100000,
-                     allow_state_prior=False, backend="reference", max_depth=256, cache_capacity=100000,
+                     allow_state_prior=False, policy=None, backend="reference", max_depth=256, cache_capacity=100000,
                      node_limit=100000, time_limit_ms=10000, payoff_limit=100000,
                      epsilon="1/100", max_iterations=64, pivot_limit=100000, seed_plans=()):
     """No true Game/script input; returned models/traces remain server-private.
@@ -59,7 +59,7 @@ def solve_public_day(view, *, own_commands=(), world_limit=12, posterior_node_li
         selection = posterior.select(world_limit)
         reconstruction = reconstruct_public_roots(selection, view, own_commands=own_commands,
                                                    allow_state_prior=allow_state_prior)
-        model = reconstruction.model(backend=backend, max_depth=max_depth, cache_capacity=cache_capacity)
+        model = reconstruction.model(policy=policy, backend=backend, max_depth=max_depth, cache_capacity=cache_capacity)
     except PosteriorUnavailable as error:
         return PublicDaySolve(selection, reconstruction, None, None, perf_counter()-started, 0, str(error))
     oracle = BayesianDoubleOracle(model, seed_rows=tuple(model.blocks[0].game.plan(plan) for plan in seed_plans),

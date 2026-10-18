@@ -42,6 +42,13 @@ class PublicSkipOptionalPolicy:
         return next((a for a in commands if a["action"] == "pass"), commands[0])
 
 
+@dataclass
+class PolicyContextStats:
+    full_inputs: int = 0
+    menu_inputs: int = 0
+    value_keys: int = 0
+
+
 class FixedPolicyDayContinuation(CachedDayContinuationSolver):
     def __init__(self, policy, *, backend="cached", max_depth=256, capacity=100000):
         if (not isinstance(getattr(policy, "version", None), str) or not policy.version
@@ -51,6 +58,12 @@ class FixedPolicyDayContinuation(CachedDayContinuationSolver):
             raise ValueError("unknown fixed-policy backend")
         super().__init__(max_depth=max_depth, capacity=capacity, compiled=backend == "compiled")
         self._policy, self._policy_version, self.backend = policy, policy.version, backend
+        # Only this audited concrete policy and this day-survival solver may
+        # use the smaller dependency set. Unknown/subclass policies and
+        # continuation subclasses retain the complete authorized history.
+        self._menu_only = type(policy) is PublicSkipOptionalPolicy and type(self) is FixedPolicyDayContinuation
+        self.context_mode = "audited-menu-only-v1" if self._menu_only else "authorized-history-v1"
+        self.context_stats = PolicyContextStats()
 
     def _check_policy(self):
         if self._policy.version != self._policy_version:
@@ -66,7 +79,13 @@ class FixedPolicyDayContinuation(CachedDayContinuationSolver):
         actions = current.legal_actions(actor)
         if actor == "m":
             return actions
-        selected = self._policy.choose(public_policy_input(current, actions))
+        if self._menu_only:
+            self.context_stats.menu_inputs += 1
+            information = InformationState.create("team", dict(offers=sorted((dict(a) for a in actions), key=_command_key)))
+        else:
+            self.context_stats.full_inputs += 1
+            information = public_policy_input(current, actions)
+        selected = self._policy.choose(information)
         if selected not in actions:
             raise ValueError("observable red policy returned an illegal command")
         return [dict(selected)]
@@ -76,10 +95,19 @@ class FixedPolicyDayContinuation(CachedDayContinuationSolver):
         if self.backend == "reference":
             return None
         try:
+            self.context_stats.value_keys += 1
+            rules = rule_state_key(current)
+            if self._menu_only:
+                # Full rule state determines all legal menus; the audited
+                # policy ignores public/own history and the utility is the
+                # fixed day-survival scalar. This is NOT an information key
+                # or a cache for belief-dependent continuation values.
+                return ("fs-fixed-menu-policy-day-v1", self._policy_version, position, rules)
             # Unlike known-state minimax, a fixed observable policy depends on
             # public history/knowledge even for an identical physical state.
+            self.context_stats.full_inputs += 1
             return ("fs-fixed-public-policy-day-v1", self._policy_version, position,
-                    rule_state_key(current), public_policy_input(current).key)
+                    rules, public_policy_input(current).key)
         except (UnsupportedKey, RecursionError):
             self.stats.fallbacks += 1
             return None
