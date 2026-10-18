@@ -55,6 +55,21 @@ class PublicDayTests(unittest.TestCase):
         self.assertEqual(generic.model.blocks[0].game.continuation.context_mode, "authorized-history-v1")
         self.assertEqual(specialized.model.blocks[0].game.continuation.context_mode, "audited-menu-only-v1")
 
+    def test_native_history_bridge_reaches_action_search_with_a_separate_evidence_cap(self):
+        from tests.test_day_game_history import inputs, second_day_root, singleton_selection
+        actual = second_day_root(rumor=True)
+        _, _, view, own = inputs(actual)
+        selection = singleton_selection(actual, view)
+        with patch.object(module.PublicWorldPosterior, "select", return_value=selection):
+            solved = solve_public_day(view, own_commands=own, history_node_limit=10000, node_limit=1)
+        self.assertEqual(solved.reconstruction.approximated_state_mass, 0)
+        self.assertTrue(solved.result.belief_domain_complete)
+        self.assertIn("adversarial-compatible-history-support", solved.result.model_scope)
+        payload = command.report_payload(solved)
+        self.assertTrue(payload["reconstruction"]["history_audits"])
+        self.assertEqual(payload["work"][0]["compatible_histories"], 2)
+        self.assertEqual(solved.sample_card_plan(random.Random(2))[0]["actor"], actual.controller)
+
     def test_action_clock_starts_after_posterior_and_reconstruction(self):
         events = []
         original_source, original_roots, original_work = module.PublicWorldPosterior, module.reconstruct_public_roots, module.WorkLimit

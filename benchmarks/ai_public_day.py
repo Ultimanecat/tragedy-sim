@@ -25,7 +25,8 @@ def report_payload(solved):
     if solved.reconstruction is not None:
         roots = solved.reconstruction
         reconstruction = dict(roots=len(roots.roots), failed_mass=roots.failed_mass,
-                              approximated_state_mass=roots.approximated_state_mass, failures=roots.failures)
+                              approximated_state_mass=roots.approximated_state_mass, failures=roots.failures,
+                              history_audits=roots.history_audits)
     return rational_json(dict(posterior=posterior, reconstruction=reconstruction,
                               result=result_payload(solved.result) if solved.result is not None else None,
                               work=[dict(world=b.label, **continuation_work(b.game)) for b in solved.model.blocks]
@@ -41,6 +42,8 @@ def main():
     parser.add_argument("--world-limit", type=int, default=12)
     parser.add_argument("--posterior-nodes", type=int, default=100000)
     parser.add_argument("--allow-state-prior", action="store_true")
+    parser.add_argument("--history-nodes", type=int, help="separate evidence budget for complete compatible-history replay")
+    parser.add_argument("--history-max-depth", type=int, default=1024)
     parser.add_argument("--backend", choices=("reference", "cached", "compiled"), default="reference")
     parser.add_argument("--generic-context-baseline", action="store_true", help="same policy with conservative full context")
     parser.add_argument("--nodes", type=int, default=100000)
@@ -61,6 +64,7 @@ def main():
         seeds = json.loads(args.warmstart.read_text(encoding="utf-8")) if args.warmstart else ()
         solved = solve_public_day(view, own_commands=commands, world_limit=args.world_limit,
                                   posterior_node_limit=args.posterior_nodes, allow_state_prior=args.allow_state_prior,
+                                  history_node_limit=args.history_nodes, history_max_depth=args.history_max_depth,
                                   policy=GenericSkipPolicy() if args.generic_context_baseline else None,
                                   backend=args.backend, max_depth=args.max_depth, cache_capacity=args.cache_capacity,
                                   node_limit=args.nodes, time_limit_ms=args.time_ms, payoff_limit=args.payoff_limit,

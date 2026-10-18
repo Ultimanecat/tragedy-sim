@@ -52,15 +52,23 @@ def load_worlds(path):
 
 
 def result_payload(result):
+    def black_action(column):
+        if len(column) == 2 and type(column[0]) is int:
+            return dict(history_index=column[0], placements=[asdict(card) for card in column[1]])
+        return dict(placements=[asdict(card) for card in column])
+
     payload = asdict(result)
     payload["red"] = [{"plan": red_commands(row), "probability": p} for row, p in result.red]
     payload["black"] = [{"world": label, "conditional_policy": [
-        {"placements": [asdict(card) for card in column], "probability": p} for column, p in policy]}
+        {**black_action(column), "probability": p} for column, p in policy]}
         for label, policy in result.black]
     return rational_json(payload)
 
 
 def continuation_work(game):
+    if hasattr(game, "variants"):
+        return dict(row_domain=game.row_count, column_domain=game.column_count,
+                    compatible_histories=len(game.variants), variants=[continuation_work(v) for v in game.variants])
     return dict(row_domain=game.row_count, column_domain=game.column_count,
                 continuation_nodes=game.continuation_nodes,
                 continuation_transitions=game.continuation_transitions,

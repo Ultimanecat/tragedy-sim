@@ -25,6 +25,8 @@ from ..game import Game
 from ..witness import FsbtxWitnessCompiler, FsbtxWitnessMatcher
 from .fair_engine import bayesian_engine_game
 from .matrix import rational
+from .history import replay_public_history
+from .continuation import WorkLimit
 
 
 class PosteriorUnavailable(ValueError):
@@ -238,6 +240,7 @@ class RootSelection:
     failed_mass: Fraction
     approximated_state_mass: Fraction
     failures: tuple
+    history_audits: tuple = ()
 
     def model(self, **options):
         if not self.roots:
@@ -250,20 +253,27 @@ class RootSelection:
         return result
 
 
-def reconstruct_public_roots(selection, view, *, own_commands=(), allow_state_prior=True):
+def reconstruct_public_roots(selection, view, *, own_commands=(), allow_state_prior=True,
+                             history_node_limit=None, history_max_depth=1024):
     _check_team_root(view)
     if view.get("module") != "FS":
         raise ValueError("requires an uncommitted FS team placement view")
     if type(allow_state_prior) is not bool:
         raise ValueError("allow_state_prior must be boolean")
+    if history_node_limit is not None and (type(history_node_limit) is not int or history_node_limit < 1):
+        raise ValueError("history_node_limit must be positive or None")
+    if type(history_max_depth) is not int or history_max_depth < 1:
+        raise ValueError("history_max_depth must be positive")
     if selection.snapshot_key != PublicSnapshot.from_view(view).key:
         raise ValueError("posterior selection belongs to another public snapshot")
     if not isinstance(own_commands, (tuple, list)) or any(not isinstance(c, dict) or c.get("actor") not in {"a", "b", "c"}
            or not isinstance(c.get("action"), str) for c in own_commands):
         raise ValueError("own_commands may contain protagonist commands only")
-    evidence, roots, failures = PublicEvidence.from_view(view), [], []
+    evidence, roots, failures, audits = PublicEvidence.from_view(view), [], [], []
     failed = approximated = Fraction(0)
     determinizer = PublicStateDeterminizer()
+    # Evidence work has its own shared cap; it never spends action nodes.
+    history_work = WorkLimit(node_limit=history_node_limit) if history_node_limit is not None else None
     for index, item in enumerate(selection.worlds):
         label = f"h{index}"
         try:
@@ -276,6 +286,19 @@ def reconstruct_public_roots(selection, view, *, own_commands=(), allow_state_pr
             hypothesis = replace(item.hypothesis, roles=tuple((cid, cast[cid]) for cid in order))
             world, reason = _initial_root(hypothesis, evidence, view, own_commands)
             exact = world is not None
+            if world is None and history_work is not None:
+                support = replay_public_history(hypothesis, evidence, view, own_commands,
+                                                work=history_work, max_depth=history_max_depth)
+                audits.append((label, support.complete, len(support.roots), support.nodes,
+                               support.transitions, support.reasons, support.merged))
+                if support.complete:
+                    if not support.roots:
+                        # Exhaustively contradicted history is not replaced
+                        # with a made-up snapshot, even if priors are enabled.
+                        raise PosteriorUnavailable("no_compatible_history")
+                    roots.append((label, item.mass, support.roots if len(support.roots) > 1 else support.roots[0]))
+                    continue
+                reason = "/".join(support.reasons)
             if world is None and allow_state_prior:
                 world = determinizer.determinize(hypothesis, evidence, view, rng=random.Random(0))
                 if world is not None:
@@ -296,4 +319,4 @@ def reconstruct_public_roots(selection, view, *, own_commands=(), allow_state_pr
         except (RuleError, PosteriorUnavailable) as error:
             failed += item.mass
             failures.append((label, item.mass, str(error)))
-    return RootSelection(tuple(roots), selection, failed, approximated, tuple(failures))
+    return RootSelection(tuple(roots), selection, failed, approximated, tuple(failures), tuple(audits))

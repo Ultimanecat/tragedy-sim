@@ -39,6 +39,7 @@ class PublicDaySolve:
 
 def solve_public_day(view, *, own_commands=(), world_limit=12, posterior_node_limit=100000,
                      allow_state_prior=False, policy=None, backend="reference", max_depth=256, cache_capacity=100000,
+                     history_node_limit=None, history_max_depth=1024,
                      node_limit=100000, time_limit_ms=10000, payoff_limit=100000,
                      epsilon="1/100", max_iterations=64, pivot_limit=100000, seed_plans=()):
     """No true Game/script input; returned models/traces remain server-private.
@@ -52,13 +53,18 @@ def solve_public_day(view, *, own_commands=(), world_limit=12, posterior_node_li
             raise ValueError("all public-day budgets must be positive integers")
     if rational(epsilon) < 0 or type(allow_state_prior) is not bool or backend not in {"reference", "cached", "compiled"}:
         raise ValueError("invalid epsilon, reconstruction mode or backend")
+    if history_node_limit is not None and (type(history_node_limit) is not int or history_node_limit < 1):
+        raise ValueError("history_node_limit must be positive or None")
+    if type(history_max_depth) is not int or history_max_depth < 1:
+        raise ValueError("history_max_depth must be positive")
     started = perf_counter()
     selection = reconstruction = model = None
     try:
         posterior = PublicWorldPosterior(view, node_limit=posterior_node_limit)
         selection = posterior.select(world_limit)
         reconstruction = reconstruct_public_roots(selection, view, own_commands=own_commands,
-                                                   allow_state_prior=allow_state_prior)
+                                                   allow_state_prior=allow_state_prior,
+                                                   history_node_limit=history_node_limit, history_max_depth=history_max_depth)
         model = reconstruction.model(policy=policy, backend=backend, max_depth=max_depth, cache_capacity=cache_capacity)
     except PosteriorUnavailable as error:
         return PublicDaySolve(selection, reconstruction, None, None, perf_counter()-started, 0, str(error))
