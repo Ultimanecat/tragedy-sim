@@ -3,6 +3,7 @@
 from dataclasses import replace
 from fractions import Fraction as Q
 import unittest
+from unittest.mock import patch
 
 from tests.test_day_game import brute_day
 from tests.test_day_game_information_game import matching_selection
@@ -13,7 +14,7 @@ from tragedy_sim.day_game.fair_engine import bayesian_engine_game
 from tragedy_sim.day_game.frozen_information import FrozenBehavior, freeze_information_solution
 from tragedy_sim.day_game.information_game import _key, column_identity, build_root_information_tree, solve_information_tree
 from tragedy_sim.day_game.information_oracle import InformationDoubleOracle
-from tragedy_sim.day_game.information_response import (BlackSkipCache, black_candidate_value, black_information_response,
+from tragedy_sim.day_game.information_response import (BlackSkipCache, InformationResponse, black_candidate_value, black_information_response,
                                                       red_information_response, red_candidate_value)
 from tragedy_sim.day_game.pure import commit_pair
 
@@ -95,6 +96,62 @@ class FrozenInformationTests(unittest.TestCase):
 
 
 class InformationOracleTests(unittest.TestCase):
+    def test_verified_proposal_is_retained_when_budget_ends_after_response(self):
+        model, rows, columns, _, strategy = frozen_matching()
+        verified = red_information_response(model, strategy, WorkLimit(node_limit=100000))
+        self.assertNotIn(verified.action, rows)
+        oracle = InformationDoubleOracle(model, seed_rows=rows, seed_columns=columns)
+
+        def stop_after_verified_reply(model, strategy, work, **options):
+            work.node_limit = work.nodes
+            work.reasons.add("node_limit")
+            return verified
+
+        with patch("tragedy_sim.day_game.information_oracle.red_information_response", side_effect=stop_after_verified_reply):
+            result = oracle.solve(work=WorkLimit(node_limit=None))
+        self.assertEqual(result.stop_reason, "node_limit")
+        self.assertIn(verified.action, oracle.rows)
+        self.assertTrue(result.iterations[-1].added_row)
+
+    def test_closed_bound_trace_does_not_claim_an_unnecessary_proposal_was_added(self):
+        model, rows, _, _, _ = frozen_matching()
+        noop = tuple(type(rows[0][0])(actor, card, target) for actor, card, target in
+                     (("c", "h", "hospital"), ("a", "g1", "girl"), ("b", "g1", "maiden")))
+        alternative = (rows[0][0], type(rows[0][1])("a", "g1", "city"), type(rows[0][2])("b", "g1", "hospital"))
+        columns = tuple(next(c for c in model.blocks[0].game.columns() if c[0].card == card) for card in ("h", "v", "fp"))
+        oracle = InformationDoubleOracle(model, seed_rows=(*rows, noop), seed_columns=(columns,))
+
+        def equally_optimal_reply(model, strategy, work, **options):
+            candidate = red_candidate_value(model, alternative, strategy, work)
+            self.assertEqual(candidate.bounds.lower, Q(2, 3))
+            self.assertTrue(candidate.bounds.exact)
+            return InformationResponse(alternative, candidate.bounds, candidate.bounds, candidate.behavior,
+                                       model.row_count, model.row_count, True, True, "complete_domain")
+
+        with patch("tragedy_sim.day_game.information_oracle.red_information_response", side_effect=equally_optimal_reply):
+            result = oracle.solve(work=WorkLimit(node_limit=100000))
+        self.assertTrue(result.certified_optimal)
+        self.assertFalse(result.iterations[-1].added_row)
+        self.assertNotIn(alternative, oracle.rows)
+
+    def test_verified_black_proposal_also_survives_a_budget_stop(self):
+        model, rows, columns, _, _ = frozen_matching()
+        noop = tuple(type(rows[0][0])(actor, card, target) for actor, card, target in
+                     (("c", "h", "hospital"), ("a", "g1", "girl"), ("b", "g1", "maiden")))
+        oracle = InformationDoubleOracle(model, seed_rows=(*rows, noop), seed_columns=columns)
+
+        def stop_after_black_reply(block, strategy, work, **options):
+            response = black_information_response(block, strategy, work, **options)
+            self.assertNotIn(response.action, columns[0])
+            work.node_limit = work.nodes
+            work.reasons.add("node_limit")
+            return response
+
+        with patch("tragedy_sim.day_game.information_oracle.black_information_response", side_effect=stop_after_black_reply):
+            result = oracle.solve(work=WorkLimit(node_limit=None))
+        self.assertTrue(result.iterations[-1].added_columns[0])
+        self.assertEqual(len(oracle.columns[0]), 3)
+
     def test_utility_cap_avoids_red_scan_and_keeps_unrepresented_mass(self):
         for mass in (Q(1), Q(2, 3)):
             world = matching_root()

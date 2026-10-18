@@ -67,6 +67,8 @@ W[s] = c[s] + sum_(I: parent(I)=s) opt_(a in I) W[sequence(I,a)]
 
 原始记录在忽略目录`references/ai-calibration/2026-10-18/information-full-*.json`。完整回归1086项通过（374.651秒，`references/exact-day-information-oracle-regression-20261018.txt`），针对性29项通过。
 
+后续续跑修复（源码`ba5195e9…`）：预算恰在回应完成后耗尽时，已验证的新红牌／黑牌会先加入候选集，再停止；界已闭合时不记录未实际执行的新增。新增三项回归覆盖两方保留及日志一致性，连同内核／JSON共32项通过（14.232秒）。上面的1086项全量验收对应父阶段源码`04fc10cd…`。轨迹的根域数量描述该轮已求解的树，结果候选数量还可包含留待续跑的新候选。
+
 ## 7. 入口与下一步
 
 ```powershell

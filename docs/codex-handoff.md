@@ -6,10 +6,11 @@
 
 - 核心方向及长期接口见 [联合行动博弈内核](certified-day-game-design.md)。T0.1–T0.3已完成；精确混合策略实现与验证见 [专项报告](exact-day-mixed-strategies.md)。默认AI未改，最终目标为整局获胜概率。
 - T0.4进行中：已有[公开后验桥](public-posterior-day.md)、[兼容历史](compatible-history-day.md)、[原生信息集树](information-set-day.md)及[完整域信息集回应](information-set-responses.md)。冻结双方合法域外延伸后检查完整根域，全域L/U各自保存策略见证。下一步优先通用常量子树压缩、公开FS根预算验收，再按T1–T3推进。默认AI未改。
-- 当前Python指纹 `04fc10cd…`；完整回归1086项通过（374.651秒，`references/exact-day-information-oracle-regression-20261018.txt`），针对性29项通过。控制局面240红牌／6黑牌，三轮全域回应闭合到2/3，返回策略经独立原生完整日末树检查全部黑牌。序列DP的随机对手回应另与10seed完整正常形式矩阵对照一致。
+- 当前Python指纹 `ba5195e9…`；续跑／日志修复后32项针对性回归通过（14.232秒）。父阶段`04fc10cd…`完整回归1086项通过（374.651秒，`references/exact-day-information-oracle-regression-20261018.txt`）。控制局面240红牌／6黑牌，三轮全域回应闭合到2/3，返回策略经独立原生完整日末树检查全部黑牌；序列DP另与10seed随机对手的完整正常形式回应对照一致。
 - FS01压力根的12个setup均完成51节点历史重建，原质量1/10，无状态先验质量；原生可变状态核对见历史支持报告。内置菜单依赖特化已验收，自定义／子类政策仍保留授权历史。两世界固定24项2.844→0.497秒为旧v1性能证据；不外推到新政策或整局棋力。
 - `PublicSkipOptionalPolicy`已修至v2：同时识别原生`next`及兼容`pass`，强制选择保留合法首项。旧v1在原生菜单中可能实际发动技能，读历史报告时注意版本。v2通用／菜单特化的固定24项结果一致。
 - `benchmarks.ai_information_day --mode selected`仍为受限根值；`--mode full-responses`才检查完整根域，候选参数在此作为种子。域外next-first延伸是冻结的合法政策，不按候选重新训练。稀疏DP求固定对手下的共同技能回应；不可逐世界开眼优化红方技能后平均。旧受限`InformationSolution.bounds`不能当全域L/U。
+- 续跑保留已验证的新根候选，预算结束不会丢弃；`added_*`只记录实际加入。轨迹rows／columns为当轮已求解根域，结果`restricted_*`还可包含留待续跑的新候选。闭合后不额外加入等价候选。
 - 预算证据：同源两世界结构校准10秒只检查552黑牌，界[0,1]；60秒档用23.83秒检查1440黑牌，界[0.9,1]，剩余0.1未知。原概率人为指定，不是对弈胜率。真实FS01后验前2类型原质量1/4050，10秒尚未完成初始能力树，界[0,1]。优先压缩所有原生续演终值相同的子树；证明须涵盖双方全部合法动作，不能拿开眼最优值当常量。
 - T0.3历史FS01第2轮第2天压力根的全域界仍为[1/2,1]，两个红牌各1/2经原生504列／509单元格核验保障1/2，未证明最优；此前499存活／5失败为单候选列计数，均不是对弈胜率。默认仍IID、sampled暗牌和legacy候选。
 - 已确认单因素暗牌遗漏：FS01 seed2根中保护性的“职员不安−1”掩盖“女学生斜移＋职员不减不安”的联合攻击。四组控制结算评分／引擎一致，见 [因果报告](joint-dark-probe-miss.md)。尚未证明该根有统一必胜防守，优先全域对抗验收，勿只调身份概率。
@@ -37,7 +38,7 @@
 | 精确混合策略 | `day_game/{matrix,zero_sum,engine_game}.py`；`benchmarks/ai_exact_day.py --mode mixed --backend cached`；有理数LP、完整域最优回应、Double Oracle与可靠区间 |
 | 有限世界公平内核 | `day_game/{bayesian_matrix,bayesian,fair_engine}.py`；`benchmarks/ai_bayesian_day.py --worlds <json>`；显式世界输入，公开后验入口见下一行 |
 | 公开后验桥 | `day_game/{posterior,public_day}.py`、`benchmarks/ai_public_day.py --view <json>`；只读团队视图，共用角色分区／合法联合当事人，保留失败质量与重建范围 |
-| 信息集能力优化 | `day_game/{sequence_form,information_game}.py`；`benchmarks/ai_information_day.py --view <json> --warmstart <plans>`，根域有限时只认证所给树，尚无全域信息集回应器 |
+| 信息集能力优化 | `day_game/{sequence_form,information_game}.py`；`benchmarks/ai_information_day.py --view <json> --warmstart <plans>`，默认selected只认证所给树，全域模式见下一行 |
 | 全域信息集回应 | `day_game/{frozen_information,information_response,information_oracle}.py`；上述命令加`--mode full-responses`；空红方表的缓存特化、随机对手稀疏DP及上下界见全域回应报告 |
 | witness／AI | `witness_components.py`、`witness_rules/`、`witness.py`；`joint_mastermind.py`、`strategic_mcts.py`、`oracle_protagonist.py` |
 | 执行／网络／存档 | `ai_registry.py`、`ai_decisions.py`、`service.py`、`rooms.py`、`server.py`、`scenario_library.py`、`replay.py`、`transcript.py` |

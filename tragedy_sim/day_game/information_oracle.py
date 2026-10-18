@@ -127,10 +127,20 @@ class InformationDoubleOracle:
             if self.lower > self.upper:
                 raise RuntimeError("information-set global bounds are inconsistent")
             self.responses_complete = red.complete and all(r.complete for r in black)
-            add_row = red.action is not None and red.action not in self.rows
-            additions = tuple(r.action is not None and r.action not in columns for r, columns in zip(black, self.columns))
+            closed = (self.upper-self.lower <= epsilon or
+                      bool(model.missing_mass and self.upper-model.missing_mass-self.lower <= epsilon))
+            add_row = not closed and red.action is not None and red.action not in self.rows
+            additions = tuple(not closed and r.action is not None and r.action not in columns
+                              for r, columns in zip(black, self.columns))
             trace.append(InformationOracleIteration(number, len(self.rows), tuple(map(len, self.columns)), solved.bounds,
                          RationalInterval(self.lower, self.upper), red, black, add_row, additions))
+            # Verified proposals survive a budget stop and are available on
+            # resume. Trace flags describe actual additions, not intentions.
+            if add_row:
+                self.rows.append(red.action)
+            for columns, response, add in zip(self.columns, black, additions):
+                if add:
+                    columns.append(response.action)
             if self.upper-self.lower <= epsilon:
                 reason = "proven_optimal" if self.upper == self.lower else "proven_epsilon"
                 break
@@ -142,11 +152,6 @@ class InformationDoubleOracle:
             if work.exhausted():
                 reason = "/".join(sorted(work.reasons))
                 break
-            if add_row:
-                self.rows.append(red.action)
-            for columns, response, add in zip(self.columns, black, additions):
-                if add:
-                    columns.append(response.action)
             if not add_row and not any(additions):
                 incomplete = [r.stop_reason for r in (red, *black) if r.stop_reason not in {"complete_domain", "proven_extreme"}]
                 reason = incomplete[0] if incomplete else "incomplete_best_response"
