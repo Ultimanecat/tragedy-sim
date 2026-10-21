@@ -9,6 +9,8 @@ certificate, and uncertified estimates fall back to ``[0,1]`` unknown leaves.
 
 from dataclasses import dataclass
 from fractions import Fraction as Q
+import math
+import random
 from typing import Protocol
 
 from .continuation import day_boundary_value
@@ -116,3 +118,67 @@ class UnknownEvaluator:
 
     def evaluate(self, context: BoundaryContext) -> ValueEstimate:
         return ValueEstimate(Q(0), Q(1), False, "unknown", self.version)
+
+
+def _wilson(wins: int, total: int, z: float = 1.96):
+    """Approximate 95% Wilson interval for a binomial win rate."""
+    rate = wins / total
+    denominator = 1 + z * z / total
+    center = (rate + z * z / (2 * total)) / denominator
+    margin = z * math.sqrt(rate * (1 - rate) / total + z * z / (4 * total * total)) / denominator
+    return max(0.0, center - margin), min(1.0, center + margin)
+
+
+def _fraction(value: float) -> Q:
+    return Q(value).limit_denominator(100000)
+
+
+class RandomRolloutEvaluator:
+    """Uncalibrated known-world baseline: random legal playouts to game end.
+
+    This is a diagnostic leaf value for T1 experiments. It is never certified,
+    so it cannot close a day-game certificate. Fair/team use would leak hidden
+    state through the concrete world and is rejected.
+    """
+
+    version = "random-rollout-v1"
+
+    def __init__(self, *, rollouts=8, max_steps=4096, seed=0):
+        for name, value in (("rollouts", rollouts), ("max_steps", max_steps)):
+            if type(value) is not int or value < 1:
+                raise ValueError(name + " must be a positive integer")
+        if type(seed) is not int:
+            raise ValueError("seed must be an integer")
+        self.rollouts, self.max_steps, self.seed = rollouts, max_steps, seed
+
+    def evaluate(self, context: BoundaryContext) -> ValueEstimate:
+        if context.scope != "known-world":
+            raise ValueError("random rollouts require an explicit known-world context")
+        world = context.world
+        winner = getattr(world, "winner", None)
+        if winner is not None:
+            value = Q(1 if winner == "protagonists" else 0)
+            return ValueEstimate(value, value, True, "known-world-terminal", self.version)
+        if not callable(getattr(world, "clone", None)):
+            raise ValueError("random rollouts require an FS rule state")
+        wins = unfinished = 0
+        for index in range(self.rollouts):
+            rng = random.Random(self.seed + index)
+            game = world.clone()
+            for _ in range(self.max_steps):
+                if game.winner is not None:
+                    break
+                actor = game.controller
+                actions = game.legal_actions(actor)
+                if not actions:
+                    break
+                game = game.transition(rng.choice(actions)).game
+            if game.winner == "protagonists":
+                wins += 1
+            elif game.winner is None:
+                unfinished += 1
+        if unfinished:
+            return ValueEstimate(Q(0), Q(1), False, "known-world-random-rollout", self.version)
+        lower, upper = _wilson(wins, self.rollouts)
+        return ValueEstimate(_fraction(lower), _fraction(upper), False,
+                             "known-world-random-rollout", self.version)

@@ -105,7 +105,8 @@ def _solve_response_tree(builder, lower, upper, player):
 
 
 def red_candidate_value(model, row, strategy, work, *, max_depth=128, tree_node_limit=10000,
-                          range_analyzer=None, range_compression=True, range_probe_nodes=256):
+                          range_analyzer=None, range_compression=True, range_probe_nodes=256,
+                          boundary_evaluator=None):
     if not model.contains_row(row):
         raise ValueError("illegal common red response")
     black_cards = dict(strategy.black_cards)
@@ -113,7 +114,8 @@ def red_candidate_value(model, row, strategy, work, *, max_depth=128, tree_node_
         raise ValueError("frozen black strategy belongs to a different type domain")
     builder = _Builder(work=work, max_depth=max_depth, tree_node_limit=tree_node_limit,
                        fixed_behavior=strategy.black_policy, range_analyzer=range_analyzer,
-                       range_compression=range_compression, range_probe_nodes=range_probe_nodes)
+                       range_compression=range_compression, range_probe_nodes=range_probe_nodes,
+                       boundary_evaluator=boundary_evaluator)
     builder.account()  # nature over types and the fixed conditional black draw
     lower, upper = [], []
     for block in model.blocks:
@@ -136,9 +138,13 @@ def red_candidate_value(model, row, strategy, work, *, max_depth=128, tree_node_
 
 
 def black_candidate_value(block, column, strategy, work, *, max_depth=128, tree_node_limit=10000, skip_cache=None,
-                           range_analyzer=None, range_compression=True, range_probe_nodes=256):
+                           range_analyzer=None, range_compression=True, range_probe_nodes=256,
+                           boundary_evaluator=None):
     if not block.game.contains_column(column) or any(not block.game.contains_row(row) for row, _ in strategy.red_cards):
         raise ValueError("illegal black column or frozen red root strategy")
+    if boundary_evaluator is not None and getattr(boundary_evaluator, "version", "") != "day-survival-v1":
+        # The empty-policy fast path is scoped to day-survival-v1.
+        skip_cache = None
     lower, upper = Q(0), Q(0)
     for row, probability in strategy.red_cards:
         if work.exhausted():
@@ -151,7 +157,8 @@ def black_candidate_value(block, column, strategy, work, *, max_depth=128, tree_
             continue
         builder = _Builder(work=work, max_depth=max_depth, tree_node_limit=tree_node_limit,
                            fixed_behavior=strategy.red_policy, range_analyzer=range_analyzer,
-                           range_compression=range_compression, range_probe_nodes=range_probe_nodes)
+                           range_compression=range_compression, range_probe_nodes=range_probe_nodes,
+                           boundary_evaluator=boundary_evaluator)
         after, position, recall = _committed(block, row, column, work)
         lo, hi = builder.visit(after, position, recall)
         cell = _solve_response_tree(builder, lo, hi, "black").bounds

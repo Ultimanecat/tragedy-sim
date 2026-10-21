@@ -18,6 +18,7 @@ from tragedy_sim.day_game.information_oracle import InformationDoubleOracle
 from tragedy_sim.day_game.matrix import MatrixLimit
 from tragedy_sim.day_game.posterior import PublicWorldPosterior, PosteriorUnavailable, reconstruct_public_roots
 from tragedy_sim.day_game.universal_range import UniversalDayRange
+from tragedy_sim.day_game.value import DaySurvivalEvaluator, UnknownEvaluator
 from .ai_bayesian_day import load_worlds
 from .ai_calibration_matrix import source_digest, write_report
 from .ai_exact_day import rational_json
@@ -46,6 +47,8 @@ def main():
     parser.add_argument("--no-constant-compression", action="store_true", help="native uncompressed information-tree ablation")
     parser.add_argument("--constant-probe-nodes", type=int, default=256)
     parser.add_argument("--constant-cache", type=int, default=20000)
+    parser.add_argument("--boundary-evaluator", choices=("none", "day-survival", "unknown"), default="none",
+                        help="T1 boundary leaf evaluator; non-day-survival requires --no-constant-compression")
     parser.add_argument("--own-commands", type=Path)
     parser.add_argument("--world-limit", type=int, default=2)
     parser.add_argument("--posterior-nodes", type=int, default=100000)
@@ -72,6 +75,10 @@ def main():
         parser.error("response_candidates must be positive")
     if args.constant_probe_nodes < 0:
         parser.error("constant_probe_nodes must be nonnegative")
+    evaluator = {"none": None, "day-survival": DaySurvivalEvaluator(),
+                 "unknown": UnknownEvaluator()}[args.boundary_evaluator]
+    if evaluator is not None and evaluator.version != "day-survival-v1" and not args.no_constant_compression:
+        parser.error("non-day-survival boundary evaluator requires --no-constant-compression")
     sources, started, tree, solved = source_digest(), perf_counter(), None, None
     evidence_report = None
     try:
@@ -99,18 +106,20 @@ def main():
                 solved = InformationDoubleOracle(model, seed_rows=rows, seed_columns=columns, range_analyzer=analyzer).solve(work=work,
                     epsilon=args.epsilon, max_iterations=args.iterations, max_depth=args.max_depth,
                     tree_node_limit=args.tree_nodes, lp_cell_limit=args.lp_cells, pivot_limit=args.lp_pivots,
-                    response_candidate_limit=args.response_candidates, **compression)
+                    response_candidate_limit=args.response_candidates, boundary_evaluator=evaluator, **compression)
                 reason = solved.stop_reason
             else:
                 tree = build_root_information_tree(model, rows, columns, work=work, max_depth=args.max_depth,
-                                                   tree_node_limit=args.tree_nodes, range_analyzer=analyzer, **compression)
+                                                   tree_node_limit=args.tree_nodes, range_analyzer=analyzer,
+                                                   boundary_evaluator=evaluator, **compression)
                 solved = solve_information_tree(tree, deadline=work.started+args.time_ms/1000,
                                                 pivot_limit=args.lp_pivots, lp_cell_limit=args.lp_cells)
                 reason = "complete_selected_game" if tree.continuation_complete else "interval_tree"
         except MatrixLimit as error:
             reason = error.reason
         result = dict(sources=sources, private_diagnostic=True, room_strategy=False, horizon="day",
-            utility="day-survival-v1", settings={k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
+            utility=evaluator.version if evaluator is not None else "day-survival-v1",
+            settings={k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
             evidence=evidence_report, evidence_seconds=evidence_seconds, action_seconds=perf_counter()-work.started,
             tree=tree_payload(tree) if tree is not None else None, result=asdict(solved) if solved is not None else None,
             fallback_bounds=dict(lower=0, upper=1) if solved is None else None, stop_reason=reason)

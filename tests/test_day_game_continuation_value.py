@@ -8,8 +8,8 @@ from tests.test_day_game_information_game import rescue_root
 from tragedy_sim.day_game.continuation import day_boundary_value
 from tragedy_sim.day_game.information_game import _Builder, build_ability_information_tree, solve_information_tree
 from tragedy_sim.day_game.continuation import WorkLimit
-from tragedy_sim.day_game.value import (BoundaryContext, DaySurvivalEvaluator, UnknownEvaluator, ValueEstimate,
-                                        boundary_context)
+from tragedy_sim.day_game.value import (BoundaryContext, DaySurvivalEvaluator, RandomRolloutEvaluator,
+                                        UnknownEvaluator, ValueEstimate, boundary_context)
 
 
 class ContinuationValueTests(unittest.TestCase):
@@ -88,6 +88,34 @@ class ContinuationValueTests(unittest.TestCase):
             _Builder(work=WorkLimit(), max_depth=8, tree_node_limit=100, boundary_evaluator=object())
         with self.assertRaises(ValueError):
             _Builder(work=WorkLimit(), max_depth=8, tree_node_limit=100, boundary_evaluator=VersionOnly())
+
+    def test_random_rollout_is_deterministic_and_never_certified(self):
+        world, context = rescue_root(), boundary_context(rescue_root(), (1, 3))
+        evaluator = RandomRolloutEvaluator(rollouts=2, max_steps=1000, seed=7)
+        first, second = evaluator.evaluate(context), evaluator.evaluate(context)
+        self.assertEqual(first, second)
+        self.assertFalse(first.certified)
+        self.assertLessEqual(first.lower, first.upper)
+        self.assertTrue(Q(0) <= first.lower <= first.upper <= Q(1))
+        with self.assertRaises(ValueError):
+            evaluator.evaluate(BoundaryContext(world, (1, 3), 1, 1, scope="team"))
+        with self.assertRaises(ValueError):
+            RandomRolloutEvaluator(rollouts=0)
+        with self.assertRaises(ValueError):
+            RandomRolloutEvaluator(max_steps=0)
+        with self.assertRaises(ValueError):
+            RandomRolloutEvaluator(seed=1.5)
+
+    def test_random_rollout_returns_terminal_winner_exactly(self):
+        world = rescue_root()
+        world.winner = "protagonists"
+        estimate = RandomRolloutEvaluator().evaluate(boundary_context(world, (1, 3)))
+        self.assertEqual((estimate.lower, estimate.upper), (Q(1), Q(1)))
+        self.assertTrue(estimate.certified)
+        world.winner = "mastermind"
+        estimate = RandomRolloutEvaluator().evaluate(boundary_context(world, (1, 3)))
+        self.assertEqual((estimate.lower, estimate.upper), (Q(0), Q(0)))
+        self.assertTrue(estimate.certified)
 
 
 if __name__ == "__main__":

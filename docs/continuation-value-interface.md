@@ -4,7 +4,8 @@ T1 的第一步：把日末收益从当日求解器中拆出来，允许替换�
 
 ## 状态
 
-- 接口、上下文和 T0 兼容评估器已实现，7 项专项测试通过。
+- 接口、上下文和 T0 兼容评估器已实现，9 项专项测试通过。
+- 新增未认证的随机 rollout 基线，用于 T1 估值实验；它不能关闭证书。
 - 非认证估值不会进入证书；使用非 `day-survival-v1` 评估器时，常量子树压缩必须显式关闭。
 - 实际整局估值器、终猜概率叶值、跨日搜索仍未实现。
 - 默认实战 AI 和现有求解入口不变。
@@ -50,8 +51,22 @@ class ValueEstimate:
 | --- | --- | --- |
 | `DaySurvivalEvaluator` | `day-survival-v1` | 完全复用现有 `day_boundary_value`，返回精确 0/1 |
 | `UnknownEvaluator` | `unknown-v1` | 始终返回未认证 `[0,1]`，用于 T1 接口测试和对照 |
+| `RandomRolloutEvaluator` | `random-rollout-v1` | 已知世界随机合法续演到终局，返回 Wilson 区间；永远未认证 |
 
 `boundary_context(world, position)` 从剧本读取总天数和总轮回，计算剩余天数／轮回。它只整理上下文，不额外授予隐藏信息；公平使用时仍必须传入授权视图。
+
+## 随机 rollout 基线
+
+`RandomRolloutEvaluator(rollouts=8, max_steps=4096, seed=0)`：
+
+- 每个 rollout 从边界世界克隆，使用带种子的 `random.Random` 随机选择合法动作，直到出现胜者或达到最大步数。
+- 全部 rollout 完成时返回胜率的 95% Wilson 区间。
+- 有未完成 rollout 时返回未认证 `[0,1]`。
+- 终局已确定时直接返回精确 0/1，并标记认证。
+- 只接受 `scope="known-world"`；团队／公平模式会拒绝，因为克隆真实世界会泄漏隐藏信息。
+- 结果永远是未认证估值，不能关闭信息集树证书，也不进入默认 AI。
+
+这个基线用于 T1 估值方向实验：先比较随机续演、剧本启发式和后续 T2 搜索给出的叶值哪个与实际整局胜负更一致，再决定是否 calibrate 成更强的估值器。
 
 ## 接入方式
 
@@ -66,7 +81,7 @@ class ValueEstimate:
 
 ## 测试
 
-`tests/test_day_game_continuation_value.py`，7 项通过：
+`tests/test_day_game_continuation_value.py`，9 项通过：
 
 - 日末存活、进入下一轮、轮回结束三类边界的 0/1 与引擎一致。
 - 上下文正确计算剩余天数和轮回。
@@ -75,6 +90,7 @@ class ValueEstimate:
 - `DaySurvivalEvaluator` 与现有信息集树的界、节点和未知叶一致。
 - 未认证边界值让树保持未知。
 - 缺少版本或 `evaluate()` 的评估器被拒绝；非日存活评估器要求关闭压缩。
+- 随机 rollout 同 seed 可复现、永远未认证、团队 scope 与非法参数失败关闭；已结束对局返回精确 0/1。
 
 相关信息集测试 34 项通过。
 

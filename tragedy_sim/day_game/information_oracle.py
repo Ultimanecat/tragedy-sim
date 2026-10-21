@@ -86,7 +86,7 @@ class InformationDoubleOracle:
 
     def solve(self, *, work=None, epsilon="1/100", max_iterations=32, max_depth=128,
               tree_node_limit=10000, lp_cell_limit=2000000, pivot_limit=100000, response_candidate_limit=None,
-              range_compression=True, range_probe_nodes=256):
+              range_compression=True, range_probe_nodes=256, boundary_evaluator=None):
         epsilon = rational(epsilon)
         if epsilon < 0 or type(max_iterations) is not int or max_iterations < 1:
             raise ValueError("epsilon must be nonnegative and iteration limit positive")
@@ -95,7 +95,8 @@ class InformationDoubleOracle:
         trace, reason = [], "iteration_limit"
         model = self.model
         options = dict(max_depth=max_depth, tree_node_limit=tree_node_limit, range_analyzer=self.range_analyzer,
-                       range_compression=range_compression, range_probe_nodes=range_probe_nodes)
+                       range_compression=range_compression, range_probe_nodes=range_probe_nodes,
+                       boundary_evaluator=boundary_evaluator)
         for number in range(1, max_iterations+1):
             if self.upper-self.lower <= epsilon:
                 reason = "proven_optimal" if self.upper == self.lower else "proven_epsilon"

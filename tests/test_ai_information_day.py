@@ -38,6 +38,21 @@ class InformationCommandTests(unittest.TestCase):
                                "--no-constant-compression"])
             self.assertEqual(raw["tree"]["compression"], "none")
             self.assertEqual(raw["tree"]["range_stats"]["folded_subtrees"], 0)
+            t0 = self.invoke(["--view", str(view_path), "--warmstart", str(plan_path), "--nodes", "1",
+                              "--boundary-evaluator", "day-survival"])
+            self.assertEqual(t0["utility"], "day-survival-v1")
+            self.assertEqual(t0["tree"]["compression"], "fs-all-native-actions/day-survival-v1")
+            unknown = self.invoke(["--view", str(view_path), "--warmstart", str(plan_path), "--nodes", "1",
+                                   "--boundary-evaluator", "unknown", "--no-constant-compression"])
+            self.assertEqual(unknown["utility"], "unknown-v1")
+            self.assertEqual(unknown["tree"]["compression"], "none")
+            self.assertFalse(unknown["tree"]["continuation_complete"])
+            self.assertEqual(unknown["result"]["bounds"]["lower"]["fraction"], "0")
+            self.assertEqual(unknown["result"]["bounds"]["upper"]["fraction"], "1")
+            with patch("sys.argv", ["information-day", "--view", str(view_path), "--warmstart", str(plan_path),
+                                    "--boundary-evaluator", "unknown"]), redirect_stderr(StringIO()):
+                with self.assertRaises(SystemExit):
+                    command.main()
             full = self.invoke(["--view", str(view_path), "--warmstart", str(plan_path), "--nodes", "1",
                                 "--mode", "full-responses"])
             self.assertIn("full-root-information-responses", full["result"]["scope"])
