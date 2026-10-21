@@ -17,7 +17,7 @@ T0.1–T0.3已验收，T0.4进行中；每阶段验证、提交并推送。
 | T0.2 无损压缩 ✓ | [状态键／缓存](exact-day-cache.md)、[局部效果／观察边](exact-day-local-programs.md)，资源与信息保真。 |
 | T0.3 混合策略 ✓ | [精确LP／Double Oracle](exact-day-mixed-strategies.md)、完整域最优回应与L/U/gap；未知保留区间。 |
 | T0.4 公平迁移（进行中） | [后验桥](public-posterior-day.md)、[兼容历史](compatible-history-day.md)、[原生信息集树](information-set-day.md)及[全域回应](information-set-responses.md)已实现；[常量子树压缩](constant-subtree-compression.md)已验收，公开FS根10秒档完成压缩前后对照，完整根域仍受缺失质量与黑方回应覆盖限制。 |
-| T1 续局价值 | 独立日末估值接口，评价整局获胜概率；一次求解冻结效用及更新模型。 |
+| T1 续局价值 | [独立日末估值接口](continuation-value-interface.md)已建立并通过T0兼容测试；实际整局估值器、终猜概率叶值和配对验证待做。一次求解冻结效用及更新模型。 |
 | T2 有限跨日 | 先2日再3日，按授权观察更新witness／后验，保留资源与信息分支。 |
 | T3 跨轮回 | 失败后重置棋盘并保留合法知识；真实整局终结置0/1，验证风险／信息取舍。 |
 
