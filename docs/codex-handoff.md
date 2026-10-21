@@ -5,7 +5,7 @@
 ## 当前状态与下一步
 
 - 核心方向及长期接口见 [联合行动博弈内核](certified-day-game-design.md)。T0.1–T0.3已完成；精确混合策略实现与验证见 [专项报告](exact-day-mixed-strategies.md)。默认AI未改，最终目标为整局获胜概率。
-- T0.4进行中：[公开后验桥](public-posterior-day.md)、[兼容历史](compatible-history-day.md)、[原生信息集树](information-set-day.md)及[完整域信息集回应](information-set-responses.md)已实现。[常量子树压缩](constant-subtree-compression.md)已实现并验收：12项专项、1100项全量回归通过；公开FS01／FS02有限树10秒内从无法建树变为2.6–3.6秒完成，完整根域完成1轮但受缺失质量与黑方回应覆盖限制。下一步优先黑方回应覆盖、候选排序和日末树复用，再按T1–T3推进。默认AI未改。
+- T0.4进行中：[公开后验桥](public-posterior-day.md)、[兼容历史](compatible-history-day.md)、[原生信息集树](information-set-day.md)及[完整域信息集回应](information-set-responses.md)已实现。[常量子树压缩](constant-subtree-compression.md)已实现并验收：11项专项、1100项全量回归通过；公开FS01／FS02有限树10秒内从无法建树变为2.6–3.6秒完成，完整根域完成1轮但受缺失质量与黑方回应覆盖限制。下一步优先黑方回应覆盖、候选排序和日末树复用，再按T1–T3推进。默认AI未改。
 - 当前Python指纹 `ba5195e9…`；续跑／日志修复后32项针对性回归通过（14.232秒）。父阶段`04fc10cd…`完整回归1086项通过（374.651秒，`references/exact-day-information-oracle-regression-20261018.txt`）。控制局面240红牌／6黑牌，三轮全域回应闭合到2/3，返回策略经独立原生完整日末树检查全部黑牌；序列DP另与10seed随机对手的完整正常形式回应对照一致。
 - FS01压力根的12个setup均完成51节点历史重建，原质量1/10，无状态先验质量；原生可变状态核对见历史支持报告。内置菜单依赖特化已验收，自定义／子类政策仍保留授权历史。两世界固定24项2.844→0.497秒为旧v1性能证据；不外推到新政策或整局棋力。
 - `PublicSkipOptionalPolicy`已修至v2：同时识别原生`next`及兼容`pass`，强制选择保留合法首项。旧v1在原生菜单中可能实际发动技能，读历史报告时注意版本。v2通用／菜单特化的固定24项结果一致。
