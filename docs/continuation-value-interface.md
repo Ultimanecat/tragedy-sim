@@ -6,6 +6,7 @@ T1 的第一步：把日末收益从当日求解器中拆出来，允许替换�
 
 - 接口、上下文和 T0 兼容评估器已实现，9 项专项测试通过。
 - 新增未认证的随机 rollout 基线，用于 T1 估值实验；它不能关闭证书。
+- `benchmarks.ai_information_day` 已接入 `--boundary-evaluator`，支持 `day-survival` 与 `unknown`。
 - 非认证估值不会进入证书；使用非 `day-survival-v1` 评估器时，常量子树压缩必须显式关闭。
 - 实际整局估值器、终猜概率叶值、跨日搜索仍未实现。
 - 默认实战 AI 和现有求解入口不变。
@@ -78,6 +79,22 @@ class ValueEstimate:
 - 传入了非 `day-survival-v1` 的评估器且未关闭常量子树压缩时直接报错。常量子树证明的版本是 `fs-all-native-actions/day-survival-v1`，不能跨收益版本复用。
 
 `build_ability_information_tree` 和 `build_root_information_tree` 都暴露了该参数。
+
+## CLI 接入
+
+`benchmarks.ai_information_day` 新增：
+
+```text
+--boundary-evaluator {none,day-survival,unknown}
+```
+
+- `none`：默认，保持原行为。
+- `day-survival`：显式使用 T0 兼容评估器，仍可开启常量子树压缩。
+- `unknown`：边界叶全部未知，必须同时传 `--no-constant-compression`。
+- 输出新增 `utility` 字段，记录评估器版本；`settings.boundary_evaluator` 记录选择。
+- 非日存活评估器会绕开针对 `day-survival-v1` 的空策略黑方快速缓存。
+
+已用 FS01 公开视图做过 3 秒烟测：`day-survival` 完成受预算限制的树，`unknown` 返回未知叶更多的树，两者界均为 `[0,1]`，不产生认证。
 
 ## 测试
 
