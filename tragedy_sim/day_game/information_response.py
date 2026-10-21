@@ -104,14 +104,16 @@ def _solve_response_tree(builder, lower, upper, player):
     return CandidateValue(RationalInterval(low.value, high.value), behavior)
 
 
-def red_candidate_value(model, row, strategy, work, *, max_depth=128, tree_node_limit=10000):
+def red_candidate_value(model, row, strategy, work, *, max_depth=128, tree_node_limit=10000,
+                          range_analyzer=None, range_compression=True, range_probe_nodes=256):
     if not model.contains_row(row):
         raise ValueError("illegal common red response")
     black_cards = dict(strategy.black_cards)
     if set(black_cards) != {b.label for b in model.blocks}:
         raise ValueError("frozen black strategy belongs to a different type domain")
     builder = _Builder(work=work, max_depth=max_depth, tree_node_limit=tree_node_limit,
-                       fixed_behavior=strategy.black_policy)
+                       fixed_behavior=strategy.black_policy, range_analyzer=range_analyzer,
+                       range_compression=range_compression, range_probe_nodes=range_probe_nodes)
     builder.account()  # nature over types and the fixed conditional black draw
     lower, upper = [], []
     for block in model.blocks:
@@ -133,7 +135,8 @@ def red_candidate_value(model, row, strategy, work, *, max_depth=128, tree_node_
     return _solve_response_tree(builder, Chance(tuple(lower)), Chance(tuple(upper)), "red")
 
 
-def black_candidate_value(block, column, strategy, work, *, max_depth=128, tree_node_limit=10000, skip_cache=None):
+def black_candidate_value(block, column, strategy, work, *, max_depth=128, tree_node_limit=10000, skip_cache=None,
+                           range_analyzer=None, range_compression=True, range_probe_nodes=256):
     if not block.game.contains_column(column) or any(not block.game.contains_row(row) for row, _ in strategy.red_cards):
         raise ValueError("illegal black column or frozen red root strategy")
     lower, upper = Q(0), Q(0)
@@ -147,7 +150,8 @@ def black_candidate_value(block, column, strategy, work, *, max_depth=128, tree_
             upper += probability*cell.upper
             continue
         builder = _Builder(work=work, max_depth=max_depth, tree_node_limit=tree_node_limit,
-                           fixed_behavior=strategy.red_policy)
+                           fixed_behavior=strategy.red_policy, range_analyzer=range_analyzer,
+                           range_compression=range_compression, range_probe_nodes=range_probe_nodes)
         after, position, recall = _committed(block, row, column, work)
         lo, hi = builder.visit(after, position, recall)
         cell = _solve_response_tree(builder, lo, hi, "black").bounds

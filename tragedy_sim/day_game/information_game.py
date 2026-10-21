@@ -5,7 +5,7 @@ card domains remain explicitly restricted; they are not global certificates.
 Truncation and missing posterior mass have [0,1] leaves, never guessed values.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from fractions import Fraction as Q
 import hashlib
 import json
@@ -20,6 +20,7 @@ from .pure import commit_pair
 from .sequence_form import (Chance, Decision, Terminal, behavioral_policy, build_sequence_game,
                             solve_sequence_game)
 from .zero_sum import RationalInterval
+from .universal_range import UniversalDayRange
 
 
 def _key(value):
@@ -75,18 +76,49 @@ class InformationTree:
     scope: str = "FS/native-abilities/authorized-perfect-recall/day-survival-v1"
     source_scope: str = "caller-supplied-finite-setup-types"
     root_columns: tuple = ()
+    range_stats: dict = field(default_factory=dict)
+    compression: str = "none"
+
+
+@dataclass(frozen=True)
+class _TreePair:
+    lower: object
+    upper: object
+    universal: bool = False
+
+    def __iter__(self):
+        yield self.lower
+        yield self.upper
+
+    @property
+    def constant(self):
+        if type(self.lower) is Terminal and type(self.upper) is Terminal and self.lower.value == self.upper.value:
+            return self.lower.value
+        return None
 
 
 class _Builder:
-    def __init__(self, *, work, max_depth, tree_node_limit, fixed_behavior=None):
+    def __init__(self, *, work, max_depth, tree_node_limit, fixed_behavior=None,
+                 range_analyzer=None, range_compression=True, range_probe_nodes=256):
         if type(max_depth) is not int or max_depth < 1 or type(tree_node_limit) is not int or tree_node_limit < 1:
             raise ValueError("information tree limits must be positive integers")
+        if type(range_compression) is not bool or type(range_probe_nodes) is not int or range_probe_nodes < 0:
+            raise ValueError("range compression must be boolean and probe nodes nonnegative")
+        if range_analyzer is not None and type(range_analyzer) is not UniversalDayRange:
+            raise ValueError("constant compression requires the audited universal range analyzer")
         self.work = WorkLimit(node_limit=10000) if work is None else work
         self.before = self.work.nodes, self.work.transitions
         self.max_depth, self.tree_node_limit = max_depth, tree_node_limit
         self.unknown, self.reasons = 0, set()
         self.tree_nodes = 0
         self.fixed_behavior = fixed_behavior
+        self.range_analyzer = (UniversalDayRange() if range_analyzer is None else range_analyzer) if range_compression else None
+        self.before_range = self.range_analyzer.report() if self.range_analyzer is not None else {}
+        # Response trees must not explore moves of the already frozen opponent
+        # just to prove a constant. Reuse existing universal proofs only.
+        self.range_probe_nodes = 0 if fixed_behavior is not None else range_probe_nodes
+        self.folded = 0
+        self.equal_child_folds = 0
 
     def account(self, count=1):
         self.tree_nodes += count
@@ -97,18 +129,33 @@ class _Builder:
         self.account()
         self.unknown += 1
         self.reasons.add(reason)
-        return Terminal(0), Terminal(1)
+        return _TreePair(Terminal(0), Terminal(1))
+
+    def remember_constant(self, world, position, pair):
+        if self.range_analyzer is not None and pair.universal and pair.constant is not None:
+            self.range_analyzer._remember_constant(world, position, pair.constant)
+        return pair
 
     def visit(self, world, position, recall=("", ""), depth=0):
         boundary = day_boundary_value(world, position)
         if boundary is not None:
             self.account()
             leaf = Terminal(rational(boundary))
-            return leaf, leaf
+            return _TreePair(leaf, leaf, True)
         if self.work.exhausted():
             return self.unknown_leaf("/".join(sorted(self.work.reasons)))
         if depth >= self.max_depth:
             return self.unknown_leaf("continuation_depth_limit")
+        if self.range_analyzer is not None:
+            utility = self.range_analyzer.probe(world, position=position, work=self.work,
+                node_limit=self.range_probe_nodes, max_depth=self.max_depth-depth)
+            if utility.constant is not None:
+                self.account()
+                self.folded += 1
+                leaf = Terminal(utility.constant)
+                return _TreePair(leaf, leaf, True)
+            if self.work.exhausted():
+                return self.unknown_leaf("/".join(sorted(self.work.reasons)))
         actions = world.legal_actions(world.controller)
         if not actions:
             raise ValueError("nonterminal information node has no legal actions")
@@ -119,27 +166,34 @@ class _Builder:
         fixed = self.fixed_behavior is not None and self.fixed_behavior.player == player
         distribution = (self.fixed_behavior.choices(information, actions) if fixed else
                         tuple((a, None) for a in sorted(actions, key=_key)))
-        lower, upper = [], []
+        lower, upper, children = [], [], []
         for action, probability in distribution:
             name = _key(action)
             if self.work.exhausted():
-                lo, hi = self.unknown_leaf("/".join(sorted(self.work.reasons)))
+                pair = self.unknown_leaf("/".join(sorted(self.work.reasons)))
             else:
                 successor = world.transition(action).game
                 self.work.transitions += 1
                 memory = list(recall)
                 memory[index] = _remember(recall[index], information, name)
-                lo, hi = self.visit(successor, position, tuple(memory), depth+1)
-            lower.append((probability if fixed else name, lo))
-            upper.append((probability if fixed else name, hi))
+                pair = self.visit(successor, position, tuple(memory), depth+1)
+            lower.append((probability if fixed else name, pair.lower))
+            upper.append((probability if fixed else name, pair.upper))
+            children.append(pair)
+        full_native = len(distribution) == len(actions) and all(child.universal for child in children)
         if len(distribution) == 1:
             # Forced steps have no strategic choice. Their authorized
             # observations/own action STILL enter recall before the child.
-            return lower[0][1], upper[0][1]
+            return self.remember_constant(world, position, _TreePair(lower[0][1], upper[0][1], full_native))
         self.account()
+        constant = children[0].constant
+        if self.range_analyzer is not None and constant is not None and all(child.constant == constant for child in children):
+            self.equal_child_folds += 1
+            leaf = Terminal(constant)
+            return self.remember_constant(world, position, _TreePair(leaf, leaf, full_native))
         if fixed:
-            return Chance(tuple(lower)), Chance(tuple(upper))
-        return Decision(player, information, tuple(lower)), Decision(player, information, tuple(upper))
+            return _TreePair(Chance(tuple(lower)), Chance(tuple(upper)))
+        return _TreePair(Decision(player, information, tuple(lower)), Decision(player, information, tuple(upper)))
 
     def finish(self, lower, upper, *, root_complete, belief_complete, root_information=None, root_plans=(), source_scope=None,
                root_columns=()):
@@ -151,8 +205,13 @@ class _Builder:
             tuple(sorted(self.reasons)), self.work.nodes-self.before[0], self.work.transitions-self.before[1],
             root_complete, belief_complete, root_information, root_plans)
         from dataclasses import replace
+        stats = self.range_analyzer.report() if self.range_analyzer is not None else {}
+        stats = {key: value if key == "entries" else value-self.before_range[key] for key, value in stats.items()}
+        stats["folded_subtrees"] = self.folded
+        stats["equal_child_folds"] = self.equal_child_folds
         tree = replace(tree, root_columns=root_columns,
-                       source_scope=tree.source_scope if source_scope is None else source_scope)
+                       source_scope=tree.source_scope if source_scope is None else source_scope,
+                       range_stats=stats, compression=self.range_analyzer.version if self.range_analyzer is not None else "none")
         return tree
 
 
@@ -169,13 +228,15 @@ def _weighted_worlds(worlds, belief_domain_complete):
 
 
 def build_ability_information_tree(worlds, *, work=None, max_depth=128, tree_node_limit=10000,
-                                   belief_domain_complete=False):
+                                   belief_domain_complete=False, range_analyzer=None, range_compression=True,
+                                   range_probe_nodes=256):
     worlds, total = _weighted_worlds(worlds, belief_domain_complete)
     if any(world.state.phase in {"day_start", "mastermind", "protagonists"} for _, _, world in worlds):
         raise ValueError("ability roots require already committed cards")
     if any(public_policy_input(world).key != public_policy_input(worlds[0][2]).key for _, _, world in worlds):
         raise ValueError("ability roots have different authorized red information")
-    builder = _Builder(work=work, max_depth=max_depth, tree_node_limit=tree_node_limit)
+    builder = _Builder(work=work, max_depth=max_depth, tree_node_limit=tree_node_limit,
+                       range_analyzer=range_analyzer, range_compression=range_compression, range_probe_nodes=range_probe_nodes)
     builder.account()  # chance root
     lower, upper = [], []
     for _, mass, world in worlds:
@@ -190,7 +251,8 @@ def build_ability_information_tree(worlds, *, work=None, max_depth=128, tree_nod
                           belief_complete=belief_domain_complete)
 
 
-def build_root_information_tree(model, rows, columns, *, work=None, max_depth=128, tree_node_limit=10000):
+def build_root_information_tree(model, rows, columns, *, work=None, max_depth=128, tree_node_limit=10000,
+                                 range_analyzer=None, range_compression=True, range_probe_nodes=256):
     """columns is one finite selected-column tuple per setup block.
 
     Black commits history/faces before the common red private card draw.
@@ -204,7 +266,8 @@ def build_root_information_tree(model, rows, columns, *, work=None, max_depth=12
         if (not isinstance(block.game, (FixedPolicyDayGame, HistoryDayGame)) or not selected
                 or len(set(selected)) != len(selected) or not all(block.game.contains_column(c) for c in selected)):
             raise ValueError("selected columns must belong to audited FS fixed-root models")
-    builder = _Builder(work=work, max_depth=max_depth, tree_node_limit=tree_node_limit)
+    builder = _Builder(work=work, max_depth=max_depth, tree_node_limit=tree_node_limit,
+                       range_analyzer=range_analyzer, range_compression=range_compression, range_probe_nodes=range_probe_nodes)
     builder.account(1+len(model.blocks)+sum(len(c) for c in columns))
     root_info = "r/root-cards"
     plans = tuple((_key(red_commands(row)), row) for row in rows)
@@ -257,6 +320,7 @@ class InformationSolution:
     black_behavior: tuple
     red_cards: tuple
     certified_optimal: bool
+    policy_extension: str = "next-first-v1"
 
 
 def solve_information_tree(tree, *, pivot_limit=100000, deadline=None, lp_cell_limit=2000000):

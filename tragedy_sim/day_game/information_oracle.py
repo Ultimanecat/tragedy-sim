@@ -16,6 +16,7 @@ from .information_response import (BlackSkipCache, InformationResponse, black_in
                                    red_information_response, _deadline)
 from .matrix import MatrixLimit, rational
 from .zero_sum import RationalInterval
+from .universal_range import UniversalDayRange
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,7 @@ class InformationOracleResult:
     elapsed_seconds: float
     scope: str
     skip_cache: dict
+    range_stats: dict
     horizon: str = "day"
     utility: str = "day-survival-v1"
 
@@ -60,7 +62,7 @@ class InformationOracleResult:
 
 
 class InformationDoubleOracle:
-    def __init__(self, model, *, seed_rows=(), seed_columns=None):
+    def __init__(self, model, *, seed_rows=(), seed_columns=None, range_analyzer=None):
         self.model = model
         self.rows = list(dict.fromkeys(seed_rows)) or [next(model.rows())]
         if any(not model.contains_row(row) for row in self.rows):
@@ -80,9 +82,11 @@ class InformationDoubleOracle:
         self.lower, self.upper = Q(0), Q(1)
         self.responses_complete = False
         self.skip_cache = BlackSkipCache()
+        self.range_analyzer = UniversalDayRange() if range_analyzer is None else range_analyzer
 
     def solve(self, *, work=None, epsilon="1/100", max_iterations=32, max_depth=128,
-              tree_node_limit=10000, lp_cell_limit=2000000, pivot_limit=100000, response_candidate_limit=None):
+              tree_node_limit=10000, lp_cell_limit=2000000, pivot_limit=100000, response_candidate_limit=None,
+              range_compression=True, range_probe_nodes=256):
         epsilon = rational(epsilon)
         if epsilon < 0 or type(max_iterations) is not int or max_iterations < 1:
             raise ValueError("epsilon must be nonnegative and iteration limit positive")
@@ -90,7 +94,8 @@ class InformationDoubleOracle:
         start_nodes, start_edges, started = work.nodes, work.transitions, perf_counter()
         trace, reason = [], "iteration_limit"
         model = self.model
-        options = dict(max_depth=max_depth, tree_node_limit=tree_node_limit)
+        options = dict(max_depth=max_depth, tree_node_limit=tree_node_limit, range_analyzer=self.range_analyzer,
+                       range_compression=range_compression, range_probe_nodes=range_probe_nodes)
         for number in range(1, max_iterations+1):
             if self.upper-self.lower <= epsilon:
                 reason = "proven_optimal" if self.upper == self.lower else "proven_epsilon"
@@ -164,4 +169,5 @@ class InformationDoubleOracle:
             model.belief_domain_complete, model.action_domain_complete, self.responses_complete,
             len(self.rows), tuple(map(len, self.columns)), tuple(trace), reason,
             work.nodes-start_nodes, work.transitions-start_edges, perf_counter()-started,
-            "FS/full-root-information-responses/observable-frozen-extensions/"+model.scope, self.skip_cache.stats())
+            "FS/full-root-information-responses/observable-frozen-extensions/"+model.scope, self.skip_cache.stats(),
+            self.range_analyzer.report())

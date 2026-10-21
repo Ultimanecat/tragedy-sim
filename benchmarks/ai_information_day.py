@@ -17,6 +17,7 @@ from tragedy_sim.day_game.information_game import build_root_information_tree, s
 from tragedy_sim.day_game.information_oracle import InformationDoubleOracle
 from tragedy_sim.day_game.matrix import MatrixLimit
 from tragedy_sim.day_game.posterior import PublicWorldPosterior, PosteriorUnavailable, reconstruct_public_roots
+from tragedy_sim.day_game.universal_range import UniversalDayRange
 from .ai_bayesian_day import load_worlds
 from .ai_calibration_matrix import source_digest, write_report
 from .ai_exact_day import rational_json
@@ -28,7 +29,8 @@ def tree_payload(tree):
         engine_transitions=tree.engine_transitions, root_domain_complete=tree.root_domain_complete,
         belief_domain_complete=tree.belief_domain_complete, explicit_nodes=tree.lower.nodes,
         red_sequences=len(tree.lower.red.sequences), black_sequences=len(tree.lower.black.sequences),
-        red_information_sets=len(tree.lower.red.information_sets), black_information_sets=len(tree.lower.black.information_sets))
+        red_information_sets=len(tree.lower.red.information_sets), black_information_sets=len(tree.lower.black.information_sets),
+        compression=tree.compression, range_stats=tree.range_stats)
 
 
 def main():
@@ -41,6 +43,9 @@ def main():
     parser.add_argument("--iterations", type=int, default=32)
     parser.add_argument("--epsilon", default="1/100")
     parser.add_argument("--response-candidates", type=int, help="optional per-response cutoff, never a complete-domain assertion")
+    parser.add_argument("--no-constant-compression", action="store_true", help="native uncompressed information-tree ablation")
+    parser.add_argument("--constant-probe-nodes", type=int, default=256)
+    parser.add_argument("--constant-cache", type=int, default=20000)
     parser.add_argument("--own-commands", type=Path)
     parser.add_argument("--world-limit", type=int, default=2)
     parser.add_argument("--posterior-nodes", type=int, default=100000)
@@ -56,7 +61,7 @@ def main():
     parser.add_argument("--lp-pivots", type=int, default=100000)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    for name in ("world_limit", "posterior_nodes", "black_limit", "nodes", "time_ms", "max_depth", "tree_nodes", "lp_cells", "lp_pivots", "iterations"):
+    for name in ("world_limit", "posterior_nodes", "black_limit", "nodes", "time_ms", "max_depth", "tree_nodes", "lp_cells", "lp_pivots", "iterations", "constant_cache"):
         if getattr(args, name) < 1:
             parser.error(name + " must be positive")
     if args.view and args.complete_posterior:
@@ -65,6 +70,8 @@ def main():
         parser.error("history_nodes must be positive")
     if args.response_candidates is not None and args.response_candidates < 1:
         parser.error("response_candidates must be positive")
+    if args.constant_probe_nodes < 0:
+        parser.error("constant_probe_nodes must be nonnegative")
     sources, started, tree, solved = source_digest(), perf_counter(), None, None
     evidence_report = None
     try:
@@ -85,16 +92,18 @@ def main():
         columns = tuple(tuple(islice(block.game.columns(), args.black_limit)) for block in model.blocks)
         evidence_seconds = perf_counter()-started
         work = WorkLimit(node_limit=args.nodes, time_limit_ms=args.time_ms)
+        analyzer = UniversalDayRange(capacity=args.constant_cache)
+        compression = dict(range_compression=not args.no_constant_compression, range_probe_nodes=args.constant_probe_nodes)
         try:
             if args.mode == "full-responses":
-                solved = InformationDoubleOracle(model, seed_rows=rows, seed_columns=columns).solve(work=work,
+                solved = InformationDoubleOracle(model, seed_rows=rows, seed_columns=columns, range_analyzer=analyzer).solve(work=work,
                     epsilon=args.epsilon, max_iterations=args.iterations, max_depth=args.max_depth,
                     tree_node_limit=args.tree_nodes, lp_cell_limit=args.lp_cells, pivot_limit=args.lp_pivots,
-                    response_candidate_limit=args.response_candidates)
+                    response_candidate_limit=args.response_candidates, **compression)
                 reason = solved.stop_reason
             else:
                 tree = build_root_information_tree(model, rows, columns, work=work, max_depth=args.max_depth,
-                                                   tree_node_limit=args.tree_nodes)
+                                                   tree_node_limit=args.tree_nodes, range_analyzer=analyzer, **compression)
                 solved = solve_information_tree(tree, deadline=work.started+args.time_ms/1000,
                                                 pivot_limit=args.lp_pivots, lp_cell_limit=args.lp_cells)
                 reason = "complete_selected_game" if tree.continuation_complete else "interval_tree"

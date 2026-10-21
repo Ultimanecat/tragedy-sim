@@ -34,6 +34,10 @@ class InformationCommandTests(unittest.TestCase):
             self.assertFalse(result["result"]["certified_optimal"])
             self.assertEqual(result["result"]["bounds"]["lower"]["fraction"], "0")
             self.assertEqual(result["result"]["bounds"]["upper"]["fraction"], "1")
+            raw = self.invoke(["--view", str(view_path), "--warmstart", str(plan_path), "--nodes", "1",
+                               "--no-constant-compression"])
+            self.assertEqual(raw["tree"]["compression"], "none")
+            self.assertEqual(raw["tree"]["range_stats"]["folded_subtrees"], 0)
             full = self.invoke(["--view", str(view_path), "--warmstart", str(plan_path), "--nodes", "1",
                                 "--mode", "full-responses"])
             self.assertIn("full-root-information-responses", full["result"]["scope"])
