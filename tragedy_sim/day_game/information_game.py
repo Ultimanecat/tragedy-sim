@@ -19,6 +19,7 @@ from .matrix import MatrixLimit, rational
 from .pure import commit_pair
 from .sequence_form import (Chance, Decision, Terminal, behavioral_policy, build_sequence_game,
                             solve_sequence_game)
+from .value import ValueEstimate, boundary_context
 from .zero_sum import RationalInterval
 from .universal_range import UniversalDayRange
 
@@ -99,19 +100,30 @@ class _TreePair:
 
 class _Builder:
     def __init__(self, *, work, max_depth, tree_node_limit, fixed_behavior=None,
-                 range_analyzer=None, range_compression=True, range_probe_nodes=256):
+                 range_analyzer=None, range_compression=True, range_probe_nodes=256,
+                 boundary_evaluator=None):
         if type(max_depth) is not int or max_depth < 1 or type(tree_node_limit) is not int or tree_node_limit < 1:
             raise ValueError("information tree limits must be positive integers")
         if type(range_compression) is not bool or type(range_probe_nodes) is not int or range_probe_nodes < 0:
             raise ValueError("range compression must be boolean and probe nodes nonnegative")
         if range_analyzer is not None and type(range_analyzer) is not UniversalDayRange:
             raise ValueError("constant compression requires the audited universal range analyzer")
+        if boundary_evaluator is not None:
+            if type(getattr(boundary_evaluator, "version", None)) is not str or not boundary_evaluator.version:
+                raise ValueError("boundary evaluator must expose a nonempty version string")
+            if not callable(getattr(boundary_evaluator, "evaluate", None)):
+                raise ValueError("boundary evaluator must provide evaluate()")
+            if range_compression and boundary_evaluator.version != "day-survival-v1":
+                # Universal range certificates are scoped to day-survival-v1.
+                # Reusing them under another utility would silently mix values.
+                raise ValueError("non-day-survival boundary evaluators require range_compression=False")
         self.work = WorkLimit(node_limit=10000) if work is None else work
         self.before = self.work.nodes, self.work.transitions
         self.max_depth, self.tree_node_limit = max_depth, tree_node_limit
         self.unknown, self.reasons = 0, set()
         self.tree_nodes = 0
         self.fixed_behavior = fixed_behavior
+        self.boundary_evaluator = boundary_evaluator
         self.range_analyzer = (UniversalDayRange() if range_analyzer is None else range_analyzer) if range_compression else None
         self.before_range = self.range_analyzer.report() if self.range_analyzer is not None else {}
         # Response trees must not explore moves of the already frozen opponent
@@ -140,8 +152,22 @@ class _Builder:
         boundary = day_boundary_value(world, position)
         if boundary is not None:
             self.account()
-            leaf = Terminal(rational(boundary))
-            return _TreePair(leaf, leaf, True)
+            if self.boundary_evaluator is None:
+                leaf = Terminal(rational(boundary))
+                return _TreePair(leaf, leaf, True)
+            estimate = self.boundary_evaluator.evaluate(boundary_context(world, position))
+            if not isinstance(estimate, ValueEstimate):
+                raise TypeError("boundary evaluator must return ValueEstimate")
+            if not estimate.certified:
+                # An uncertified estimate is useful for experiments but can
+                # never close a certificate or be folded as a constant.
+                self.unknown += 1
+                self.reasons.add("uncertified_" + estimate.version)
+                return _TreePair(Terminal(0), Terminal(1))
+            if estimate.exact:
+                leaf = Terminal(estimate.lower)
+                return _TreePair(leaf, leaf, True)
+            return _TreePair(Terminal(estimate.lower), Terminal(estimate.upper), True)
         if self.work.exhausted():
             return self.unknown_leaf("/".join(sorted(self.work.reasons)))
         if depth >= self.max_depth:
@@ -229,14 +255,15 @@ def _weighted_worlds(worlds, belief_domain_complete):
 
 def build_ability_information_tree(worlds, *, work=None, max_depth=128, tree_node_limit=10000,
                                    belief_domain_complete=False, range_analyzer=None, range_compression=True,
-                                   range_probe_nodes=256):
+                                   range_probe_nodes=256, boundary_evaluator=None):
     worlds, total = _weighted_worlds(worlds, belief_domain_complete)
     if any(world.state.phase in {"day_start", "mastermind", "protagonists"} for _, _, world in worlds):
         raise ValueError("ability roots require already committed cards")
     if any(public_policy_input(world).key != public_policy_input(worlds[0][2]).key for _, _, world in worlds):
         raise ValueError("ability roots have different authorized red information")
     builder = _Builder(work=work, max_depth=max_depth, tree_node_limit=tree_node_limit,
-                       range_analyzer=range_analyzer, range_compression=range_compression, range_probe_nodes=range_probe_nodes)
+                       range_analyzer=range_analyzer, range_compression=range_compression, range_probe_nodes=range_probe_nodes,
+                       boundary_evaluator=boundary_evaluator)
     builder.account()  # chance root
     lower, upper = [], []
     for _, mass, world in worlds:
@@ -252,7 +279,8 @@ def build_ability_information_tree(worlds, *, work=None, max_depth=128, tree_nod
 
 
 def build_root_information_tree(model, rows, columns, *, work=None, max_depth=128, tree_node_limit=10000,
-                                 range_analyzer=None, range_compression=True, range_probe_nodes=256):
+                                 range_analyzer=None, range_compression=True, range_probe_nodes=256,
+                                 boundary_evaluator=None):
     """columns is one finite selected-column tuple per setup block.
 
     Black commits history/faces before the common red private card draw.
@@ -267,7 +295,8 @@ def build_root_information_tree(model, rows, columns, *, work=None, max_depth=12
                 or len(set(selected)) != len(selected) or not all(block.game.contains_column(c) for c in selected)):
             raise ValueError("selected columns must belong to audited FS fixed-root models")
     builder = _Builder(work=work, max_depth=max_depth, tree_node_limit=tree_node_limit,
-                       range_analyzer=range_analyzer, range_compression=range_compression, range_probe_nodes=range_probe_nodes)
+                       range_analyzer=range_analyzer, range_compression=range_compression, range_probe_nodes=range_probe_nodes,
+                       boundary_evaluator=boundary_evaluator)
     builder.account(1+len(model.blocks)+sum(len(c) for c in columns))
     root_info = "r/root-cards"
     plans = tuple((_key(red_commands(row)), row) for row in rows)
