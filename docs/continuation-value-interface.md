@@ -6,6 +6,9 @@ T1 的第一步：把日末收益从当日求解器中拆出来，允许替换�
 
 - 接口、上下文和 T0 兼容评估器已实现，9 项专项测试通过。
 - 新增未认证的随机 rollout 基线，用于 T1 估值实验；它不能关闭证书。
+- 新增基于真实自对弈边界的校准烟测。BTX01 5 局样本：当日存活 Brier 1.000，随机 rollout 1 次 0.306；FS01 20 局样本：0.879／0.308。样本小，不能据此选估值器。
+- `benchmarks.ai_continuation_calibration` 默认剧本已改为 BTX01；FS 作为支线样本显式指定。
+- 后续基线默认使用 BTX；FS 没有最终猜测，作为支线策略保留。
 - `benchmarks.ai_information_day` 已接入 `--boundary-evaluator`，支持 `day-survival` 与 `unknown`。
 - 非认证估值不会进入证书；使用非 `day-survival-v1` 评估器时，常量子树压缩必须显式关闭。
 - 实际整局估值器、终猜概率叶值、跨日搜索仍未实现。
@@ -68,6 +71,49 @@ class ValueEstimate:
 - 结果永远是未认证估值，不能关闭信息集树证书，也不进入默认 AI。
 
 这个基线用于 T1 估值方向实验：先比较随机续演、剧本启发式和后续 T2 搜索给出的叶值哪个与实际整局胜负更一致，再决定是否 calibrate 成更强的估值器。
+
+## 校准烟测
+
+`benchmarks/ai_continuation_calibration.py` 用 `ai_self_play.play` 的真实自对弈轨迹，在成功结束一天的边界记录：
+
+- `DaySurvivalEvaluator` 的当日 0/1。
+- `RandomRolloutEvaluator` 的区间中点。
+- 该局最终胜者。
+
+FS01、`strategic` 剧作家对 `baseline` 主人公、8 节点／深度 8、20 局、33 个日边界（FS 支线样本）：
+
+| 估值器 | Brier |
+| --- | --- |
+| 当日存活 0/1 | 0.879 |
+| 随机 rollout，1 次 | 0.308 |
+| 随机 rollout，4 次 | 0.457 |
+
+BTX01、同配置、5 局、100 个日边界，实际胜负包含最终猜测：
+
+| 估值器 | Brier |
+| --- | --- |
+| 当日存活 0/1 | 1.000 |
+| 随机 rollout，1 次 | 0.306 |
+
+BTX 这 5 局全部由剧作家获胜。每天结束时“活下来=1”的估值因此全部报错；这只说明它作为整局胜率估计很差，不说明保命策略本身差。随机 rollout 仍高于“一直报 50%”的 0.25 基准，说明随机双方与真实 AI 的策略不匹配。
+
+读数：
+
+- 当日存活值不能代表整局胜率；大量边界在当天存活后仍被剧作家赢下。
+- 随机 rollout 明显优于当日存活，但增加采样次数反而变差。原因是随机双方策略与真实 AI 不匹配；更多样本只是把区间收窄到有偏的估计上。
+- 这些结果只说明估值方向，不构成策略强弱结论。保命策略的胜率要用同种子对弈、终猜正确数、信息增量单独测。
+- 当前样本小，不能据此宣称棋力或最终 Brier。
+- 后续基线默认使用 BTX；FS 没有最终猜测，作为支线样本保留。
+
+命令：
+
+```powershell
+python -X utf8 -m benchmarks.ai_continuation_calibration `
+  --games 20 --rollouts 1 --rollout-steps 512 `
+  --output references/ai-calibration/2026-10-21/t1-selfplay-calibration-20g1r.json
+```
+
+默认剧本现在是 BTX01；FS 需要显式 `--scenario official-fs-01-first-script`。
 
 ## 接入方式
 
