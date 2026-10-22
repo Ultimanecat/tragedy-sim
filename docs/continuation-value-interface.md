@@ -4,14 +4,15 @@ T1 的第一步：把日末收益从当日求解器中拆出来，允许替换�
 
 ## 状态
 
-- 接口、上下文和 T0 兼容评估器已实现，9 项专项测试通过。
+- 接口、上下文和 T0 兼容评估器已实现，9 项专项测试通过；终猜信息特征另有 3 项测试。
 - 新增未认证的随机 rollout 基线，用于 T1 估值实验；它不能关闭证书。
+- 新增终猜信息特征：只读团队视图，估计当前最佳整套身份猜测概率，并接入校准脚本。
 - 新增基于真实自对弈边界的校准烟测。BTX01 5 局全输：当日存活 Brier 1.000，随机 rollout 0.306；BTX06 1 局全输：1.000／0.268；BTX01 `random` 剧作家 3 局全赢：0.000／0.175；FS01 20 局：0.879／0.308。Brier 受胜负构成影响，样本小不能选估值器。
 - `benchmarks.ai_continuation_calibration` 默认剧本已改为 BTX01；FS 作为支线样本显式指定。
 - 后续基线默认使用 BTX；FS 没有最终猜测，作为支线策略保留。
 - `benchmarks.ai_information_day` 已接入 `--boundary-evaluator`，支持 `day-survival` 与 `unknown`。
 - 非认证估值不会进入证书；使用非 `day-survival-v1` 评估器时，常量子树压缩必须显式关闭。
-- 实际整局估值器、终猜概率叶值、跨日搜索仍未实现。
+- 实际整局估值器、终猜概率叶值和跨日搜索仍未实现；终猜信息目前只是校准特征。
 - 默认实战 AI 和现有求解入口不变。
 
 ## 接口
@@ -71,6 +72,22 @@ class ValueEstimate:
 - 结果永远是未认证估值，不能关闭信息集树证书，也不进入默认 AI。
 
 这个基线用于 T1 估值方向实验：先比较随机续演、剧本启发式和后续 T2 搜索给出的叶值哪个与实际整局胜负更一致，再决定是否 calibrate 成更强的估值器。
+
+## 终猜信息特征
+
+`tragedy_sim/day_game/final_guess_information.py` 新增：
+
+```python
+estimate_final_guess_information(game, *, node_limit=100_000) -> FinalGuessInformation
+```
+
+- 只读取 `protagonist_team_view()`，不直接读真实剧本或隐藏身份。
+- 用 `PublicEvidence`、`FsbtxWitnessCompiler` 和 `JointGuessProbabilitySolver` 估计“如果现在终猜，最佳整套身份猜测的概率”。
+- 返回状态、概率、支持数和最佳猜测；只有 `status == "exact"` 时概率非空。
+- 这个数字描述**当前公开证据的信息集中度**，不能直接当作整局胜率，也不能关闭证书。
+- 只有带最终猜测的规则集可用；FS 调用会报错。
+
+校准脚本新增 `--guess-node-limit`（默认 5000，0 关闭），在每个日边界记录该概率，并在对局结束时记录终猜角色正确率。这样可以直接检验“活得久是否真的让终猜更准”。
 
 ## 校准烟测
 
