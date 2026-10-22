@@ -10,7 +10,7 @@
 - 红方：公开信息防守、粒子集成、两种开眼红方。
 - 随机、基础干扰、朴素／优化／策略 MCTS 撤出大厅；后端 ID 和内部实现保留，供测试、回退、开发对照和历史回放使用。
 - `random` 仍是空席位填充的默认内部实现，只是不再作为大厅选项。
-- `ismcts_legacy` 仍计划删除；`ismcts`、`ismcts_survival`、`risk_aware` 留内部。
+- `ismcts_legacy` 已删除；`ismcts`、`ismcts_survival`、`risk_aware` 留内部。
 
 ## 原有入口与处理理由
 

@@ -463,15 +463,6 @@ class IsmctsProtagonistAgent(PublicBeliefPlanner):
         return chosen
 
 
-class LegacyIsmctsProtagonistAgent(IsmctsProtagonistAgent):
-    """Selectable first-generation joint search baseline."""
-
-    def __init__(self, budget: SearchBudget | None = None, *,
-                 particle_count: int = 16, rng_seed: int = 0):
-        super().__init__(budget, particle_count=particle_count,
-                         rng_seed=rng_seed, legacy_joint_search=True)
-
-
 class SurvivalIsmctsProtagonistAgent(IsmctsProtagonistAgent):
     """Selectable one-day, survival-first search with a public card prior."""
 

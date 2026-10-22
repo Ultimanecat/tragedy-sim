@@ -16,8 +16,7 @@ from .optimized_mcts import OptimizedMctsMastermindAgent
 from .strategic_mcts import StrategicMctsMastermindAgent
 from .joint_mastermind import JointPlanMastermindAgent
 from .particle_ensemble import ParticleEnsembleProtagonistAgent
-from .ismcts import (IsmctsProtagonistAgent, LegacyIsmctsProtagonistAgent,
-                     IsmctsTrace, PublicStateDeterminizer)
+from .ismcts import (IsmctsProtagonistAgent, IsmctsTrace, PublicStateDeterminizer)
 from .belief import (CatalogBeliefSampler, ConstraintBeliefSampler,
                      BeliefParticleFilter, HiddenWorldHypothesis,
                      ParticleFilterResult, ParticleReplayResult,
@@ -42,7 +41,7 @@ __all__ = ["ActionGame", "ActionOffer", "Activation", "ActivationMode", "Activat
            "FullInformationMctsMastermindAgent", "OptimizedMctsMastermindAgent",
            "StrategicMctsMastermindAgent",
            "ParticleEnsembleProtagonistAgent",
-           "IsmctsProtagonistAgent", "LegacyIsmctsProtagonistAgent",
+           "IsmctsProtagonistAgent",
            "IsmctsTrace", "PublicStateDeterminizer",
            "CatalogBeliefSampler", "ConstraintBeliefSampler",
            "BeliefParticleFilter", "ParticleFilterResult",
