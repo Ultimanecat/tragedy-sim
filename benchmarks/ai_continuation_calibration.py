@@ -15,6 +15,13 @@ from tragedy_sim.day_game.final_guess_information import estimate_final_guess_in
 from tragedy_sim.day_game.value import (DaySurvivalEvaluator, RandomRolloutEvaluator, boundary_context)
 
 
+def _guess_matches_cast(guess, scenario):
+    if not guess:
+        return None
+    truth = scenario.get("cast", {})
+    return all(dict(guess).get(character) == role for character, role in truth.items())
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scenario", action="append", dest="scenarios")
@@ -61,7 +68,8 @@ def main():
                     except ValueError:
                         record.update(guess_status="unsupported", guess_probability=None)
                     else:
-                        record.update(guess_status=guess.status, guess_probability=guess.probability)
+                        record.update(guess_status=guess.status, guess_probability=guess.probability,
+                                      guess_all_correct=_guess_matches_cast(guess.best_guess, scenario))
                 records.append(record)
 
             match = ai_self_play.play(scenario, seed, args.nodes, args.depth, args.strategy,
@@ -70,13 +78,16 @@ def main():
             actual = 1.0 if match.winner == "protagonists" else 0.0
             guesses = tuple(getattr(match, "final_guesses", ()) or ())
             guess_accuracy = (sum(entry.correct for entry in guesses) / len(guesses)) if guesses else None
+            guess_all_correct = all(entry.correct for entry in guesses) if guesses else None
             for record in records:
                 record["actual_win"] = actual
                 record["day_survival_error"] = (record["day_survival"] - actual) ** 2
                 record["rollout_error"] = (record["rollout_midpoint"] - actual) ** 2
                 record["final_guess_accuracy"] = guess_accuracy
+                record["final_guess_all_correct"] = guess_all_correct
             results.append(dict(scenario=scenario, seed=seed, winner=match.winner,
-                                final_guess_accuracy=guess_accuracy, records=records))
+                                final_guess_accuracy=guess_accuracy,
+                                final_guess_all_correct=guess_all_correct, records=records))
     records = [record for result in results for record in result["records"]]
     day_errors = [record["day_survival_error"] for record in records]
     rollout_errors = [record["rollout_error"] for record in records]
@@ -84,6 +95,10 @@ def main():
                    if record.get("guess_probability") is not None]
     guess_accuracies = [result["final_guess_accuracy"] for result in results
                         if result["final_guess_accuracy"] is not None]
+    best_guess_correct = [record["guess_all_correct"] for record in records
+                          if record.get("guess_all_correct") is not None]
+    final_guess_correct = [result["final_guess_all_correct"] for result in results
+                           if result["final_guess_all_correct"] is not None]
     report = dict(sources=sources,
                   note="self-play day-boundary calibration; diagnostic only",
                   settings=dict(games=args.games, strategy=args.strategy, protagonists=args.protagonists,
@@ -94,7 +109,11 @@ def main():
                   day_survival_brier=mean(day_errors) if day_errors else None,
                   rollout_brier=mean(rollout_errors) if rollout_errors else None,
                   guess_probability_mean=mean(guess_probs) if guess_probs else None,
+                  best_guess_all_correct_rate=(mean([float(value) for value in best_guess_correct])
+                                               if best_guess_correct else None),
                   final_guess_accuracy_mean=mean(guess_accuracies) if guess_accuracies else None,
+                  final_guess_all_correct_rate=(mean([float(value) for value in final_guess_correct])
+                                                if final_guess_correct else None),
                   results=results)
     if source_digest() != sources:
         raise RuntimeError("sources changed during calibration")
