@@ -18,6 +18,9 @@ export const AI_CHOICES: readonly AiChoice[] = [
   { id: "fixed_mastermind", label: "定式", description: "选择一条可行获胜路线执行；速度快，容易被针对。", group: "其他策略", role: "mastermind" },
   { id: "joint_mastermind", label: "三牌联合搜索", description: "把当天三张暗牌一起搜索，并估计主人公回应；仅 FS/BTX，计算较慢。", group: "推荐试玩", role: "mastermind", modules: ["FS", "BTX"] },
   { id: "belief_joint_mastermind", label: "信念采样联合搜索", description: "估计主人公可能知道什么，再联合搜索三张暗牌；仅 BTX，实验版，思考较慢。", group: "实验与对照", role: "mastermind", modules: ["BTX"] },
+  { id: "strategic_mcts_mastermind", label: "策略 MCTS（单步基线）", description: "逐个操作搜索，结合获胜路线；保留用于与三牌联合搜索对照。", group: "实验与对照", role: "mastermind" },
+  { id: "optimized_mcts_mastermind", label: "优化 MCTS", description: "用渐进拓宽和行动先验搜索；比朴素版更有效率。", group: "实验与对照", role: "mastermind" },
+  { id: "mcts_mastermind", label: "朴素 MCTS", description: "早期搜索基线；行动空间大，速度与棋力均不推荐用于日常试玩。", group: "实验与对照", role: "mastermind" },
   { id: "oracle_script_protagonist", label: "开眼红方（剧本＋暗牌）", description: "开眼 AI：知道全部剧本秘密，但看不到当天暗牌；供趣味试玩与诊断，不适合公平对局。", group: "开眼测试", role: "protagonist", modules: ["FS", "BTX"], teamOnly: true },
   { id: "oracle_cards_protagonist", label: "开眼红方（剧本＋明牌）", description: "开眼 AI：知道全部剧本秘密和当天剧作家出牌；供趣味试玩与诊断，不适合公平对局。", group: "开眼测试", role: "protagonist", modules: ["FS", "BTX"], teamOnly: true },
 ];
