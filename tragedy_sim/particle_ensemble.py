@@ -39,7 +39,17 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                  role_sampling_policy: str = "importance", role_partition_node_limit: int = 100_000,
                  dark_card_policy: str = "sampled", dark_attack_limit: int = 8,
                  dark_guard_proposals: bool = True, candidate_policy: str = "legacy",
-                 action_role_sampling_policy: str = "iid"):
+                 action_role_sampling_policy: str = "iid",
+                 information_policy: str = "public",
+                 true_roles: Mapping[str, str] | None = None,
+                 true_incidents: Mapping[int, str] | None = None):
+        if type(information_policy) is not str or information_policy not in {"public", "oracle"}:
+            raise ValueError("information_policy must be public or oracle")
+        self.information_policy = information_policy
+        self.true_roles = dict(true_roles or {})
+        self.true_incidents = {int(day): str(cid)
+                               for day, cid in (true_incidents or {}).items()}
+        self._true_incidents: dict[int, str] = {}
         if type(action_role_sampling_policy) is not str or action_role_sampling_policy not in {"iid", "residual_small"}:
             raise ValueError("action_role_sampling_policy must be iid or residual_small")
         if type(candidate_policy) is not str or candidate_policy not in {"legacy", "joint_threat"}:
@@ -157,11 +167,16 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
     @staticmethod
     def _incident_guard_targets(view: Mapping[str, Any],
                                 evidence: PublicEvidence,
-                                witnesses: Sequence[Any]) -> tuple[str, ...]:
+                                witnesses: Sequence[Any], *,
+                                information_policy: str = "public",
+                                true_incidents: Mapping[int, str] | None = None
+                                ) -> tuple[str, ...]:
         """Publicly identified culprits whose imminent event needs defense."""
         day = int(view["round"])
+        true_incidents = dict(true_incidents or {})
         if not any(scheduled == day for scheduled, _ in evidence.schedule):
-            return ()
+            if not true_incidents:
+                return ()
         pending = {str(item.get("target")) for item in view.get("pending", ())
                    if item.get("actor") == "m"}
         candidates = dict.fromkeys(str(witness.value) for witness in witnesses
@@ -175,6 +190,12 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             # Snapshot thresholds can identify a culprit without an explicit
             # culprit_is event. Use the same hard domain as matrix/sampling.
             candidates.setdefault(inferred[0], None)
+        if information_policy == "oracle":
+            # Diagnostic information policy: the planner is told the true
+            # upcoming incident culprits, but still uses the same action code.
+            for incident_day, cid in true_incidents.items():
+                if 0 <= incident_day - day <= 1:
+                    candidates.setdefault(cid, None)
         targets = []
         for cid in candidates:
             character = view.get("characters", {}).get(cid, {})
@@ -412,6 +433,14 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                            history_prior=True,
                            force_history=index % 5 == 0,
                            coherent_history=True)) is not None)
+        if self.information_policy == "oracle" and worlds:
+            truth = dict(self.true_roles)
+            if truth:
+                for world in worlds:
+                    world.roles = dict(truth)
+            self._true_incidents = dict(self.true_incidents)
+        else:
+            self._true_incidents = {}
         if not worlds:
             return self._fallback(participant, view, offers,
                                   sampled.reason or "no_particles",
@@ -514,7 +543,10 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         # deserves one explicit defense.  Oracle proposals from a small world
         # batch can otherwise omit this legal card entirely.
         incident_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
-        for cid in self._incident_guard_targets(view, evidence, witnesses):
+        for cid in self._incident_guard_targets(
+                view, evidence, witnesses,
+                information_policy=self.information_policy,
+                true_incidents=self._true_incidents):
             for base, slot in self._incident_anchor_order(tuple(proposals.values())):
                 anchored = [dict(item) for item in base]
                 anchored[slot] = {**anchored[slot], "card": "p-1", "target": cid}
