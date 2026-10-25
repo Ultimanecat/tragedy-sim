@@ -16,6 +16,7 @@ from typing import Any, Mapping, Sequence
 
 from .belief import DarkCardBelief, PublicEvidence
 from .belief_planner import PublicBeliefPlanner, IsmctsTrace, _command, _key
+from .composition import ParticleInformationPolicy
 from .information_value import InformationOpportunityEvaluator
 from .oracle_protagonist import OracleProtagonistAgent
 from .search import SearchBudget
@@ -92,9 +93,21 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         self.factorized_belief.role_partition_node_limit = role_partition_node_limit
         self.factorized_belief.joint_culprits_enabled = joint_culprits
         self.factorized_belief.action_role_sampling_policy = action_role_sampling_policy
-        self.compiler = FsbtxWitnessCompiler(
-            include_joint=joint_witness,
-            disabled_sources=disabled_witness_sources)
+        self.information = ParticleInformationPolicy(
+            budget=self.budget, particle_count=particle_count, rng_seed=rng_seed,
+            joint_witness=joint_witness, disabled_witness_sources=disabled_witness_sources,
+            matrix_proposals=matrix_proposals, matrix_variant_policy=matrix_variant_policy,
+            joint_culprits=joint_culprits, role_sampling_policy=role_sampling_policy,
+            role_partition_node_limit=role_partition_node_limit,
+            action_role_sampling_policy=action_role_sampling_policy,
+            information_policy=information_policy, true_roles=true_roles,
+            true_incidents=true_incidents)
+        self.factorized_belief = self.information.factorized_belief
+        self.evidence_ledger = self.information.evidence_ledger
+        self.determinizer = self.information.determinizer
+        self.compiler = self.information.compiler
+        self.sampler = self.information.sampler
+        self.belief = self.information.belief
         self.rollout_horizon = rollout_horizon
         self.mastermind_policy_samples = mastermind_policy_samples
         self.information_reward_weight = float(information_reward_weight)
@@ -419,32 +432,20 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             self._joint_plan = []
 
         started = perf_counter()
-        evidence = PublicEvidence.from_view(view)
-        witnesses = self.evidence_ledger.update(view, self.compiler)
-        traveler_candidates = self._time_traveler_candidates(witnesses)
-        threads_confirmed = self._threads_confirmed(view, witnesses)
-        public_hash = self._sampling_hash(view)
-        rng = random.Random(f"{self.budget.seed}:{self.rng_seed}:{public_hash}")
-        sampled = self.factorized_belief.sample(
-            evidence, witnesses, self.particle_count, rng=rng)
-        worlds = tuple(world for index, hypothesis in enumerate(sampled.worlds)
-                       if (world := self.determinizer.determinize(
-                           hypothesis, evidence, view, rng=rng,
-                           history_prior=True,
-                           force_history=index % 5 == 0,
-                           coherent_history=True)) is not None)
-        if self.information_policy == "oracle" and worlds:
-            truth = dict(self.true_roles)
-            if truth:
-                for world in worlds:
-                    world.roles = dict(truth)
-            self._true_incidents = dict(self.true_incidents)
-        else:
-            self._true_incidents = {}
+        snapshot = self.information.build(game=None, view=view, offers=offers)
+        if snapshot is None:
+            return self._fallback(participant, view, offers,
+                                  "no_particles", 0)
+        evidence = snapshot.evidence
+        witnesses = snapshot.witnesses
+        worlds = snapshot.worlds
+        self._true_incidents = dict(snapshot.known_culprits)
         if not worlds:
             return self._fallback(participant, view, offers,
-                                  sampled.reason or "no_particles",
+                                  snapshot.reason or "no_particles",
                                   len(witnesses))
+        traveler_candidates = self._time_traveler_candidates(witnesses)
+        threads_confirmed = self._threads_confirmed(view, witnesses)
         roles, culprits, dark = self._counts(worlds, evidence)
         information_model = InformationOpportunityEvaluator(
             worlds, view, threads_confirmed=threads_confirmed)
@@ -808,8 +809,9 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             roles, "factorized", self.evidence_ledger.updates,
             self.evidence_ledger.hard_count, self.evidence_ledger.soft_count,
             evidence_ms, (perf_counter() - started) * 1000 - evidence_ms,
-            tuple(self._joint_plan), sampled.reason,
-            sampled.role_candidates, sampled.culprit_options,
+            tuple(self._joint_plan), snapshot.diagnostics.get("reason"),
+            snapshot.diagnostics.get("role_candidates", 0),
+            snapshot.diagnostics.get("culprit_options", 0),
             belief_culprits=culprits, belief_dark_cards=dark,
             placement_tendencies=tendencies, evaluated_pairs=pairs,
             stop_reason=("time_limit" if deadline is not None

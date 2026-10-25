@@ -43,6 +43,13 @@ class ComposedProtagonistAgent:
 - 快照在一次决策内冻结；信息策略版本、采样数、后验版本进入缓存键。
 - 终猜也从快照产生；终猜策略属于信息策略或单独层，不能偷偷用真实剧本。
 
+## 当前进度（2026-10-25）
+
+- 新增 `tragedy_sim/composition.py`：`BeliefSnapshot`、`InformationPolicy`、`ActionPolicy`、`ComposedProtagonistAgent`。
+- 新增 `ParticleInformationPolicy`，把公开粒子采样从 `ParticleEnsembleProtagonistAgent` 中拆出来；粒子代理现在通过该策略拿快照。
+- 行动策略仍暂时留在 `ParticleEnsembleProtagonistAgent` 内，下一步再拆成独立 `ParticleActionPolicy`。
+- 现有粒子测试和开眼测试通过。
+
 ## 现有实现怎么映射
 
 | 现有 AI | 信息策略 | 行动策略 |
