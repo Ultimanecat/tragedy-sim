@@ -156,9 +156,34 @@ class ProtectTargetProvider:
     PROTECTED_ROLES = frozenset({"key", "friend", "time_traveler"})
     THREAT_ROLES = frozenset({"killer", "serial"})
 
+    def __init__(self, role_threshold: float = 0.5):
+        if not 0 < role_threshold <= 1:
+            raise ValueError("role_threshold must be in (0, 1]")
+        self.role_threshold = float(role_threshold)
+
+    def _majority_roles(self, context: DefenseContext) -> dict[str, str]:
+        snapshot = context.snapshot
+        if snapshot is not None and snapshot.known_roles:
+            return {cid: str(role) for cid, role in snapshot.known_roles.items()}
+        worlds = getattr(snapshot, "worlds", ()) if snapshot is not None else ()
+        if not worlds:
+            scenario = context.scenario or {}
+            cast = scenario.get("cast", {}) if isinstance(scenario, Mapping) else {}
+            return {cid: str(role) for cid, role in cast.items()}
+        counts: dict[str, Counter] = {}
+        for world in worlds:
+            for cid, role in getattr(world, "roles", {}).items():
+                counts.setdefault(cid, Counter())[str(role)] += 1
+        total = len(worlds)
+        inferred = {}
+        for cid, counter in counts.items():
+            role, count = counter.most_common(1)[0]
+            if count / total >= self.role_threshold:
+                inferred[cid] = role
+        return inferred
+
     def extract(self, context: DefenseContext) -> tuple[DefenseObligation, ...]:
-        scenario = context.scenario or {}
-        cast = scenario.get("cast", {}) if isinstance(scenario, Mapping) else {}
+        cast = self._majority_roles(context)
         characters = context.view.get("characters", {})
         if not isinstance(cast, Mapping) or not isinstance(characters, Mapping):
             return ()

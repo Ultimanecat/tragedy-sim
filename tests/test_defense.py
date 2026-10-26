@@ -142,6 +142,24 @@ class DefenseModuleTests(unittest.TestCase):
                                    [{"card": "h", "target": "girl"}], context_)
         self.assertEqual(covered.covered, ("protect:girl:student",))
 
+    def test_protection_roles_can_come_from_belief_worlds(self):
+        from types import SimpleNamespace
+        from tragedy_sim.composition import BeliefSnapshot
+
+        worlds = (SimpleNamespace(roles={"girl": "key", "rich": "killer"}),
+                  SimpleNamespace(roles={"girl": "key", "rich": "killer"}))
+        context_ = DefenseContext(
+            view={"round": 1, "characters": {
+                "girl": {"alive": True, "present": True, "location": "school"},
+                "rich": {"alive": True, "present": True, "location": "school"},
+            }},
+            snapshot=BeliefSnapshot(worlds=worlds, evidence=None),  # type: ignore[arg-type]
+            scenario={"cast": {}},
+        )
+        obligations = ProtectTargetProvider().extract(context_)
+        self.assertEqual(len(obligations), 1)
+        self.assertEqual(obligations[0].action, "move")
+
 
 if __name__ == "__main__":
     unittest.main()
