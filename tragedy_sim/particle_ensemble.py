@@ -429,12 +429,9 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         offers_by_key = {_key(_command(offer)): offer for offer in offers}
         if self.defense_override and self.defense_module is not None:
             context = DefenseContext(view=view, scenario=self.scenario)
-            obligations = tuple(
-                item for item in self.defense_module.obligations(context)
-                if item.need > 0 and item.lead_days >= 0)
-            for obligation in sorted(
-                    obligations,
-                    key=lambda item: (0 if item.action == "move" else 1, item.lead_days)):
+            for obligation in self.defense_module.ordered(context):
+                if obligation.need <= 0 or obligation.lead_days < 0:
+                    continue
                 wanted = (("h", "v", "d") if obligation.action == "move"
                           else ("fi",) if obligation.action == "block_intrigue"
                           else ("p-1",))

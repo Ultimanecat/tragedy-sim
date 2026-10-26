@@ -32,6 +32,7 @@ class DefenseObligation:
     expected_pressure: int = 0
     action: str = "counter"
     threat: str | None = None
+    priority: int = 0
     source: str = "scheduled_incident"
     confidence: float = 1.0
 
@@ -189,6 +190,7 @@ class ProtectTargetProvider:
                     required_max=1,
                     lead_days=0,
                     action="block_intrigue",
+                    priority=1,
                     source="protect_target",
                 ))
             target_location = target_state.get("location")
@@ -224,6 +226,7 @@ class ProtectTargetProvider:
                         lead_days=0,
                         action="move",
                         threat=threat,
+                        priority=2,
                         source="protect_target",
                     ))
         return tuple(obligations)
@@ -308,6 +311,12 @@ class DefenseModule:
         for provider in self.providers:
             result.extend(provider.extract(context))
         return tuple(result)
+
+    def ordered(self, context: DefenseContext) -> tuple[DefenseObligation, ...]:
+        """Urgent first; moves beat same-day block/counter reactions."""
+        return tuple(sorted(
+            self.obligations(context),
+            key=lambda item: (item.lead_days, -item.priority, item.key)))
 
     def assess(self, context: DefenseContext,
                bundle: Sequence[Mapping[str, Any]]) -> DefenseAssessment:
