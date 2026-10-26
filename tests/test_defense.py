@@ -125,6 +125,23 @@ class DefenseModuleTests(unittest.TestCase):
                                    [{"card": "fi", "target": "girl"}], context_)
         self.assertEqual(covered.covered, ("protect_intrigue:girl",))
 
+    def test_serial_lone_target_creates_move_obligation(self):
+        context_ = DefenseContext(
+            view={"round": 2, "characters": {
+                "girl": {"alive": True, "present": True, "location": "school"},
+                "student": {"alive": True, "present": True, "location": "school"},
+                "rich": {"alive": True, "present": True, "location": "city"},
+            }},
+            scenario={"cast": {"girl": "key", "student": "serial", "rich": "killer"}},
+        )
+        obligations = ProtectTargetProvider().extract(context_)
+        self.assertEqual(obligations[0].action, "move")
+        self.assertEqual(obligations[0].threat, "student")
+        scheduler = CounterThresholdScheduler()
+        covered = scheduler.assess(obligations,
+                                   [{"card": "h", "target": "girl"}], context_)
+        self.assertEqual(covered.covered, ("protect:girl:student",))
+
 
 if __name__ == "__main__":
     unittest.main()

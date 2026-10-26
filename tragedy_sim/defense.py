@@ -191,13 +191,27 @@ class ProtectTargetProvider:
                     action="block_intrigue",
                     source="protect_target",
                 ))
-                continue
             target_location = target_state.get("location")
             for threat in threats:
                 threat_state = characters.get(threat, {})
-                if (threat_state.get("alive", False)
-                        and threat_state.get("present", False)
-                        and threat_state.get("location") == target_location):
+                if not (threat_state.get("alive", False)
+                        and threat_state.get("present", False)):
+                    continue
+                threat_location = threat_state.get("location")
+                if threat_location != target_location:
+                    continue
+                role = cast.get(threat)
+                others = [
+                    cid for cid, state in characters.items()
+                    if cid != threat and state.get("alive", False)
+                    and state.get("present", False)
+                    and state.get("location") == threat_location
+                ]
+                # Serial killers kill a lone character at day end. Moving the
+                # protected target is the direct defense even when the same
+                # location also carries a killer-intrigue threat.
+                lone = role == "serial" and others == [target]
+                if role == "killer" or lone:
                     obligations.append(DefenseObligation(
                         key=f"protect:{target}:{threat}",
                         day=int(context.view.get("round", 1)),

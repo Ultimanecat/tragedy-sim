@@ -432,7 +432,9 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             obligations = tuple(
                 item for item in self.defense_module.obligations(context)
                 if item.need > 0 and item.lead_days >= 0)
-            for obligation in sorted(obligations, key=lambda item: item.lead_days):
+            for obligation in sorted(
+                    obligations,
+                    key=lambda item: (0 if item.action == "move" else 1, item.lead_days)):
                 wanted = (("h", "v", "d") if obligation.action == "move"
                           else ("fi",) if obligation.action == "block_intrigue"
                           else ("p-1",))
