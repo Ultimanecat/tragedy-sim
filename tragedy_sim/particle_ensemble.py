@@ -17,6 +17,7 @@ from typing import Any, Mapping, Sequence
 from .belief import DarkCardBelief, PublicEvidence
 from .belief_planner import PublicBeliefPlanner, IsmctsTrace, _command, _key
 from .composition import ParticleInformationPolicy
+from .defense import DefenseContext, DefenseModule
 from .information_value import InformationOpportunityEvaluator
 from .oracle_protagonist import OracleProtagonistAgent
 from .search import SearchBudget
@@ -43,7 +44,17 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                  action_role_sampling_policy: str = "iid",
                  information_policy: str = "public",
                  true_roles: Mapping[str, str] | None = None,
-                 true_incidents: Mapping[int, str] | None = None):
+                 true_incidents: Mapping[int, str] | None = None,
+                 defense_module: DefenseModule | None = None,
+                 defense_weight: float = 0.0,
+                 defense_override: bool = False,
+                 scenario: Mapping[str, Any] | None = None):
+        if not isinstance(defense_weight, (int, float)) or defense_weight < 0:
+            raise ValueError("defense_weight must be non-negative")
+        self.defense_module = defense_module
+        self.defense_weight = float(defense_weight)
+        self.defense_override = bool(defense_override)
+        self.scenario = scenario
         if type(information_policy) is not str or information_policy not in {"public", "oracle"}:
             raise ValueError("information_policy must be public or oracle")
         self.information_policy = information_policy
@@ -416,6 +427,23 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                                          view=view, offers=offers)
         position = (int(view["loop"]), int(view["round"]))
         offers_by_key = {_key(_command(offer)): offer for offer in offers}
+        if self.defense_override and self.defense_module is not None:
+            context = DefenseContext(view=view, scenario=self.scenario)
+            obligations = tuple(
+                item for item in self.defense_module.provider.extract(context)
+                if item.need > 0 and item.lead_days >= 0)
+            for obligation in sorted(obligations, key=lambda item: item.lead_days):
+                for offer in offers:
+                    command = _command(offer)
+                    if (command.get("action") == "play"
+                            and command.get("card") == "p-1"
+                            and command.get("target") == obligation.target):
+                        self.last_trace = IsmctsTrace(
+                            self.plan_name, self.rng_seed, str(view["module"]), 0, 0, 0,
+                            self.budget.rollout_depth, "defense_override",
+                            offer["id"], (), planned_commands=(),
+                            rollout_horizon=self.rollout_horizon)
+                        return offer
         if self._joint_plan_position != position:
             self._joint_plan = []
             self._joint_plan_position = None
@@ -436,6 +464,10 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         if snapshot is None:
             return self._fallback(participant, view, offers,
                                   "no_particles", 0)
+        defense_context = (DefenseContext(view=view, snapshot=snapshot,
+                                          scenario=self.scenario)
+                           if self.defense_module is not None and self.defense_weight > 0
+                           else None)
         evidence = snapshot.evidence
         witnesses = snapshot.witnesses
         worlds = snapshot.worlds
@@ -563,6 +595,27 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             if incident_proposals:
                 break
         proposals.update(incident_proposals)
+        if defense_context is not None:
+            defense_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
+            obligations = self.defense_module.provider.extract(defense_context)
+            for obligation in obligations:
+                if obligation.need <= 0:
+                    continue
+                cid = obligation.target
+                for base, slot in self._incident_anchor_order(tuple(proposals.values())):
+                    anchored = [dict(item) for item in base]
+                    anchored[slot] = {**anchored[slot], "card": "p-1", "target": cid}
+                    bundle = tuple(anchored)
+                    if (_key(bundle[0]) not in offers_by_key
+                            or self._apply_bundle(worlds[0], bundle) is None):
+                        continue
+                    signature = _key(bundle)
+                    if signature not in proposals:
+                        defense_proposals.setdefault(signature, bundle)
+                    break
+                if len(defense_proposals) >= min(2, max(1, limit - 1)):
+                    break
+            proposals.update(defense_proposals)
         escape_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
         for cid in (self._incident_escape_targets(view, evidence, witnesses)
                     if limit > 1 else ()):
@@ -765,13 +818,17 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             threads_risk = sum(threads_risks) / len(threads_risks)
             information_bonus = min(
                 0.012, self.information_reward_weight * information_value)
+            defense_bonus = 0.0
+            if defense_context is not None:
+                assessment = self.defense_module.assess(defense_context, bundle)
+                defense_bonus = self.defense_weight * assessment.score
             mean = (sum(values) / len(values) - 0.025 * scarce
                     + information_bonus + traveler_screening_bonus
-                    + location_guard_bonus - threads_risk)
+                    + location_guard_bonus - threads_risk + defense_bonus)
             day_survival = (sum(ok for _, ok in day_scores) / len(day_scores)
                             if day_scores else survival)
             day_mean = ((sum(value for value, _ in day_scores) /
-                         len(day_scores) + location_guard_bonus)
+                         len(day_scores) + location_guard_bonus + defense_bonus)
                         if day_scores else mean)
             evaluated.append((survival, tail, day_survival, day_mean,
                               mean, bundle, policy_rollouts,

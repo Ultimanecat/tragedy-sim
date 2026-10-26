@@ -27,7 +27,8 @@ class DefenseModuleTests(unittest.TestCase):
         obligations = ScheduledIncidentProvider().extract(context())
         self.assertEqual(len(obligations), 1)
         self.assertEqual(obligations[0].target, "rich")
-        self.assertEqual(obligations[0].need, 1)
+        self.assertEqual(obligations[0].threshold, 1)
+        self.assertEqual(obligations[0].need, 4)
 
     def test_scheduler_covered_and_unmet(self):
         provider = ScheduledIncidentProvider()
@@ -35,7 +36,7 @@ class DefenseModuleTests(unittest.TestCase):
         obligations = provider.extract(context_)
         scheduler = CounterThresholdScheduler()
         covered = scheduler.assess(obligations,
-                                   [{"card": "p-1", "target": "rich"}], context_)
+                                   [{"card": "p-1", "target": "rich"}] * 4, context_)
         self.assertEqual(covered.covered, ("5:suicide:rich",))
         self.assertEqual(covered.unmet, ())
         self.assertEqual(covered.urgent, ("5:suicide:rich",))
@@ -67,7 +68,8 @@ class DefenseModuleTests(unittest.TestCase):
     def test_module_assesses_extracted_obligations(self):
         module = DefenseModule(ScheduledIncidentProvider())
         assessment = module.assess(context(), [{"card": "p-1", "target": "rich"}])
-        self.assertEqual(assessment.score, 2.0)
+        self.assertEqual(assessment.unmet, ("5:suicide:rich",))
+        self.assertAlmostEqual(assessment.score, -1.5)
 
     def test_invalid_safety_margin_is_rejected(self):
         with self.assertRaises(ValueError):

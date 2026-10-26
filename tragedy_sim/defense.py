@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol, Sequence
 
 from .composition import BeliefSnapshot
+from .catalog import CHARACTERS
 
 
 @dataclass(frozen=True)
@@ -28,12 +29,13 @@ class DefenseObligation:
     threshold: int
     required_max: int
     lead_days: int
+    expected_pressure: int = 0
     source: str = "scheduled_incident"
     confidence: float = 1.0
 
     @property
     def need(self) -> int:
-        return max(0, self.current - self.required_max)
+        return max(0, self.current + self.expected_pressure - self.required_max)
 
 
 @dataclass(frozen=True)
@@ -64,11 +66,15 @@ class IncidentModel(Protocol):
 class CounterThresholdModel:
     """An incident that fires when a counter reaches the character limit."""
 
-    def __init__(self, counter: str = "paranoia", *, safety_margin: int = 1):
+    def __init__(self, counter: str = "paranoia", *, safety_margin: int = 1,
+                 expected_pressure: int = 0):
         if type(safety_margin) is not int or safety_margin < 1:
             raise ValueError("safety_margin must be a positive integer")
+        if type(expected_pressure) is not int or expected_pressure < 0:
+            raise ValueError("expected_pressure must be nonnegative")
         self.counter = counter
         self.safety_margin = safety_margin
+        self.expected_pressure = expected_pressure
 
     def extract(self, context: DefenseContext,
                 incident: Mapping[str, Any]) -> tuple[DefenseObligation, ...]:
@@ -83,7 +89,11 @@ class CounterThresholdModel:
         if not isinstance(character, Mapping):
             return ()
         current = character.get(self.counter)
-        limit = character.get(f"{self.counter}_limit")
+        # The incident resolver uses the catalog character limit, not the
+        # role-specific public limit shown in the board view.
+        catalog = CHARACTERS.get(target)
+        limit = catalog.limit if catalog is not None else character.get(
+            f"{self.counter}_limit")
         if type(current) is not int or type(limit) is not int:
             return ()
         return (DefenseObligation(
@@ -96,6 +106,7 @@ class CounterThresholdModel:
             threshold=limit,
             required_max=limit - self.safety_margin,
             lead_days=lead,
+            expected_pressure=self.expected_pressure,
         ),)
 
 
@@ -104,7 +115,7 @@ class IncidentModelRegistry:
 
     def __init__(self, models: Mapping[str, IncidentModel] | None = None):
         if models is None:
-            models = {"suicide": CounterThresholdModel("paranoia")}
+            models = {"suicide": CounterThresholdModel("paranoia", expected_pressure=1)}
         self._models = dict(models)
 
     def register(self, kind: str, model: IncidentModel) -> None:
@@ -157,7 +168,8 @@ class CounterThresholdScheduler:
         details = {}
         for obligation in obligations:
             reduction = reductions.get(obligation.target, 0)
-            met = obligation.current - reduction <= obligation.required_max
+            remaining = obligation.need - reduction
+            met = remaining <= 0
             is_urgent = obligation.lead_days <= self.urgent_days
             if is_urgent:
                 urgent.append(obligation.key)
@@ -166,11 +178,17 @@ class CounterThresholdScheduler:
                 score += 2.0 if is_urgent else 1.0
             else:
                 unmet.append(obligation.key)
-                score -= 4.0 if is_urgent else 2.0
+                # Partial progress still counts, so an earlier-day -1 is not
+                # scored the same as doing nothing just because one card is
+                # insufficient for the whole deficit.
+                score += 0.5 * min(reduction, obligation.need)
+                score -= 2.0 if is_urgent else 1.0
             details[obligation.key] = {
                 "target": obligation.target,
                 "current": obligation.current,
+                "expected_pressure": obligation.expected_pressure,
                 "required_max": obligation.required_max,
+                "need": obligation.need,
                 "reduction": reduction,
                 "met": met,
                 "lead_days": obligation.lead_days,
