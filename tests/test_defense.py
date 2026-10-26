@@ -4,7 +4,7 @@ import unittest
 
 from tragedy_sim.defense import (CounterThresholdModel, CounterThresholdScheduler,
                                  DefenseContext, DefenseModule, IncidentModelRegistry,
-                                 ScheduledIncidentProvider)
+                                 ProtectTargetProvider, ScheduledIncidentProvider)
 
 
 def context():
@@ -74,6 +74,56 @@ class DefenseModuleTests(unittest.TestCase):
     def test_invalid_safety_margin_is_rejected(self):
         with self.assertRaises(ValueError):
             CounterThresholdModel("paranoia", safety_margin=0)
+
+    def test_protect_target_moves_key_away_from_killer(self):
+        context_ = DefenseContext(
+            view={"round": 1, "characters": {
+                "girl": {"alive": True, "present": True, "location": "school"},
+                "rich": {"alive": True, "present": True, "location": "school"},
+            }},
+            scenario={"cast": {"girl": "key", "rich": "killer"}},
+        )
+        provider = ProtectTargetProvider()
+        obligations = provider.extract(context_)
+        self.assertEqual(len(obligations), 1)
+        self.assertEqual(obligations[0].action, "move")
+        self.assertEqual(obligations[0].target, "girl")
+        scheduler = CounterThresholdScheduler()
+        covered = scheduler.assess(obligations,
+                                   [{"card": "h", "target": "girl"}], context_)
+        self.assertEqual(covered.covered, ("protect:girl:rich",))
+        self.assertEqual(scheduler.assess(obligations, [], context_).unmet,
+                         ("protect:girl:rich",))
+
+    def test_module_accepts_multiple_providers(self):
+        module = DefenseModule((ScheduledIncidentProvider(), ProtectTargetProvider()))
+        context_ = DefenseContext(
+            view={"round": 1, "characters": {
+                "girl": {"alive": True, "present": True, "location": "school"},
+                "rich": {"alive": True, "present": True, "location": "school"},
+            }},
+            scenario={"cast": {"girl": "key", "rich": "killer"}},
+        )
+        assessment = module.assess(context_, [{"card": "h", "target": "girl"}])
+        self.assertEqual(assessment.covered, ("protect:girl:rich",))
+
+    def test_protect_target_blocks_incoming_intrigue(self):
+        context_ = DefenseContext(
+            view={"round": 1, "characters": {
+                "girl": {"alive": True, "present": True, "location": "school",
+                         "intrigue": 0},
+                "rich": {"alive": True, "present": True, "location": "school"},
+            }, "pending": [
+                {"actor": "m", "card": "i2", "target": "girl"},
+            ]},
+            scenario={"cast": {"girl": "key", "rich": "killer"}},
+        )
+        obligations = ProtectTargetProvider().extract(context_)
+        self.assertEqual(obligations[0].action, "block_intrigue")
+        scheduler = CounterThresholdScheduler()
+        covered = scheduler.assess(obligations,
+                                   [{"card": "fi", "target": "girl"}], context_)
+        self.assertEqual(covered.covered, ("protect_intrigue:girl",))
 
 
 if __name__ == "__main__":

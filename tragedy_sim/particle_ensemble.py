@@ -430,13 +430,16 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         if self.defense_override and self.defense_module is not None:
             context = DefenseContext(view=view, scenario=self.scenario)
             obligations = tuple(
-                item for item in self.defense_module.provider.extract(context)
+                item for item in self.defense_module.obligations(context)
                 if item.need > 0 and item.lead_days >= 0)
             for obligation in sorted(obligations, key=lambda item: item.lead_days):
+                wanted = (("h", "v", "d") if obligation.action == "move"
+                          else ("fi",) if obligation.action == "block_intrigue"
+                          else ("p-1",))
                 for offer in offers:
                     command = _command(offer)
                     if (command.get("action") == "play"
-                            and command.get("card") == "p-1"
+                            and command.get("card") in wanted
                             and command.get("target") == obligation.target):
                         self.last_trace = IsmctsTrace(
                             self.plan_name, self.rng_seed, str(view["module"]), 0, 0, 0,
@@ -597,7 +600,7 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         proposals.update(incident_proposals)
         if defense_context is not None:
             defense_proposals: dict[str, tuple[dict[str, Any], ...]] = {}
-            obligations = self.defense_module.provider.extract(defense_context)
+            obligations = self.defense_module.obligations(defense_context)
             for obligation in obligations:
                 if obligation.need <= 0:
                     continue

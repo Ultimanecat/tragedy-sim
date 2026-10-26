@@ -30,6 +30,8 @@ class DefenseObligation:
     required_max: int
     lead_days: int
     expected_pressure: int = 0
+    action: str = "counter"
+    threat: str | None = None
     source: str = "scheduled_incident"
     confidence: float = 1.0
 
@@ -147,6 +149,72 @@ class ScheduledIncidentProvider:
         return tuple(obligations)
 
 
+class ProtectTargetProvider:
+    """Obligations to move loss-critical characters away from killers."""
+
+    PROTECTED_ROLES = frozenset({"key", "friend", "time_traveler"})
+    THREAT_ROLES = frozenset({"killer", "serial"})
+
+    def extract(self, context: DefenseContext) -> tuple[DefenseObligation, ...]:
+        scenario = context.scenario or {}
+        cast = scenario.get("cast", {}) if isinstance(scenario, Mapping) else {}
+        characters = context.view.get("characters", {})
+        if not isinstance(cast, Mapping) or not isinstance(characters, Mapping):
+            return ()
+        protected = [cid for cid, role in cast.items()
+                     if role in self.PROTECTED_ROLES]
+        threats = [cid for cid, role in cast.items()
+                   if role in self.THREAT_ROLES]
+        pending_targets = {
+            str(item.get("target")) for item in context.view.get("pending", ())
+            if item.get("actor") == "m"}
+        obligations = []
+        for target in protected:
+            target_state = characters.get(target, {})
+            if not target_state.get("alive", False) or not target_state.get("present", False):
+                continue
+            # A killer needs the key at >= 2 intrigue. Blocking intrigue on
+            # the incoming black target is stronger than relocating after the
+            # face is revealed.
+            if (target in pending_targets
+                    or int(target_state.get("intrigue", 0)) >= 1):
+                obligations.append(DefenseObligation(
+                    key=f"protect_intrigue:{target}",
+                    day=int(context.view.get("round", 1)),
+                    kind="protect_target",
+                    target=target,
+                    counter="intrigue",
+                    current=2,
+                    threshold=2,
+                    required_max=1,
+                    lead_days=0,
+                    action="block_intrigue",
+                    source="protect_target",
+                ))
+                continue
+            target_location = target_state.get("location")
+            for threat in threats:
+                threat_state = characters.get(threat, {})
+                if (threat_state.get("alive", False)
+                        and threat_state.get("present", False)
+                        and threat_state.get("location") == target_location):
+                    obligations.append(DefenseObligation(
+                        key=f"protect:{target}:{threat}",
+                        day=int(context.view.get("round", 1)),
+                        kind="protect_target",
+                        target=target,
+                        counter="location",
+                        current=1,
+                        threshold=0,
+                        required_max=0,
+                        lead_days=0,
+                        action="move",
+                        threat=threat,
+                        source="protect_target",
+                    ))
+        return tuple(obligations)
+
+
 class CounterThresholdScheduler:
     """Score a bundle by whether it closes scheduled counter obligations."""
 
@@ -167,8 +235,21 @@ class CounterThresholdScheduler:
         score = 0.0
         details = {}
         for obligation in obligations:
-            reduction = reductions.get(obligation.target, 0)
-            remaining = obligation.need - reduction
+            if obligation.action == "move":
+                moved = any(command.get("card") in {"h", "v", "d"}
+                            and str(command.get("target")) == obligation.target
+                            for command in bundle)
+                reduction = 1 if moved else 0
+                remaining = 0 if moved else 1
+            elif obligation.action == "block_intrigue":
+                blocked = any(command.get("card") == "fi"
+                              and str(command.get("target")) == obligation.target
+                              for command in bundle)
+                reduction = 1 if blocked else 0
+                remaining = 0 if blocked else 1
+            else:
+                reduction = reductions.get(obligation.target, 0)
+                remaining = obligation.need - reduction
             met = remaining <= 0
             is_urgent = obligation.lead_days <= self.urgent_days
             if is_urgent:
@@ -200,12 +281,20 @@ class CounterThresholdScheduler:
 class DefenseModule:
     """Pluggable provider + scheduler used by an action policy."""
 
-    def __init__(self, provider: ScheduledIncidentProvider,
-                 scheduler: CounterThresholdScheduler | None = None):
-        self.provider = provider
+    def __init__(self, provider, scheduler: CounterThresholdScheduler | None = None):
+        if isinstance(provider, (tuple, list)):
+            self.providers = tuple(provider)
+        else:
+            self.providers = (provider,)
+        self.provider = self.providers[0] if len(self.providers) == 1 else None
         self.scheduler = scheduler or CounterThresholdScheduler()
+
+    def obligations(self, context: DefenseContext) -> tuple[DefenseObligation, ...]:
+        result = []
+        for provider in self.providers:
+            result.extend(provider.extract(context))
+        return tuple(result)
 
     def assess(self, context: DefenseContext,
                bundle: Sequence[Mapping[str, Any]]) -> DefenseAssessment:
-        obligations = self.provider.extract(context)
-        return self.scheduler.assess(obligations, bundle, context)
+        return self.scheduler.assess(self.obligations(context), bundle, context)
