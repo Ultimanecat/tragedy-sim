@@ -124,7 +124,29 @@ BTX01 第 5 天自杀，当事人大小姐，上限 3：
 - 行动策略负责：根据义务做跨日资源调度，再和当天的联合搜索分数结合。
 - 这样“身份信念”和“跨日防守”能分开评估，不会混在一起。
 
-## 十、风险
+## 十、已落地的插拔模块
+
+`tragedy_sim/defense.py` 提供第一版模块接口：
+
+- `DefenseObligation`：结构化义务，包含事故日、当事人、计数、阈值、还差多少、提前天数。
+- `DefenseContext`：公开视图、信念快照、剧本、horizon。
+- `IncidentModel`：把一个剧本事故转成义务的协议。
+- `CounterThresholdModel`：内置“计数到角色上限就触发”的模型，先用于自杀。
+- `IncidentModelRegistry`：事故类型到模型的注册表。
+- `ScheduledIncidentProvider`：从剧本未来事故提取义务。
+- `CounterThresholdScheduler`：按截止日检查候选三牌是否覆盖义务。
+- `DefenseModule`：provider 加 scheduler 的组合入口。
+
+扩展方式：
+
+- 新事故类型：实现 `IncidentModel.extract`，调用 `registry.register(kind, model)`。
+- 新调度方式：实现自己的 scheduler，或替换 `DefenseModule` 里的 scheduler。
+- 新信息来源：替换 provider，从粒子快照、公开日志或自定义候选集提取义务。
+- 默认注册表只放 `suicide`；其他类型先不猜，避免把不适用的事故硬套成计数义务。
+
+当前粒子代理里的临时事故守卫仍然保留，尚未切到新模块。下一步先把调度器接进行动评分，再删旧守卫。
+
+## 十一、风险
 
 - 黑方会针对调度：知道红方保留 `p-1` 后换目标。
 - 多个义务争抢有限牌，调度可能过保守。
