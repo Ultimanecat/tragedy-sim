@@ -1,5 +1,17 @@
 # 防守能力模型设计（2026-10-27）
 
+## 当前进度（2026-10-27）
+
+`tragedy_sim/day_game/defense_capabilities.py` 已实现第一版：
+
+- `scenario_capabilities`：从剧本 cast 和角色定义提取能力。
+- `counter_reduction_capabilities`：筛出计数相关能力。
+- `plan_counter_defense`：为计数义务生成诊断能力链。
+- BTX01 大小姐案例能生成：给鉴识官加友好 → 移动到大小姐区域 → 用 `transfer` 把不安移给同区域安全角色。
+- 目前只做计划生成，不接行动层，也不保证计划可执行。
+
+`tests/test_day_game_defense_capabilities.py` 4 项通过。
+
 ## 先修正一个错误
 
 之前的防守模型只把“计数器变化”当成两类东西：

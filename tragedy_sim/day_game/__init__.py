@@ -2,6 +2,9 @@
 
 from .cards import CompleteCardSpace, engine_red_bundles
 from .continuation import DayContinuationSolver, DayResult, ValueBounds, WorkLimit
+from .defense_capabilities import (AbilityCapability, AbilityDefensePlan,
+                                   CapabilityStep, counter_reduction_capabilities,
+                                   plan_counter_defense, scenario_capabilities)
 from .pure import PureDaySolver, PureDayResult, commit_pair
 from .plan_search import (TwoDaySearchResult, black_day_plans,
                           evaluate_day1_pair, red_day_plans, search_two_day)
@@ -18,6 +21,8 @@ __all__ = ["CompleteCardSpace", "engine_red_bundles", "DayContinuationSolver",
            "KnownWorldTwoDaySolver", "TwoDayResult",
            "TwoDaySearchResult", "black_day_plans", "red_day_plans",
            "evaluate_day1_pair", "search_two_day",
+           "AbilityCapability", "AbilityDefensePlan", "CapabilityStep",
+           "counter_reduction_capabilities", "plan_counter_defense", "scenario_capabilities",
            "DayTransitionResult", "TwoDayTransitionResult",
            "advance_to_day_boundary", "advance_day_with_plans", "advance_two_days",
            "observation_branch_key", "group_observation_branches",
