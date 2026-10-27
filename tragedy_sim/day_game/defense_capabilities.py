@@ -210,7 +210,8 @@ def build_day_ability_plan(world, plan: AbilityDefensePlan, *,
         else:
             continue
         if action["target"] in used_targets:
-            continue
+            return DayAbilityPlan(tuple(chosen), None,
+                                  f"two setup steps target {action['target']} on one day")
         chosen.append(dict(action))
         used_targets.add(action["target"])
     for action in actions:
@@ -224,6 +225,40 @@ def build_day_ability_plan(world, plan: AbilityDefensePlan, *,
         return DayAbilityPlan(tuple(chosen), None, "not enough distinct card targets")
     effect = next((step for step in plan.steps if step.kind == "use_transfer"), None)
     return DayAbilityPlan(tuple(chosen), effect)
+
+
+def schedule_ability_steps(plan: AbilityDefensePlan, *, max_days: int = 4
+                           ) -> "ScheduledAbilityPlan":
+    """Split card setup steps across days; the effect lands on the last day."""
+    if type(max_days) is not int or max_days < 1:
+        raise ValueError("max_days must be a positive integer")
+    if plan.blocked_reason or plan.capability is None:
+        return ScheduledAbilityPlan((), plan.blocked_reason or "no capability")
+    days: list[list[CapabilityStep]] = []
+    effect = None
+    for step in plan.steps:
+        if step.kind == "use_transfer":
+            effect = step
+            continue
+        for day in days:
+            if step.target not in {item.target for item in day}:
+                day.append(step)
+                break
+        else:
+            if len(days) >= max_days:
+                return ScheduledAbilityPlan((), "ability setup exceeds max_days")
+            days.append([step])
+    if effect is not None:
+        if not days:
+            days.append([])
+        days[-1].append(effect)
+    return ScheduledAbilityPlan(tuple(tuple(day) for day in days))
+
+
+@dataclass(frozen=True)
+class ScheduledAbilityPlan:
+    days: tuple[tuple[CapabilityStep, ...], ...]
+    blocked_reason: str | None = None
 
 
 def find_ability_option(game, *, effect_kind: str, source: str | None = None,

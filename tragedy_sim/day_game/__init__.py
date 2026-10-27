@@ -4,10 +4,10 @@ from .cards import CompleteCardSpace, engine_red_bundles
 from .continuation import DayContinuationSolver, DayResult, ValueBounds, WorkLimit
 from .defense_capabilities import (AbilityCapability, AbilityDefensePlan,
                                    CapabilityStep, DayAbilityPlan,
-                                   build_day_ability_plan,
+                                   ScheduledAbilityPlan, build_day_ability_plan,
                                    counter_reduction_capabilities,
                                    find_ability_option, plan_counter_defense,
-                                   scenario_capabilities)
+                                   scenario_capabilities, schedule_ability_steps)
 from .observation import (ObservationBranch, group_observation_snapshots,
                           make_observation_branch, resample_branch)
 from .pure import PureDaySolver, PureDayResult, commit_pair
@@ -29,6 +29,7 @@ __all__ = ["CompleteCardSpace", "engine_red_bundles", "DayContinuationSolver",
            "AbilityCapability", "AbilityDefensePlan", "CapabilityStep",
            "DayAbilityPlan", "build_day_ability_plan", "find_ability_option",
            "counter_reduction_capabilities", "plan_counter_defense", "scenario_capabilities",
+           "ScheduledAbilityPlan", "schedule_ability_steps",
            "DayTransitionResult", "TwoDayTransitionResult",
            "advance_to_day_boundary", "advance_day_with_plans", "advance_two_days",
            "observation_branch_key", "group_observation_branches",

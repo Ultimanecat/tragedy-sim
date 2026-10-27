@@ -4,7 +4,7 @@ import unittest
 
 from tragedy_sim.day_game.defense_capabilities import (
     build_day_ability_plan, counter_reduction_capabilities, find_ability_option,
-    plan_counter_defense, scenario_capabilities)
+    plan_counter_defense, scenario_capabilities, schedule_ability_steps)
 from tragedy_sim.scenario_library import ScenarioLibrary
 
 
@@ -89,10 +89,40 @@ class DefenseCapabilityTests(unittest.TestCase):
                 ]
 
         plan = plan_counter_defense(scenario, view_, target="rich", need=2)
-        day_plan = build_day_ability_plan(FakeWorld(), plan)
+        scheduled = schedule_ability_steps(plan)
+        from dataclasses import replace
+        day_plan = build_day_ability_plan(
+            FakeWorld(), replace(plan, steps=scheduled.days[0]))
         self.assertIsNone(day_plan.blocked_reason)
         self.assertEqual(len(day_plan.card_plan), 3)
-        self.assertEqual(day_plan.effect.source, "rich")
+        self.assertEqual(day_plan.card_plan[0]["card"], "g2")
+        second = build_day_ability_plan(
+            FakeWorld(), replace(plan, steps=scheduled.days[1]))
+        self.assertIsNone(second.blocked_reason)
+        self.assertIsNotNone(second.effect)
+        self.assertEqual(second.effect.source, "rich")
+
+    def test_capability_steps_split_across_days(self):
+        scenario = btx01()
+        view_ = view(
+            forensic={"alive": True, "present": True, "location": "city",
+                      "goodwill": 0},
+            rich={"alive": True, "present": True, "location": "school",
+                  "paranoia": 2, "paranoia_limit": 1},
+            class_rep={"alive": True, "present": True, "location": "school",
+                       "paranoia": 0, "paranoia_limit": 2},
+            outsider={"alive": True, "present": True, "location": "school",
+                      "paranoia": 0, "paranoia_limit": 2},
+        )
+        plan = plan_counter_defense(scenario, view_, target="rich", need=2)
+        scheduled = schedule_ability_steps(plan)
+        self.assertIsNone(scheduled.blocked_reason)
+        self.assertEqual(len(scheduled.days), 2)
+        for day in scheduled.days:
+            targets = [step.target for step in day
+                       if step.kind in {"setup_goodwill", "move"}]
+            self.assertEqual(len(targets), len(set(targets)))
+        self.assertEqual(scheduled.days[-1][-1].kind, "use_transfer")
 
     def test_find_ability_option_matches_transfer_source_and_sink(self):
         class FakeGame:
