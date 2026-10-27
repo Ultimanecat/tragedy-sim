@@ -17,7 +17,8 @@
 - `build_day_ability_plan` 把能力链步骤转成当天三张合法出牌计划；缺牌时返回 `blocked_reason`。
 - `schedule_ability_steps` 把能力铺垫拆到多天，避免同一天对同一角色放两张牌；`transfer` 放在最后一个铺垫日。
 - `find_ability_option` 在友好能力阶段按 `transfer` 的 source／sink 选中对应 `choose` 行动。
-- 测试增加到 7 项；目前仍使用 fake world／fake game，验证接口和匹配逻辑，尚未在真实对局执行完整能力链。
+- 测试增加到 8 项；目前仍使用构造/伪造局，但已用真实引擎验证 `transfer`：选能力选项会进入 `refusal` 阶段，接受后大小姐不安从 2 降到 1，接收者从 0 升到 1。
+- 尚未在对局流程里自动执行完整“加友好 → 移动 → transfer”链。
 
 ## 先修正一个错误
 

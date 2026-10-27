@@ -5,6 +5,7 @@ import unittest
 from tragedy_sim.day_game.defense_capabilities import (
     build_day_ability_plan, counter_reduction_capabilities, find_ability_option,
     plan_counter_defense, scenario_capabilities, schedule_ability_steps)
+from tragedy_sim import Game
 from tragedy_sim.scenario_library import ScenarioLibrary
 
 
@@ -138,6 +139,35 @@ class DefenseCapabilityTests(unittest.TestCase):
         option = find_ability_option(
             FakeGame(), effect_kind="transfer", source="rich", sink="class_rep")
         self.assertEqual(option, {"actor": "a", "action": "choose", "index": 2})
+
+    def test_real_engine_transfer_moves_paranoia_off_rich(self):
+        game = Game(btx01())
+        for _ in range(120):
+            if game.state.phase == "goodwill":
+                break
+            actions = game.legal_actions(game.controller)
+            action = next((item for item in actions
+                           if item.get("action") == "next"), actions[0])
+            game = game.transition(action).game
+        self.assertEqual(game.state.phase, "goodwill")
+        for cid in ("forensic", "rich", "class_rep", "outsider"):
+            game.state.characters[cid].location = "school"
+            game.state.characters[cid].present = True
+            game.state.characters[cid].alive = True
+        game.state.characters["forensic"].goodwill = 2
+        game.state.characters["rich"].paranoia = 2
+        game.state.characters["class_rep"].paranoia = 0
+        option = find_ability_option(
+            game, effect_kind="transfer", source="rich", sink="class_rep")
+        self.assertIsNotNone(option)
+        pending = game.transition(option).game
+        self.assertEqual(pending.state.phase, "refusal")
+        accept = find_ability_option(
+            pending, effect_kind="transfer", source="rich", sink="class_rep")
+        self.assertIsNotNone(accept)
+        after = pending.transition(accept).game
+        self.assertEqual(after.state.characters["rich"].paranoia, 1)
+        self.assertEqual(after.state.characters["class_rep"].paranoia, 1)
 
 
 if __name__ == "__main__":
