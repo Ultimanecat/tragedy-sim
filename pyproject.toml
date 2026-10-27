@@ -9,6 +9,9 @@ description = "Deterministic Tragedy Looper simulator with CLI, GUI and LAN room
 requires-python = ">=3.11"
 dependencies = []
 
+[project.optional-dependencies]
+dev = ["pytest>=9", "pytest-xdist>=3"]
+
 [project.scripts]
 tragedy-sim = "tragedy_sim.cli:main"
 tragedy-sim-server = "tragedy_sim.server:main"

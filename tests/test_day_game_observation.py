@@ -4,7 +4,8 @@ import unittest
 
 from tests.test_day_game_two_day import next_day_start
 from tragedy_sim.day_game.observation import (group_observation_snapshots,
-                                              make_observation_branch)
+                                              make_observation_branch,
+                                              resample_branch)
 from tragedy_sim.day_game.transition import advance_to_day_boundary
 
 
@@ -36,6 +37,20 @@ class ObservationBranchTests(unittest.TestCase):
                              result.stop_reason, result.elapsed_seconds,
                              result.policy_name, None)
         self.assertIsNone(make_observation_branch(empty))
+
+    def test_branch_can_resample_particles(self):
+        branch = make_observation_branch(
+            advance_to_day_boundary(next_day_start(), nextish))
+
+        class FakePolicy:
+            def build(self, *, game, view, offers):
+                assert view is branch.public_view
+                from tragedy_sim.composition import BeliefSnapshot
+                return BeliefSnapshot((), branch.evidence, source="fake")
+
+        snapshot = resample_branch(branch, information_policy=FakePolicy())
+        self.assertIsNotNone(snapshot)
+        self.assertEqual(snapshot.source, "fake")
 
 
 if __name__ == "__main__":
