@@ -322,12 +322,16 @@ Web 大厅会从 `GET /v1/scenarios` 读取可选剧本。仓库内置八个原�
 
 ```powershell
 python -m unittest discover -v
+# 按测试模块并行；本机 12 worker 约 48 秒，单进程约 401 秒
+python benchmarks/run_tests_parallel.py --workers 12
 cd web
 npm test
 npm run lint
 npm run build
 npm run test:e2e
 ```
+
+并行脚本说明见 [并行跑 Python 测试](docs/test-parallel.md)。
 
 - `tragedy_sim/cards.py`：独立牌组、限次标记、地图。
 - `tragedy_sim/engine.py`：`ActionGame`、`Character`、出牌与结算、玩家视图。
