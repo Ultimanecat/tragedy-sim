@@ -162,3 +162,82 @@ def plan_counter_defense(scenario: Mapping[str, Any], view: Mapping[str, Any], *
         return AbilityDefensePlan(target, counter, need, capability, tuple(steps))
     return AbilityDefensePlan(target, counter, need, None, (),
                               "no transfer capability in scenario")
+
+
+@dataclass(frozen=True)
+class DayAbilityPlan:
+    card_plan: tuple[dict[str, Any], ...]
+    effect: CapabilityStep | None
+    blocked_reason: str | None = None
+
+
+def build_day_ability_plan(world, plan: AbilityDefensePlan, *,
+                           plan_length: int = 3) -> DayAbilityPlan:
+    """Turn capability steps into legal current-day card placements.
+
+    Only playwright-visible legality is checked here; ability effects are
+    selected separately by ``find_ability_option`` during the goodwill phase.
+    """
+    if plan.blocked_reason or plan.capability is None:
+        return DayAbilityPlan((), None, plan.blocked_reason or "no capability")
+    actions = [item for item in world.legal_actions(world.controller)
+               if item.get("action") == "play"]
+    if not actions:
+        return DayAbilityPlan((), None, "no legal card placement")
+
+    def pick(card: str | None, target: str | None):
+        for action in actions:
+            if (card is not None and action.get("card") == card
+                    and action.get("target") == target):
+                return action
+        return None
+
+    chosen = []
+    used_targets = set()
+    for step in plan.steps:
+        if step.kind == "setup_goodwill":
+            action = pick(step.card, step.target)
+            if action is None:
+                return DayAbilityPlan(tuple(chosen), None,
+                                      f"missing setup card {step.card} for {step.target}")
+        elif step.kind == "move":
+            action = next((item for item in actions
+                           if item.get("card") in {"h", "v", "d"}
+                           and item.get("target") == step.target), None)
+            if action is None:
+                return DayAbilityPlan(tuple(chosen), None,
+                                      f"missing movement card for {step.target}")
+        else:
+            continue
+        if action["target"] in used_targets:
+            continue
+        chosen.append(dict(action))
+        used_targets.add(action["target"])
+    for action in actions:
+        if len(chosen) >= plan_length:
+            break
+        if action.get("target") in used_targets:
+            continue
+        chosen.append(dict(action))
+        used_targets.add(action["target"])
+    if len(chosen) != plan_length:
+        return DayAbilityPlan(tuple(chosen), None, "not enough distinct card targets")
+    effect = next((step for step in plan.steps if step.kind == "use_transfer"), None)
+    return DayAbilityPlan(tuple(chosen), effect)
+
+
+def find_ability_option(game, *, effect_kind: str, source: str | None = None,
+                        sink: str | None = None):
+    """Find the goodwill-phase ``choose`` action for a planned ability effect."""
+    actor = game.controller
+    options = game.options(actor)
+    for index, choice in enumerate(options, 1):
+        for effect in choice.get("effects", ()) or ():
+            if effect.get("kind") != effect_kind:
+                continue
+            if source is not None and effect.get("source") != source:
+                continue
+            if sink is not None and effect.get("target") != sink:
+                continue
+            return {"actor": actor, "action": "choose", "index": index}
+    return None

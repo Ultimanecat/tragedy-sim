@@ -61,3 +61,22 @@ def group_observation_snapshots(branches):
     for branch in branches:
         grouped.setdefault(branch.branch_key, []).append(branch)
     return {key: tuple(items) for key, items in grouped.items()}
+
+
+def resample_branch(branch: ObservationBranch, *,
+                    information_policy=None,
+                    particle_count: int = 8,
+                    rng_seed: int = 0,
+                    budget=None):
+    """Rebuild a particle snapshot from one public observation branch.
+
+    ``information_policy`` must implement ``build``. The default is the
+    public-particle policy; callers can substitute an oracle policy for
+    diagnostics. Hidden states are never read from the original transition.
+    """
+    if information_policy is None:
+        from ..composition import ParticleInformationPolicy
+        information_policy = ParticleInformationPolicy(
+            budget=budget, particle_count=particle_count, rng_seed=rng_seed)
+    return information_policy.build(game=None, view=branch.public_view, offers=())
+

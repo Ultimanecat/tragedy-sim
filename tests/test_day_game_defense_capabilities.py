@@ -3,7 +3,8 @@
 import unittest
 
 from tragedy_sim.day_game.defense_capabilities import (
-    counter_reduction_capabilities, plan_counter_defense, scenario_capabilities)
+    build_day_ability_plan, counter_reduction_capabilities, find_ability_option,
+    plan_counter_defense, scenario_capabilities)
 from tragedy_sim.scenario_library import ScenarioLibrary
 
 
@@ -62,6 +63,51 @@ class DefenseCapabilityTests(unittest.TestCase):
             target="rich", need=1)
         self.assertIsNone(plan.capability)
         self.assertIn("no transfer", plan.blocked_reason or "")
+
+    def test_capability_plan_becomes_legal_three_card_plan(self):
+        scenario = btx01()
+        view_ = view(
+            forensic={"alive": True, "present": True, "location": "city",
+                      "goodwill": 0},
+            rich={"alive": True, "present": True, "location": "school",
+                  "paranoia": 2, "paranoia_limit": 1},
+            class_rep={"alive": True, "present": True, "location": "school",
+                       "paranoia": 0, "paranoia_limit": 2},
+            outsider={"alive": True, "present": True, "location": "school",
+                      "paranoia": 0, "paranoia_limit": 2},
+        )
+
+        class FakeWorld:
+            controller = "a"
+
+            def legal_actions(self, actor):
+                return [
+                    {"actor": "a", "action": "play", "card": "g2", "target": "forensic"},
+                    {"actor": "a", "action": "play", "card": "h", "target": "forensic"},
+                    {"actor": "a", "action": "play", "card": "g1", "target": "class_rep"},
+                    {"actor": "a", "action": "play", "card": "p1", "target": "outsider"},
+                ]
+
+        plan = plan_counter_defense(scenario, view_, target="rich", need=2)
+        day_plan = build_day_ability_plan(FakeWorld(), plan)
+        self.assertIsNone(day_plan.blocked_reason)
+        self.assertEqual(len(day_plan.card_plan), 3)
+        self.assertEqual(day_plan.effect.source, "rich")
+
+    def test_find_ability_option_matches_transfer_source_and_sink(self):
+        class FakeGame:
+            controller = "a"
+
+            def options(self, actor):
+                return [
+                    {"effects": [{"kind": "counter", "target": "rich"}]},
+                    {"effects": [{"kind": "transfer", "source": "rich",
+                                  "target": "class_rep"}]},
+                ]
+
+        option = find_ability_option(
+            FakeGame(), effect_kind="transfer", source="rich", sink="class_rep")
+        self.assertEqual(option, {"actor": "a", "action": "choose", "index": 2})
 
 
 if __name__ == "__main__":

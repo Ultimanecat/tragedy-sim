@@ -12,6 +12,12 @@
 
 `tests/test_day_game_defense_capabilities.py` 4 项通过。
 
+后续补充：
+
+- `build_day_ability_plan` 把能力链步骤转成当天三张合法出牌计划；缺牌时返回 `blocked_reason`。
+- `find_ability_option` 在友好能力阶段按 `transfer` 的 source／sink 选中对应 `choose` 行动。
+- 测试增加到 6 项；目前仍使用 fake world／fake game，验证接口和匹配逻辑，尚未在真实对局执行完整能力链。
+
 ## 先修正一个错误
 
 之前的防守模型只把“计数器变化”当成两类东西：
