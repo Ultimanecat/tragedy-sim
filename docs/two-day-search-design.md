@@ -116,7 +116,7 @@ T1 只给日末一个价值估计；T2 要在一天结束时继续看下一天�
 2. **日计划转移**：`advance_day_with_plans` 已完成，强制红方／黑方出牌计划，其余决策走 fallback，返回下一日状态。
 3. **两日状态转移**：`advance_two_days` 已完成，保留第一天和第二天状态，并返回两天存活值或调用方叶值。
 4. **两日候选搜索**：`plan_search.py` 已完成已知世界版本：枚举少量黑方三牌列和红方三牌计划，第一天显式计划、第二天 fallback，取红方最大／黑方最小的受限值。
-5. **观察分支**：已完成公开视图快照、`observation_branch_key` 和 `group_observation_branches`；下一步把每个分支接回 witness／后验更新。
+5. **观察分支**：已完成公开视图快照、`observation_branch_key`、`group_observation_branches`，以及 `ObservationBranch`：每个分支重建 `PublicEvidence` 和 witness。下一步把分支接回粒子后验重采样。
 6. **能力链防守**：已新增 `day_game/defense_capabilities.py`：从角色定义提取 `counter/adjust/transfer/reset_all` 能力，并为计数义务生成“加友好 → 移动 → transfer”的诊断计划。尚未接进行动层。
 7. **配对验证**：同源码、同种子、固定工作量，和当前 day horizon 比较；先看行动差异和事故避免，再看胜率。
 
