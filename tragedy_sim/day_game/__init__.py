@@ -8,7 +8,8 @@ from .plan_search import (TwoDaySearchResult, black_day_plans,
 from .two_day import KnownWorldTwoDaySolver, TwoDayResult
 from .transition import (DayTransitionResult, TwoDayTransitionResult,
                          advance_day_with_plans, advance_to_day_boundary,
-                         advance_two_days)
+                         advance_two_days, group_observation_branches,
+                         observation_branch_key)
 from .value import (BoundaryContext, ContinuationEvaluator, DaySurvivalEvaluator, RandomRolloutEvaluator,
                     UnknownEvaluator, ValueEstimate, boundary_context)
 
@@ -19,5 +20,6 @@ __all__ = ["CompleteCardSpace", "engine_red_bundles", "DayContinuationSolver",
            "evaluate_day1_pair", "search_two_day",
            "DayTransitionResult", "TwoDayTransitionResult",
            "advance_to_day_boundary", "advance_day_with_plans", "advance_two_days",
+           "observation_branch_key", "group_observation_branches",
            "BoundaryContext", "ContinuationEvaluator", "DaySurvivalEvaluator", "RandomRolloutEvaluator",
            "UnknownEvaluator", "ValueEstimate", "boundary_context"]

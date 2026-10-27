@@ -6,7 +6,9 @@ from tests.test_day_game_information_game import rescue_root
 from tests.test_day_game_two_day import next_day_start
 from tragedy_sim.day_game.transition import (advance_day_with_plans,
                                              advance_to_day_boundary,
-                                             advance_two_days)
+                                             advance_two_days,
+                                             group_observation_branches,
+                                             observation_branch_key)
 
 
 def nextish(game, actions):
@@ -67,6 +69,17 @@ class DayTransitionTests(unittest.TestCase):
         else:
             self.assertIsNone(result.second)
             self.assertEqual(result.value, 0.0)
+
+    def test_observation_branch_key_groups_equal_public_views(self):
+        world = next_day_start()
+        first = advance_to_day_boundary(world, nextish)
+        second = advance_to_day_boundary(world, nextish)
+        self.assertIsNotNone(first.public_view)
+        self.assertEqual(observation_branch_key(first.public_view),
+                         observation_branch_key(second.public_view))
+        branches = group_observation_branches((first, second))
+        self.assertEqual(len(branches), 1)
+        self.assertEqual(len(next(iter(branches.values()))), 2)
 
 
 if __name__ == "__main__":

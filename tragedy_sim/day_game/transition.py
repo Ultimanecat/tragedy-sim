@@ -8,6 +8,8 @@ branch on it instead of receiving only a scalar value.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import hashlib
+import json
 from time import perf_counter
 from typing import Any, Callable, Mapping, Sequence
 
@@ -25,6 +27,7 @@ class DayTransitionResult:
     stop_reason: str | None
     elapsed_seconds: float
     policy_name: str = "caller"
+    public_view: Mapping[str, Any] | None = None
 
     @property
     def next_day(self) -> bool:
@@ -34,6 +37,37 @@ class DayTransitionResult:
     def lost(self) -> bool:
         return self.terminal in {"loop_end", "loop_lost", "final_guess",
                                  "mastermind_win"}
+
+
+def observation_branch_key(view: Mapping[str, Any] | None) -> str | None:
+    """Stable key for a public observation, ignoring display-only metadata."""
+    if view is None:
+        return None
+    public = dict(view)
+    for field in ("message", "timepoint", "remaining", "scenario_id",
+                  "title", "language", "phase_name", "module_name", "labels"):
+        public.pop(field, None)
+    events = []
+    for event in public.get("events", ()) or ():
+        if not isinstance(event, Mapping):
+            continue
+        events.append({key: value for key, value in event.items()
+                       if key not in {"message", "timepoint", "remaining"}})
+    public["events"] = events
+    return hashlib.sha256(json.dumps(public, sort_keys=True, ensure_ascii=False,
+                                     default=str).encode("utf-8")).hexdigest()[:24]
+
+
+def group_observation_branches(results: Sequence[DayTransitionResult]
+                               ) -> dict[str, tuple[DayTransitionResult, ...]]:
+    """Group transitions by public observation, never by hidden world identity."""
+    grouped: dict[str, list[DayTransitionResult]] = {}
+    for result in results:
+        key = observation_branch_key(result.public_view)
+        if key is None:
+            key = "no_public_view"
+        grouped.setdefault(key, []).append(result)
+    return {key: tuple(items) for key, items in grouped.items()}
 
 
 Policy = Callable[[Game, Sequence[Mapping[str, Any]]], Mapping[str, Any] | None]
@@ -187,6 +221,10 @@ def advance_to_day_boundary(world: Game, policy: Policy | None = None, *,
     if terminal is None:
         terminal = "stopped"
     end_position = (current.state.loop, current.state.round)
+    public_view = None
+    if callable(getattr(current, "protagonist_team_view", None)):
+        public_view = current.protagonist_team_view()
     return DayTransitionResult(current, start_position, end_position,
                                tuple(commands), tuple(new_events), terminal,
-                               stop_reason, perf_counter() - started, policy_name)
+                               stop_reason, perf_counter() - started, policy_name,
+                               public_view)
