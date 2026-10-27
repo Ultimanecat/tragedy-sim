@@ -5,7 +5,8 @@ import unittest
 from tests.test_day_game_information_game import rescue_root
 from tests.test_day_game_two_day import next_day_start
 from tragedy_sim.day_game.transition import (advance_day_with_plans,
-                                             advance_to_day_boundary)
+                                             advance_to_day_boundary,
+                                             advance_two_days)
 
 
 def nextish(game, actions):
@@ -55,6 +56,17 @@ class DayTransitionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             advance_day_with_plans(world, [{"actor": "m", "action": "bogus"}], [],
                                    fallback=nextish)
+
+    def test_two_day_transition_keeps_both_states(self):
+        world = next_day_start()
+        result = advance_two_days(world, [], [], [], [], fallback=nextish)
+        self.assertIsNotNone(result.first.state)
+        if result.first.next_day:
+            self.assertIsNotNone(result.second)
+            self.assertIn(result.value, {0.0, 1.0})
+        else:
+            self.assertIsNone(result.second)
+            self.assertEqual(result.value, 0.0)
 
 
 if __name__ == "__main__":

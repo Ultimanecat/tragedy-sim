@@ -90,6 +90,50 @@ def advance_day_with_plans(world: Game, black_plan: Sequence[Mapping[str, Any]],
                                    policy_name="day_plans")
 
 
+@dataclass(frozen=True)
+class TwoDayTransitionResult:
+    first: DayTransitionResult
+    second: DayTransitionResult | None
+    survived_both: bool
+    value: float
+    value_source: str
+
+
+def advance_two_days(world: Game,
+                     first_black: Sequence[Mapping[str, Any]],
+                     first_red: Sequence[Mapping[str, Any]],
+                     second_black: Sequence[Mapping[str, Any]],
+                     second_red: Sequence[Mapping[str, Any]], *,
+                     fallback: Policy | None = None,
+                     leaf_value: Callable[[Game], float] | None = None,
+                     max_commands: int = 2048) -> TwoDayTransitionResult:
+    """Run two day plans and return the intermediate and final states.
+
+    ``leaf_value`` is the T1-style leaf function for the second boundary. If it
+    is omitted, two-day survival is valued at 1 and any failed day at 0.
+    """
+    first = advance_day_with_plans(world, first_black, first_red,
+                                   fallback=fallback, max_commands=max_commands)
+    if not first.next_day:
+        terminal = first.terminal
+        value = 1.0 if terminal == "protagonist_win" else 0.0
+        return TwoDayTransitionResult(first, None, False, value,
+                                      f"first_day:{terminal}")
+    second = advance_day_with_plans(first.state, second_black, second_red,
+                                    fallback=fallback, max_commands=max_commands)
+    if second.terminal == "protagonist_win":
+        return TwoDayTransitionResult(first, second, True, 1.0, "protagonist_win")
+    if second.terminal == "mastermind_win":
+        return TwoDayTransitionResult(first, second, False, 0.0, "mastermind_win")
+    if leaf_value is not None:
+        return TwoDayTransitionResult(first, second, second.next_day,
+                                      float(leaf_value(second.state)),
+                                      "caller_leaf")
+    return TwoDayTransitionResult(first, second, second.next_day,
+                                  1.0 if second.next_day else 0.0,
+                                  f"second_day:{second.terminal}")
+
+
 def advance_to_day_boundary(world: Game, policy: Policy | None = None, *,
                             max_commands: int = 2048,
                             policy_name: str = "first_legal") -> DayTransitionResult:
