@@ -92,6 +92,35 @@ T1 只给日末一个价值估计；T2 要在一天结束时继续看下一天�
 
 这个脚手架还不是完整 T2：缺少同步暗置信息集、公开观察分支、witness／后验更新和跨日缓存。下一步要把这些补上，才能做真正的两日策略比较。
 
+## 修正：状态返回模拟器已存在（2026-10-27）
+
+底层引擎早就能返回日末状态：
+
+- `Game.transition(action).game` 和 `Game.search_transition(action)` 返回完整后继状态。
+- `BoundaryContext.world` 保存日末真实状态。
+- 校准脚本的 `cutoff_observer(game, event)` 直接拿到日末 `game`。
+- `OracleProtagonistAgent`／`IsmctsProtagonistAgent` 的 rollout 已推进到日边界，只是丢弃状态。
+
+真正缺的是搜索层封装，不是规则模拟器。现已新增：
+
+- `tragedy_sim/day_game/transition.py` 的 `advance_to_day_boundary(world, policy)`。
+- 返回 `DayTransitionResult`：后继状态、起止日位置、命令、新公开事件、终止原因和耗时。
+- 策略由调用方提供，状态不做隐式裁剪。
+- 测试覆盖：成功进入下一日、策略停止、非法动作、命令上限、非法输入。
+
+下一步直接在这个接口上做两日滚动搜索：候选红方日计划、黑方候选列、模拟到日末保留状态、观察分支更新信念、叶端用 T1 估值。
+
+## 实施计划（按顺序）
+
+1. **日边界转移**：`advance_to_day_boundary` 已完成，保留后继状态、事件和终止原因。
+2. **日计划转移**：封装“红方三牌计划 + 黑方候选列 + 能力策略”，返回下一日状态和公开观察。
+3. **两日滚动搜索**：每天枚举少量红方日计划，黑方候选列取最坏情况或采样，模拟两天，叶端接 T1 估值。
+4. **观察分支**：对公开事件分组，更新 witness／后验，避免信息泄露。
+5. **能力链防守**：把 [防守能力模型](defense-capability-design.md) 的 `transfer/adjust/setup` 作为宏动作候选接进日计划。
+6. **配对验证**：同源码、同种子、固定工作量，和当前 day horizon 比较；先看行动差异和事故避免，再看胜率。
+
+默认 AI 在配对验证通过前不切换。
+
 ## 之后
 
 - 控制局面通过后，再扩到公开 FS 根，然后 BTX。

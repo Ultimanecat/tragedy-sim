@@ -19,7 +19,7 @@ T0.1–T0.3已验收，T0.4进行中；每阶段验证、提交。
 | T0.3 混合策略 ✓ | [精确LP／Double Oracle](exact-day-mixed-strategies.md)、完整域最优回应与L/U/gap；未知保留区间。 |
 | T0.4 公平迁移（进行中） | [后验桥](public-posterior-day.md)、[兼容历史](compatible-history-day.md)、[原生信息集树](information-set-day.md)及[全域回应](information-set-responses.md)已实现；[常量子树压缩](constant-subtree-compression.md)已验收，公开FS根10秒档完成压缩前后对照，完整根域仍受缺失质量与黑方回应覆盖限制。 |
 | T1 续局价值 | [独立日末估值接口](continuation-value-interface.md)已建立，随机rollout基线、CLI接入和自对弈校准烟测完成。BTX01 5局全输：当日存活Brier 1.000，随机rollout 0.306；BTX01 `random`剧作家3局全赢：0.000／0.175；BTX06 1局：1.000／0.268；FS01 20局：0.879／0.308。Brier受胜负构成影响，样本小且随机策略有偏，不能据此选估值器。实际整局估值器、终猜概率叶值和配对验证待做。一次求解冻结效用及更新模型。对比烟测见 [BTX AI 对比](btx-ai-comparison-2026-10-23.md)。 |
-| T2 有限跨日 | [两日搜索设计](two-day-search-design.md)已写；先做控制局面两日递归，再扩公开FS/BTX。按授权观察更新witness／后验，保留资源与信息分支。 |
+| T2 有限跨日 | [两日搜索设计](two-day-search-design.md)已写；状态返回模拟器已确认存在（引擎转移`Game.transition`/`clone`），已新增`advance_to_day_boundary`保留日末状态（`tests/test_day_game_transition.py`）。下一步：日边界转移接口、候选黑列/红计划、2日滚动宏动作搜索、观察分支与信念更新。 |
 | T3 跨轮回 | 失败后重置棋盘并保留合法知识；真实整局终结置0/1，验证风险／信息取舍。 |
 
 最终目标为整局获胜概率；当日存活保留独立基准，不硬抬信息技能使用率。近似叶值仅支持给定模型内的结论。
