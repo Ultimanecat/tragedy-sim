@@ -59,6 +59,37 @@ def _boundary_terminal(game: Game, start_loop: int, start_round: int) -> str | N
     return None
 
 
+def advance_day_with_plans(world: Game, black_plan: Sequence[Mapping[str, Any]],
+                           red_plan: Sequence[Mapping[str, Any]], *,
+                           fallback: Policy | None = None,
+                           max_commands: int = 2048) -> DayTransitionResult:
+    """Advance one day while forcing the supplied card placements.
+
+    This is the first cross-day building block: black and red day plans are
+    explicit, and every other decision falls back to a caller policy. It is a
+    known-world transition; information-set branching belongs to the search
+    layer above it.
+    """
+    remaining_black = [dict(command) for command in black_plan]
+    remaining_red = [dict(command) for command in red_plan]
+    fallback = fallback or _first_legal
+
+    def policy(game: Game, actions: Sequence[Mapping[str, Any]]):
+        phase = game.state.phase
+        queue = (remaining_black if phase == "mastermind"
+                 else remaining_red if phase == "protagonists" else None)
+        if queue:
+            command = queue[0]
+            if command not in actions:
+                raise ValueError(f"day plan command is not legal in {phase}: {command}")
+            queue.pop(0)
+            return command
+        return fallback(game, actions)
+
+    return advance_to_day_boundary(world, policy, max_commands=max_commands,
+                                   policy_name="day_plans")
+
+
 def advance_to_day_boundary(world: Game, policy: Policy | None = None, *,
                             max_commands: int = 2048,
                             policy_name: str = "first_legal") -> DayTransitionResult:

@@ -4,7 +4,8 @@ import unittest
 
 from tests.test_day_game_information_game import rescue_root
 from tests.test_day_game_two_day import next_day_start
-from tragedy_sim.day_game.transition import advance_to_day_boundary
+from tragedy_sim.day_game.transition import (advance_day_with_plans,
+                                             advance_to_day_boundary)
 
 
 def nextish(game, actions):
@@ -39,6 +40,21 @@ class DayTransitionTests(unittest.TestCase):
     def test_invalid_game_is_rejected(self):
         with self.assertRaises(ValueError):
             advance_to_day_boundary(object())  # type: ignore[arg-type]
+
+    def test_day_plan_is_forced_and_reaches_boundary(self):
+        world = next_day_start()
+        actions = world.legal_actions(world.controller)
+        mastermind = world.transition(actions[0]).game
+        black_action = mastermind.legal_actions(mastermind.controller)[0]
+        result = advance_day_with_plans(world, [black_action], [], fallback=nextish)
+        self.assertIn(black_action, result.commands)
+        self.assertIn(result.terminal, {"survived_day", "loop_end"})
+
+    def test_illegal_day_plan_is_rejected(self):
+        world = next_day_start()
+        with self.assertRaises(ValueError):
+            advance_day_with_plans(world, [{"actor": "m", "action": "bogus"}], [],
+                                   fallback=nextish)
 
 
 if __name__ == "__main__":
