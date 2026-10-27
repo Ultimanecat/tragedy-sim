@@ -3,8 +3,10 @@
 import unittest
 
 from tragedy_sim.day_game.defense_capabilities import (
-    build_day_ability_plan, counter_reduction_capabilities, find_ability_option,
+    build_day_ability_plan, build_real_day_plan,
+    counter_reduction_capabilities, find_ability_option,
     plan_counter_defense, scenario_capabilities, schedule_ability_steps)
+from tragedy_sim.day_game.transition import advance_day_with_plans
 from tragedy_sim import Game
 from tragedy_sim.scenario_library import ScenarioLibrary
 
@@ -168,6 +170,56 @@ class DefenseCapabilityTests(unittest.TestCase):
         after = pending.transition(accept).game
         self.assertEqual(after.state.characters["rich"].paranoia, 1)
         self.assertEqual(after.state.characters["class_rep"].paranoia, 1)
+
+    def test_two_day_ability_chain_uses_real_engine(self):
+        scenario = btx01()
+
+        def nextish(game, actions):
+            return next((item for item in actions
+                         if item.get("action") in {"next", "resolve"}), actions[0])
+
+        def to_protagonists(game):
+            for _ in range(240):
+                if game.winner is not None or game.state.phase == "protagonists":
+                    return game
+                actions = game.legal_actions(game.controller)
+                if not actions:
+                    return game
+                game = game.transition(nextish(game, actions)).game
+            return game
+
+        game = to_protagonists(Game(scenario))
+        self.assertEqual(game.state.phase, "protagonists")
+        plan = plan_counter_defense(
+            scenario, game.protagonist_team_view(), target="rich", need=1)
+        scheduled = schedule_ability_steps(plan)
+        day1 = build_real_day_plan(game, scheduled.days[0],
+                                   avoid_targets=("rich", "class_rep"))
+        first = advance_day_with_plans(game, [], day1.card_plan, fallback=nextish)
+        self.assertTrue(first.next_day)
+
+        game2 = to_protagonists(first.state)
+        plan2 = plan_counter_defense(
+            scenario, game2.protagonist_team_view(), target="rich", need=1)
+        scheduled2 = schedule_ability_steps(plan2)
+        day2 = build_real_day_plan(game2, scheduled2.days[-1],
+                                   avoid_targets=("rich", "class_rep"))
+
+        def transfer_policy(game, actions):
+            if game.state.phase in {"goodwill", "refusal"}:
+                option = find_ability_option(
+                    game, effect_kind="transfer", source="rich", sink="class_rep")
+                if option in actions:
+                    return option
+            return nextish(game, actions)
+
+        second = advance_day_with_plans(game2, [], day2.card_plan,
+                                        fallback=transfer_policy)
+        self.assertTrue(second.next_day)
+        self.assertTrue(any(event.get("kind") == "goodwill_requested"
+                            and event.get("ability_kind") == "transfer"
+                            and event.get("source") == "forensic"
+                            for event in second.new_events))
 
 
 if __name__ == "__main__":

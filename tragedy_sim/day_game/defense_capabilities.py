@@ -261,6 +261,53 @@ class ScheduledAbilityPlan:
     blocked_reason: str | None = None
 
 
+def build_real_day_plan(world, steps: Sequence[CapabilityStep], *,
+                        plan_length: int = 3,
+                        avoid_targets: Sequence[str] = ()) -> DayAbilityPlan:
+    """Build a legal multi-seat plan on a concrete Game, one action at a time."""
+    current = world
+    chosen = []
+    used_targets = set()
+    avoided = set(avoid_targets)
+    pending = [step for step in steps
+               if step.kind in {"setup_goodwill", "move"}]
+    for _ in range(plan_length):
+        if current.state.phase != "protagonists":
+            return DayAbilityPlan(tuple(chosen), None, "left protagonist phase")
+        actions = [item for item in current.legal_actions(current.controller)
+                   if item.get("action") == "play"]
+        if not actions:
+            return DayAbilityPlan(tuple(chosen), None, "no legal card placement")
+        action = None
+        for step in list(pending):
+            if step.kind == "setup_goodwill":
+                action = next((item for item in actions
+                               if item.get("card") == step.card
+                               and item.get("target") == step.target), None)
+            elif step.kind == "move":
+                action = next((item for item in actions
+                               if item.get("card") in {"h", "v", "d"}
+                               and item.get("target") == step.target), None)
+            if action is not None and action["target"] not in used_targets:
+                pending.remove(step)
+                break
+            action = None
+        if action is None:
+            safe = [item for item in actions
+                    if item.get("target") not in used_targets
+                    and item.get("target") not in avoided
+                    and item.get("card") not in {"p1"}]
+            action = (safe or [item for item in actions
+                               if item.get("target") not in used_targets] or [None])[0]
+        if action is None:
+            return DayAbilityPlan(tuple(chosen), None, "no distinct filler target")
+        chosen.append(dict(action))
+        used_targets.add(action["target"])
+        current = current.transition(action).game
+    effect = next((step for step in steps if step.kind == "use_transfer"), None)
+    return DayAbilityPlan(tuple(chosen), effect)
+
+
 def find_ability_option(game, *, effect_kind: str, source: str | None = None,
                         sink: str | None = None):
     """Find the goodwill-phase ``choose`` action for a planned ability effect."""
