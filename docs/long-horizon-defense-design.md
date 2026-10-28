@@ -2,6 +2,8 @@
 
 大小姐第 5 天自杀是一个代表案例：失败不是当天才知道，而是前几天的计数已经把它推到阈值。只优化当天搜索，看不到这种跨日目标。
 
+短期和长期如何共同估值见 [防守估值平衡设计](defense-value-balance-design.md)；能力链细节见 [防守能力模型](defense-capability-design.md)。
+
 ## 一、把事故变成防守义务
 
 对每个未来事故生成 `IncidentObligation`：
