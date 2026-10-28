@@ -117,28 +117,32 @@ score = hard_ok * 1000
 
 ## 实现计划
 
+状态（2026-10-28）：P0、P1、P2 的纯函数骨架已实现并有专项测试；尚未接行动层。
+
 ### P0 威胁分类
 
-- 从 `BeliefSnapshot.known_roles`、硬 witness 和 `known_culprits` 生成 `ThreatAssessment`。
-- 区分 `hard` 和 `posterior`。
-- 先支持死亡、计数事故和 key 保护。
+已实现 `tragedy_sim/day_game/threats.py`：
+
+- `ThreatAssessment`：目标、失败类型、角色、置信度、严重度、截止日、是否活跃、硬/后验来源。
+- `classify_threats`：硬角色（`known_roles`）与粒子后验分开；key/friend/time_traveler 为保护目标，killer/serial 为威胁来源；只有已知事故责任人触发事故威胁，不读剧本真值。
+- 同区域威胁决定 `active_now`。
 
 验收：控制局中能标出已知杀手、已知 key、未知可能杀手。
 
 ### P1 硬约束过滤
 
-- 加 `HardThreatFilter`：存在可防的已知立即失败时，只保留能防的动作。
-- 记录过滤前后候选数和命中动作。
+- 已实现 `filter_hard_actions`：调用方给每个动作的覆盖目标，存在活跃硬威胁时只保留覆盖至少一个硬目标的动作；无可行防守时返回全部动作并标记 `feasible=False`。
+- 这条过滤不硬编码具体卡牌；卡牌到威胁目标的覆盖由行动层提供。
 
-验收：已知杀手场景中，硬过滤不会为了低概率未知威胁放弃已知防守。
+验收：硬威胁存在且覆盖可算时，只保留覆盖至少一个硬目标的动作；无可行解时回退全部动作。纯函数测试已覆盖。
 
 ### P2 生存饱和与长期预算
 
-- 生存分改为 `min(1, survival / target)`。
-- 无硬威胁时保留一张长期牌。
-- 长期分接现有义务和 ability chain 进度。
+- 已实现 `satisficed_survival`：`min(1, probability / target)`，超过目标不再加分。
+- 已实现 `DefenseValue`／`score_defense_value`：硬约束主项 + 生存饱和 + 长期 + 信息 + 终猜 - 期望损失。
+- 长期预算（无硬威胁时保留一张牌）仍待接行动层。
 
-验收：
+验收（长期预算待完成）：
 
 - 已知长期自杀风险 vs 未知低概率杀人狂：优先长期铺垫。
 - 已知立即杀手：优先硬防守。
