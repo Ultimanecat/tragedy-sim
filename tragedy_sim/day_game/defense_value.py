@@ -145,3 +145,66 @@ def final_guess_value(snapshot: BeliefSnapshot | None,
     probabilities = [max(distribution.get(cid, {"?": 0.0}).values())
                      for cid in alive]
     return sum(probabilities) / len(probabilities)
+
+
+@dataclass(frozen=True)
+class DefenseCandidate:
+    action: Any
+    survival: float
+    long_term: float
+    information: float
+    final_guess: float
+    expected_loss: float
+    covered_targets: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class DefenseSelection:
+    chosen: DefenseCandidate | None
+    hard_ok: bool
+    filter: HardThreatFilterResult
+    scores: tuple[tuple[Any, float], ...]
+    reason: str
+
+
+def select_defense_action(candidates: Sequence[DefenseCandidate],
+                          threats: Sequence[ThreatAssessment], *,
+                          weights: DefenseValueWeights = DefenseValueWeights(),
+                          survival_target: float = 0.8) -> DefenseSelection:
+    """Apply hard filtering, then rank candidates by the layered value."""
+    if not candidates:
+        return DefenseSelection(None, False, filter_hard_actions((), threats, {}),
+                                (), "no_candidates")
+    actions = [candidate.action for candidate in candidates]
+    coverage = {candidate.action: candidate.covered_targets
+                for candidate in candidates}
+    hard_filter = filter_hard_actions(actions, threats, coverage)
+    allowed = set(hard_filter.allowed)
+    feasible_hard = hard_filter.feasible
+    scored = []
+    for candidate in candidates:
+        hard_ok = (not hard_filter.filtered
+                   or (feasible_hard and candidate.action in allowed))
+        value = DefenseValue(
+            hard_ok=hard_ok,
+            survival=candidate.survival,
+            long_term=candidate.long_term,
+            information=candidate.information,
+            final_guess=candidate.final_guess,
+            expected_loss=candidate.expected_loss)
+        scored.append((candidate, score_defense_value(
+            value, weights, survival_target=survival_target)))
+    chosen = max(scored, key=lambda item: (item[1], -len(str(item[0].action))))[0]
+    chosen_hard_ok = (not hard_filter.filtered
+                      or (feasible_hard and chosen.action in allowed))
+    if hard_filter.filtered and not feasible_hard:
+        reason = "hard_infeasible"
+    elif hard_filter.filtered:
+        reason = "hard_filtered"
+    else:
+        reason = "soft_rank"
+    return DefenseSelection(
+        chosen=chosen, hard_ok=chosen_hard_ok,
+        filter=hard_filter,
+        scores=tuple((candidate.action, score) for candidate, score in scored),
+        reason=reason)

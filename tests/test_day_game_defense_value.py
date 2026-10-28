@@ -3,9 +3,9 @@
 import unittest
 
 from tragedy_sim.day_game.defense_value import (
-    DefenseValue, DefenseValueWeights, deadline_urgency, filter_hard_actions,
-    final_guess_value, information_value, long_term_slots,
-    satisficed_survival, score_defense_value)
+    DefenseCandidate, DefenseValue, DefenseValueWeights, deadline_urgency,
+    filter_hard_actions, final_guess_value, information_value, long_term_slots,
+    satisficed_survival, score_defense_value, select_defense_action)
 from tragedy_sim.day_game.threats import ThreatAssessment
 
 
@@ -106,6 +106,54 @@ class LongTermAndInfoTests(unittest.TestCase):
         self.assertGreater(information_value(known, view), information_value(mixed, view))
         self.assertAlmostEqual(final_guess_value(known, view), 1.0)
         self.assertAlmostEqual(final_guess_value(mixed, view), 0.5)
+
+
+class PairedSelectionTests(unittest.TestCase):
+    @staticmethod
+    def candidate(action, *, survival, long_term, covered=()):
+        return DefenseCandidate(
+            action, survival=survival, long_term=long_term,
+            information=0.0, final_guess=0.0, expected_loss=0.0,
+            covered_targets=frozenset(covered))
+
+    def test_known_threat_beats_better_long_term_candidate(self):
+        candidates = [
+            self.candidate("cover", survival=0.2, long_term=0.0, covered=("girl",)),
+            self.candidate("safe", survival=1.0, long_term=5.0),
+        ]
+        result = select_defense_action(candidates, (threat(),))
+        self.assertEqual(result.chosen.action, "cover")
+        self.assertTrue(result.hard_ok)
+        self.assertEqual(result.reason, "hard_filtered")
+
+    def test_without_hard_threat_long_term_wins_after_survival_saturates(self):
+        candidates = [
+            self.candidate("survive", survival=0.95, long_term=0.1),
+            self.candidate("setup", survival=0.8, long_term=2.0),
+        ]
+        result = select_defense_action(candidates, ())
+        self.assertEqual(result.chosen.action, "setup")
+        self.assertTrue(result.hard_ok)
+        self.assertEqual(result.reason, "soft_rank")
+
+    def test_infeasible_hard_threat_falls_back_to_soft_rank(self):
+        candidates = [
+            self.candidate("safe", survival=1.0, long_term=5.0),
+            self.candidate("other", survival=0.2, long_term=0.0),
+        ]
+        result = select_defense_action(candidates, (threat(),))
+        self.assertEqual(result.chosen.action, "safe")
+        self.assertFalse(result.hard_ok)
+        self.assertEqual(result.reason, "hard_infeasible")
+
+    def test_inactive_hard_threat_does_not_filter(self):
+        candidates = [
+            self.candidate("survive", survival=0.9, long_term=3.0),
+            self.candidate("other", survival=0.9, long_term=0.0),
+        ]
+        result = select_defense_action(candidates, (threat(active=False),))
+        self.assertEqual(result.chosen.action, "survive")
+        self.assertEqual(result.reason, "soft_rank")
 
 
 if __name__ == "__main__":
