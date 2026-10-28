@@ -3,9 +3,10 @@
 import unittest
 
 from tragedy_sim.day_game.defense_value import (
-    DefenseCandidate, DefenseValue, DefenseValueWeights, deadline_urgency,
-    filter_hard_actions, final_guess_value, information_value, long_term_slots,
-    satisficed_survival, score_defense_value, select_defense_action)
+    DefenseCandidate, DefenseLeafEstimator, DefenseValue, DefenseValueWeights,
+    deadline_urgency, filter_hard_actions, final_guess_value,
+    information_value, long_term_slots, satisficed_survival,
+    score_defense_value, select_defense_action)
 from tragedy_sim.day_game.threats import ThreatAssessment
 
 
@@ -154,6 +155,32 @@ class PairedSelectionTests(unittest.TestCase):
         result = select_defense_action(candidates, (threat(active=False),))
         self.assertEqual(result.chosen.action, "survive")
         self.assertEqual(result.reason, "soft_rank")
+
+
+class LeafEstimatorTests(unittest.TestCase):
+    @staticmethod
+    def fake_game(winner):
+        return type("FakeGame", (), {
+            "winner": winner,
+            "protagonist_team_view": lambda self: {"characters": {
+                "girl": {"alive": True}, "rich": {"alive": True}}},
+        })()
+
+    def test_winner_score_orders_protagonists_above_mastermind(self):
+        estimator = DefenseLeafEstimator()
+        self.assertGreater(estimator(self.fake_game("protagonists")),
+                           estimator(self.fake_game("mastermind")))
+
+    def test_known_snapshot_raises_leaf_value(self):
+        from types import SimpleNamespace
+        from tragedy_sim.composition import BeliefSnapshot
+        known = BeliefSnapshot((), None, known_roles={"girl": "key", "rich": "killer"})  # type: ignore[arg-type]
+        worlds = (SimpleNamespace(roles={"girl": "key", "rich": "ordinary"}),
+                  SimpleNamespace(roles={"girl": "ordinary", "rich": "killer"}))
+        mixed = BeliefSnapshot(worlds, None)  # type: ignore[arg-type]
+        game = self.fake_game(None)
+        self.assertGreater(DefenseLeafEstimator(known)(game),
+                           DefenseLeafEstimator(mixed)(game))
 
 
 if __name__ == "__main__":

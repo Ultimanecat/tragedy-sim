@@ -208,3 +208,37 @@ def select_defense_action(candidates: Sequence[DefenseCandidate],
         filter=hard_filter,
         scores=tuple((candidate.action, score) for candidate, score in scored),
         reason=reason)
+
+
+@dataclass(frozen=True)
+class DefenseLeafEstimator:
+    """Callable leaf value for ``search_two_day(leaf_value=...)``.
+
+    The estimator only reads the public view and an optional belief snapshot.
+    It is a diagnostic adapter for the known-world two-day search; fair hidden
+    information still has to come through the snapshot.
+    """
+    snapshot: BeliefSnapshot | None = None
+    weights: DefenseValueWeights = DefenseValueWeights()
+    survival_target: float = 0.8
+    long_term: float = 0.0
+    expected_loss: float = 0.0
+
+    def __call__(self, game) -> float:
+        view = game.protagonist_team_view()
+        winner = game.winner
+        if winner == "protagonists":
+            survival = 1.0
+        elif winner == "mastermind":
+            survival = 0.0
+        else:
+            survival = 0.5
+        value = DefenseValue(
+            hard_ok=True,
+            survival=survival,
+            long_term=self.long_term,
+            information=information_value(self.snapshot, view),
+            final_guess=final_guess_value(self.snapshot, view),
+            expected_loss=self.expected_loss)
+        return score_defense_value(
+            value, self.weights, survival_target=self.survival_target)
