@@ -10,7 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Collection, Mapping, Sequence
 
-from .threats import ThreatAssessment
+from ..composition import BeliefSnapshot
+from .threats import ThreatAssessment, role_distribution
 
 
 @dataclass(frozen=True)
@@ -86,3 +87,61 @@ def score_defense_value(value: DefenseValue,
             + weights.information * value.information
             + weights.final_guess * value.final_guess
             - weights.expected_loss * value.expected_loss)
+
+
+def long_term_slots(*, hard_threat: bool, cards_per_day: int = 1) -> int:
+    """Reserve card slots for long-term work when no hard threat is active."""
+    if type(cards_per_day) is not int or cards_per_day < 0:
+        raise ValueError("cards_per_day must be a non-negative integer")
+    if hard_threat:
+        return 0
+    return cards_per_day
+
+
+def deadline_urgency(deadline: int | None, current_day: int, *,
+                     horizon: int = 3) -> float:
+    """Urgency rises as a deadline approaches; past deadlines are 1.0."""
+    if type(current_day) is not int or type(horizon) is not int or horizon < 1:
+        raise ValueError("current_day and horizon must be valid integers")
+    if deadline is None:
+        return 0.0
+    lead = int(deadline) - current_day
+    if lead <= 0:
+        return 1.0
+    return max(0.0, 1.0 - lead / (horizon + 1))
+
+
+def information_value(snapshot: BeliefSnapshot | None,
+                      view: Mapping[str, Any]) -> float:
+    """Known-role fraction plus posterior concentration, averaged over alive cast."""
+    distribution = role_distribution(snapshot)
+    if not distribution:
+        return 0.0
+    characters = view.get("characters", {})
+    alive = [cid for cid, state in characters.items()
+             if isinstance(state, Mapping) and state.get("alive", False)]
+    if not alive:
+        return 0.0
+    known = getattr(snapshot, "known_roles", {}) if snapshot is not None else {}
+    known_fraction = sum(cid in known for cid in alive) / len(alive)
+    concentrations = []
+    for cid in alive:
+        probabilities = distribution.get(cid, {})
+        concentrations.append(max(probabilities.values()) if probabilities else 0.0)
+    return 0.5 * known_fraction + 0.5 * sum(concentrations) / len(concentrations)
+
+
+def final_guess_value(snapshot: BeliefSnapshot | None,
+                      view: Mapping[str, Any]) -> float:
+    """Mean top-role probability over alive characters, a cheap guess proxy."""
+    distribution = role_distribution(snapshot)
+    if not distribution:
+        return 0.0
+    characters = view.get("characters", {})
+    alive = [cid for cid, state in characters.items()
+             if isinstance(state, Mapping) and state.get("alive", False)]
+    if not alive:
+        return 0.0
+    probabilities = [max(distribution.get(cid, {"?": 0.0}).values())
+                     for cid in alive]
+    return sum(probabilities) / len(probabilities)

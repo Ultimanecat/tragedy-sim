@@ -3,8 +3,9 @@
 import unittest
 
 from tragedy_sim.day_game.defense_value import (
-    DefenseValue, DefenseValueWeights, filter_hard_actions, satisficed_survival,
-    score_defense_value)
+    DefenseValue, DefenseValueWeights, deadline_urgency, filter_hard_actions,
+    final_guess_value, information_value, long_term_slots,
+    satisficed_survival, score_defense_value)
 from tragedy_sim.day_game.threats import ThreatAssessment
 
 
@@ -77,6 +78,34 @@ class DefenseValueScoreTests(unittest.TestCase):
                                       hard_bonus=100)
         expected = 100 + 2 * 1.0 + 2 * 0.5 - 4 * 0.25
         self.assertAlmostEqual(score_defense_value(value, weights), expected)
+
+
+class LongTermAndInfoTests(unittest.TestCase):
+    def test_long_term_slots_are_reserved_only_without_hard_threat(self):
+        self.assertEqual(long_term_slots(hard_threat=False), 1)
+        self.assertEqual(long_term_slots(hard_threat=True), 0)
+        with self.assertRaises(ValueError):
+            long_term_slots(hard_threat=False, cards_per_day=-1)
+
+    def test_deadline_urgency_increases_near_deadline(self):
+        self.assertEqual(deadline_urgency(5, 4, horizon=3), 0.75)
+        self.assertEqual(deadline_urgency(5, 5, horizon=3), 1.0)
+        self.assertEqual(deadline_urgency(5, 6, horizon=3), 1.0)
+        self.assertEqual(deadline_urgency(None, 4), 0.0)
+        self.assertEqual(deadline_urgency(9, 1, horizon=3), 0.0)
+
+    def test_information_and_final_guess_favor_known_roles(self):
+        from types import SimpleNamespace
+        from tragedy_sim.composition import BeliefSnapshot
+        view = {"characters": {
+            "girl": {"alive": True}, "rich": {"alive": True}}}
+        known = BeliefSnapshot((), None, known_roles={"girl": "key", "rich": "killer"})  # type: ignore[arg-type]
+        worlds = (SimpleNamespace(roles={"girl": "key", "rich": "ordinary"}),
+                  SimpleNamespace(roles={"girl": "ordinary", "rich": "killer"}))
+        mixed = BeliefSnapshot(worlds, None)  # type: ignore[arg-type]
+        self.assertGreater(information_value(known, view), information_value(mixed, view))
+        self.assertAlmostEqual(final_guess_value(known, view), 1.0)
+        self.assertAlmostEqual(final_guess_value(mixed, view), 0.5)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,9 @@ from .plan_search import (TwoDaySearchResult, black_day_plans,
                           evaluate_day1_pair, red_day_plans, search_two_day)
 from .two_day import KnownWorldTwoDaySolver, TwoDayResult
 from .defense_value import (DefenseValue, DefenseValueWeights,
-                            HardThreatFilterResult, filter_hard_actions,
+                            HardThreatFilterResult, deadline_urgency,
+                            filter_hard_actions, final_guess_value,
+                            information_value, long_term_slots,
                             satisficed_survival, score_defense_value)
 from .threats import (ThreatAssessment, classify_threats, role_distribution)
 from .transition import (DayTransitionResult, TwoDayTransitionResult,
@@ -42,5 +44,6 @@ __all__ = ["CompleteCardSpace", "engine_red_bundles", "DayContinuationSolver",
            "ThreatAssessment", "classify_threats", "role_distribution",
            "DefenseValue", "DefenseValueWeights", "HardThreatFilterResult",
            "filter_hard_actions", "satisficed_survival", "score_defense_value",
+           "long_term_slots", "deadline_urgency", "information_value", "final_guess_value",
            "BoundaryContext", "ContinuationEvaluator", "DaySurvivalEvaluator", "RandomRolloutEvaluator",
            "UnknownEvaluator", "ValueEstimate", "boundary_context"]
