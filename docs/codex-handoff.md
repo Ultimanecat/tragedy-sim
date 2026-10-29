@@ -16,6 +16,7 @@
 - 已确认单因素暗牌遗漏：FS01 seed2根中保护性的“职员不安−1”掩盖“女学生斜移＋职员不减不安”的联合攻击。四组控制结算评分／引擎一致，见 [因果报告](joint-dark-probe-miss.md)。尚未证明该根有统一必胜防守，优先全域对抗验收，勿只调身份概率。
 - T1已启动：[续局价值接口](continuation-value-interface.md)已建立，T0兼容评估器、随机rollout基线、CLI接入和失败关闭规则通过9项专项测试。校准烟测：BTX01 5局全输当日存活Brier 1.000、随机rollout 0.306；BTX01 `random`剧作家3局全赢0.000／0.175；BTX06 1局1.000／0.268；FS01 20局0.879／0.308。Brier受胜负构成影响，样本小且随机策略有偏，不能据此选默认估值器。后续基线默认BTX，FS作为支线。实际整局估值器、终猜概率叶值及10seed配对验证未做。默认AI未改。
 - T2已完成诊断层：状态返回日转移、显式日计划、两日转移、已知世界受限两日搜索、公开观察分支与后验重采样、能力链提取和多日铺垫。能力防守整局10种子与普通粒子5/10对5/10，净胜0，未接默认AI。见 [两日搜索设计](two-day-search-design.md)和 [防守能力模型](defense-capability-design.md)。
+- 代码一致性审查（2026-10-29）：四份分报告 [day_game](review-day-game.md)、[AI](review-ai.md)、[引擎](review-engine.md)、[服务](review-service.md)，汇总与修复台账见 [审查汇总](code-review-consistency.md)。已修：幻想版图回声重复计入禁止密谋；剧本指定从者/手下初始区域未生效；`DefenseLeafEstimator` 恒等叶值；两日转移失败终局被叶值覆盖；`PublicStateDeterminizer` 只允许主人公阶段导致日初粒子恒空；`secret_dossier` 对 `initial_location` KeyError；GUI/CLI 缺 AHR 里身份；CLI `--lang` 与 AHR 终猜键；4 项 `loop_options` IndexError；伪 Bearer 解锁高限流；BTX 日终分数二次变换。全部带回归测试，全量 1197 项通过。
 - T4已实现组件和测试：[防守估值平衡设计](defense-value-balance-design.md)。P0威胁分类、P1硬约束过滤、P2生存饱和/长期槽位/截止紧迫度、P3信息/终猜近似、P4决策级配对、P5叶值适配器，专项25项通过。整局配对结论暂不成立：旧对照使用`time_limit_ms=2000`，同种子不可重复；固定节点seed0截断显示普通粒子和能力策略都先输“主人公死亡”，能力策略固定押注第5天大小姐自杀。默认AI不切换，待接`classify_threats`并按截止日选目标后重跑。
 - 当前无在途评测，不再轮询旧句柄。历史版本、实验数字、旧任务ID与原交接全文见 [归档](archive/README.md)；`references/`中的本机原始资料不会随新clone提供。
 

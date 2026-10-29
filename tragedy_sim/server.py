@@ -387,7 +387,10 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
     return Handler
 
 
-def create_server(host="127.0.0.1", port=8765, *, service=None, room_service=None, allowed_origins=(),
+DEFAULT_PORT = 8765
+
+
+def create_server(host="127.0.0.1", port=DEFAULT_PORT, *, service=None, room_service=None, allowed_origins=(),
                   static_root: str | Path | None = DEFAULT_WEB_ROOT):
     service = service or GameService()
     room_service = room_service or RoomService(service)
@@ -408,7 +411,7 @@ def _lan_addresses(port: int) -> list[str]:
     return [f"http://{address}:{port}/" for address in sorted(addresses)]
 
 
-def serve(host="127.0.0.1", port=8765, *, allowed_origins=(), lan=False):
+def serve(host="127.0.0.1", port=DEFAULT_PORT, *, allowed_origins=(), lan=False):
     server = create_server(host, port, allowed_origins=allowed_origins)
     port = server.server_port
     print(f"Tragedy Sim Web：http://127.0.0.1:{port}/")
@@ -434,7 +437,7 @@ def serve(host="127.0.0.1", port=8765, *, allowed_origins=(), lan=False):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="悲剧轮回 JSON/HTTP 游戏服务")
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--allow-origin", action="append", default=[])
     parser.add_argument("--lan", action="store_true", help="监听局域网并显示可分享地址")
     args = parser.parse_args(argv)

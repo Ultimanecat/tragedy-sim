@@ -11,7 +11,7 @@ def _can_target_action(self, actor, target):
 def play(self, actor, card_id, target):
     if target in self.state.characters and (not self._can_target_action(actor, target)):
         if actor == 'm':
-            raise RuleError('预言家在场时，剧作家不能向其放置行动牌')
+            raise RuleError('该角色当前不能被剧作家放置行动牌')
         raise RuleError('伪造事件生效后，主人公本轮不能向有 Ex 牌的角色放置行动牌')
     ActionGame.play(self, actor, card_id, target)
 
@@ -33,8 +33,8 @@ def _intrigue_forbids_cancel(self, count):
     return ActionGame._intrigue_forbids_cancel(self, count)
 
 def _has(self, cid, role):
-    if (not self.state.characters[cid].present
-            or (not self.state.characters[cid].alive and (not False))):
+    character = self.state.characters[cid]
+    if not character.present or not character.alive:
         return False
     return self.roles[cid] == role or (self.roles[cid] == 'factor' and (role == 'key' and self.state.locations['city'] >= 2 or (role == 'conspiracy' and self.state.locations['school'] >= 2)))
 

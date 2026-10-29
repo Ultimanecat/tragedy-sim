@@ -1,6 +1,6 @@
 # AI 路线图（2026-10-18）
 
-本页只维护现状、下一步和验收标准。算法与论文见 [核心设计](certified-day-game-design.md)，开发入口见 [交接说明](codex-handoff.md)，历史实验见 [归档](archive/README.md)。
+本页只维护现状、下一步和验收标准。算法与论文见 [核心设计](certified-day-game-design.md)，开发入口见 [交接说明](codex-handoff.md)，历史实验见 [归档](archive/README.md)，代码一致性审查见 [审查汇总](code-review-consistency.md)。
 
 ## 当前状态
 

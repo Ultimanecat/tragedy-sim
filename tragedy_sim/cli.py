@@ -186,6 +186,7 @@ def practice_main(argv: list[str] | None = None) -> int:
             print(f"无法执行：{exc}")
 
 
+DEFAULT_PORT = 8765
 MATCH_PHASES = {**PHASES, "day_start": "日初", "action_counters": "行动结算能力窗口",
                 "master_abilities": "剧作家能力", "goodwill": "友好能力", "refusal": "确认友好能力结算",
                 "incident": "事件", "decision": "等待必要选择", "day_end": "日末可选能力",
@@ -464,10 +465,9 @@ def main(argv=None):
     source.add_argument("--serve", action="store_true", help="启动版本化 JSON/HTTP 游戏服务")
     source.add_argument("--host-room", action="store_true", help="启动局域网房间服务并显示手机访问地址")
     parser.add_argument("--host", default="127.0.0.1", help="HTTP 服务监听地址（默认仅本机）")
-    parser.add_argument("--port", type=int, default=8765, help="HTTP 服务端口")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="HTTP 服务端口")
     parser.add_argument("--allow-origin", action="append", default=[], help="允许的浏览器 Origin，可重复指定")
-    parser.add_argument("--practice", action="store_true", help="仅练习出牌（独立模式）")
-    parser.add_argument("--gui", action="store_true", help="打开本地热座桌面窗口")
+    # --practice / --gui are handled before parsing (they switch entry points).
     args = parser.parse_args(argv)
     if args.serve or args.host_room:
         if not 1 <= args.port <= 65535:
