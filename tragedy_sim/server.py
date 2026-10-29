@@ -75,7 +75,10 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
 
         def _stream_room_events(self, code: str, room_revision: int, game_revision: int) -> None:
             # Validate the room and credential before committing the streaming response.
-            initial = rooms.get(code, token=self._token())
+            token = self._token()
+            initial = rooms.get(code, token=token)
+            if not token and not initial["room"]["spectators"]:
+                raise ServiceError("FORBIDDEN", "该房间不允许旁观", status=403)
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
             self.send_header("Cache-Control", "no-store")

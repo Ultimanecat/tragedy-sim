@@ -741,8 +741,12 @@ class ConstraintBeliefSampler:
             if has_soft:
                 score = matcher.soft_score(hypothesis, witnesses)
                 # Keep every explanation possible while sampling worlds that
-                # explain repeated public phenomena more often.
-                if rng.random() >= min(1.0, 0.005 * (2.0 ** (score / 2.0))):
+                # explain repeated public phenomena more often. The acceptance
+                # curve is a hand-tuned proposal prior; see
+                # SOFT_WITNESS_ACCEPTANCE_* below.
+                acceptance = min(1.0, SOFT_WITNESS_ACCEPTANCE_BASE
+                                 * (2.0 ** (score / SOFT_WITNESS_ACCEPTANCE_SCALE)))
+                if rng.random() >= acceptance:
                     continue
             signature = (hypothesis.main_plot, hypothesis.subplots,
                          hypothesis.roles, hypothesis.incidents)
@@ -1475,8 +1479,30 @@ class FactorizedBeliefState:
                                       None if worlds else "composition_invalid")
 
 
+# Soft-witness acceptance curve used by the constrained sampler. A world whose
+# soft score is 0 is accepted with probability BASE; each SCALE points of soft
+# score double the acceptance rate, capped at 1. These are hand-tuned proposal
+# weights (they shape sampling, not evidence strength).
+SOFT_WITNESS_ACCEPTANCE_BASE = 0.005
+SOFT_WITNESS_ACCEPTANCE_SCALE = 2.0
+
+
+# Hand-tuned proposal prior for "the mastermind repeats earlier plays".
+# These values only shape which legal world is sampled, never the witness
+# evidence; they are module constants so the priors are auditable and testable.
+DARK_CARD_HISTORY_WEIGHT_BASE = 6.0
+DARK_CARD_HISTORY_SAME_DAY_MULTIPLIER = 1.5
+DARK_CARD_HISTORY_AGE_DECAY = 0.85
+DARK_CARD_HISTORY_UNIFORM_FRACTION = 0.25
+
+
 class DarkCardBelief:
     """Draw only currently hidden card faces, conditional on public hand data."""
+
+    HISTORY_WEIGHT_BASE = DARK_CARD_HISTORY_WEIGHT_BASE
+    HISTORY_SAME_DAY_MULTIPLIER = DARK_CARD_HISTORY_SAME_DAY_MULTIPLIER
+    HISTORY_AGE_DECAY = DARK_CARD_HISTORY_AGE_DECAY
+    HISTORY_UNIFORM_FRACTION = DARK_CARD_HISTORY_UNIFORM_FRACTION
 
     @staticmethod
     def historical_bundle(pending: Sequence[Mapping[str, Any]],
@@ -1579,7 +1605,9 @@ class DarkCardBelief:
                 if isinstance(target, str) and isinstance(card, str):
                     key = (target, card)
                     weights[key] = weights.get(key, 0.0) + (
-                        6.0 * (1.5 if same_day else 1.0) * 0.85 ** (age - 1))
+                        DarkCardBelief.HISTORY_WEIGHT_BASE
+                        * (DarkCardBelief.HISTORY_SAME_DAY_MULTIPLIER if same_day else 1.0)
+                        * DarkCardBelief.HISTORY_AGE_DECAY ** (age - 1))
         return weights
 
     @staticmethod
@@ -1587,7 +1615,7 @@ class DarkCardBelief:
                hands: Mapping[str, list[str]], *,
                rng: random.Random,
                historical_weights: Mapping[tuple[str, str], float] | None = None,
-               uniform_fraction: float = 0.25,
+               uniform_fraction: float = DARK_CARD_HISTORY_UNIFORM_FRACTION,
                force_history: bool = False,
                historical_cards: Mapping[int, str] | None = None,
                card_domains: Mapping[int, set[str]] | None = None,

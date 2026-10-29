@@ -19,7 +19,7 @@ from tragedy_sim.day_game.defense_capabilities import (
     schedule_ability_steps)
 from tragedy_sim.day_game.defense_value import (
     DefenseCandidate, long_term_slots, select_defense_action)
-from tragedy_sim.day_game.threats import earliest_incident_lead
+from tragedy_sim.day_game.threats import public_incidents
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
@@ -29,9 +29,11 @@ class DefensePolicy:
     controls_protagonist_team = True
     uses_public_view = True
 
-    def __init__(self, scenario, seed: int, setup_lead: int = 2):
+    def __init__(self, scenario, seed: int, setup_lead: int = 2,
+                 target_incident: str = "suicide"):
         self.scenario = scenario
         self.setup_lead = setup_lead
+        self.target_incident = target_incident
         self.base = ParticleEnsembleProtagonistAgent(
             SearchBudget(node_limit=24, rollout_depth=12, time_limit_ms=None, seed=seed),
             particle_count=8, rng_seed=seed)
@@ -54,11 +56,15 @@ class DefensePolicy:
         forensic = view.get("characters", {}).get("forensic", {})
         if not rich.get("alive", True) or not forensic.get("alive", True):
             return None
-        # Public schedule gating: only start the multi-day setup when an
-        # incident is close.  Without this the policy burns cards on day 1
-        # for a day-5 event and loses to earlier losses.
-        lead = earliest_incident_lead(view)
-        if lead is None or lead > self.setup_lead:
+        # Target selection from the public schedule: the chain exists for the
+        # rich character's suicide incident, so prepare only when that kind of
+        # incident is close. Other incidents are left to the particle planner.
+        target_lead = None
+        for incident in public_incidents(view):
+            if incident.lead >= 0 and incident.kind == self.target_incident:
+                target_lead = incident.lead
+                break
+        if target_lead is None or target_lead > self.setup_lead:
             return None
         plan = plan_counter_defense(self.scenario, view, target="rich", need=1)
         if plan.capability is None or plan.blocked_reason:

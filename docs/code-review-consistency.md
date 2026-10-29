@@ -62,6 +62,7 @@
 | `8e83dab` | `PublicStateDeterminizer` 硬编码只允许 `protagonists` 阶段，日初重建粒子永远为空；`role_distribution` 已知角色覆盖后验；新增公开事故时间表 API。 |
 | `0e226ec` | 幻想版图回声重复计入禁止密谋；剧本指定的从者/手下初始区域未写入 `_loop_initial_locations`；`DefenseLeafEstimator` 恒等叶值；`advance_two_days` 失败终局被叶值覆盖；`lost` 混入 `final_guess`；`_first_legal` 取 `actions[0]`；`plan_counter_defense` 静默丢弃非 transfer 能力；`resample_branch` 粒子数默认不一致；`plan_search` 文档与行为不符。 |
 | 本轮后续 | `oracle_protagonist` BTX 日终分数二次线性变换；`belief.py` 死分支；`belief.py` 角色数阈值具名化；`belief_planner` `part_timer` 回填；能力诊断脚本纳入 `benchmarks/`；`secret_dossier` 对 `initial_location`/`role_source` 的 KeyError 与 `part_timer_question` 缺键；GUI/CLI 缺 AHR 里身份；CLI `--lang` 未接入视图与 AHR 终猜键；4 项 `loop_options` 的 `IndexError`；伪 Bearer 解锁高限流；MZ+ 宣称动词；witness 死亡线索漏 `revived`/`character_arrived`。 |
+| `ed1359b` 与本轮 | 删除 `ismcts` 的 `legacy_joint_search` 死分支与 `_legacy_bundle`；软 witness 接受曲线与暗牌历史先验抽成具名常量；`plan_search` 的三牌/64 步/候选上限参数化并写进结果；SSE 事件流在房间禁止旁观时要求有效令牌；`common/roles` 的 `(not False)` 与预言家报错文本；`--practice`/`--gui` 重复 parser 参数；`DEFAULT_PORT` 常量；能力诊断按公开事故类型选择目标，不再只看最早事故。 |
 
 修复都带回归测试：
 

@@ -42,16 +42,12 @@ class IsmctsProtagonistAgent(PublicBeliefPlanner):
 
     def __init__(self, budget: SearchBudget | None = None, *,
                  particle_count: int = 16, rng_seed: int = 0,
-                 legacy_joint_search: bool = False,
                  survival_first: bool = False):
         super().__init__(budget, particle_count=particle_count,
                          rng_seed=rng_seed, survival_first=survival_first)
-        self.legacy_joint_search = legacy_joint_search
 
     @property
     def plan_name(self) -> str:
-        if self.legacy_joint_search:
-            return "public_fs_btx_team_so_ismcts_legacy"
         if self.survival_first:
             return "public_fs_btx_team_survival_ismcts"
         return "public_fs_btx_team_so_ismcts"
@@ -227,34 +223,6 @@ class IsmctsProtagonistAgent(PublicBeliefPlanner):
                 break
         return tuple(commands)
 
-    def _legacy_bundle(self, particle: Game, first: dict[str, Any],
-                       rng: random.Random
-                       ) -> tuple[tuple[dict[str, Any], ...], Game]:
-        commands = []
-        world = particle
-        selected = first
-        for _ in range(3):
-            commands.append(dict(selected))
-            world = world.search_transition(selected)
-            if world.state.phase != "protagonists":
-                break
-            actions = [action for action in world.search_actions(world.controller)
-                       if action.get("action") == "play"]
-            if not actions:
-                break
-            offers = [{
-                "id": _key(action), "actor": action["actor"],
-                "type": action["action"],
-                "parameters": {key: value for key, value in action.items()
-                               if key not in {"actor", "action"}},
-            } for action in actions]
-            chosen = DefensiveProtagonistAgent(rng).choose_action(
-                participant="team", view=world.protagonist_team_view(),
-                offers=offers)
-            selected = actions[next(index for index, offer in enumerate(offers)
-                                    if offer["id"] == chosen["id"])]
-        return tuple(commands), world
-
     def choose_action(self, *, participant: str, view: dict[str, Any],
                       offers: Sequence[dict[str, Any]]) -> dict[str, Any]:
         if (not offers or participant == "m"
@@ -296,55 +264,18 @@ class IsmctsProtagonistAgent(PublicBeliefPlanner):
             "pending": view.get("pending")}, ensure_ascii=False, sort_keys=True,
             default=str).encode("utf-8")).hexdigest()[:16]
         rng = random.Random(f"{self.budget.seed}:{self.rng_seed}:{participant}:{snapshot_hash}")
-        belief_source = "resampled"
-        observation_updates = 0
+        belief_source = "factorized"
         belief_failure = None
-        factored = None
-        particles: tuple[Game, ...] = ()
-        if not self.legacy_joint_search:
-            factored = self.factorized_belief.sample(
-                evidence, witnesses, self.particle_count, rng=rng)
-            particles = tuple(particle for index, hypothesis in enumerate(factored.worlds)
-                              if (particle := self.determinizer.determinize(
-                                  hypothesis, evidence, view, rng=rng,
-                                  history_prior=self.survival_first,
-                                  force_history=(self.survival_first
-                                                 and index % 5 == 0))) is not None)
-            belief_source = "factorized"
-            belief_failure = factored.reason
-            observation_updates = self.evidence_ledger.updates
-        elif (self._observation_viewer == participant
-                and self._observation_records):
-            revealed = {
-                (int(event["loop"]), int(event["round"])):
-                tuple(event.get("cards", ()))
-                for event in view.get("events", ())
-                if event.get("kind") == "cards_revealed"
-            }
-            incident_outcomes = {
-                (int(event["loop"]), int(event["round"])):
-                bool(event["happened"])
-                for event in view.get("events", ())
-                if event.get("kind") == "incident_status"
-            }
-            synced = self.belief.sync(
-                evidence, viewer=participant,
-                observations=self._observation_records,
-                witnesses=witnesses, sampler=self.sampler,
-                revealed_placements=revealed,
-                incident_outcomes=incident_outcomes)
-            particles = tuple(synced.particles)
-            observation_updates = synced.processed
-            if particles:
-                belief_source = "persistent"
-            else:
-                belief_failure = synced.reason
-        if not particles and self.legacy_joint_search:
-            hypotheses = self.sampler.sample(
-                evidence, self.particle_count, rng=rng, witnesses=witnesses)
-            particles = tuple(particle for hypothesis in hypotheses
-                              if (particle := self.determinizer.determinize(
-                                  hypothesis, evidence, view, rng=rng)) is not None)
+        factored = self.factorized_belief.sample(
+            evidence, witnesses, self.particle_count, rng=rng)
+        particles = tuple(particle for index, hypothesis in enumerate(factored.worlds)
+                          if (particle := self.determinizer.determinize(
+                              hypothesis, evidence, view, rng=rng,
+                              history_prior=self.survival_first,
+                              force_history=(self.survival_first
+                                             and index % 5 == 0))) is not None)
+        observation_updates = self.evidence_ledger.updates
+        belief_failure = factored.reason
         if not particles:
             return self._fallback(participant, view, offers, "no_particles",
                                   len(witnesses))
@@ -364,66 +295,42 @@ class IsmctsProtagonistAgent(PublicBeliefPlanner):
         completed_iterations = 0
         bundle_commands: dict[str, tuple[dict[str, Any], ...]] = {}
         bundle_stats: dict[str, _RootStat] = {}
-        if self.legacy_joint_search:
-            first_keys = list(offers_by_key)
-            rng.shuffle(first_keys)
-            for iteration in range(iterations):
-                if deadline is not None and perf_counter() >= deadline and bundle_stats:
-                    break
-                particle = particles[iteration % len(particles)]
-                legal = {_key(action): action
-                         for action in particle.search_actions(particle.controller)}
-                available = [key for key in first_keys if key in legal]
-                if not available:
-                    continue
-                first = legal[available[iteration % len(available)]]
-                commands, successor = self._legacy_bundle(particle, first, rng)
-                key = _key(commands)
-                bundle_commands[key] = commands
-                stat = bundle_stats.setdefault(key, _RootStat())
-                stat.availability += 1
-                stat.visits += 1
-                value = self._rollout(successor, rng)
-                stat.value_sum += value
-                stat.survivals += value > 0
-                completed_iterations += 1
-        else:
-            # Larger budgets widen the bounded pool only after preserving
-            # several visits per complete bundle.
-            candidate_limit = min(iterations, max(1, min(24, iterations // 8)))
-            attempts = 0
-            while (len(bundle_commands) < candidate_limit
-                   and attempts < candidate_limit * 4):
-                if deadline is not None and perf_counter() >= deadline and bundle_commands:
-                    break
-                commands = self._candidate_bundle(
-                    particles[attempts % len(particles)], view, attempts, rng)
-                attempts += 1
-                if not commands or _key(commands[0]) not in offers_by_key:
-                    continue
-                bundle_commands.setdefault(_key(commands), commands)
-            bundle_stats = {key: _RootStat() for key in bundle_commands}
-            keys = tuple(bundle_commands)
-            # Round-robin candidates over a shared particle batch.
-            for iteration in range(iterations):
-                if not keys:
-                    break
-                if deadline is not None and perf_counter() >= deadline and completed_iterations:
-                    break
-                key = keys[iteration % len(keys)]
-                batch = iteration // len(keys)
-                batches = (iterations + len(keys) - 1) // len(keys)
-                particle = particles[(batch * len(particles)) // batches]
-                successor = self._apply_bundle(particle, bundle_commands[key])
-                if successor is None:
-                    continue
-                stat = bundle_stats[key]
-                stat.availability += 1
-                stat.visits += 1
-                value = self._rollout(successor, rng)
-                stat.value_sum += value
-                stat.survivals += value > 0
-                completed_iterations += 1
+        # Larger budgets widen the bounded pool only after preserving
+        # several visits per complete bundle.
+        candidate_limit = min(iterations, max(1, min(24, iterations // 8)))
+        attempts = 0
+        while (len(bundle_commands) < candidate_limit
+               and attempts < candidate_limit * 4):
+            if deadline is not None and perf_counter() >= deadline and bundle_commands:
+                break
+            commands = self._candidate_bundle(
+                particles[attempts % len(particles)], view, attempts, rng)
+            attempts += 1
+            if not commands or _key(commands[0]) not in offers_by_key:
+                continue
+            bundle_commands.setdefault(_key(commands), commands)
+        bundle_stats = {key: _RootStat() for key in bundle_commands}
+        keys = tuple(bundle_commands)
+        # Round-robin candidates over a shared particle batch.
+        for iteration in range(iterations):
+            if not keys:
+                break
+            if deadline is not None and perf_counter() >= deadline and completed_iterations:
+                break
+            key = keys[iteration % len(keys)]
+            batch = iteration // len(keys)
+            batches = (iterations + len(keys) - 1) // len(keys)
+            particle = particles[(batch * len(particles)) // batches]
+            successor = self._apply_bundle(particle, bundle_commands[key])
+            if successor is None:
+                continue
+            stat = bundle_stats[key]
+            stat.availability += 1
+            stat.visits += 1
+            value = self._rollout(successor, rng)
+            stat.value_sum += value
+            stat.survivals += value > 0
+            completed_iterations += 1
 
         viable = [key for key, stat in bundle_stats.items() if stat.visits]
         if not viable:
