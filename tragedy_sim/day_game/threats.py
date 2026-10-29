@@ -272,6 +272,38 @@ def _plot_loss_target(main_plot: str, roles: Mapping[str, str],
     return ("character", str(holder))
 
 
+def _board_intrigue(locations: Mapping[str, Any], target: str) -> int:
+    """Board intrigue from a public view; supports int and dict counter shapes."""
+    value = locations.get(target, 0)
+    if isinstance(value, Mapping):
+        value = value.get("intrigue", 0)
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _world_plot(world: Any) -> str:
+    """Main plot of one sampled world (hypothesis or materialized Game)."""
+    plot = getattr(world, "main_plot", None)
+    if plot:
+        return str(plot)
+    scenario = getattr(world, "scenario", None)
+    if isinstance(scenario, Mapping):
+        return str(scenario.get("main_plot", "") or "")
+    return ""
+
+
+def _world_roles(world: Any) -> Mapping[str, str]:
+    roles = getattr(world, "roles", None)
+    if isinstance(roles, Mapping) and roles:
+        return roles
+    scenario = getattr(world, "scenario", None)
+    if isinstance(scenario, Mapping):
+        return scenario.get("cast", {}) or {}
+    return {}
+
+
 def classify_plot_threats(*, view: Mapping[str, Any],
                           snapshot: BeliefSnapshot | None,
                           world_main_plots: Sequence[str] | None = None,
@@ -305,8 +337,8 @@ def classify_plot_threats(*, view: Mapping[str, Any],
     else:
         total = 0
         for world in worlds:
-            plot = str(getattr(world, "main_plot", ""))
-            roles = getattr(world, "roles", {}) or {}
+            plot = _world_plot(world)
+            roles = _world_roles(world)
             target = _plot_loss_target(plot, roles, initial_locations)
             if target is None:
                 continue
@@ -319,7 +351,7 @@ def classify_plot_threats(*, view: Mapping[str, Any],
     threats = []
     for (plot, kind, target), count in distribution.items():
         if kind == "board":
-            counter = int((locations.get(target) or {}).get("intrigue", 0))
+            counter = _board_intrigue(locations, target)
             active = counter >= BOARD_PLOT_THRESHOLD
         else:
             counter = 0

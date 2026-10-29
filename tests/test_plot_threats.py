@@ -9,12 +9,7 @@ from tragedy_sim.day_game.threats import classify_plot_threats
 VIEW = {
     "round": 3,
     "days": 5,
-    "locations": {
-        "school": {"intrigue": 1},
-        "shrine": {"intrigue": 0},
-        "city": {"intrigue": 2},
-        "hospital": {"intrigue": 0},
-    },
+    "locations": {"school": 1, "shrine": 0, "city": 2, "hospital": 0},
     "characters": {
         "brain": {"initial_location": "city"},
         "witch": {"initial_location": "hospital"},
@@ -25,6 +20,16 @@ VIEW = {
 def snapshot(plots):
     worlds = [SimpleNamespace(
         main_plot=plot,
+        roles={"brain": "brain", "witch": "witch", "girl": "key"},
+    ) for plot in plots]
+    return BeliefSnapshot(worlds, None)  # type: ignore[arg-type]
+
+
+def materialized_snapshot(plots):
+    """Determinized worlds are Game objects: plot/roles live on .scenario."""
+    worlds = [SimpleNamespace(
+        scenario={"main_plot": plot,
+                  "cast": {"brain": "brain", "witch": "witch", "girl": "key"}},
         roles={"brain": "brain", "witch": "witch", "girl": "key"},
     ) for plot in plots]
     return BeliefSnapshot(worlds, None)  # type: ignore[arg-type]
@@ -60,6 +65,11 @@ class PlotThreatTests(unittest.TestCase):
         self.assertEqual(len(threats), 1)
         self.assertEqual(threats[0].target, "girl")
         self.assertEqual(threats[0].failure_kind, "plot_loss")
+
+    def test_materialized_game_worlds_are_supported(self):
+        threats = classify_plot_threats(
+            view=VIEW, snapshot=materialized_snapshot(["sealed"]))
+        self.assertEqual([item.target for item in threats], ["shrine"])
 
     def test_unknown_plot_and_missing_snapshot_yield_nothing(self):
         self.assertEqual(classify_plot_threats(
