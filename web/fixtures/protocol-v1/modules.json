@@ -65,6 +65,22 @@
       "gui_supported": true,
       "final_guess": true,
       "early_final_guess": false
+    },
+    {
+      "id": "BTX+",
+      "name": "Basic Tragedy X+（十周年扩展）",
+      "cli_supported": true,
+      "gui_supported": true,
+      "final_guess": true,
+      "early_final_guess": true
+    },
+    {
+      "id": "MZ+",
+      "name": "Midnight Zone+（十周年扩展）",
+      "cli_supported": true,
+      "gui_supported": true,
+      "final_guess": true,
+      "early_final_guess": true
     }
   ]
 }

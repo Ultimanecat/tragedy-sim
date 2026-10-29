@@ -848,7 +848,20 @@ export default function App() {
     finally { setBusy(false); }
   }
 
-  function returnToLobby() {
+  async function returnToLobby() {
+    // Release the server-side seat or room before dropping local state; a host
+    // that only forgets locally can never manage the room again and keeps the
+    // seat occupied for everyone else.
+    if (client.room) {
+      setBusy(true); setError("");
+      try {
+        if (client.room.adminToken) await client.closeRoom();
+        else await client.leaveRoom();
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : "离开房间失败");
+        return;
+      } finally { setBusy(false); }
+    }
     client.forgetRoom();
     localStorage.removeItem(ROOM_KEY);
     setRoomCode(null); setRoomInfo(null); setGame(null); setOffers([]); setReplayText("");
@@ -936,7 +949,7 @@ export default function App() {
     {error && <div className="error" role="alert">{error}</div>}
     {roomCode && roomUnavailable ? <section className="empty room-unavailable"><h2>无法进入房间</h2>
       <p>该房间不存在、已经关闭，或服务重启后房间记录已经清空。</p>
-      <button className="primary" onClick={returnToLobby}>返回大厅</button>
+      <button className="primary" disabled={busy} onClick={() => void returnToLobby()}>返回大厅</button>
     </section> : roomCode && (!roomInfo || roomInfo.room.status === "waiting") ? <section className="lobby" aria-label="房间大厅">
       {!roomInfo ? <h2>正在连接房间 {roomCode}…</h2> : <>
         <div className="lobby-intro"><div><p className="eyebrow">WAITING ROOM</p><h2>等待所有玩家入座并准备</h2></div>

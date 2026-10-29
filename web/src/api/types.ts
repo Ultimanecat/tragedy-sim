@@ -87,6 +87,8 @@ export interface CharacterView extends NamedItem {
   paranoia_limit: number;
   traits: string[];
   guard: number;
+  echo_board_actions?: boolean;
+  action_targetable?: boolean;
   abilities: AbilityDefinition[];
   passive: string;
   initial_location: LocationId;
@@ -114,6 +116,7 @@ export interface SecretView {
   incidents: Array<Record<string, unknown>>;
   character_options?: Record<string, {
     entry_loop?: number; entry_day?: number; territory?: LocationId;
+    initial_location?: LocationId; role_source?: string;
   }>;
   loss_reasons: string[];
   current_loop_days: number;
@@ -174,7 +177,7 @@ export interface GameView {
   sealed_boards: Array<{ board: LocationId; through: number }>;
   ability_day_used: string[];
   ability_loop_used: string[];
-  schedule: Array<{ day: number; kind: string }>;
+  schedule: Array<{ day: number; kind: string; board?: LocationId }>;
   incidents: Array<Record<string, unknown>>;
   guess_remaining: string[];
   protagonist_secret?: "A" | "B" | "C";

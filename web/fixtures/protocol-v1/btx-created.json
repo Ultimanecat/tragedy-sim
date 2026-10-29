@@ -5,10 +5,10 @@
   "credentials": {
     "admin": "fixture-admin",
     "seats": {
-      "m": "fixture-m",
       "a": "fixture-a",
       "b": "fixture-b",
-      "c": "fixture-c"
+      "c": "fixture-c",
+      "m": "fixture-m"
     }
   },
   "view": {
@@ -44,6 +44,9 @@
           "hope": 0,
           "despair": 0,
           "alive": true,
+          "present": true,
+          "action_targetable": true,
+          "echo_board_actions": false,
           "paranoia_limit": 2,
           "traits": [
             "学生",
@@ -60,11 +63,13 @@
               "counter": "paranoia",
               "amount": -1,
               "once": false,
-              "unrefusable": false
+              "unrefusable": false,
+              "min_loop": 1
             }
           ],
           "passive": "",
           "initial_location": "school",
+          "territory": null,
           "ex_cards": 0,
           "friended_token": false,
           "death_token": false
@@ -80,6 +85,9 @@
           "hope": 0,
           "despair": 0,
           "alive": true,
+          "present": true,
+          "action_targetable": true,
+          "echo_board_actions": false,
           "paranoia_limit": 3,
           "traits": [
             "学生",
@@ -96,11 +104,13 @@
               "counter": "paranoia",
               "amount": -1,
               "once": false,
-              "unrefusable": false
+              "unrefusable": false,
+              "min_loop": 1
             }
           ],
           "passive": "",
           "initial_location": "school",
+          "territory": null,
           "ex_cards": 0,
           "friended_token": false,
           "death_token": false
@@ -116,6 +126,9 @@
           "hope": 0,
           "despair": 0,
           "alive": true,
+          "present": true,
+          "action_targetable": true,
+          "echo_board_actions": false,
           "paranoia_limit": 2,
           "traits": [
             "成人",
@@ -132,7 +145,8 @@
               "counter": "paranoia",
               "amount": -1,
               "once": false,
-              "unrefusable": false
+              "unrefusable": false,
+              "min_loop": 1
             },
             {
               "id": "release",
@@ -143,11 +157,13 @@
               "counter": "paranoia",
               "amount": -1,
               "once": false,
-              "unrefusable": false
+              "unrefusable": false,
+              "min_loop": 1
             }
           ],
           "passive": "若医生有无视友好特性且友好 ≥2，剧作家也能在能力阶段使用其第一项能力（共用每日次数）。",
           "initial_location": "hospital",
+          "territory": null,
           "ex_cards": 0,
           "friended_token": false,
           "death_token": false
@@ -165,6 +181,9 @@
           "hope": 0,
           "despair": 0,
           "alive": true,
+          "present": true,
+          "action_targetable": true,
+          "echo_board_actions": false,
           "paranoia_limit": 2,
           "traits": [
             "成人",
@@ -181,11 +200,13 @@
               "counter": "paranoia",
               "amount": -1,
               "once": false,
-              "unrefusable": false
+              "unrefusable": false,
+              "min_loop": 1
             }
           ],
           "passive": "",
           "initial_location": "city",
+          "territory": null,
           "ex_cards": 0,
           "friended_token": false,
           "death_token": false
@@ -203,6 +224,9 @@
           "hope": 0,
           "despair": 0,
           "alive": true,
+          "present": true,
+          "action_targetable": true,
+          "echo_board_actions": false,
           "paranoia_limit": 2,
           "traits": [
             "学生",
@@ -219,7 +243,8 @@
               "counter": "paranoia",
               "amount": -1,
               "once": false,
-              "unrefusable": false
+              "unrefusable": false,
+              "min_loop": 1
             },
             {
               "id": "reveal",
@@ -230,11 +255,13 @@
               "counter": "paranoia",
               "amount": -1,
               "once": true,
-              "unrefusable": false
+              "unrefusable": false,
+              "min_loop": 1
             }
           ],
           "passive": "",
           "initial_location": "shrine",
+          "territory": null,
           "ex_cards": 0,
           "friended_token": false,
           "death_token": false
@@ -254,6 +281,9 @@
           "hope": 0,
           "despair": 0,
           "alive": true,
+          "present": true,
+          "action_targetable": true,
+          "echo_board_actions": false,
           "paranoia_limit": 2,
           "traits": [
             "少年"
@@ -262,6 +292,7 @@
           "abilities": [],
           "passive": "",
           "initial_location": "hospital",
+          "territory": null,
           "ex_cards": 0,
           "friended_token": false,
           "death_token": false
@@ -296,6 +327,7 @@
       "phase_name": "日初",
       "timing": "day_start",
       "timepoint": "第 1 天开始时",
+      "scenario_id": "silent-town-btx",
       "title": "寂静小镇（原创教学剧本）",
       "days": 3,
       "loops": 3,
@@ -356,7 +388,11 @@
         }
       ],
       "incidents": [],
-      "guess_remaining": []
+      "guess_remaining": [],
+      "public_setup": {
+        "character_options": {},
+        "special_rules": {}
+      }
     }
   }
 }

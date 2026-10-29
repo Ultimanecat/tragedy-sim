@@ -157,7 +157,7 @@
     },
     {
       "id": "unknown",
-      "name": "未知因子 X",
+      "name": "未知因子 χ",
       "type": "X",
       "rule": "无追加规则。",
       "roles": {
@@ -305,11 +305,14 @@
           "counter": "paranoia",
           "amount": -1,
           "once": false,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "girl",
@@ -336,11 +339,14 @@
           "counter": "paranoia",
           "amount": -1,
           "once": false,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "rich",
@@ -367,11 +373,14 @@
           "counter": "goodwill",
           "amount": 1,
           "once": false,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "class_rep",
@@ -398,11 +407,14 @@
           "counter": "paranoia",
           "amount": -1,
           "once": true,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "teacher",
@@ -429,7 +441,8 @@
           "counter": "paranoia",
           "amount": -1,
           "once": false,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         },
         {
           "id": "reveal",
@@ -440,11 +453,14 @@
           "counter": "paranoia",
           "amount": -1,
           "once": true,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "maiden",
@@ -471,7 +487,8 @@
           "counter": "paranoia",
           "amount": -1,
           "once": false,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         },
         {
           "id": "reveal",
@@ -482,13 +499,16 @@
           "counter": "paranoia",
           "amount": -1,
           "once": true,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [
         "city"
       ],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "outsider",
@@ -511,7 +531,8 @@
           "counter": "paranoia",
           "amount": -1,
           "once": true,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         },
         {
           "id": "revive",
@@ -522,13 +543,96 @@
           "counter": "paranoia",
           "amount": -1,
           "once": true,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [
         "hospital"
       ],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "irregular",
+      "name": "局外人",
+      "start": "school",
+      "limit": 3,
+      "traits": [
+        {
+          "id": "student",
+          "name": "学生"
+        },
+        {
+          "id": "boy",
+          "name": "少年"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "reveal",
+          "threshold": 3,
+          "text": "公开自身身份",
+          "kind": "reveal",
+          "scope": "self",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": true,
+          "min_loop": 2
+        }
+      ],
+      "forbidden": [],
+      "passive": "编写剧本时，必须获得本模组中存在、但所选规则 X/Y 未使用的一项身份。",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "godly",
+      "name": "神灵",
+      "start": "shrine",
+      "limit": 3,
+      "traits": [
+        {
+          "id": "man",
+          "name": "男性"
+        },
+        {
+          "id": "woman",
+          "name": "女性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "culprit",
+          "threshold": 3,
+          "text": "公开信息表上的一个事件当事人",
+          "kind": "culprit_any",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false,
+          "min_loop": 1
+        },
+        {
+          "id": "purify",
+          "threshold": 5,
+          "text": "同区域角色或当前版图密谋 -1",
+          "kind": "counter",
+          "scope": "same_or_location",
+          "counter": "intrigue",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false,
+          "min_loop": 1
+        }
+      ],
+      "forbidden": [],
+      "passive": "编写剧本时指定登场轮回；此前不放置在版图上。",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "police",
@@ -555,7 +659,8 @@
           "counter": "paranoia",
           "amount": -1,
           "once": true,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         },
         {
           "id": "guard",
@@ -566,11 +671,14 @@
           "counter": "paranoia",
           "amount": -1,
           "once": true,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "worker",
@@ -597,13 +705,16 @@
           "counter": "paranoia",
           "amount": -1,
           "once": false,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [
         "school"
       ],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "informer",
@@ -630,11 +741,14 @@
           "counter": "paranoia",
           "amount": -1,
           "once": true,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "idol",
@@ -661,7 +775,8 @@
           "counter": "paranoia",
           "amount": -1,
           "once": false,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         },
         {
           "id": "befriend",
@@ -672,11 +787,14 @@
           "counter": "goodwill",
           "amount": 1,
           "once": false,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "journalist",
@@ -703,7 +821,8 @@
           "counter": "paranoia",
           "amount": 1,
           "once": false,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         },
         {
           "id": "intrigue",
@@ -714,15 +833,52 @@
           "counter": "intrigue",
           "amount": 1,
           "once": false,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "boss",
+      "name": "大人物",
+      "start": "city",
+      "limit": 4,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "man",
+          "name": "男性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "reveal",
+          "threshold": 5,
+          "text": "公开领地中另一名角色的身份",
+          "kind": "reveal",
+          "scope": "territory_other",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false,
+          "min_loop": 1
+        }
+      ],
+      "forbidden": [],
+      "passive": "编写剧本时指定一块领地；使用角色能力时也可以视为身处领地。",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "forensic",
-      "name": "鉴识官",
+      "name": "鉴别员",
       "start": "city",
       "limit": 3,
       "traits": [
@@ -745,7 +901,8 @@
           "counter": "paranoia",
           "amount": -1,
           "once": true,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         },
         {
           "id": "reveal_dead",
@@ -756,11 +913,14 @@
           "counter": "paranoia",
           "amount": -1,
           "once": true,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "doctor",
@@ -787,7 +947,8 @@
           "counter": "paranoia",
           "amount": -1,
           "once": false,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         },
         {
           "id": "release",
@@ -798,11 +959,14 @@
           "counter": "paranoia",
           "amount": -1,
           "once": false,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": "若医生有无视友好特性且友好 ≥2，剧作家也能在能力阶段使用其第一项能力（共用每日次数）。"
+      "passive": "若医生有无视友好特性且友好 ≥2，剧作家也能在能力阶段使用其第一项能力（共用每日次数）。",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "patient",
@@ -821,7 +985,9 @@
         "city",
         "school"
       ],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "nurse",
@@ -848,11 +1014,128 @@
           "counter": "paranoia",
           "amount": -1,
           "once": false,
-          "unrefusable": true
+          "unrefusable": true,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "scholar",
+      "name": "学者",
+      "start": "hospital",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "man",
+          "name": "男性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "reset",
+          "threshold": 3,
+          "text": "移除自身所有指示物；使用 Ex 槽时由领队令其 ±1",
+          "kind": "reset_all",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false,
+          "min_loop": 1
+        }
+      ],
+      "forbidden": [],
+      "passive": "每轮开始时，剧作家在其身上放置一个友好、不安或密谋指示物。",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "illusion",
+      "name": "幻想",
+      "start": "shrine",
+      "limit": 3,
+      "traits": [
+        {
+          "id": "fictional",
+          "name": "虚构"
+        },
+        {
+          "id": "woman",
+          "name": "女性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "relocate",
+          "threshold": 3,
+          "text": "将同区域任意一名角色移至任意版图",
+          "kind": "relocate",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false,
+          "min_loop": 1
+        },
+        {
+          "id": "vanish",
+          "threshold": 4,
+          "text": "本轮将自身从版图上移除",
+          "kind": "vanish",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false,
+          "min_loop": 1
+        }
+      ],
+      "forbidden": [],
+      "passive": "不能被放置行动牌；其所在版图上的行动牌也会对其生效。",
+      "action_targetable": false,
+      "echo_board_actions": true
+    },
+    {
+      "id": "ai",
+      "name": "A.I.",
+      "start": "city",
+      "limit": 4,
+      "traits": [
+        {
+          "id": "construct",
+          "name": "造物"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "incident",
+          "threshold": 3,
+          "text": "结算公开信息表上的一个事件效果",
+          "kind": "ai_incident",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false,
+          "min_loop": 1
+        }
+      ],
+      "forbidden": [
+        "hospital",
+        "shrine",
+        "school"
+      ],
+      "passive": "不能是平民；判定其作为当事人的事件时，身上所有指示物均视作不安。",
+      "action_targetable": true,
+      "echo_board_actions": false
     },
     {
       "id": "soldier",
@@ -879,7 +1162,8 @@
           "counter": "paranoia",
           "amount": 2,
           "once": true,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         },
         {
           "id": "protect",
@@ -890,11 +1174,335 @@
           "counter": "paranoia",
           "amount": -1,
           "once": true,
-          "unrefusable": false
+          "unrefusable": false,
+          "min_loop": 1
         }
       ],
       "forbidden": [],
-      "passive": ""
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "black_cat",
+      "name": "黑猫",
+      "start": "shrine",
+      "limit": 0,
+      "traits": [
+        {
+          "id": "animal",
+          "name": "动物"
+        }
+      ],
+      "abilities": [],
+      "forbidden": [],
+      "passive": "每轮开始时神社密谋 +1；其作为当事人的事件发生后不产生事件效果。",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "transfer_student",
+      "name": "转校生",
+      "start": "school",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "student",
+          "name": "学生"
+        },
+        {
+          "id": "girl",
+          "name": "少女"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "convert",
+          "threshold": 2,
+          "text": "将同区域另一名角色的一个密谋替换为友好",
+          "kind": "convert_intrigue",
+          "scope": "other",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false,
+          "min_loop": 1
+        }
+      ],
+      "forbidden": [],
+      "passive": "编写剧本时指定登场日；每轮在该日开始时放置到学校。",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "young_girl",
+      "name": "小女孩",
+      "start": "school",
+      "limit": 1,
+      "traits": [
+        {
+          "id": "student",
+          "name": "学生"
+        },
+        {
+          "id": "girl",
+          "name": "少女"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "release",
+          "threshold": 1,
+          "text": "本轮取消自身所有禁行区域",
+          "kind": "release_self",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": false,
+          "min_loop": 1
+        },
+        {
+          "id": "move",
+          "threshold": 3,
+          "text": "将自己移动到相邻版图",
+          "kind": "adjacent_self",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false,
+          "min_loop": 1
+        }
+      ],
+      "forbidden": [
+        "shrine",
+        "hospital",
+        "city"
+      ],
+      "passive": "",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "guru",
+      "name": "教主",
+      "start": "shrine",
+      "limit": 3,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "woman",
+          "name": "女性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "bless",
+          "threshold": 3,
+          "text": "任意一名不安达到临界的其他角色友好 +1",
+          "kind": "counter",
+          "scope": "panicked_any_other",
+          "counter": "goodwill",
+          "amount": 1,
+          "once": false,
+          "unrefusable": false,
+          "min_loop": 1
+        },
+        {
+          "id": "discern",
+          "threshold": 4,
+          "text": "公开同区域一名不安达到临界的其他角色身份",
+          "kind": "reveal",
+          "scope": "panicked_other",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false,
+          "min_loop": 1
+        }
+      ],
+      "forbidden": [],
+      "passive": "若其作为当事人的事件发生，该事件效果结算两次。",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "copycat",
+      "name": "模仿者",
+      "start": "city",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "student",
+          "name": "学生"
+        },
+        {
+          "id": "boy",
+          "name": "少年"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "identify",
+          "threshold": 3,
+          "text": "得知所有与自己身份相同的角色",
+          "kind": "copycat_identify",
+          "scope": "self",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": true,
+          "min_loop": 2
+        }
+      ],
+      "forbidden": [],
+      "passive": "身份复制剧本指定的另一名角色，不占用该身份的数量上限。",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "sacred_tree",
+      "name": "御神木",
+      "start": "shrine",
+      "limit": 4,
+      "traits": [
+        {
+          "id": "tree",
+          "name": "树木"
+        }
+      ],
+      "abilities": [],
+      "forbidden": [
+        "school",
+        "city",
+        "hospital"
+      ],
+      "passive": "主人公能力阶段可将其一个指示物移给同区域另一名角色；若拥有拒绝友好的身份，剧作家能力阶段必须发动同一效果。",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "little_sister",
+      "name": "妹妹",
+      "start": "shrine",
+      "limit": 3,
+      "traits": [
+        {
+          "id": "girl",
+          "name": "少女"
+        },
+        {
+          "id": "little_sister",
+          "name": "妹妹"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "borrow",
+          "threshold": 5,
+          "text": "令同区域一名成人发动一项友好能力",
+          "kind": "borrow_adult",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": false,
+          "unrefusable": true,
+          "min_loop": 1
+        }
+      ],
+      "forbidden": [],
+      "passive": "借用的能力不可拒绝；自身不能被分配拒绝友好的身份。",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "part_timer",
+      "name": "临时工",
+      "start": "city",
+      "limit": 1,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "man",
+          "name": "男性"
+        }
+      ],
+      "abilities": [],
+      "forbidden": [],
+      "passive": "无视分配的身份，始终视为平民；日末若身上共有至少 3 个指示物则死亡，次日开始时由“临时工？”替换。",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "servant",
+      "name": "从者",
+      "start": "city",
+      "limit": 3,
+      "traits": [
+        {
+          "id": "adult",
+          "name": "成人"
+        },
+        {
+          "id": "woman",
+          "name": "女性"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "protect",
+          "threshold": 4,
+          "text": "本轮将版图上一名其他角色加入侍从对象",
+          "kind": "servant_protect",
+          "scope": "any_other",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false,
+          "min_loop": 1
+        }
+      ],
+      "forbidden": [],
+      "passive": "同区域的大小姐、大人物或本轮指定对象移动时随行；其死亡时改由侍从死亡。",
+      "action_targetable": true,
+      "echo_board_actions": false
+    },
+    {
+      "id": "higher_being",
+      "name": "上位存在",
+      "start": "shrine",
+      "limit": 2,
+      "traits": [
+        {
+          "id": "girl",
+          "name": "少女"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "influence",
+          "threshold": 3,
+          "text": "同区域一名角色希望 +1 或绝望 +1",
+          "kind": "hope_or_despair",
+          "scope": "same",
+          "counter": "paranoia",
+          "amount": -1,
+          "once": true,
+          "unrefusable": false,
+          "min_loop": 1
+        }
+      ],
+      "forbidden": [],
+      "passive": "若拥有拒绝友好的身份且友好至少 1，剧作家也可在能力阶段发动此能力。",
+      "action_targetable": true,
+      "echo_board_actions": false
     }
   ],
   "cards": {

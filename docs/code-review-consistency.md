@@ -108,8 +108,8 @@
 | 联合候选／威胁排序非默认路径 | `particle_ensemble.py:720-737` | 需决定是否作为正式可选策略 |
 | `joint_mastermind` 每次评估新建估值器 | `joint_mastermind.py:108-113` | 缓存会改变 RNG 序列，需要配对验证后再改 |
 | 私有成员跨模块调用 | `evaluation.py:184-208` 等 | 需要先设计公开只读接口 |
-| Web 返回大厅不释放座位 | `web/src/App.tsx:851-857`、`989` | 需要 npm 构建与浏览器验证 |
-| Web 契约 fixture 漂移 | `web/src/App.test.tsx:11-12` | 需要从服务端生成契约快照 |
+| Web 返回大厅不释放座位 | `web/src/App.tsx:851-857`、`989` | 已修：先关闭/离开房间再清本地状态，失败保留房间 |
+| Web 契约 fixture 漂移 | `web/src/App.test.tsx:11-12` | 已修：`benchmarks/snapshot_protocol_fixtures.py` 生成快照，`tests/test_web_fixtures.py` 守卫键集漂移 |
 
 ### 已完成的清理
 
