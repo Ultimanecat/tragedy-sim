@@ -668,7 +668,9 @@ class OracleProtagonistAgent(JointCardDecisionProvider):
                 max(0, 3 - world.state.characters[cid].goodwill)
                 for cid, role in world.scenario["cast"].items()
                 if role == "time_traveler")
-            score = 0.55 + 0.22 * score - 0.10 * traveler_gap / days_left
+            # ``_cutoff_value`` already maps into [0.55, 0.77]; apply only the
+            # BTX traveler penalty here so FS and BTX stay on one scale.
+            score = score - 0.10 * traveler_gap / days_left
         survived = (world.winner == "protagonists" or
                     world.winner is None and not loop_lost)
         information = 0.0

@@ -252,6 +252,30 @@ class RoomService:
         result["is_host"] = True
         return _json_copy(result)
 
+    def token_is_known(self, token: str) -> bool:
+        """True when ``token`` belongs to a live room (admin or occupant)."""
+        if not isinstance(token, str) or not token:
+            return False
+        with self._lock:
+            rooms = list(self._rooms.values())
+        for room in rooms:
+            with room.lock:
+                if (isinstance(room.admin_token, str)
+                        and secrets.compare_digest(token, room.admin_token)):
+                    return True
+                if any(occupant is not None
+                       and isinstance(occupant.token, str)
+                       and secrets.compare_digest(token, occupant.token)
+                       for occupant in room.seats.values()):
+                    return True
+                if (isinstance(room.game_admin, str)
+                        and secrets.compare_digest(token, room.game_admin)):
+                    return True
+                if any(secrets.compare_digest(token, seat_token)
+                       for seat_token in room.game_tokens.values()):
+                    return True
+        return False
+
     def get(self, code: str, *, token: str | None = None) -> dict[str, Any]:
         room = self._room(code)
         with room.lock:

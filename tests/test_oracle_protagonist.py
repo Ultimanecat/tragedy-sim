@@ -393,6 +393,39 @@ class OracleProtagonistTests(unittest.TestCase):
         self.assertAlmostEqual(agent._cutoff_value(standard, 1),
                                agent._cutoff_value(easy, 1))
 
+    def test_btx_day_rollout_applies_one_score_transform(self):
+        from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
+        game = Game(ScenarioLibrary().get(
+            "official-btx-01-machina-solar-cogwheel"))
+        while game.state.phase != "mastermind":
+            game = game.search_transition(game.search_actions(game.controller)[0])
+        agent = FullCardOracleProtagonistAgent(rollout_horizon="day")
+        captured = {}
+        original = agent._cutoff_value_with_events
+
+        def capture(world, start_day, events):
+            value = original(world, start_day, events)
+            gap = sum(max(0, 3 - world.state.characters[cid].goodwill)
+                      for cid, role in world.scenario["cast"].items()
+                      if role == "time_traveler")
+            captured.update(value=value, gap=gap, start_day=start_day,
+                            days=world.scenario["days"],
+                            winner=world.winner,
+                            phase=world.state.phase)
+            return value
+
+        with patch.object(agent, "_cutoff_value_with_events", side_effect=capture):
+            score, survived, *_ = agent._rollout_score(
+                game, game.state.loop, game.state.round,
+                mastermind_strategy="plot_intrigue")
+        self.assertTrue(captured, "cutoff was not evaluated")
+        if captured["winner"] is not None or not survived \
+                or captured["phase"] == "final_guess":
+            self.skipTest("rollout ended without a scored cutoff")
+        days_left = max(1, captured["days"] - captured["start_day"])
+        expected = captured["value"] - 0.10 * captured["gap"] / days_left
+        self.assertAlmostEqual(score, expected)
+
     def test_rollout_policy_seed_key_ignores_difficulty_metadata(self):
         library = ScenarioLibrary()
         standard = Game(library.get("official-btx-02-traditional-ensemble-murder"))

@@ -167,17 +167,36 @@ def make_handler(service: GameService, rooms: RoomService | None = None, *, allo
             parts = [part for part in parsed.path.split("/") if part]
             return parsed, parts
 
+        def _known_token(self) -> str | None:
+            """Return the bearer token when it belongs to a live session or room.
+
+            A header that merely starts with ``Bearer `` must not unlock the
+            elevated rate limit; only a token the service can resolve does.
+            """
+            header = self.headers.get("Authorization", "")
+            if not header.startswith("Bearer "):
+                return None
+            token = header[len("Bearer "):].strip()
+            if not token:
+                return None
+            if service.token_is_known(token):
+                return token
+            if rooms.token_is_known(token):
+                return token
+            return None
+
         def _rate_limit(self):
             if not self.path.startswith("/v1/"):
                 return
             now = time.monotonic()
             address = self.client_address[0]
-            authenticated = self.headers.get("Authorization", "").startswith("Bearer ")
+            token = self._known_token()
+            key = (address, token is not None)
             with rate_lock:
-                recent = request_times[(address, authenticated)]
+                recent = request_times[key]
                 while recent and now - recent[0] > 60:
                     recent.popleft()
-                limit = 5000 if authenticated else 360
+                limit = 5000 if token is not None else 360
                 if len(recent) >= limit:
                     raise ServiceError("RATE_LIMITED", "请求过于频繁，请稍后重试", status=429)
                 recent.append(now)

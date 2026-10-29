@@ -19,6 +19,14 @@ class GameServiceTests(unittest.TestCase):
         self.tokens = self.created["credentials"]["seats"]
         self.admin = self.created["credentials"]["admin"]
 
+    def test_token_is_known_rejects_forged_bearer_values(self):
+        self.assertTrue(self.service.token_is_known(self.admin))
+        self.assertTrue(self.service.token_is_known(self.tokens["m"]))
+        self.assertFalse(self.service.token_is_known("forged-token"))
+        self.assertFalse(self.service.token_is_known(""))
+        self.service.delete_game(self.session_id, token=self.admin)
+        self.assertFalse(self.service.token_is_known(self.admin))
+
     def test_views_are_json_and_private_views_require_the_matching_token(self):
         public = self.service.get_view(self.session_id)
         self.assertEqual(public["protocol_version"], PROTOCOL_VERSION)

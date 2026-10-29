@@ -123,7 +123,7 @@ class PublicStateDeterminizer:
                 state.characters[cid] = Character(
                     cid, str(observed.get("name", cid)), str(observed["location"]),
                     tuple(observed.get("forbidden", ())))
-                game.roles[cid] = game.roles.get("part_timer", "ordinary")
+                game.roles[cid] = "ordinary"
                 game.guards[cid] = 0
                 game.ex_cards[cid] = 0
             character = state.characters[cid]

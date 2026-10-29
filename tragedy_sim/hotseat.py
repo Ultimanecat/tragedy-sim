@@ -277,15 +277,25 @@ def secret_dossier(view):
         raise RuleError("该视角没有剧作家资料")
     s = view["secret"]
     language = view.get("language", "zh")
+    locations = view.get("labels", {}).get("locations", {})
     lines = ["只供剧作家阅读 · 换人前请遮挡", "", "规则 Y：" + PLOTS[s["main_plot"]][0],
              PLOT_RULES[s["main_plot"]], ""]
     for p in s["subplots"]:
         lines += ["规则 X：" + PLOTS[p][0], PLOT_RULES[p], ""]
     for cid, role in s["roles"].items():
         role_name = label("roles", role, language, fallback=ROLE_NAMES[role])
-        initial_name = label("roles", s["initial_roles"][cid], language,
-                             fallback=ROLE_NAMES[s["initial_roles"][cid]])
+        initial_role = s["initial_roles"].get(cid, role)
+        initial_name = label("roles", initial_role, language,
+                             fallback=ROLE_NAMES[initial_role])
         lines += [f"{target_name(view, cid)}：{role_name}（初始 {initial_name}）", ROLE_RULES[role], ""]
+    hidden_roles = s.get("hidden_roles") or {}
+    if hidden_roles:
+        lines.append("里身份")
+        for cid, hidden_role in hidden_roles.items():
+            role_name = label("roles", hidden_role, language,
+                              fallback=ROLE_NAMES.get(hidden_role, hidden_role))
+            lines.append(f"{target_name(view, cid)}：{role_name}")
+        lines.append("")
     if s.get("character_options"):
         lines.append("特殊角色设置")
         for cid, setting in s["character_options"].items():
@@ -293,8 +303,16 @@ def secret_dossier(view):
                 detail = f"第 {setting['entry_loop']} 轮登场"
             elif "entry_day" in setting:
                 detail = f"每轮第 {setting['entry_day']} 天登场"
+            elif "initial_location" in setting:
+                board = locations.get(setting["initial_location"],
+                                      setting["initial_location"])
+                detail = f"初始区域：{board}"
+            elif "role_source" in setting:
+                detail = f"身份来源：{setting['role_source']}"
+            elif "territory" in setting:
+                detail = f"领地：{locations.get(setting['territory'], setting['territory'])}"
             else:
-                detail = f"领地：{view['labels']['locations'][setting['territory']]}"
+                detail = "、".join(f"{key}={value}" for key, value in setting.items())
             lines.append(f"{target_name(view, cid)}：{detail}")
         lines.append("")
     lines.append("事件当事人")

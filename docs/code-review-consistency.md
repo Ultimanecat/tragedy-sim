@@ -1,0 +1,118 @@
+# 代码一致性审查汇总与修复台账（2026-10-29）
+
+## 目的
+
+按三类问题做一次全仓一致性审查：
+
+1. 已实现但从未调用（死代码、只被自身测试覆盖的 API）。
+2. 硬编码或临时算法桥接（魔法阈值、写死角色/剧本/天数、绕过正式接口的适配）。
+3. 假实现 / mock 当真实（常量桩、占位 fallback、注释声称已实现但未接线、文档与代码不符）。
+
+四个子审查分别负责 day_game、AI/信念/搜索、引擎/规则、服务/前端，各自输出带 `file:line` 证据的报告。
+
+## 分报告
+
+| 范围 | 报告 | 条数 |
+| --- | --- | --- |
+| day_game | [review-day-game.md](review-day-game.md) | 24（高 3 / 中 11 / 低 10） |
+| AI、信念、搜索 | [review-ai.md](review-ai.md) | 27（中 13 / 低 14） |
+| 引擎、规则 | [review-engine.md](review-engine.md) | 17（高 2 / 中 7 / 低 8） |
+| 服务、前端 | [review-service.md](review-service.md) | 24（高 2 / 中 9 / 低 13） |
+
+## 跨报告的共同结论
+
+### 1. day_game 目前是离线诊断层
+
+`tragedy_sim/` 生产代码没有导入 `tragedy_sim.day_game` 的调用点；只有 `tests/test_day_game_*.py` 和诊断脚本使用。这解释了 2026-10-28 的整局对照为何只是"脚本包装粒子策略"，而不是分层估值接入。
+
+处理决定：
+
+- 保留该定位，在包文档和路线图继续写明"离线诊断，未接默认 AI"。
+- 唯一整局接入脚本从被忽略的 `references/` 移入 `benchmarks/`，纳入版本控制：`benchmarks/ability_guard_probe.py`、`benchmarks/ability_guard_diagnostic.py`。
+- 在真正接入前，不给 day_game 增加生产入口。
+
+### 2. "已实现但未调用"主要集中在三类
+
+- 历史/替代策略：`IsmctsProtagonistAgent`、`SurvivalIsmctsProtagonistAgent`、`legacy_joint_search` 分支、`PersistentBeliefState.sync`、`BeliefParticleFilter`。
+- 非默认候选策略：`candidate_policy="joint_threat"` 的 `JointActionSpace`、`JointThreatRanker`；`final_guess_policy=cast_map`。
+- 只被测试使用的原型契约：`tragedy_sim/domain/**`、`wm.cast_spell`、阶段扩展 `extended/replaced`。
+
+处理决定：先修行为错误，再逐项决定删除或标注。本轮不批量删除，避免在缺少基准的情况下扩大风险；每项在下面的台账里给出处置。
+
+### 3. 硬编码集中在"角色 id + 剧本 id + 天数 + 阈值"
+
+- 引擎/规则：`PLOT_TARGETS` 13 条剧情映射、坐标表副本、`module in {...}` 能力差异、`role_slots` 未校验身份集合。
+- AI：`belief.py` 的角色数 6 阈值、软 witness 接受常数、暗牌历史先验常数、信息奖励 0.012 上限。
+- day_game：`threats.py` 的角色集合与严重度表、`defense_capabilities.py` 的卡牌 id、`plan_search.py` 三牌/64 步。
+
+处理决定：阈值类抽成具名常量或参数（已完成一部分），角色/剧情类改为从 `catalog` / `ModuleSpec` / 剧本元数据读取（列为后续项）。
+
+### 4. 假实现中最危险的是"叶值 / 终局语义"
+
+- `DefenseLeafEstimator` 曾恒 `hard_ok=True`、非终局 `survival=0.5`，导致 `loop_end` 与 `survived_day` 同分。
+- `advance_two_days` 曾让调用方叶值覆盖失败终局。
+- `DayTransitionResult.lost` 曾把尚未结算的 `final_guess` 算作失败。
+
+处理决定：三处都已修，并加回归测试。
+
+## 已修复（本轮提交）
+
+| 提交 | 内容 |
+| --- | --- |
+| `8e83dab` | `PublicStateDeterminizer` 硬编码只允许 `protagonists` 阶段，日初重建粒子永远为空；`role_distribution` 已知角色覆盖后验；新增公开事故时间表 API。 |
+| `0e226ec` | 幻想版图回声重复计入禁止密谋；剧本指定的从者/手下初始区域未写入 `_loop_initial_locations`；`DefenseLeafEstimator` 恒等叶值；`advance_two_days` 失败终局被叶值覆盖；`lost` 混入 `final_guess`；`_first_legal` 取 `actions[0]`；`plan_counter_defense` 静默丢弃非 transfer 能力；`resample_branch` 粒子数默认不一致；`plan_search` 文档与行为不符。 |
+| 本轮后续 | `oracle_protagonist` BTX 日终分数二次线性变换；`belief.py` 死分支；`belief.py` 角色数阈值具名化；`belief_planner` `part_timer` 回填；能力诊断脚本纳入 `benchmarks/`；`secret_dossier` 对 `initial_location`/`role_source` 的 KeyError 与 `part_timer_question` 缺键；GUI/CLI 缺 AHR 里身份；CLI `--lang` 未接入视图与 AHR 终猜键；4 项 `loop_options` 的 `IndexError`；伪 Bearer 解锁高限流；MZ+ 宣称动词；witness 死亡线索漏 `revived`/`character_arrived`。 |
+
+修复都带回归测试：
+
+- `tests/test_engine_review_regressions.py`：回声禁止密谋计数、剧本初始区域。
+- `tests/test_day_game_threats.py`：后验合并、优先级、公开事故表。
+- `tests/test_day_game_observation.py`：日初分支真实重采样。
+- `tests/test_day_game_defense_value.py`：叶值区分存活/失败。
+- `tests/test_oracle_protagonist.py`：BTX 单次分数变换。
+- `tests/test_scenario_library.py`：4 项 `loop_options` 展开。
+- `tests/test_service.py`：伪 Bearer 令牌不被认为已认证。
+
+## 待修台账
+
+按"先行为、后结构"排序。
+
+### P0 行为正确性
+
+| 项 | 证据 | 处置 |
+| --- | --- | --- |
+| FS/BTX `role_slots` 接受未实现身份 | `rulesets/scenario_roles.py:114-120`、`common/roles.py:4-9`、`common/incidents.py:40-41` | 待修：校验限制为速查表身份，删除 `any(False)` 桩与预言家报错文本 |
+| common/legacy 两份 `_ahr_incident` 语义不一致 | `common/incidents.py:115-185`、`legacy/incidents.py:356-461` | 待修：统一实现或删除不可达副本 |
+| 侍从随行 `forced=True` 未被 `move` 读取 | `rulesets/characters.py:117-142`、`effects/movement.py:6-15` | 待确认规则本意后修 |
+| `mastermind_search_clone` 对主人公策略也提供全信息 | `service.py:468-478`、`rooms.py:510-518` | 待修：只为剧作家开放 |
+| SSE 无令牌仍可建立事件流 | `server.py:76-97`、`rooms.py:255-264` | 待修：要求有效房间令牌并尊重 `spectators` |
+| Web 房间内“返回大厅”不释放座位 | `web/src/App.tsx:851-857`、`989` | 待修：先 `closeRoom`/`leaveRoom` |
+| Web 契约 fixture 落后于服务端 | `web/src/App.test.tsx:11-12`、`web/fixtures/protocol-v1` | 待修：从服务端生成或加键集对比 |
+
+### P1 估值与搜索
+
+| 项 | 证据 | 处置 |
+| --- | --- | --- |
+| 联合候选 / 威胁排序非默认路径 | `particle_ensemble.py:720-737`、`joint_action_space.py:64`、`joint_defense_ranker.py:324` | 待决定：开放为可选策略或标注仅基准 |
+| `joint_mastermind` 每次评估新建粒子估值器 | `joint_mastermind.py:108-113` | 待修：缓存实例 |
+| 私有成员跨模块调用 | `evaluation.py:184-208`、`joint_defense_ranker.py:51-167`、`particle_ensemble.py:767-776` | 待修：补公开只读接口 |
+| 魔法常量未集中 | `belief.py:745`、`belief.py:1577-1586`、`particle_ensemble.py:820-829`、`joint_mastermind.py:413-479` | 待修：抽配置并记录来源 |
+
+### P2 结构清理
+
+| 项 | 证据 | 处置 |
+| --- | --- | --- |
+| 历史策略 / 死分支 | `ismcts.py:45`、`belief.py:326`、`belief.py:252`、`belief.py:383` | 计划删除或标注 legacy-only |
+| 原型契约只在测试中使用 | `domain/**`、`wm.cast_spell`、`phases/registry.py:38-49` | 文档标注原型，不删除 |
+| day_game 导出面过大 | `day_game/__init__.py` 68 项导出 | 待收敛：只导出有真实调用或明确诊断用途的符号 |
+
+## 验证
+
+- 全量 pytest（12 worker）：1194 passed、1 skipped、1179 subtests，约 46 秒（引擎/信念/determinizer 修复后）。
+- 定向：`tests/test_engine_review_regressions.py`、`tests/test_day_game_*.py`、`tests/test_oracle_protagonist.py`、`tests/test_particle_ensemble.py`、`tests/test_ismcts.py`、`tests/test_belief.py`。
+
+## 纪律
+
+- 修复前先复现，修复后加回归测试。
+- 只改行为明确的缺陷；规则本意不确定的进"存疑待确认"，不猜。
+- 每批修复后跑全量；本地提交，推送由用户决定。

@@ -98,6 +98,21 @@ class ScenarioLibraryTests(unittest.TestCase):
             loaded["cast"]["student"] = "key"
             self.assertEqual(library.get("library-btx-01")["cast"]["student"], "ordinary")
 
+    def test_four_loop_options_get_stable_suffixes(self):
+        from tragedy_sim.scenario_library import _loop_variants
+        raw = json.loads(
+            (DEFAULT_SCENARIO_ROOT / "official-btx-01-machina-solar-cogwheel.json")
+            .read_text(encoding="utf-8-sig"))
+        raw["loop_options"] = [4, 5, 6, 7]
+        variants = _loop_variants(raw)
+        self.assertEqual([item["loops"] for item in variants], [4, 5, 6, 7])
+        self.assertEqual([item["id"] for item in variants],
+                         [raw["id"], raw["id"] + "-easy",
+                          raw["id"] + "-very-easy", raw["id"] + "-loops-7"])
+        for item in variants:
+            self.assertEqual(item["loop_options"], [item["loops"]])
+            Game(item)
+
     def test_invalid_file_and_duplicate_id_fail_loudly(self):
         with TemporaryDirectory() as temporary:
             root = Path(temporary)

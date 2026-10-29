@@ -12,6 +12,11 @@ PHASES = {"mastermind": "剧作家出牌", "protagonists": "主人公出牌",
           "reveal": "等待揭示", "resolved": "行动结算完成"}
 
 
+
+def _view_language(game):
+    """Language configured for this match; views default to zh otherwise."""
+    return getattr(game, "language", "zh")
+
 def _supported_modules(capability: str) -> tuple[str, ...]:
     return tuple(module for module, spec in MODULES.items() if getattr(spec, capability))
 
@@ -69,7 +74,7 @@ def gui_main(argv=None):
 
 
 def board(game: ActionGame, viewer: str = "spectator") -> None:
-    view = game.view(viewer)
+    view = game.view(viewer, language=_view_language(game))
     print(f"\n{view['module']} 出牌练习 | 轮回 {view['loop']} | 第 {view['round']} 次出牌 | "
           f"{PHASES[view['phase']]} | 领队 {view['leader']}")
     for loc, name in LOCATIONS.items():
@@ -159,7 +164,7 @@ def practice_main(argv: list[str] | None = None) -> int:
             elif command == "view":
                 board(game, values[0])
             elif command == "hand":
-                for cid in game.view(values[0])["hand"]:
+                for cid in game.view(values[0], language=_view_language(game))["hand"]:
                     card = deck(values[0])[cid]
                     print(f"  {cid:<4} {card.name}" + (" [每轮回限一次]" if card.once_per_loop else ""))
             elif command == "play":
@@ -210,7 +215,7 @@ help / quit                   帮助 / 退出；恢复存档用 --load <路径>
 
 def match_board(game, viewer="spectator"):
     from .catalog import PLOTS, ROLE_NAMES
-    v = game.view(viewer)
+    v = game.view(viewer, language=_view_language(game))
     print(f"\n【{v['title']} / {v['module']}】轮回 {v['loop']}/{v['loops']}，"
           f"第 {v['round']}/{v['days']} 天 · {MATCH_PHASES[v['phase']]}")
     print(f"领队：{ACTOR_NAMES[v['leader']]}；桌面讨论：{'允许' if v['table_talk'] else '出牌中不允许（真人遵守）'}")
@@ -264,7 +269,7 @@ def match_board(game, viewer="spectator"):
         else:
             print(f"  第 {day} 天：无预定事件")
     for cid, fact in v["known_roles"].items():
-        verb = "公开宣称" if v["module"] == "MZ" else "历史确认"
+        verb = "公开宣称" if v["module"] in ("MZ", "MZ+") else "历史确认"
         print(f"{verb}：{game.name(cid)} → {ROLE_NAMES[fact['role']]}（轮回 {fact['loop']} / 第 {fact['day']} 天）")
     for day, cid in v["known_culprits"].items():
         print(f"已公开：第 {day} 天事件当事人是{game.name(cid)}。")
@@ -287,7 +292,10 @@ def match_board(game, viewer="spectator"):
         print("规则 Y：" + PLOTS[secret["main_plot"]][0])
         print("规则 X：" + "、".join(PLOTS[p][0] for p in secret["subplots"]))
         for cid, role in secret["roles"].items():
-            print(f"  {game.name(cid)}：{ROLE_NAMES[role]}（初始 {ROLE_NAMES[secret['initial_roles'][cid]]}）")
+            initial_role = secret["initial_roles"].get(cid, role)
+            print(f"  {game.name(cid)}：{ROLE_NAMES[role]}（初始 {ROLE_NAMES[initial_role]}）")
+        for cid, hidden_role in (secret.get("hidden_roles") or {}).items():
+            print(f"  里身份 {game.name(cid)}：{ROLE_NAMES.get(hidden_role, hidden_role)}")
         for i in secret["incidents"]:
             public_name = f"，公开名 {INCIDENT_NAMES[i['public_kind']]}" if "public_kind" in i else ""
             print(f"  第 {i['day']} 天{INCIDENT_NAMES[i['kind']]}{public_name}当事人：{game.name(i['culprit'])}")
@@ -301,7 +309,7 @@ def match_board(game, viewer="spectator"):
 def hint(game):
     phase, actor = game.state.phase, game.controller
     if phase in ("mastermind", "protagonists"):
-        view = game.view()
+        view = game.view(language=_view_language(game))
         if phase == "mastermind":
             played = sum(p.actor == "m" for p in game.state.pending)
             progress = f"剧作家本日 {played}/{view['action_counts']['mastermind']} 张"
@@ -311,11 +319,11 @@ def hint(game):
             progress = f"主人公本日 {played}/{view['action_counts']['protagonists']} 张；顺序 {order}"
         print(f"下一步：{ACTOR_NAMES[actor]}出牌（{progress}）；hand {actor} / play {actor} <牌> <目标>")
     elif phase == "reveal":
-        counts = game.view()["action_counts"]
+        counts = game.view(language=_view_language(game))["action_counts"]
         total = counts["mastermind"] + counts["protagonists"]
         print(f"下一步：resolve，统一揭示 {total} 张牌。")
     elif phase == "final_guess":
-        print(f"待猜角色：{', '.join(game.view()['guess_remaining'])}；请一次提交全部角色的身份猜测。")
+        print(f"待猜角色：{', '.join(game.view(language=_view_language(game))['guess_remaining'])}；请一次提交全部角色的身份猜测。")
     elif phase == "game_over":
         print("对局已结束，可查看 log、保存存档或 quit。")
     elif phase in ("refusal", "decision"):
@@ -385,7 +393,7 @@ def match_demo(module, language="zh"):
         start = len(game.state.events)
         phase, actor = game.state.phase, game.controller
         if phase == "mastermind":
-            required = game.view()["action_counts"]["mastermind"]
+            required = game.view(language=_view_language(game))["action_counts"]["mastermind"]
             plays = (("p1a", "school"), ("p1b", "city"), ("h", "shrine"), ("v", "hospital"))[:required]
             if required == 3 and game.state.loop == 1:
                 plays = (("p1a", "doctor"), ("p1b", "patient"),
@@ -407,11 +415,23 @@ def match_demo(module, language="zh"):
             index = next((i for i, c in enumerate(opts, 1) if any(e.get("target") == "girl" for e in c["effects"])), 1)
             game.dispatch(actor, "choose", index=index)
         elif phase == "final_guess":
-            remaining = game.view()["guess_remaining"]
-            initial = game.view("m")["secret"]["initial_roles"]
-            game.dispatch(actor, "guess_all",
-                          guesses={character: initial[character]
-                                   for character in remaining})
+            remaining = game.view(language=_view_language(game))["guess_remaining"]
+            initial = game.view("m", language=_view_language(game))["secret"]["initial_roles"]
+            guesses = {}
+            missing = []
+            for character in remaining:
+                # AHR exposes ``cid@surface`` / ``cid@hidden`` guess slots whose
+                # initial role lives under the bare character id.
+                role = initial.get(character)
+                if role is None:
+                    role = initial.get(str(character).split("@", 1)[0])
+                if role is None:
+                    missing.append(character)
+                    continue
+                guesses[character] = role
+            if missing:
+                raise RuntimeError(f"演示无法为这些角色生成终猜：{missing}")
+            game.dispatch(actor, "guess_all", guesses=guesses)
         else:
             game.dispatch(actor, "next")
         events(game, start)
@@ -497,7 +517,7 @@ def main(argv=None):
             elif cmd == "hand":
                 if values[0] == "m":
                     print("【剧作家私密手牌】")
-                for cid in game.view(values[0])["hand"]:
+                for cid in game.view(values[0], language=_view_language(game))["hand"]:
                     card = deck(values[0], game.module)[cid]
                     print(f"  {cid:<4} {card.name}" + (" [每轮限一次]" if card.once_per_loop else ""))
             elif cmd == "play":
@@ -507,7 +527,7 @@ def main(argv=None):
             elif cmd == "next":
                 game.dispatch(values[0] if values else game.controller, "next")
             elif cmd == "options":
-                game.view(values[0])  # Validate the actor even when no options exist.
+                game.view(values[0], language=_view_language(game))  # Validate the actor even when no options exist.
                 if values[0] == "m":
                     print("【剧作家私密选择 · 请勿向主人公展示】")
                 opts = game.options(values[0])
@@ -530,7 +550,7 @@ def main(argv=None):
             elif cmd == "rules":
                 show_rules(game)
             elif cmd == "inspect":
-                char = game.view()["characters"].get(values[0])
+                char = game.view(language=_view_language(game))["characters"].get(values[0])
                 if not char:
                     raise RuleError("角色不在本剧本中")
                 print(f"{char['name']} [{char['id']}]：{' / '.join(char['traits'])}；不安临界 {char['paranoia_limit']}")

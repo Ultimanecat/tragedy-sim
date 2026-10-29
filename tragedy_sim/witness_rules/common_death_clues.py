@@ -57,6 +57,18 @@ def compile_death_clues(view: Mapping[str, Any]) -> list[PublicWitness]:
             if isinstance(target, str) and isinstance(destination, str):
                 locations[target] = destination
             continue
+        if kind in {"revived", "character_arrived", "character_replaced"}:
+            # Characters can rejoin the cast after death or start mid-loop;
+            # keep the living set aligned with the other public components.
+            target = event.get("target", event.get("character"))
+            if isinstance(target, str):
+                alive.add(target)
+                location = event.get("location")
+                if isinstance(location, str):
+                    locations[target] = location
+                elif target in initial:
+                    locations[target] = initial[target]
+            continue
         if kind == "character_died":
             victim = event.get("target")
             if not isinstance(victim, str):

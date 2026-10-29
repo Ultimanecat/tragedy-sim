@@ -453,6 +453,20 @@ class GameService:
             except RuleError as exc:
                 raise ServiceError("REPLAY_NOT_READY", str(exc), status=409) from exc
 
+    def token_is_known(self, token: str) -> bool:
+        """True when ``token`` belongs to a live session (admin or seat)."""
+        if not isinstance(token, str) or not token:
+            return False
+        with self._lock:
+            sessions = list(self._sessions.values())
+        for record in sessions:
+            if secrets.compare_digest(token, record.admin_token):
+                return True
+            if any(secrets.compare_digest(token, seat_token)
+                   for seat_token in record.tokens.values()):
+                return True
+        return False
+
     def delete_game(self, session_id: str, *, token: str | None) -> dict[str, Any]:
         record = self._session(session_id)
         self._require(record, token, admin=True)

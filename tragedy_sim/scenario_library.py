@@ -34,12 +34,18 @@ def _loop_variants(scenario: dict[str, Any]) -> list[dict[str, Any]]:
         return [concrete]
 
     variants: list[dict[str, Any]] = []
+    # Difficulty variants name the first three options for compatibility; any
+    # further loop count gets a stable numeric suffix instead of IndexError.
     suffixes = ("", "-easy", "-very-easy")
     labels = ("", " (Easy)", " (Very Easy)")
     for index, loops in enumerate(options):
         concrete = deepcopy(scenario)
-        concrete["id"] += suffixes[index]
-        concrete["title"] += labels[index]
+        if index < len(suffixes):
+            suffix, label_text = suffixes[index], labels[index]
+        else:
+            suffix, label_text = f"-loops-{loops}", f" ({loops} 轮)"
+        concrete["id"] += suffix
+        concrete["title"] += label_text
         concrete["loops"] = loops
         concrete["loop_options"] = [loops]
         variants.append(concrete)
