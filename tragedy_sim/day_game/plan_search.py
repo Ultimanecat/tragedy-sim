@@ -95,7 +95,12 @@ def evaluate_day1_pair(world: Game, black_plan: Sequence[Mapping[str, Any]],
                        red_plan: Sequence[Mapping[str, Any]], *,
                        leaf_value: Callable[[Game], float] | None = None
                        ) -> TwoDayTransitionResult:
-    """Day 1 uses explicit plans; day 2 uses a first-legal fallback."""
+    """Evaluate one forced day-1 pair.
+
+    Day 2 is rolled out with the baseline first-legal policy, so the returned
+    value is "day 1 plan plus day-2 baseline continuation", not a search over
+    day-2 plans.
+    """
     return advance_two_days(world, black_plan, red_plan, (), (),
                             leaf_value=leaf_value)
 
@@ -103,7 +108,7 @@ def evaluate_day1_pair(world: Game, black_plan: Sequence[Mapping[str, Any]],
 def search_two_day(world: Game, *, black_limit: int = 3, red_limit: int = 3,
                    leaf_value: Callable[[Game], float] | None = None
                    ) -> TwoDaySearchResult:
-    """Known-world max/min over day-1 plans, day-2 fallback value."""
+    """Known-world max/min over day-1 plans with a day-2 baseline rollout."""
     if type(black_limit) is not int or black_limit < 1:
         raise ValueError("black_limit must be a positive integer")
     if type(red_limit) is not int or red_limit < 1:

@@ -72,6 +72,12 @@ def scenario_capabilities(scenario: Mapping[str, Any]) -> tuple[AbilityCapabilit
 def counter_reduction_capabilities(
         scenario: Mapping[str, Any], counter: str = "paranoia"
         ) -> tuple[AbilityCapability, ...]:
+    """Abilities that can lower ``counter``.
+
+    Only ``transfer`` is turned into a concrete multi-day plan today; the other
+    kinds are returned so callers can see them in diagnostics, and
+    ``plan_counter_defense`` reports ``blocked_reason`` when only those exist.
+    """
     return tuple(
         item for item in scenario_capabilities(scenario)
         if item.counter == counter and item.kind in {"counter", "adjust", "transfer", "reset_all"}
@@ -160,6 +166,11 @@ def plan_counter_defense(scenario: Mapping[str, Any], view: Mapping[str, Any], *
                                     sink=sinks[0],
                                     reason=f"move {counter} off target"))
         return AbilityDefensePlan(target, counter, need, capability, tuple(steps))
+    others = {item.kind for item in capabilities}
+    if others:
+        return AbilityDefensePlan(
+            target, counter, need, None, (),
+            f"only transfer is planned; found {sorted(others)}")
     return AbilityDefensePlan(target, counter, need, None, (),
                               "no transfer capability in scenario")
 

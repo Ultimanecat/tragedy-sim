@@ -217,28 +217,65 @@ class DefenseLeafEstimator:
     The estimator only reads the public view and an optional belief snapshot.
     It is a diagnostic adapter for the known-world two-day search; fair hidden
     information still has to come through the snapshot.
+
+    The leaf distinguishes a survived day from a lost loop: a caller leaf must
+    never make ``loop_end`` look better than ``day_start``.
     """
     snapshot: BeliefSnapshot | None = None
     weights: DefenseValueWeights = DefenseValueWeights()
     survival_target: float = 0.8
-    long_term: float = 0.0
-    expected_loss: float = 0.0
+    scenario: Mapping[str, Any] | None = None
+    horizon_days: int = 3
+
+    def survival(self, game) -> float:
+        winner = game.winner
+        if winner == "protagonists":
+            return 1.0
+        if winner == "mastermind":
+            return 0.0
+        phase = str(getattr(getattr(game, "state", None), "phase", ""))
+        if phase in {"loop_end", "loop_lost"}:
+            return 0.0
+        if phase == "final_guess":
+            # Every loop was lost; only the BTX final guess can still win.
+            return 0.5
+        return 0.5
+
+    def _deadline_pressure(self, view: Mapping[str, Any]) -> float:
+        from .threats import INCIDENT_SEVERITY, public_incidents
+        current_day = int(view.get("round", 1))
+        pressure = 0.0
+        for incident in public_incidents(view, horizon_days=self.horizon_days):
+            if incident.lead <= 0:
+                continue
+            severity = INCIDENT_SEVERITY.get(incident.kind, 0.8)
+            urgency = deadline_urgency(incident.day, current_day,
+                                       horizon=self.horizon_days)
+            pressure += severity * urgency
+        return pressure
 
     def __call__(self, game) -> float:
         view = game.protagonist_team_view()
-        winner = game.winner
-        if winner == "protagonists":
-            survival = 1.0
-        elif winner == "mastermind":
-            survival = 0.0
-        else:
-            survival = 0.5
+        from .threats import classify_threats
+        threats = classify_threats(view=view, snapshot=self.snapshot,
+                                   scenario=self.scenario,
+                                   horizon_days=self.horizon_days)
+        current_day = int(view.get("round", 1))
+        active_hard = [threat for threat in threats
+                       if threat.hard and threat.active_now]
+        expected_loss = 0.0
+        for threat in threats:
+            urgency = (1.0 if threat.active_now
+                       else deadline_urgency(threat.deadline, current_day,
+                                             horizon=self.horizon_days))
+            expected_loss += threat.confidence * threat.severity * urgency
+        pressure = self._deadline_pressure(view)
         value = DefenseValue(
-            hard_ok=True,
-            survival=survival,
-            long_term=self.long_term,
+            hard_ok=not active_hard,
+            survival=self.survival(game),
+            long_term=1.0 / (1.0 + pressure),
             information=information_value(self.snapshot, view),
             final_guess=final_guess_value(self.snapshot, view),
-            expected_loss=self.expected_loss)
+            expected_loss=expected_loss)
         return score_defense_value(
             value, self.weights, survival_target=self.survival_target)

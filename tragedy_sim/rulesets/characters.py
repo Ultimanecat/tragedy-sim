@@ -6,6 +6,34 @@ from ..engine import Character
 from ..effects.vocabulary import op, option
 
 
+def _scenario_initial_location_overrides(self):
+    """Initial locations fixed by ``character_options`` for this scenario."""
+    options = self.scenario.get("character_options", {})
+    result = {}
+    servant = options.get("servant", {}).get("initial_location")
+    if servant:
+        result["servant"] = servant
+    henchman = options.get("henchman", {}).get("initial_location")
+    if henchman:
+        result["henchman"] = henchman
+    return result
+
+
+def _loop_initial_location_map(self):
+    """Role-start locations with scenario overrides applied.
+
+    ``_loop_initial_locations`` feeds the public view and rule Y, so scenario
+    setup must rebuild it through this helper instead of reading
+    ``CHARACTERS[cid].start`` directly.
+    """
+    locations = {cid: CHARACTERS[cid].start for cid in self.roles}
+    locations.update({cid: location
+                      for cid, location in
+                      _scenario_initial_location_overrides(self).items()
+                      if cid in locations})
+    return locations
+
+
 def _apply_character_setup(self):
     options = self.scenario.get("character_options", {})
     for card in self.scenario.get("special_rules", {}).get(
@@ -27,6 +55,11 @@ def _apply_character_setup(self):
         location = options["henchman"]["initial_location"]
         self.state.characters["henchman"].location = location
         self._initial["henchman"].location = location
+    overrides = _scenario_initial_location_overrides(self)
+    if overrides and hasattr(self, "_loop_initial_locations"):
+        self._loop_initial_locations.update(
+            {cid: location for cid, location in overrides.items()
+             if cid in self._loop_initial_locations})
 
 
 def _character_loop_effects(self):
@@ -144,6 +177,7 @@ def _after_character_movements(self, before_locations):
 
 OPERATIONS = {
     "_apply_character_setup": _apply_character_setup,
+    "_loop_initial_location_map": _loop_initial_location_map,
     "_character_loop_effects": _character_loop_effects,
     "_prepare_day_start": _prepare_day_start,
     "_ability_locations": _ability_locations,

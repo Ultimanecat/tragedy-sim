@@ -312,6 +312,9 @@ class Game(ActionGame):
     def _apply_character_setup(self):
         return self.ruleset.operations['_apply_character_setup'](self)
 
+    def _loop_initial_location_map(self):
+        return self.ruleset.operations['_loop_initial_location_map'](self)
+
     def _character_loop_effects(self):
         return self.ruleset.operations['_character_loop_effects'](self)
 

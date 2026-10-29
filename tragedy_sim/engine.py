@@ -193,11 +193,20 @@ class ActionGame:
         s.phase = "action_counters"
 
     def _active_placements(self):
-        originals = [p for index, p in enumerate(self.state.pending)
-                     if index not in self._ignored_placement_indexes]
+        originals = self._original_placements()
         echoes = [placement for index, placement in self._board_echo_placements
                   if index not in self._ignored_placement_indexes]
         return originals + echoes
+
+    def _original_placements(self):
+        """Revealed cards without board echoes.
+
+        Global counts (for example "two Forbid Intrigue cards cancel") must use
+        this list: an echo is the same physical card aimed at a second target,
+        not an extra play.
+        """
+        return [p for index, p in enumerate(self.state.pending)
+                if index not in self._ignored_placement_indexes]
 
     def _movement_is_forbidden(self, target: str, effects: set[str]) -> bool:
         """Ruleset policy point for cards that also count as Forbid Movement."""
@@ -250,6 +259,11 @@ class ActionGame:
     def _intrigue_forbids_cancel(self, count: int) -> bool:
         return count >= 2
 
+    def _intrigue_forbid_count(self) -> int:
+        """Count distinct Forbid Intrigue cards, ignoring board echoes."""
+        return sum(self._deck(p.actor)[p.card].effect == "forbid_intrigue"
+                   for p in self._original_placements())
+
     def _counter_mutated(self, target: str, counter: str) -> None:
         """Hook for mandatory constant effects in a complete game."""
 
@@ -262,8 +276,9 @@ class ActionGame:
         for p in active:
             by_target.setdefault(p.target, []).append(self._deck(p.actor)[p.card])
 
-        # 3. Other forbids: multiple Forbid Intrigue cards cancel GLOBALLY, even bluffs.
-        intrigue_forbids = sum(self._deck(p.actor)[p.card].effect == "forbid_intrigue" for p in active)
+        # 3. Other forbids: multiple Forbid Intrigue cards cancel GLOBALLY, even
+        # bluffs. Board echoes repeat one card, so count original placements.
+        intrigue_forbids = self._intrigue_forbid_count()
         if self._intrigue_forbids_cancel(intrigue_forbids):
             self._event("forbids_cancelled", "本次打出了多张禁止密谋牌，所有禁止密谋牌失效。")
         # 4. Remaining counters. Add before remove; never below zero.

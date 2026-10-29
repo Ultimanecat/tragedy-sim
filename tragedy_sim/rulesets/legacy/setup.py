@@ -71,7 +71,7 @@ def initialize(self):
     self._movement_locks = {}
     self._sealed_boards = []
     self._prevented_incident_culprits = set()
-    self._loop_initial_locations = {cid: CHARACTERS[cid].start for cid in self.roles}
+    self._loop_initial_locations = self._loop_initial_location_map()
     self._night_forced_done = False
     self._hsa_monster_uses = 0
     self._hsa_frenzied_night = False

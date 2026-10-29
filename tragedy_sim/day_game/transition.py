@@ -35,8 +35,13 @@ class DayTransitionResult:
 
     @property
     def lost(self) -> bool:
-        return self.terminal in {"loop_end", "loop_lost", "final_guess",
-                                 "mastermind_win"}
+        """A loop-ending failure. Final guess is separate: it is not resolved yet."""
+        return self.terminal in {"loop_end", "loop_lost", "mastermind_win"}
+
+    @property
+    def pending_final_guess(self) -> bool:
+        """All loops were lost; BTX still allows winning through the final guess."""
+        return self.terminal == "final_guess"
 
 
 def observation_branch_key(view: Mapping[str, Any] | None) -> str | None:
@@ -74,7 +79,16 @@ Policy = Callable[[Game, Sequence[Mapping[str, Any]]], Mapping[str, Any] | None]
 
 
 def _first_legal(game: Game, actions: Sequence[Mapping[str, Any]]):
-    return actions[0] if actions else None
+    """Baseline fallback: advance the phase, otherwise take the first legal move."""
+    if not actions:
+        return None
+    for action in actions:
+        if action.get("action") in {"next", "resolve", "pass"}:
+            return action
+    return actions[0]
+
+
+FALLBACK_POLICY_NAME = "first_legal_v2"
 
 
 def _boundary_terminal(game: Game, start_loop: int, start_round: int) -> str | None:
@@ -159,13 +173,16 @@ def advance_two_days(world: Game,
         return TwoDayTransitionResult(first, second, True, 1.0, "protagonist_win")
     if second.terminal == "mastermind_win":
         return TwoDayTransitionResult(first, second, False, 0.0, "mastermind_win")
+    if not second.next_day:
+        # Failed second day: the day is worth 0 regardless of the leaf function,
+        # otherwise a caller leaf could score a lost loop as positive.
+        return TwoDayTransitionResult(first, second, False, 0.0,
+                                      f"second_day:{second.terminal}")
     if leaf_value is not None:
-        return TwoDayTransitionResult(first, second, second.next_day,
+        return TwoDayTransitionResult(first, second, True,
                                       float(leaf_value(second.state)),
                                       "caller_leaf")
-    return TwoDayTransitionResult(first, second, second.next_day,
-                                  1.0 if second.next_day else 0.0,
-                                  f"second_day:{second.terminal}")
+    return TwoDayTransitionResult(first, second, True, 1.0, "second_day:survived_day")
 
 
 def advance_to_day_boundary(world: Game, policy: Policy | None = None, *,
@@ -181,6 +198,8 @@ def advance_to_day_boundary(world: Game, policy: Policy | None = None, *,
     if type(max_commands) is not int or max_commands < 1:
         raise ValueError("max_commands must be a positive integer")
     policy = policy or _first_legal
+    if policy is _first_legal:
+        policy_name = FALLBACK_POLICY_NAME
     started = perf_counter()
     start_position = (world.state.loop, world.state.round)
     current = world

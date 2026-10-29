@@ -377,7 +377,7 @@ def _restore_board(self, *, apply_loop_rules=False):
     self._simulated_incident = None
     self._choice_actor_override = None
     self._board_echo_placements.clear()
-    self._loop_initial_locations = {cid: CHARACTERS[cid].start for cid in self.roles}
+    self._loop_initial_locations = self._loop_initial_location_map()
     self._apply_character_setup()
     if self.module == "MC":
         self.ex_cards = dict.fromkeys(self.ex_cards, 0)

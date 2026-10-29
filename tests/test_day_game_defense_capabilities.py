@@ -65,7 +65,8 @@ class DefenseCapabilityTests(unittest.TestCase):
                        "paranoia": 1}),
             target="rich", need=1)
         self.assertIsNone(plan.capability)
-        self.assertIn("no transfer", plan.blocked_reason or "")
+        self.assertIn("only transfer is planned", plan.blocked_reason or "")
+        self.assertIn("adjust", plan.blocked_reason or "")
 
     def test_capability_plan_becomes_legal_three_card_plan(self):
         scenario = btx01()

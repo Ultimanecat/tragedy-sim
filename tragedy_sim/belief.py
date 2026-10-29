@@ -785,6 +785,11 @@ class FactorizedBeliefState:
     cannot be counted twice by repeatedly resampling a particle reservoir.
     """
 
+    # Exact role enumeration stays cheap up to this cast size; above it the
+    # sampler switches to the bounded proposal path. Kept as a named constant
+    # so the threshold is auditable and testable.
+    EXACT_ROLE_ENUMERATION_LIMIT = 6
+
     def __init__(self, *, capacity: int = 192, seed: int = 0,
                  matrix_recovery: bool = True, matrix_proposals: bool = False,
                  joint_culprits: bool = False, matrix_variant_policy: str = "prior",
@@ -895,7 +900,7 @@ class FactorizedBeliefState:
             self._signature = signature
             self._roles.clear()
             self._plot_sizes.clear()
-            self._exact_roles = (len(evidence.characters) <= 6
+            self._exact_roles = (len(evidence.characters) <= self.EXACT_ROLE_ENUMERATION_LIMIT
                                  and self.role_sampling_policy != "exact_partition")
             if self._exact_roles:
                 self._enumerate_roles(evidence)
@@ -1209,10 +1214,9 @@ class FactorizedBeliefState:
 
         matcher = FsbtxWitnessMatcher()
         role_witnesses = self._role_witnesses(witnesses)
+        # FS/BTX returned above, so the legacy generic path never needs a
+        # role-posterior target.
         target = None
-        if evidence.module in {"FS", "BTX"}:
-            from .belief_posterior import RolePosteriorTarget
-            target = RolePosteriorTarget(evidence)
         soft = tuple(w for w in role_witnesses
                      if w.strength == WitnessStrength.SOFT)
         # Repeated observations share one realization choice; the matcher still

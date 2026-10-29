@@ -159,10 +159,11 @@ class PairedSelectionTests(unittest.TestCase):
 
 class LeafEstimatorTests(unittest.TestCase):
     @staticmethod
-    def fake_game(winner):
+    def fake_game(winner, phase="day_start"):
         return type("FakeGame", (), {
             "winner": winner,
-            "protagonist_team_view": lambda self: {"characters": {
+            "state": type("S", (), {"phase": phase})(),
+            "protagonist_team_view": lambda self: {"round": 1, "characters": {
                 "girl": {"alive": True}, "rich": {"alive": True}}},
         })()
 
@@ -171,16 +172,44 @@ class LeafEstimatorTests(unittest.TestCase):
         self.assertGreater(estimator(self.fake_game("protagonists")),
                            estimator(self.fake_game("mastermind")))
 
-    def test_known_snapshot_raises_leaf_value(self):
+    def test_lost_loop_scores_below_survived_day(self):
+        estimator = DefenseLeafEstimator()
+        survived = estimator(self.fake_game(None, phase="day_start"))
+        lost = estimator(self.fake_game(None, phase="loop_end"))
+        self.assertGreater(survived, lost)
+        self.assertEqual(estimator.survival(self.fake_game(None, "loop_end")), 0.0)
+
+    def test_known_snapshot_raises_information_terms(self):
         from types import SimpleNamespace
         from tragedy_sim.composition import BeliefSnapshot
-        known = BeliefSnapshot((), None, known_roles={"girl": "key", "rich": "killer"})  # type: ignore[arg-type]
-        worlds = (SimpleNamespace(roles={"girl": "key", "rich": "ordinary"}),
-                  SimpleNamespace(roles={"girl": "ordinary", "rich": "killer"}))
+        known = BeliefSnapshot((), None, known_roles={"girl": "friend", "rich": "ordinary"})  # type: ignore[arg-type]
+        worlds = (SimpleNamespace(roles={"girl": "friend", "rich": "ordinary"}),
+                  SimpleNamespace(roles={"girl": "ordinary", "rich": "friend"}))
         mixed = BeliefSnapshot(worlds, None)  # type: ignore[arg-type]
         game = self.fake_game(None)
-        self.assertGreater(DefenseLeafEstimator(known)(game),
-                           DefenseLeafEstimator(mixed)(game))
+        self.assertGreater(information_value(known, game.protagonist_team_view()),
+                           information_value(mixed, game.protagonist_team_view()))
+        self.assertGreater(final_guess_value(known, game.protagonist_team_view()),
+                           final_guess_value(mixed, game.protagonist_team_view()))
+
+    def test_leaf_is_not_constant_across_threat_states(self):
+        estimator = DefenseLeafEstimator()
+        quiet = self.fake_game(None)
+
+        def threatened():
+            return type("FakeGame", (), {
+                "winner": None,
+                "state": type("S", (), {"phase": "day_start"})(),
+                "protagonist_team_view": lambda self: {
+                    "round": 1,
+                    "characters": {"girl": {"alive": True, "present": True,
+                                            "location": "school"},
+                                   "rich": {"alive": True, "present": True,
+                                            "location": "school"}},
+                    "schedule": [{"day": 2, "kind": "murder"}]},
+            })()
+
+        self.assertNotEqual(estimator(quiet), estimator(threatened()))
 
 
 if __name__ == "__main__":
