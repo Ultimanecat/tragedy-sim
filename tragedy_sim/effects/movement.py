@@ -6,6 +6,19 @@ from ..cards import LOCATIONS
 def move(game, effect):
     c = game.state.characters[effect["target"]]
     destination = effect["location"]
+    # A forced follow (侍从随行) ignores the mover's own movement restrictions:
+    # the official FAQ says the servant follows even when it could not move
+    # itself (barricade, forced non-card movement). The destination still has to
+    # be a real board.
+    if effect.get("forced"):
+        if destination in LOCATIONS:
+            c.location = destination
+            game._event("character_moved",
+                        f"{c.name}随行至{LOCATIONS[destination]}。",
+                        target=c.id, location=destination)
+        else:
+            game._event("movement_blocked", f"{c.name}未能移动：目标无效。")
+        return
     if (destination not in c.forbidden
             and game._movement_destination_allowed(c.id, destination)
             and game._movement_locks.get(c.id) != game.state.round):
