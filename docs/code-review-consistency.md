@@ -95,7 +95,7 @@
 
 | 项 | 证据 | 原因 |
 | --- | --- | --- |
-| FS/BTX `role_slots` 接受未实现身份 | `rulesets/scenario_roles.py:114-120`、`common/roles.py:4-9` | 需要先确定各模块允许的身份集合；`ROLE_RULES` 覆盖全部模块身份，不能直接按表名收窄 |
+| FS/BTX `role_slots` 接受未实现身份 | `rulesets/scenario_roles.py:114-120`、`common/roles.py:4-9` | 已修：`role_slot_pool(module)` 以该模组规则 X/Y 能引入的身份为白名单，FS/BTX 拒绝 prophet 等，MC-10/MZ-07 仍通过 |
 | 侍从随行 `forced=True` 未被 `move` 读取 | `rulesets/characters.py:117-142`、`effects/movement.py:6-15` | 需要确认随行是否无视禁行／移动锁 |
 | 幻想回声是否计入"同一张牌"禁止计数 | `engine.py` 回声逻辑 | 已按"同一张牌只算一次"修；仍需对照官方 FAQ |
 | common/legacy 两份 `_ahr_incident` 语义不一致 | `common/incidents.py:115-185`、`legacy/incidents.py:356-461` | 需要确认哪份语义正确，不能只按代码删 |

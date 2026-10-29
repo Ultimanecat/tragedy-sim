@@ -2,9 +2,37 @@
 
 from collections import Counter
 
-from ..catalog import PLOTS, REFUSAL, ROLE_NAMES
+from ..catalog import MODULES, PLOTS, REFUSAL, ROLE_NAMES
 from ..cards import LOCATIONS
 from ..engine import RuleError
+
+
+# Roles that a module never grants through its plots but still allows a script
+# to place: hideous adds 0-2 curmudgeon, and the anniversary sets convert one
+# civilian into a fragment (validated separately, never through role_slots).
+EXTRA_ROLE_POOL = {
+    "hideous": frozenset({"curmudgeon"}),
+}
+
+
+def role_slot_pool(module: str) -> set[str]:
+    """Roles a script of ``module`` may assign through ``role_slots``.
+
+    The pool is data-driven: every role any plot of that module can introduce.
+    This keeps module-specific identities (for example AHR's ``ahr_puppet``)
+    out of other modules and blocks FS/BTX scripts from naming roles the
+    shared rules layer does not implement (for example ``prophet``). The check
+    is per module rather than per selected plot so a script may still pin a
+    composition drawn from that module's other plots.
+    """
+    if module not in MODULES:
+        return set()
+    pool: set[str] = set()
+    for plot in MODULES[module].plots:
+        if plot in PLOTS:
+            pool.update(PLOTS[plot][2])
+        pool.update(EXTRA_ROLE_POOL.get(plot, ()))
+    return pool
 
 
 def character_genders(traits):
@@ -118,3 +146,10 @@ def validate_scenario_metadata(data: dict) -> None:
                    or type(count) is not int or count < 1
                    for role, count in role_slots.items())):
         raise RuleError("role_slots 必须明确列出合法的非平民身份数量")
+    if role_slots is not None:
+        pool = role_slot_pool(str(data.get("module", "")))
+        unsupported = sorted(set(role_slots) - pool)
+        if unsupported:
+            raise RuleError(
+                "role_slots 含该模组不能通过规则 X/Y 引入的身份："
+                + "、".join(unsupported))
