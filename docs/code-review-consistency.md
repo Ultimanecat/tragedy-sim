@@ -78,51 +78,74 @@
 
 按"先行为、后结构"排序。
 
-### P0 行为正确性
+### 已处理：行为正确性
 
 | 项 | 证据 | 处置 |
 | --- | --- | --- |
-| FS/BTX `role_slots` 接受未实现身份 | `rulesets/scenario_roles.py:114-120`、`common/roles.py:4-9`、`common/incidents.py:40-41` | 待修：校验限制为速查表身份，删除 `any(False)` 桩与预言家报错文本 |
-| common/legacy 两份 `_ahr_incident` 语义不一致 | `common/incidents.py:115-185`、`legacy/incidents.py:356-461` | 待修：统一实现或删除不可达副本 |
-| 侍从随行 `forced=True` 未被 `move` 读取 | `rulesets/characters.py:117-142`、`effects/movement.py:6-15` | 待确认规则本意后修 |
-| `mastermind_search_clone` 对主人公策略也提供全信息 | `service.py:468-478`、`rooms.py:510-518` | 待修：只为剧作家开放 |
-| SSE 无令牌仍可建立事件流 | `server.py:76-97`、`rooms.py:255-264` | 待修：要求有效房间令牌并尊重 `spectators` |
-| Web 房间内“返回大厅”不释放座位 | `web/src/App.tsx:851-857`、`989` | 待修：先 `closeRoom`/`leaveRoom` |
-| Web 契约 fixture 落后于服务端 | `web/src/App.test.tsx:11-12`、`web/fixtures/protocol-v1` | 待修：从服务端生成或加键集对比 |
+| `loop_options` 第 4 项起 `IndexError` | `scenario_library.py:36-46` | 已修：第 4 项起用 `-loops-<n>` 后缀，加回归测试 |
+| 伪 Bearer 解锁高限流 | `server.py:175-181` | 已修：只有会话／房间真实令牌才算已认证 |
+| SSE 无令牌绕过旁观限制 | `server.py:76-97` | 已修：房间禁止旁观时要求有效令牌 |
+| `secret_dossier` 缺键崩溃 | `hotseat.py:284-299` | 已修：`initial_location`/`role_source`/`part_timer_question` |
+| GUI/CLI 缺 AHR 里身份 | `hotseat.py:280-288`、`cli.py:287-293` | 已修：资料页列出 `hidden_roles` |
+| witness 死亡线索漏复活／登场 | `witness_rules/common_death_clues.py:22-39` | 已修 |
+| MZ+ 宣称动词错 | `cli.py:267` | 已修 |
+| CLI `--lang` 未接入视图、AHR 终猜 KeyError | `cli.py` 多处 | 已修 |
 
-### P1 估值与搜索
+### 需要规则确认（未改）
+
+| 项 | 证据 | 原因 |
+| --- | --- | --- |
+| FS/BTX `role_slots` 接受未实现身份 | `rulesets/scenario_roles.py:114-120`、`common/roles.py:4-9` | 需要先确定各模块允许的身份集合；`ROLE_RULES` 覆盖全部模块身份，不能直接按表名收窄 |
+| 侍从随行 `forced=True` 未被 `move` 读取 | `rulesets/characters.py:117-142`、`effects/movement.py:6-15` | 需要确认随行是否无视禁行／移动锁 |
+| 幻想回声是否计入"同一张牌"禁止计数 | `engine.py` 回声逻辑 | 已按"同一张牌只算一次"修；仍需对照官方 FAQ |
+| common/legacy 两份 `_ahr_incident` 语义不一致 | `common/incidents.py:115-185`、`legacy/incidents.py:356-461` | 需要确认哪份语义正确，不能只按代码删 |
+
+### 需要设计或前端验证
+
+| 项 | 证据 | 原因 |
+| --- | --- | --- |
+| `mastermind_search_clone` 对主人公策略也提供全信息 | `service.py:468-478`、`rooms.py:510-518` | 主人公 oracle 本身是开眼诊断策略，需先决定房间是否允许开眼 |
+| 联合候选／威胁排序非默认路径 | `particle_ensemble.py:720-737` | 需决定是否作为正式可选策略 |
+| `joint_mastermind` 每次评估新建估值器 | `joint_mastermind.py:108-113` | 缓存会改变 RNG 序列，需要配对验证后再改 |
+| 私有成员跨模块调用 | `evaluation.py:184-208` 等 | 需要先设计公开只读接口 |
+| Web 返回大厅不释放座位 | `web/src/App.tsx:851-857`、`989` | 需要 npm 构建与浏览器验证 |
+| Web 契约 fixture 漂移 | `web/src/App.test.tsx:11-12` | 需要从服务端生成契约快照 |
+
+### 已完成的清理
 
 | 项 | 证据 | 处置 |
 | --- | --- | --- |
-| 联合候选 / 威胁排序非默认路径 | `particle_ensemble.py:720-737`、`joint_action_space.py:64`、`joint_defense_ranker.py:324` | 待决定：开放为可选策略或标注仅基准 |
-| `joint_mastermind` 每次评估新建粒子估值器 | `joint_mastermind.py:108-113` | 待修：缓存实例 |
-| 私有成员跨模块调用 | `evaluation.py:184-208`、`joint_defense_ranker.py:51-167`、`particle_ensemble.py:767-776` | 待修：补公开只读接口 |
-| 魔法常量未集中 | `belief.py:745`、`belief.py:1577-1586`、`particle_ensemble.py:820-829`、`joint_mastermind.py:413-479` | 待修：抽配置并记录来源 |
-
-### P2 结构清理
-
-| 项 | 证据 | 处置 |
-| --- | --- | --- |
-| 历史策略 / 死分支 | `ismcts.py:45`、`belief.py:326`、`belief.py:252`、`belief.py:383` | 计划删除或标注 legacy-only |
-| 原型契约只在测试中使用 | `domain/**`、`wm.cast_spell`、`phases/registry.py:38-49` | 文档标注原型，不删除 |
-| day_game 导出面过大 | `day_game/__init__.py` 68 项导出 | 待收敛：只导出有真实调用或明确诊断用途的符号 |
+| `ismcts` 的 `legacy_joint_search` 死分支 | `ismcts.py:45`、`230-256`、`304-389` | 已删除，含 `_legacy_bundle` |
+| `belief.py` 死分支、魔法阈值 | `belief.py:1205-1215`、`898` | 已删除／具名化 |
+| 软 witness 接受曲线与暗牌历史先验 | `belief.py:745`、`1577-1586` | 抽成模块常量 |
+| `particle_ensemble` 塑形常量 | `particle_ensemble.py:522`、`790-830` | 抽成模块常量 |
+| `plan_search` 三牌／64 步／候选上限 | `plan_search.py:37-103` | 参数化并写进结果 |
+| `PublicBeliefPlanner` 占位 fallback | `belief_planner.py:399` | `choose_action` 标为抽象方法 |
+| `common/roles` 的 `(not False)` 与预言家文案 | `rulesets/common/roles.py:35-39` | 简化 |
+| 未使用 CLI 参数、重复端口常量 | `cli.py:469-470`、`server.py:8765` | 删除／提取 `DEFAULT_PORT` |
 
 ## 配对对照复核（干净工作区）
 
-修复后重跑 `python -m benchmarks.ability_guard_probe 8`（BTX01、固定黑方、固定节点预算、seed 0–7）：
+修复后重跑 `python -m benchmarks.ability_guard_probe 6`（BTX01、固定黑方、固定节点预算、seed 0–5）：
 
-| 策略 | 胜局 |
-| --- | --- |
-| 普通粒子 | 5/8 |
-| 能力门控 + 分层选择 | 4/8 |
+| 策略 | 胜局 | 计划动作数 |
+| --- | --- | --- |
+| 普通粒子 | 4/6 | — |
+| 能力门控 + 分层选择 | 4/6 | 0／0／3／18／21／24 |
 
-只有 seed 0 出现胜负翻转（普通胜 → 能力负），其余 7 个种子同胜负。能力链只在 8/72 个主人公决策中生效，其余仍由粒子推荐决定。
+六个种子胜负完全一致，能力链确实执行（seed 0/3/5 各 4 次 transfer 请求），但结果不变。
 
-结论：门控修掉了此前"0/3"的明显退化，但能力链瞄准的第 5 天大小姐自杀并非这些种子的实际失败来源（失败多为 `主人公死亡`、`时间旅行者日末能力`、`亲友死亡`）。分层估值本身仍未被有效测到。
+对比三次迭代：
+
+1. 旧版（时间上限、无条件铺垫）：0/3，明显退化。
+2. 加公开时间表门控：5/8 对 4/8，仅 seed 0 翻转。
+3. 按公开事故类型选目标 + 只看目标事故作硬威胁：4/6 对 4/6，无差异。
+
+结论：测量与目标选择缺陷已修（可重复、按事故类型、按截止日），能力链也能执行，但 BTX01 这些种子的实际失败来源是 `主人公死亡`、`时间旅行者日末能力`、`亲友死亡`，第 5 天大小姐自杀不是瓶颈。分层估值仍未在真正需要长期防守的局面里被检验。
 
 ## 验证
 
-- 全量 pytest（12 worker）：1194 passed、1 skipped、1179 subtests，约 46 秒（引擎/信念/determinizer 修复后）。
+- 全量 pytest（12 worker）：1197 passed、1 skipped、1179 subtests，约 46 秒。
 - 定向：`tests/test_engine_review_regressions.py`、`tests/test_day_game_*.py`、`tests/test_oracle_protagonist.py`、`tests/test_particle_ensemble.py`、`tests/test_ismcts.py`、`tests/test_belief.py`。
 
 ## 纪律

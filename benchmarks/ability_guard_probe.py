@@ -51,11 +51,12 @@ class DefensePolicy:
                 return offer
         return None
 
-    def _desired_card(self, game, view):
+    def _setup_steps(self, game, view):
+        """Card setup steps for today, or () when nothing is due."""
         rich = view.get("characters", {}).get("rich", {})
         forensic = view.get("characters", {}).get("forensic", {})
         if not rich.get("alive", True) or not forensic.get("alive", True):
-            return None
+            return ()
         # Target selection from the public schedule: the chain exists for the
         # rich character's suicide incident, so prepare only when that kind of
         # incident is close. Other incidents are left to the particle planner.
@@ -65,45 +66,66 @@ class DefensePolicy:
                 target_lead = incident.lead
                 break
         if target_lead is None or target_lead > self.setup_lead:
-            return None
+            return ()
         plan = plan_counter_defense(self.scenario, view, target="rich", need=1)
         if plan.capability is None or plan.blocked_reason:
-            return None
+            return ()
+        scheduled = schedule_ability_steps(plan)
+        if scheduled.blocked_reason or not scheduled.days:
+            return ()
         threshold = int(plan.capability.threshold or 0)
         if int(forensic.get("goodwill", 0)) < threshold:
-            return ("g2", "forensic") if threshold - int(forensic.get("goodwill", 0)) >= 2 else ("g1", "forensic")
+            return scheduled.days[0]
         if forensic.get("location") != "school":
-            return (("h", "v", "d"), "forensic")
+            return scheduled.days[1] if len(scheduled.days) > 1 else scheduled.days[0]
+        return ()
+
+    def _build_queue(self, game, view):
+        steps = self._setup_steps(game, view)
+        if not steps:
+            return []
+        built = build_real_day_plan(game, steps,
+                                    avoid_targets=("rich", "class_rep"))
+        if built.blocked_reason:
+            return []
+        return [dict(action) for action in built.card_plan]
+
+    def _match_command(self, offers, command):
+        for offer in offers:
+            params = offer.get("parameters", {})
+            if (offer.get("type") == command.get("action")
+                    and offer.get("actor") == command.get("actor")
+                    and params.get("card") == command.get("card")
+                    and params.get("target") == command.get("target")):
+                return offer
         return None
 
     def _hard_threat_active(self, view) -> bool:
-        upcoming = [item.lead for item in public_incidents(view)
-                    if item.lead >= 0]
-        return bool(upcoming) and min(upcoming) <= 0
+        """Whether today's card slots must all go to the modelled hard loss.
+
+        This diagnostic only models the scheduled suicide threat, so setup is
+        allowed whenever that threat is not itself today. Other incidents are
+        left to the particle planner instead of pre-empting the setup budget.
+        """
+        for incident in public_incidents(view):
+            if incident.kind == self.target_incident:
+                return incident.lead <= 0
+        return False
 
     def choose_game_action(self, *, participant, game, offers, public_view=None):
         view = public_view or game.protagonist_team_view()
         if game.state.phase == "protagonists":
-            desired = self._desired_card(game, view)
-            hard = self._hard_threat_active(view)
-            if desired is not None and long_term_slots(hard_threat=hard) > 0:
-                cards, target = desired
-                cards = (cards,) if isinstance(cards, str) else cards
-                matching = [offer for offer in offers
-                            if offer.get("type") == "play"
-                            and offer.get("parameters", {}).get("card") in cards
-                            and offer.get("parameters", {}).get("target") == target]
-                if matching:
-                    candidates = [DefenseCandidate(
-                        action=offer["id"], survival=0.8,
-                        long_term=1.0 if offer in matching else 0.0,
-                        information=0.0, final_guess=0.0, expected_loss=0.0)
-                        for offer in offers]
-                    selection = select_defense_action(candidates, ())
-                    chosen_id = selection.chosen.action
+            if not self.queue:
+                if long_term_slots(hard_threat=self._hard_threat_active(view)) > 0:
+                    self.queue = self._build_queue(game, view)
+            while self.queue:
+                offer = self._match_command(offers, self.queue[0])
+                if offer is not None:
+                    self.queue.pop(0)
                     self.planned += 1
-                    return next(offer for offer in offers
-                                if offer["id"] == chosen_id)
+                    return offer
+                self.queue = []
+                break
             self.fallback += 1
             return self.base.choose_action(participant="team", view=view, offers=offers)
         if game.state.phase in {"goodwill", "refusal"}:
