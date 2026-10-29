@@ -133,7 +133,15 @@ score = hard_ok * 1000
 2. 整局策略没有接 `classify_threats`、硬过滤、生存饱和和信息项；它只是无条件插入能力铺垫，`hard_threat` 永远为 False。
 3. 固定目标选择只押第 5 天大小姐，没有按最早截止日/严重度选择威胁。
 
-这不是“分层估值算法本身已被证伪”的证据；下一轮按上面的缺口修正后再配对。
+修复记录（2026-10-29）：
+
+- `role_distribution`：已知角色不再抹掉其他角色的粒子后验，改为合并。
+- 新增 `public_incidents` / `earliest_incident_lead`：只读公开 `schedule`，不读隐藏责任人。
+- 新增 `threat_priority` / `select_primary_threat`：活跃硬威胁优先，其次最早截止日。
+- `PublicStateDeterminizer` 修掉硬编码 `phase == "protagonists"`：日初/剧作家阶段的公开视图以前静默返回零粒子，导致分支后验重采样永远为空；现在允许 `day_start`/`mastermind`/`protagonists`。
+- 诊断脚本改成固定节点预算 + 逐决策计时 + 计划/回退计数，并用公开事故时间表门控能力铺垫。
+
+这还不是“分层估值算法本身已被证伪”的证据；下一轮按上面的缺口修正后再配对。
 
 ### P0 威胁分类
 

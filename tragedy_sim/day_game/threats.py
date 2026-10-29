@@ -60,28 +60,75 @@ def _characters(view: Mapping[str, Any]) -> Mapping[str, Mapping[str, Any]]:
 
 
 def role_distribution(snapshot: BeliefSnapshot | None) -> dict[str, dict[str, float]]:
-    """Role probabilities: hard known roles first, otherwise particle majority/frequency."""
+    """Role probabilities per character.
+
+    Known roles are pinned to probability 1.0. Characters without hard
+    knowledge keep their particle frequencies, so knowing one role never
+    erases the posterior of the remaining characters.
+    """
     if snapshot is None:
         return {}
-    if snapshot.known_roles:
-        return {cid: {str(role): 1.0}
-                for cid, role in snapshot.known_roles.items()}
+    result: dict[str, dict[str, float]] = {}
     worlds = getattr(snapshot, "worlds", ())
-    if not worlds:
-        return {}
-    counts: dict[str, Counter] = {}
-    for world in worlds:
-        for cid, role in getattr(world, "roles", {}).items():
-            counts.setdefault(str(cid), Counter())[str(role)] += 1
-    total = len(worlds)
-    return {cid: {role: count / total for role, count in counter.items()}
-            for cid, counter in counts.items()}
+    if worlds:
+        counts: dict[str, Counter] = {}
+        for world in worlds:
+            for cid, role in getattr(world, "roles", {}).items():
+                counts.setdefault(str(cid), Counter())[str(role)] += 1
+        total = len(worlds)
+        result = {cid: {role: count / total for role, count in counter.items()}
+                  for cid, counter in counts.items()}
+    for cid, role in (snapshot.known_roles or {}).items():
+        result[str(cid)] = {str(role): 1.0}
+    return result
 
 
 def _hard_roles(snapshot: BeliefSnapshot | None) -> dict[str, str]:
     if snapshot is None or not snapshot.known_roles:
         return {}
     return {str(cid): str(role) for cid, role in snapshot.known_roles.items()}
+
+
+@dataclass(frozen=True)
+class PublicIncident:
+    """A scheduled incident that is already public knowledge."""
+    day: int
+    kind: str
+    lead: int
+
+
+def public_incidents(view: Mapping[str, Any],
+                     horizon_days: int | None = None) -> tuple[PublicIncident, ...]:
+    """Read the public incident schedule; never reads hidden culprits.
+
+    ``lead`` is ``day - current round``. ``round`` is the day-of-loop, and
+    incident days in BTX use the same numbering.
+    """
+    if horizon_days is not None and (type(horizon_days) is not int
+                                     or horizon_days < 1):
+        raise ValueError("horizon_days must be a positive integer or None")
+    schedule = view.get("schedule", ()) or ()
+    current_day = int(view.get("round", 1))
+    result = []
+    for entry in schedule:
+        if not isinstance(entry, Mapping):
+            continue
+        try:
+            day = int(entry.get("day", 0))
+        except (TypeError, ValueError):
+            continue
+        kind = str(entry.get("kind", ""))
+        lead = day - current_day
+        if horizon_days is not None and (lead < 0 or lead > horizon_days):
+            continue
+        result.append(PublicIncident(day=day, kind=kind, lead=lead))
+    return tuple(sorted(result, key=lambda item: (item.day, item.kind)))
+
+
+def earliest_incident_lead(view: Mapping[str, Any]) -> int | None:
+    """Lead time of the nearest incident today or later, else ``None``."""
+    upcoming = [item.lead for item in public_incidents(view) if item.lead >= 0]
+    return min(upcoming) if upcoming else None
 
 
 def classify_threats(*, view: Mapping[str, Any],
@@ -183,3 +230,29 @@ def classify_threats(*, view: Mapping[str, Any],
         -(item.confidence * item.severity),
         item.deadline if item.deadline is not None else 999,
         item.target)))
+
+
+def threat_priority(threat: ThreatAssessment, current_day: int) -> tuple:
+    """Sort key: act now, then earliest deadline, then severity and confidence.
+
+    Active hard threats always lead. Otherwise the incident with the smallest
+    remaining lead time wins, so a day-3 murder outranks a day-5 suicide.
+    """
+    if type(current_day) is not int or current_day < 1:
+        raise ValueError("current_day must be a positive integer")
+    lead = (int(threat.deadline) - current_day
+            if threat.deadline is not None else 999)
+    return (0 if threat.hard and threat.active_now else 1,
+            0 if threat.failure_kind == "character_loss" and threat.active_now else 1,
+            lead,
+            -threat.severity,
+            -threat.confidence,
+            threat.target)
+
+
+def select_primary_threat(threats: Sequence[ThreatAssessment],
+                          current_day: int) -> ThreatAssessment | None:
+    """Pick the single threat a defender should cover first today."""
+    if not threats:
+        return None
+    return min(threats, key=lambda item: threat_priority(item, current_day))

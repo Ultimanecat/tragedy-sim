@@ -52,6 +52,17 @@ class ObservationBranchTests(unittest.TestCase):
         self.assertIsNotNone(snapshot)
         self.assertEqual(snapshot.source, "fake")
 
+    def test_day_start_branch_resamples_real_particles(self):
+        branch = make_observation_branch(
+            advance_to_day_boundary(next_day_start(), nextish))
+        snapshot = resample_branch(branch, particle_count=6, rng_seed=1)
+        self.assertEqual(branch.public_view["phase"], "day_start")
+        self.assertGreater(len(snapshot.worlds), 0)
+        world = snapshot.worlds[0]
+        self.assertEqual(world.state.phase, "day_start")
+        self.assertEqual(world.state.round, branch.public_view["round"])
+        self.assertEqual(list(world.state.pending), [])
+
 
 if __name__ == "__main__":
     unittest.main()

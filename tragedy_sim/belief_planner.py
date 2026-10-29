@@ -85,7 +85,11 @@ class IsmctsTrace:
 
 
 class PublicStateDeterminizer:
-    """Materialize one sampled setup at a protagonist-visible action state."""
+    """Materialize one sampled setup at a protagonist-visible state."""
+
+    # Phases where a protagonist can hold a materialized world. Day boundaries
+    # matter for cross-day planning: a day-start snapshot has no pending cards.
+    MATERIALIZABLE_PHASES = ("day_start", "mastermind", "protagonists")
 
     _CHARACTER_FIELDS = (
         "location", "forbidden", "paranoia", "goodwill", "intrigue",
@@ -98,7 +102,9 @@ class PublicStateDeterminizer:
                     history_prior: bool = False,
                     force_history: bool = False,
                     coherent_history: bool = False) -> Game | None:
-        if view.get("module") not in ("FS", "BTX") or view.get("phase") != "protagonists":
+        observed_phase = view.get("phase")
+        if (view.get("module") not in ("FS", "BTX")
+                or observed_phase not in self.MATERIALIZABLE_PHASES):
             return None
         try:
             game = Game(hypothesis.materialize(evidence))
@@ -107,7 +113,7 @@ class PublicStateDeterminizer:
         state = game.state
         state.loop = int(view["loop"])
         state.round = int(view["round"])
-        state.phase = "protagonists"
+        state.phase = str(observed_phase)
         state.leader = str(view["leader"])
         state.locations = deepcopy(dict(view["locations"]))
         game.mastermind_plays = int(view["action_counts"]["mastermind"])
