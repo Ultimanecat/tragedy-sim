@@ -24,6 +24,22 @@ from .search import SearchBudget
 from .witness import FsbtxWitnessCompiler, WitnessStrength
 
 
+
+# Hand-tuned shaping weights for root action ranking. They cap how much an
+# information or defense bonus can move a row, so raising the corresponding
+# weight above 1.2 has no further effect. Kept as module constants for audit.
+INFORMATION_REWARD_CAP = 0.012
+SCARCE_CARD_PENALTY = 0.025
+TAIL_INDEX_DIVISOR = 5
+PROPOSAL_DRAW_MULTIPLIER = 4
+PROPOSAL_MIN_DRAWS = 12
+PROPOSAL_DEADLINE_FRACTION = 0.25
+PROPOSAL_MIN_BEFORE_DEADLINE = 6
+TRAVELER_GOODWILL_STEP_BONUS = 0.016
+TRAVELER_FULL_GOODWILL_BONUS = 0.012
+TRAVELER_SCREENING_CAP = 0.07
+
+
 class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
     """Propose Oracle-style bundles per hypothesis, cross-score on all worlds."""
 
@@ -334,10 +350,10 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             after = min(3, before + amount)
             if before >= 3 or after + 2 * remaining_days < 3:
                 continue
-            bonus += 0.016 * (after - before)
+            bonus += TRAVELER_GOODWILL_STEP_BONUS * (after - before)
             if after == 3:
-                bonus += 0.012
-        return min(0.07, bonus)
+                bonus += TRAVELER_FULL_GOODWILL_BONUS
+        return min(TRAVELER_SCREENING_CAP, bonus)
 
     @staticmethod
     def _time_traveler_screening_offsets(
@@ -516,14 +532,14 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
         proposals: dict[str, tuple[dict[str, Any], ...]] = {}
         limit = self.budget.node_limit
         proposal_deadline = (None if deadline is None else
-                             search_started + 0.25 * self.budget.time_limit_ms / 1000)
+                             search_started + PROPOSAL_DEADLINE_FRACTION * self.budget.time_limit_ms / 1000)
         # Duplicates do not consume evaluation nodes. Allow bounded extra
         # draws so a small/repeated world batch can reach progressive indices.
-        for round_index in range(max(12, 4 * limit)):
+        for round_index in range(max(PROPOSAL_MIN_DRAWS, PROPOSAL_DRAW_MULTIPLIER * limit)):
             for world_index, world in enumerate(worlds):
                 if (proposal_deadline is not None
                         and perf_counter() >= proposal_deadline
-                        and len(proposals) >= min(6, limit)):
+                        and len(proposals) >= min(PROPOSAL_MIN_BEFORE_DEADLINE, limit)):
                     break
                 index = self.oracle.proposal_index(round_index, world_index)
                 bundle = self.oracle._bundle(world, view, index)
@@ -535,7 +551,7 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                     break
             if len(proposals) >= limit or (proposal_deadline is not None
                                            and perf_counter() >= proposal_deadline
-                                           and len(proposals) >= min(6, limit)):
+                                           and len(proposals) >= min(PROPOSAL_MIN_BEFORE_DEADLINE, limit)):
                 break
         # Public board targets deserve an explicit defensive candidate even
         # when the small particle batch happens not to contain a plot that
@@ -787,7 +803,7 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
                 selected_policy = min(
                     policy_outcomes,
                     key=lambda item: (item[1], item[0]
-                                      + min(0.012,
+                                      + min(INFORMATION_REWARD_CAP,
                                             self.information_reward_weight
                                             * item[2]) - item[6]))
                 scores.append(selected_policy[:2])
@@ -809,7 +825,7 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             # The lower tail measures simulated risk. A location prior is
             # shaping, and must not mask a worse risk row (e.g. a board bluff
             # distracting from intrigue on a publicly established Key).
-            tail = values[max(0, len(values) // 5 - 1)]
+            tail = values[max(0, len(values) // TAIL_INDEX_DIVISOR - 1)]
             scarce = sum(item["card"] in {"fm", "g2", "p-1"}
                          for item in bundle)
             information_value = (sum(information_values) /
@@ -819,12 +835,12 @@ class ParticleEnsembleProtagonistAgent(PublicBeliefPlanner):
             information_refusal = sum(information_refusals) / len(information_refusals)
             threads_risk = sum(threads_risks) / len(threads_risks)
             information_bonus = min(
-                0.012, self.information_reward_weight * information_value)
+                INFORMATION_REWARD_CAP, self.information_reward_weight * information_value)
             defense_bonus = 0.0
             if defense_context is not None:
                 assessment = self.defense_module.assess(defense_context, bundle)
                 defense_bonus = self.defense_weight * assessment.score
-            mean = (sum(values) / len(values) - 0.025 * scarce
+            mean = (sum(values) / len(values) - SCARCE_CARD_PENALTY * scarce
                     + information_bonus + traveler_screening_bonus
                     + location_guard_bonus - threads_risk + defense_bonus)
             day_survival = (sum(ok for _, ok in day_scores) / len(day_scores)

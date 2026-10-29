@@ -12,6 +12,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass
 import json
 import random
+from abc import abstractmethod
 from typing import Any, Mapping, Sequence
 
 from .ai import DefensiveProtagonistAgent

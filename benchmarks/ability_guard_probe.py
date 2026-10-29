@@ -77,8 +77,9 @@ class DefensePolicy:
         return None
 
     def _hard_threat_active(self, view) -> bool:
-        lead = earliest_incident_lead(view)
-        return lead is not None and lead <= 0
+        upcoming = [item.lead for item in public_incidents(view)
+                    if item.lead >= 0]
+        return bool(upcoming) and min(upcoming) <= 0
 
     def choose_game_action(self, *, participant, game, offers, public_view=None):
         view = public_view or game.protagonist_team_view()
