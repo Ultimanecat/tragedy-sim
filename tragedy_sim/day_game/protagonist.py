@@ -123,6 +123,8 @@ class TwoDayProtagonistAgent:
     oracle_plot: str | None = None
     oracle_cast: Mapping[str, str] | None = None
     oracle_always_cover: bool = False
+    posterior_cover: bool = False
+    posterior_floor: float = 0.3
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
     controls_protagonist_team = True
@@ -166,8 +168,10 @@ class TwoDayProtagonistAgent:
                 continue
             threshold = PLOT_THRESHOLDS.get(str(threat.role),
                                             BOARD_PLOT_THRESHOLD)
-            forced = (self.oracle_always_cover
-                      and threat.source == "oracle_plot")
+            forced = ((self.oracle_always_cover
+                       and threat.source == "oracle_plot")
+                      or (self.posterior_cover
+                          and threat.confidence >= self.posterior_floor))
             obligations.append(DefenseObligation(
                 threat=threat, counter=_counter_for(threat, view),
                 threshold=threshold, days_left=days_left, forced=forced))

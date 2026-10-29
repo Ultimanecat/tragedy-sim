@@ -100,6 +100,18 @@ class ChooseActionTests(unittest.TestCase):
         self.assertEqual(chosen["parameters"]["card"], "fi")
         self.assertEqual(chosen["parameters"]["target"], "city")
 
+    def test_forced_posterior_obligation_covers_before_counter_moves(self):
+        base_pick = offer("g1", "girl")
+        forced = DefenseObligation(plot_threat("school", plot="protect"),
+                                   counter=0, threshold=2, days_left=4,
+                                   forced=True)
+        agent, _ = agent_with(base_pick, [forced])
+        chosen = agent.choose_action(
+            participant="team", view=view(school=0),
+            offers=[offer("fi", "school"), base_pick])
+        self.assertEqual(chosen["parameters"]["card"], "fi")
+        self.assertEqual(chosen["parameters"]["target"], "school")
+
     def test_falls_back_when_no_obligation(self):
         base_pick = offer("g1", "girl")
         agent, _ = agent_with(base_pick, [])

@@ -36,6 +36,9 @@ def make_policy(arm: str, seed: int, node_limit: int, depth: int, scenario=None)
     base = ParticleEnsembleProtagonistAgent(budget, particle_count=8, rng_seed=seed)
     if arm == "base":
         return base
+    if arm == "long_horizon_posterior":
+        return TwoDayProtagonistAgent(base=base, particle_count=8,
+                                      posterior_cover=True)
     if arm in ("long_horizon_oracle", "long_horizon_oracle_always"):
         return TwoDayProtagonistAgent(
             base=base, particle_count=8,
