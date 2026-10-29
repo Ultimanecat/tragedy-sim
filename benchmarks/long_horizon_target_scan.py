@@ -52,12 +52,14 @@ def watched_counters(scenario):
     return []
 
 
-def play_one(scenario, seed: int, *, node_limit: int = 24, depth: int = 12):
+def play_one(scenario, seed: int, *, node_limit: int = 24, depth: int = 12,
+             forced_strategy: str | None = None):
     game = Game(scenario)
     policy = ParticleEnsembleProtagonistAgent(
         SearchBudget(node_limit=node_limit, rollout_depth=depth, seed=seed),
         particle_count=8, rng_seed=seed)
-    black = FixedStrategyMastermindAgent(random.Random(f"black:{seed}"))
+    black = FixedStrategyMastermindAgent(random.Random(f"black:{seed}"),
+                                         forced_strategy=forced_strategy)
     while game.winner is None:
         actions = game.action_offers(game.controller)
         if not actions:
@@ -103,6 +105,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seeds", type=int, default=2)
     parser.add_argument("--node-limit", type=int, default=24)
+    parser.add_argument("--forced-strategy", default=None,
+                        help="force one mastermind plan, e.g. plot_intrigue")
     parser.add_argument("--depth", type=int, default=12)
     parser.add_argument("--out", default="references/long-horizon-target-scan.json")
     args = parser.parse_args()
@@ -114,7 +118,8 @@ def main() -> int:
               f"Y={PLOTS[scenario['main_plot']][0]}", flush=True)
         for seed in range(args.seeds):
             result = play_one(scenario, seed, node_limit=args.node_limit,
-                              depth=args.depth)
+                              depth=args.depth,
+                              forced_strategy=args.forced_strategy)
             row = {"scenario": scenario_id, "seed": seed, **result}
             rows.append(row)
             print("  seed", seed, "winner", result["winner"],

@@ -51,10 +51,39 @@
 - 主指标最终胜率；中间指标记录当日存活率、义务完成率、已知威胁覆盖率。
 - 不通过不切默认 AI。
 
+## 诊断结果（2026-10-29，seed 0–1，固定节点预算）
+
+普通粒子红方对固定黑方：
+
+| 剧本 | 规则 Y | 结果 |
+| --- | --- | --- |
+| `official-fs-02-prevailing-secrecy` | protect 学校 | seed1 两轮规则 Y 失败，但仍赢下比赛（另一轮存活） |
+| `official-tragic-aiplay-fs-02g` | avenger 主谋初始区域 | **seed1 黑方全胜，3 轮全为规则 Y 失败** |
+| `official-tragic-aiplay-btx-01g` | sign 关键人物 | 混合：主人公死亡与规则 Y |
+| `official-btx-04-young-womens-battlefield` | sign 关键人物 | seed1 两轮规则 Y 失败 |
+| `official-btx-05-lesser-of-two-evils` | sealed 神社 | 两个种子都在第 7 天规则 Y 失败，但只输 1/3 轮，仍赢比赛 |
+| `official-btx-11-neverending-happy-sad-story` | bomb 魔女初始区域 | 规则 Y 失败在第 6 天，重复出现 |
+| `official-btx-01`（对照） | change | 失败来源是主人公死亡/时间旅行者，不是长期累积 |
+| `official-btx-02`（对照） | murder_plan | 身份能力致死，混合 |
+
+关键限制：FS 没有终猜，且"只要有一轮存活即获胜"，所以**比赛胜率对长期防守不敏感**；BTX 有终猜，全轮失败后还有猜身份翻盘。因此主指标改用：
+
+1. **规则 Y 轮回失败率**（长期防守是否真的挡住累积）。
+2. 比赛胜率（次要，样本更大时才看）。
+
+## 选定目标
+
+- **主目标**：`official-tragic-aiplay-fs-02g`（avenger，4 天 × 3 轮）。基线黑方在 seed1 用规则 Y 连胜 3 轮，说明长期累积足以决定比赛。
+- **副目标**：`official-btx-05-lesser-of-two-evils`（sealed，7 天 × 3 轮），验证更长跨日与 BTX 终猜下的表现。
+- **对照**：`official-fs-02-prevailing-secrecy`（protect，学校）。
+
+规则 Y 在本项目里是隐藏信息（`known_plots` 初始为空，由能力公开），所以 agent 必须维护"Y 目标"的后验：avenger 要看主谋（brain）的初始区域，sealed 看神社，protect 看学校。第一步实现放在 `day_game/threats.py` 的 `classify_plot_threats`。
+
 ## 状态
 
 - [x] 记录计划
-- [ ] 诊断扫描
-- [ ] 选定目标剧本
+- [x] 诊断扫描
+- [x] 选定目标剧本
+- [x] 规则 Y 后验威胁分类（`classify_plot_threats`，5 项测试）
 - [ ] 实现 `TwoDayProtagonistAgent`
 - [ ] 配对验证

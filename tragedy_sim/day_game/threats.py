@@ -224,12 +224,113 @@ def classify_threats(*, view: Mapping[str, Any],
                 deadline=day, active_now=lead == 0,
                 source="known_culprit", hard=True))
 
-    order = {"character_loss": 0, "role_threat": 1, "incident": 2}
+    order = {"character_loss": 0, "role_threat": 1, "incident": 2,
+             "plot_loss": 3}
     return tuple(sorted(threats, key=lambda item: (
         order.get(item.failure_kind, 9), not item.hard,
         -(item.confidence * item.severity),
         item.deadline if item.deadline is not None else 999,
         item.target)))
+
+
+# Rule Y loss checks, mirrored from catalog.PLOT_RULES. "board" watches a board
+# counter at loop end; "role_board" watches the initial board of a hidden role;
+# "role" watches a character counter.
+PLOT_LOSS_TARGETS = {
+    "protect": ("board", "school"),
+    "sealed": ("board", "shrine"),
+    "avenger": ("role_board", "brain"),
+    "bomb": ("role_board", "witch"),
+    "mz_battle": ("role", "ninja"),
+    "mc_dark_school": ("board", "school"),
+    "wm_gospel": ("board", "shrine"),
+    "wm_bomb": ("role_board", "witch"),
+    "ahr_illusory_world": ("role", "obsessive"),
+    "ll_sealed_end": ("board", "shrine"),
+    "ll_treacherous_world": ("role", "key"),
+    "ll_bomb_z": ("role_board", "witch"),
+}
+BOARD_PLOT_THRESHOLD = 2
+
+
+def _plot_loss_target(main_plot: str, roles: Mapping[str, str],
+                      initial_locations: Mapping[str, str]
+                      ) -> tuple[str, str] | None:
+    """Resolve one sampled main plot to the board or character rule Y watches."""
+    spec = PLOT_LOSS_TARGETS.get(main_plot)
+    if spec is None:
+        return None
+    mode, value = spec
+    if mode == "board":
+        return ("board", value)
+    holder = next((cid for cid, role in roles.items() if role == value), None)
+    if holder is None:
+        return None
+    if mode == "role_board":
+        location = initial_locations.get(holder)
+        return ("board", str(location)) if location else None
+    return ("character", str(holder))
+
+
+def classify_plot_threats(*, view: Mapping[str, Any],
+                          snapshot: BeliefSnapshot | None,
+                          world_main_plots: Sequence[str] | None = None,
+                          ) -> tuple[ThreatAssessment, ...]:
+    """Posterior threats from the hidden rule Y, aggregated over sampled worlds.
+
+    Rule Y is private in this ruleset, so the target board/character is a
+    distribution, not a fact. ``world_main_plots`` lets callers supply the
+    sampled plots directly (for example from particle worlds); otherwise the
+    snapshot worlds are read for ``main_plot``.
+    """
+    if snapshot is None:
+        return ()
+    worlds = getattr(snapshot, "worlds", ())
+    if not worlds and world_main_plots is None:
+        return ()
+    locations = view.get("locations", {}) or {}
+    characters = view.get("characters", {}) or {}
+    initial_locations = {str(cid): str(state.get("initial_location", ""))
+                         for cid, state in characters.items()
+                         if isinstance(state, Mapping)}
+    distribution: Counter = Counter()
+    if world_main_plots is not None:
+        # Caller already aggregated plots; roles/locations are unknown, so only
+        # board rules can be resolved.
+        for plot in world_main_plots:
+            spec = PLOT_LOSS_TARGETS.get(plot)
+            if spec is not None and spec[0] == "board":
+                distribution[(plot, "board", spec[1])] += 1
+        total = len(world_main_plots)
+    else:
+        total = 0
+        for world in worlds:
+            plot = str(getattr(world, "main_plot", ""))
+            roles = getattr(world, "roles", {}) or {}
+            target = _plot_loss_target(plot, roles, initial_locations)
+            if target is None:
+                continue
+            distribution[(plot, target[0], target[1])] += 1
+            total += 1
+    if total == 0:
+        return ()
+    current_day = int(view.get("round", 1))
+    deadline = int(view.get("days", current_day))
+    threats = []
+    for (plot, kind, target), count in distribution.items():
+        if kind == "board":
+            counter = int((locations.get(target) or {}).get("intrigue", 0))
+            active = counter >= BOARD_PLOT_THRESHOLD
+        else:
+            counter = 0
+            active = False
+        threats.append(ThreatAssessment(
+            target=str(target), failure_kind="plot_loss", role=plot,
+            confidence=count / total, severity=1.0, deadline=deadline,
+            active_now=active, source="posterior_plot", hard=False))
+    return tuple(sorted(threats, key=lambda item: (
+        item.deadline if item.deadline is not None else 999,
+        -item.confidence, item.target)))
 
 
 def threat_priority(threat: ThreatAssessment, current_day: int) -> tuple:
