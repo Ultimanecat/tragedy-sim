@@ -149,6 +149,32 @@ class AnotherHorizonRevisedTests(unittest.TestCase):
         self.assertIn(singular.state.phase, ("loop_end", "final_guess"))
         self.assertTrue(singular._ahr_singularity_occurred)
 
+    def test_impulsive_murder_uses_limit_minus_one_for_every_culprit(self):
+        # Catalog rule: 发生临界为当事人不安临界 -1；教祖的双重解决不改变临界。
+        data = scenario()
+        obsessive = next(cid for cid, role in data["cast"].items()
+                         if role == "obsessive")
+        data = scenario(incidents=[
+            {"day": 1, "kind": "impulsive_murder", "culprit": "guru"},
+            {"day": 2, "kind": "dimension_swap", "culprit": obsessive}])
+        guru = Game(data)
+        run_incident(guru, score=CHARACTERS["guru"].limit - 2)
+        self.assertFalse(guru.incident_records[-1]["happened"])
+        guru.state.characters["guru"].paranoia = CHARACTERS["guru"].limit - 1
+        guru.state.phase = "incident"
+        guru.dispatch("m", "next")
+        self.assertTrue(guru.incident_records[-1]["happened"])
+
+    def test_obsessive_culprit_event_happens_below_limit(self):
+        probe = scenario()
+        obsessive = next(cid for cid, role in probe["cast"].items()
+                         if role == "obsessive")
+        data = scenario(incidents=[
+            {"day": 1, "kind": "impulsive_murder", "culprit": obsessive}])
+        game = Game(data)
+        run_incident(game, score=0)
+        self.assertTrue(game.incident_records[-1]["happened"])
+
     def test_alice_hidden_loss_and_dual_identity_final_guess(self):
         data = scenario(hidden={**scenario()["cast"], "student": "alice"})
         game = Game(data)

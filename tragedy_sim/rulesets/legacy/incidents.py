@@ -357,8 +357,10 @@ def _ahr_incident(self, incident):
     simulated = self._simulated_incident is not None
     kind = incident["kind"]
     culprit = self.state.characters[incident["culprit"]]
+    # Catalog rule: impulsive murder triggers at paranoia limit - 1.
+    # The guru's double-resolution changes the effect, not the trigger point.
     threshold = CHARACTERS[culprit.id].limit - (
-        (2 if culprit.id == "guru" else 1) if kind == "impulsive_murder" else 0)
+        1 if kind == "impulsive_murder" else 0)
     score_counter = ("intrigue" if kind == "imaginary_incident" else
                      "goodwill" if (self.ex_gauge % 2 or kind == "hope_light")
                      else "paranoia")

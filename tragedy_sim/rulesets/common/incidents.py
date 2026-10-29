@@ -116,11 +116,15 @@ def _ahr_incident(self, incident):
     simulated = self._simulated_incident is not None
     kind = incident['kind']
     culprit = self.state.characters[incident['culprit']]
-    threshold = CHARACTERS[culprit.id].limit - (kind == 'impulsive_murder')
+    # Catalog rule: impulsive murder triggers at paranoia limit - 1.
+    threshold = CHARACTERS[culprit.id].limit - (1 if kind == 'impulsive_murder' else 0)
     score_counter = ('intrigue' if kind == 'imaginary_incident' else 'goodwill'
                      if self.ex_gauge % 2 or kind == 'hope_light' else 'paranoia')
     score = self._incident_score(culprit, score_counter)
-    happened = simulated or (culprit.present and culprit.alive and (kind == 'dimension_swap' or score >= threshold))
+    happened = simulated or (culprit.present and culprit.alive
+                              and (kind == 'dimension_swap'
+                                   or self._has(culprit.id, 'obsessive')
+                                   or score >= threshold))
     if not simulated:
         self.incident_records.append({'day': self.state.round, 'kind': kind, 'happened': happened, 'effective': False})
         self._event('incident_status', f'第 {self.state.round} 天「{INCIDENT_NAMES[kind]}」：' + ('发生。' if happened else '未发生。'), incident=kind, happened=happened)
