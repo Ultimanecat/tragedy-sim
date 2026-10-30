@@ -97,6 +97,8 @@ def play_one(scenario, seed: int, arm: str, *, node_limit: int, depth: int,
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seeds", type=int, default=3)
+    parser.add_argument("--seed-start", type=int, default=0,
+                        help="first seed; seeds run from start to start+count-1")
     parser.add_argument("--node-limit", type=int, default=24)
     parser.add_argument("--depth", type=int, default=12)
     parser.add_argument("--arms", default="base,long_horizon,long_horizon_oracle")
@@ -116,7 +118,7 @@ def main() -> int:
         summaries = {}
         for arm in arms:
             wins = rule_y = loops = 0
-            for seed in range(args.seeds):
+            for seed in range(args.seed_start, args.seed_start + args.seeds):
                 result = play_one(scenario, seed, arm,
                                   node_limit=args.node_limit, depth=args.depth,
                                   particles=args.particles,
