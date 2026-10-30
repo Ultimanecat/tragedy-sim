@@ -21,6 +21,13 @@ from .defense_value import (DefenseCandidate, DefenseValueWeights,
 from .threats import (BOARD_PLOT_THRESHOLD, ThreatAssessment, classify_threats,
                       classify_plot_threats)
 
+# Rule-Y loss routes whose watched board only grows while a hidden role holder
+# stays on it: the holder's mastermind ability adds intrigue to its current
+# board, so moving the holder away stops the accumulation (cards still need fi).
+ROLE_BOARD_PLOTS = {"avenger": "brain", "bomb": "witch", "wm_bomb": "witch",
+                    "ll_bomb_z": "witch"}
+MOVE_CARDS = frozenset({"h", "v"})
+
 # Every supported rule-Y plot compares a counter against 2 at loop end.
 PLOT_THRESHOLDS = {
     "protect": 2, "sealed": 2, "avenger": 2, "bomb": 2, "sign": 2,
@@ -91,6 +98,38 @@ class DefenseObligation:
                 return 0.7
             return 0.5
         return 0.0
+
+
+def _world_value(world: Any, name: str) -> str:
+    value = getattr(world, name, None)
+    if value:
+        return str(value)
+    scenario = getattr(world, "scenario", None)
+    if isinstance(scenario, Mapping):
+        return str(scenario.get(name, "") or "")
+    return ""
+
+
+def _world_roles(world: Any) -> Mapping[str, str]:
+    roles = getattr(world, "roles", None)
+    if isinstance(roles, Mapping) and roles:
+        return roles
+    scenario = getattr(world, "scenario", None)
+    if isinstance(scenario, Mapping):
+        return scenario.get("cast", {}) or {}
+    return {}
+
+
+def _role_board_joint(snapshot, plot: str, holder_role: str,
+                      character_id: str) -> float:
+    """Joint P(world main plot is ``plot`` and ``character_id`` holds the role)."""
+    worlds = tuple(getattr(snapshot, "worlds", ()) or ())
+    if not worlds:
+        return 0.0
+    hits = sum(1 for world in worlds
+               if _world_value(world, "main_plot") == plot
+               and _world_roles(world).get(character_id) == holder_role)
+    return hits / len(worlds)
 
 
 def _cover_targets(offer: Mapping[str, Any]) -> frozenset[str]:
@@ -215,18 +254,69 @@ class TwoDayProtagonistAgent:
                      and obligation.threat.confidence >= self.confidence_floor)
 
     # -- scoring ----------------------------------------------------------------
+    def _defense_cover(self, offer: Mapping[str, Any],
+                       obligation: DefenseObligation,
+                       view: Mapping[str, Any]) -> tuple[str, float] | None:
+        """(watched target, long-term score) this offer defends for one risk.
+
+        Two channels:
+        - 禁止密谋 (fi) blocks card-driven intrigue on the watched target;
+        - moving the suspected role holder off the watched board stops its
+          mastermind ability from adding intrigue there (avenger/bomb).
+        """
+        target = obligation.threat.target
+        params = offer.get("parameters") or {}
+        card = params.get("card")
+        chosen_target = str(params.get("target") or "")
+        plot = str(obligation.threat.role or "")
+        base_score = obligation.weight * obligation.threat.confidence
+        if card in INTRIGUE_CARDS and chosen_target == target:
+            return target, base_score
+        holder_role = ROLE_BOARD_PLOTS.get(plot)
+        if holder_role and card in MOVE_CARDS and chosen_target:
+            characters = view.get("characters") or {}
+            if str((characters.get(chosen_target) or {}).get("location")) != target:
+                return None
+            joint = _role_board_joint(self._snapshot, plot, holder_role,
+                                      chosen_target)
+            if joint <= 0:
+                return None
+            future = min(1.0, max(0.3, obligation.days_left / 3.0))
+            return target, base_score * joint * future
+        return None
+
+    def _best_cover(self, offer: Mapping[str, Any],
+                    risks: tuple[DefenseObligation, ...],
+                    view: Mapping[str, Any]) -> tuple[str, float] | None:
+        covered = getattr(self, "_covered_today", set())
+        best = None
+        for obligation in risks[:self.max_covers_per_day]:
+            if obligation.threat.target in covered:
+                continue
+            result = self._defense_cover(offer, obligation, view)
+            if result is None:
+                continue
+            if best is None or result[1] > best[1]:
+                best = result
+        return best
+
     def _candidate(self, offer_or_command, *, view, base_pick,
-                   obligation) -> DefenseCandidate:
-        covered = _cover_targets(offer_or_command)
-        covered_targets = frozenset(covered)
+                   risks, hard) -> DefenseCandidate:
+        cover = self._best_cover(offer_or_command, risks, view)
+        covered_targets = set(_cover_targets(offer_or_command))
         long_term = 0.0
-        expected_loss = 0.0
-        if obligation is not None:
-            weight = obligation.weight * obligation.threat.confidence
-            if obligation.threat.target in covered_targets:
-                long_term = weight
-            else:
-                expected_loss = weight
+        if cover is not None:
+            covered_targets.add(cover[0])
+            long_term = cover[1]
+        for threat in hard:
+            if str((offer_or_command.get("parameters") or {}).get("target")) == threat.target:
+                covered_targets.add(threat.target)
+        total_risk = sum(item.weight * item.threat.confidence
+                         for item in risks)
+        # A cover only removes the risk it can actually prevent: fi prevents
+        # card intrigue fully, moving a suspected holder prevents a share
+        # proportional to the joint posterior.
+        expected_loss = max(0.0, total_risk - long_term)
         survival = 0.5
         if base_pick is not None and offer_or_command.get("id") == base_pick.get("id"):
             survival = 0.6
@@ -236,8 +326,8 @@ class TwoDayProtagonistAgent:
             long_term=long_term,
             information=information_value(self._snapshot, view),
             final_guess=final_guess_value(self._snapshot, view),
-            expected_loss=expected_loss,
-            covered_targets=covered_targets,
+            expected_loss=max(0.0, expected_loss),
+            covered_targets=frozenset(covered_targets),
         )
 
     def choose_action(self, *, participant: str, view: dict[str, Any],
@@ -257,74 +347,39 @@ class TwoDayProtagonistAgent:
             return self.base.choose_action(participant=participant,
                                            view=view, offers=offers)
 
-        # 1. Cover the highest-risk obligation that this seat can forbid today.
-        cover = self._cover_offer(offers, risks)
-        if cover is not None:
-            return cover
-
-        # 2. No rule-Y cover available: fall back to the layered choice, which
-        #    honors active hard threats.
         base_pick = self.base.choose_action(participant=participant,
                                             view=view, offers=offers)
-        obligation = risks[0] if risks else None
         candidates = []
         by_id = {}
         for offer in offers:
             candidates.append(self._candidate(offer, view=view,
                                               base_pick=base_pick,
-                                              obligation=obligation))
+                                              risks=risks, hard=hard))
             by_id[offer["id"]] = offer
-        base_candidate = self._candidate(base_pick, view=view,
-                                         base_pick=base_pick,
-                                         obligation=obligation)
-        candidates.append(base_candidate)
+        candidates.append(self._candidate(base_pick, view=view,
+                                          base_pick=base_pick,
+                                          risks=risks, hard=hard))
         by_id[base_pick["id"]] = base_pick
         threats = tuple(item.threat for item in risks) + hard
         selection = select_defense_action(
             candidates, threats, weights=self.weights,
             survival_target=self.survival_target)
         chosen = selection.chosen
+        if chosen is None or chosen.action not in by_id:
+            return base_pick
+        picked = by_id[chosen.action]
+        if chosen.long_term > 0:
+            cover_target = next((item.threat.target for item in risks
+                                 if item.threat.target in chosen.covered_targets), None)
+            if cover_target:
+                self._covered_today = getattr(self, "_covered_today", set()) | {cover_target}
         self.diagnostics.update(
             reason=selection.reason,
             risks=[{"target": item.threat.target, "plot": item.threat.role,
                     "counter": item.counter,
                     "confidence": round(item.threat.confidence, 3)}
                    for item in risks],
-            chosen=str(chosen.action) if chosen is not None else None)
-        if chosen is None or chosen.action not in by_id:
-            return base_pick
-        return by_id[chosen.action]
+            chosen=str(chosen.action),
+            chosen_long_term=round(chosen.long_term, 3))
+        return picked
 
-    def _cover_offer(self, offers, risks):
-        """Pick an intrigue-forbid offer covering the best pending risk target."""
-        covered = getattr(self, "_covered_today", set())
-        best = None
-        for index, obligation in enumerate(risks):
-            if obligation.threat.target in covered:
-                continue
-            if index >= self.max_covers_per_day:
-                break
-            score = obligation.weight * obligation.threat.confidence
-            if score < self.cover_threshold:
-                continue
-            for offer in offers:
-                covered_targets = _cover_targets(offer)
-                if obligation.threat.target not in covered_targets:
-                    continue
-                if best is None or score > best[0]:
-                    best = (score, offer, obligation)
-                break
-        if best is None:
-            return None
-        score, offer, obligation = best
-        self._covered_today = covered | {obligation.threat.target}
-        self.diagnostics.update(
-            reason="plot_cover",
-            risks=[{"target": item.threat.target, "plot": item.threat.role,
-                    "counter": item.counter,
-                    "confidence": round(item.threat.confidence, 3)}
-                   for item in risks],
-            covered_target=obligation.threat.target,
-            cover_score=round(score, 3),
-            chosen=str(offer.get("id")))
-        return offer

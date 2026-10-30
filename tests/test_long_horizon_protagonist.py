@@ -3,6 +3,7 @@
 import unittest
 from types import SimpleNamespace
 
+from tragedy_sim.composition import BeliefSnapshot
 from tragedy_sim.day_game.protagonist import (DefenseObligation,
                                               PLOT_THRESHOLDS,
                                               TwoDayProtagonistAgent, _cover_targets,
@@ -18,9 +19,17 @@ def plot_threat(target="city", plot="avenger", confidence=1.0):
 
 
 def view(**locations):
-    counters = {name: {"intrigue": value} for name, value in locations.items()}
+    counters = dict(locations)
     return {"module": "FS", "phase": "protagonists", "loop": 1, "round": 3,
             "days": 4, "locations": counters, "characters": {}}
+
+
+def avenger_snapshot(brain_holder="police", plot="avenger", worlds=8):
+    entities = [SimpleNamespace(main_plot=plot,
+                                roles={brain_holder: "brain",
+                                       "girl": "key"})
+                for _ in range(worlds)]
+    return BeliefSnapshot(entities, None)  # type: ignore[arg-type]
 
 
 def offer(card, target, actor="a"):
@@ -86,6 +95,50 @@ class ObligationTests(unittest.TestCase):
     def test_thresholds_are_two_for_supported_plots(self):
         self.assertTrue(PLOT_THRESHOLDS)
         self.assertTrue(all(value == 2 for value in PLOT_THRESHOLDS.values()))
+
+
+class RelocationTests(unittest.TestCase):
+    def agent(self, snapshot, obligation, base_pick):
+        agent = TwoDayProtagonistAgent(base=FakeBase(base_pick))
+        agent._context_key = (1, 3)
+        agent._obligations = (obligation,)
+        agent._threats = (obligation.threat,)
+        agent._snapshot = snapshot
+        agent._covered_today = set()
+        return agent
+
+    def test_moving_suspected_brain_off_watched_board_counts_as_defense(self):
+        obligation = DefenseObligation(
+            plot_threat("school", plot="avenger"), counter=1, threshold=2,
+            days_left=3)
+        data = view(school=0, city=0)
+        data["characters"] = {"police": {"location": "school",
+                                         "initial_location": "school"},
+                              "girl": {"location": "city",
+                                       "initial_location": "city"}}
+        move_offer = offer("h", "police")
+        base_pick = offer("g1", "girl")
+        agent = self.agent(avenger_snapshot(), obligation, base_pick)
+        chosen = agent.choose_action(participant="team", view=data,
+                                     offers=[base_pick, move_offer])
+        self.assertEqual(chosen["parameters"]["card"], "h")
+        self.assertEqual(chosen["parameters"]["target"], "police")
+
+    def test_suspect_not_on_watched_board_is_not_moved(self):
+        obligation = DefenseObligation(
+            plot_threat("school", plot="avenger"), counter=1, threshold=2,
+            days_left=3)
+        data = view(school=0, city=0)
+        data["characters"] = {"police": {"location": "city",
+                                         "initial_location": "school"},
+                              "girl": {"location": "city",
+                                       "initial_location": "city"}}
+        move_offer = offer("h", "police")
+        base_pick = offer("g1", "girl")
+        agent = self.agent(avenger_snapshot(), obligation, base_pick)
+        chosen = agent.choose_action(participant="team", view=data,
+                                     offers=[base_pick, move_offer])
+        self.assertIs(chosen, base_pick)
 
 
 class ChooseActionTests(unittest.TestCase):
