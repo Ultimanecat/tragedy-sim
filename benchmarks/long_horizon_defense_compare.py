@@ -31,25 +31,36 @@ SCENARIOS = (
 RULE_Y_REASON = "规则 Y 失败条件"
 
 
-def make_policy(arm: str, seed: int, node_limit: int, depth: int, scenario=None):
+def make_policy(arm: str, seed: int, node_limit: int, depth: int, scenario=None,
+                *, particles: int = 8, agent_particles: int = 8):
     budget = SearchBudget(node_limit=node_limit, rollout_depth=depth, seed=seed)
-    base = ParticleEnsembleProtagonistAgent(budget, particle_count=8, rng_seed=seed)
+    base = ParticleEnsembleProtagonistAgent(budget, particle_count=particles,
+                                            rng_seed=seed)
     if arm == "base":
         return base
     if arm == "long_horizon_posterior":
-        return TwoDayProtagonistAgent(base=base, particle_count=8,
+        return TwoDayProtagonistAgent(base=base,
+                                      particle_count=agent_particles,
                                       posterior_cover=True)
+    if arm == "long_horizon_hygiene":
+        return TwoDayProtagonistAgent(base=base,
+                                      particle_count=agent_particles,
+                                      posterior_cover=False,
+                                      max_covers_per_day=2)
     if arm in ("long_horizon_oracle", "long_horizon_oracle_always"):
         return TwoDayProtagonistAgent(
-            base=base, particle_count=8,
+            base=base, particle_count=agent_particles,
             oracle_plot=scenario["main_plot"], oracle_cast=scenario["cast"],
             oracle_always_cover=(arm == "long_horizon_oracle_always"))
-    return TwoDayProtagonistAgent(base=base, particle_count=8)
+    return TwoDayProtagonistAgent(base=base, particle_count=agent_particles)
 
 
-def play_one(scenario, seed: int, arm: str, *, node_limit: int, depth: int):
+def play_one(scenario, seed: int, arm: str, *, node_limit: int, depth: int,
+             particles: int = 8, agent_particles: int = 8):
     game = Game(scenario)
-    policy = make_policy(arm, seed, node_limit, depth, scenario)
+    policy = make_policy(arm, seed, node_limit, depth, scenario,
+                         particles=particles,
+                         agent_particles=agent_particles)
     black = FixedStrategyMastermindAgent(random.Random(f"black:{seed}"))
     while game.winner is None:
         actions = game.action_offers(game.controller)
@@ -80,6 +91,10 @@ def main() -> int:
     parser.add_argument("--depth", type=int, default=12)
     parser.add_argument("--arms", default="base,long_horizon,long_horizon_oracle")
     parser.add_argument("--scenarios", default=",".join(SCENARIOS))
+    parser.add_argument("--particles", type=int, default=8,
+                        help="particle count for the base planner")
+    parser.add_argument("--agent-particles", type=int, default=8,
+                        help="particle count for the long-horizon agent belief")
     parser.add_argument("--out", default="references/long-horizon-defense-compare.json")
     args = parser.parse_args()
     library = ScenarioLibrary()
@@ -93,7 +108,9 @@ def main() -> int:
             wins = rule_y = loops = 0
             for seed in range(args.seeds):
                 result = play_one(scenario, seed, arm,
-                                  node_limit=args.node_limit, depth=args.depth)
+                                  node_limit=args.node_limit, depth=args.depth,
+                                  particles=args.particles,
+                                  agent_particles=args.agent_particles)
                 rows.append({"scenario": scenario_id, "arm": arm,
                              "seed": seed, **result})
                 wins += result["winner"] == "protagonists"

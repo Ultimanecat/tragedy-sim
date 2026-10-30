@@ -141,6 +141,116 @@ class RelocationTests(unittest.TestCase):
         self.assertIs(chosen, base_pick)
 
 
+class ChannelSplitTests(unittest.TestCase):
+    def agent(self):
+        entities = [SimpleNamespace(main_plot="avenger",
+                                    roles={"police": "brain",
+                                           "worker": "ordinary"})
+                    for _ in range(4)]
+        entities += [SimpleNamespace(main_plot="avenger",
+                                     roles={"police": "ordinary",
+                                            "worker": "brain"})
+                     for _ in range(4)]
+        base = FakeBase(offer("g1", "girl"))
+        agent = TwoDayProtagonistAgent(base=base)
+        agent._context_key = (1, 3)
+        agent._threats = (plot_threat("school", plot="avenger"),)
+        agent._obligations = (DefenseObligation(
+            plot_threat("school", plot="avenger"), 1, 2, 3),)
+        agent._snapshot = BeliefSnapshot(entities, None)
+        agent._residual = {}
+        agent._covers_today = 0
+        return agent, base
+
+    def view(self):
+        data = view(school=1)
+        data["characters"] = {"police": {"location": "school"},
+                              "worker": {"location": "school"},
+                              "girl": {"location": "city"}}
+        return data
+
+    def test_forbid_then_relocate_covers_both_sources(self):
+        agent, base = self.agent()
+        first = agent.choose_action(participant="team", view=self.view(),
+                                    offers=[offer("fi", "school", actor="a")])
+        self.assertEqual(first["parameters"]["card"], "fi")
+        second = agent.choose_action(
+            participant="team", view=self.view(),
+            offers=[offer("h", "police", actor="b"), base.pick])
+        self.assertEqual(second["parameters"]["card"], "h")
+        third = agent.choose_action(
+            participant="team", view=self.view(),
+            offers=[offer("h", "worker", actor="c"), base.pick])
+        self.assertEqual(third["parameters"]["target"], "worker")
+
+    def test_no_relocation_when_no_suspect_on_board(self):
+        agent, base = self.agent()
+        data = view(school=1)
+        data["characters"] = {"police": {"location": "city"},
+                              "worker": {"location": "hospital"}}
+        chosen = agent.choose_action(
+            participant="team", view=data,
+            offers=[offer("h", "police", actor="b"), base.pick])
+        self.assertIs(chosen, base.pick)
+
+
+class MultiSeatResidualTests(unittest.TestCase):
+    def test_second_seat_covers_remaining_disjunct(self):
+        # Two sampled-world halves: brain=police on school, brain=worker on
+        # school. Moving police covers the first half; the second seat should
+        # still move worker instead of treating the target as fully covered.
+        entities = [SimpleNamespace(main_plot="avenger",
+                                    roles={"police": "brain",
+                                           "worker": "ordinary"})
+                    for _ in range(4)]
+        entities += [SimpleNamespace(main_plot="avenger",
+                                     roles={"police": "ordinary",
+                                            "worker": "brain"})
+                     for _ in range(4)]
+        snapshot = BeliefSnapshot(entities, None)
+        base = FakeBase(offer("g1", "girl"))
+        agent = TwoDayProtagonistAgent(base=base)
+        agent._context_key = (1, 3)
+        agent._threats = (plot_threat("school", plot="avenger"),)
+        agent._obligations = (DefenseObligation(
+            plot_threat("school", plot="avenger"), 1, 2, 3),)
+        agent._snapshot = snapshot
+        agent._residual = {}
+        agent._covers_today = 0
+        data = view(school=1, city=0)
+        data["characters"] = {"police": {"location": "school"},
+                              "worker": {"location": "school"},
+                              "girl": {"location": "city"}}
+        first = agent.choose_action(
+            participant="team", view=data,
+            offers=[offer("h", "police", actor="a"), base.pick])
+        self.assertEqual(first["parameters"]["target"], "police")
+        second = agent.choose_action(
+            participant="team", view=data,
+            offers=[offer("h", "worker", actor="b"), base.pick])
+        self.assertEqual(second["parameters"]["target"], "worker")
+
+    def test_no_second_cover_after_full_fi_coverage(self):
+        base = FakeBase(offer("g1", "girl"))
+        agent = TwoDayProtagonistAgent(base=base)
+        agent._context_key = (1, 3)
+        threat = plot_threat("school", plot="protect")
+        agent._threats = (threat,)
+        agent._obligations = (DefenseObligation(threat, 1, 2, 3),)
+        agent._snapshot = None
+        agent._residual = {}
+        agent._covers_today = 0
+        data = view(school=1)
+        data["characters"] = {"police": {"location": "school"}}
+        first = agent.choose_action(participant="team", view=data,
+                                    offers=[offer("fi", "school", actor="a")])
+        self.assertEqual(first["parameters"]["card"], "fi")
+        second = agent.choose_action(
+            participant="team", view=data,
+            offers=[offer("h", "police", actor="b"), base.pick])
+        self.assertIs(second, base.pick)
+
+
 class ChooseActionTests(unittest.TestCase):
     def test_defends_board_when_one_more_increment_loses_loop(self):
         base_pick = offer("g1", "girl")

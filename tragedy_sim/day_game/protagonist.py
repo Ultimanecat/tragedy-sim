@@ -158,7 +158,7 @@ class TwoDayProtagonistAgent:
     survival_target: float = 0.8
     confidence_floor: float = 0.5
     cover_threshold: float = 0.3
-    max_covers_per_day: int = 2
+    max_covers_per_day: int = 3
     oracle_plot: str | None = None
     oracle_cast: Mapping[str, str] | None = None
     oracle_always_cover: bool = False
@@ -172,6 +172,8 @@ class TwoDayProtagonistAgent:
     def __post_init__(self):
         self._context_key = None
         self._covered_today: set[str] = set()
+        self._residual: dict[tuple[str, str], float] = {}
+        self._covers_today = 0
         self._obligations: tuple[DefenseObligation, ...] = ()
         self._snapshot = None
         self._threats: tuple[ThreatAssessment, ...] = ()
@@ -183,6 +185,8 @@ class TwoDayProtagonistAgent:
             return
         self._context_key = key
         self._covered_today = set()
+        self._residual = {}
+        self._covers_today = 0
         budget = getattr(self.base, "budget", None)
         if budget is not None:
             from ..search import SearchBudget
@@ -256,7 +260,8 @@ class TwoDayProtagonistAgent:
     # -- scoring ----------------------------------------------------------------
     def _defense_cover(self, offer: Mapping[str, Any],
                        obligation: DefenseObligation,
-                       view: Mapping[str, Any]) -> tuple[str, float] | None:
+                       view: Mapping[str, Any]
+                       ) -> tuple[str, str, float] | None:
         """(watched target, long-term score) this offer defends for one risk.
 
         Two channels:
@@ -271,7 +276,7 @@ class TwoDayProtagonistAgent:
         plot = str(obligation.threat.role or "")
         base_score = obligation.weight * obligation.threat.confidence
         if card in INTRIGUE_CARDS and chosen_target == target:
-            return target, base_score
+            return target, "card", base_score
         holder_role = ROLE_BOARD_PLOTS.get(plot)
         if holder_role and card in MOVE_CARDS and chosen_target:
             characters = view.get("characters") or {}
@@ -282,41 +287,86 @@ class TwoDayProtagonistAgent:
             if joint <= 0:
                 return None
             future = min(1.0, max(0.3, obligation.days_left / 3.0))
-            return target, base_score * joint * future
+            return target, "ability", base_score * joint * future
         return None
+
+    def _channel_risks(self, obligation: DefenseObligation,
+                       view: Mapping[str, Any]) -> dict[str, float]:
+        """Split one watched-board risk into card and ability sources.
+
+        Cards (i1/i2) and the holder's mastermind ability add intrigue through
+        different mechanisms: ``fi`` blocks cards, moving the holder off the
+        board blocks the ability. Keeping them as separate channels lets two
+        seats cover both in the same day instead of treating one as full cover.
+        """
+        target = obligation.threat.target
+        full = obligation.weight * obligation.threat.confidence
+        holder_role = ROLE_BOARD_PLOTS.get(str(obligation.threat.role or ""))
+        ability = 0.0
+        if holder_role:
+            characters = view.get("characters") or {}
+            for cid, state in characters.items():
+                if str((state or {}).get("location")) != target:
+                    continue
+                joint = _role_board_joint(self._snapshot,
+                                          str(obligation.threat.role),
+                                          holder_role, cid)
+                ability += joint * full
+        return {"card": full, "ability": min(full, ability)}
+
+    def _remaining_channel(self, target: str, channel: str,
+                           obligation: DefenseObligation,
+                           view: Mapping[str, Any]) -> float:
+        key = (target, channel)
+        if key in self._residual:
+            return self._residual[key]
+        risks = self._channel_risks(obligation, view)
+        return risks.get(channel, 0.0)
 
     def _best_cover(self, offer: Mapping[str, Any],
                     risks: tuple[DefenseObligation, ...],
-                    view: Mapping[str, Any]) -> tuple[str, float] | None:
-        covered = getattr(self, "_covered_today", set())
+                    view: Mapping[str, Any]) -> tuple[str, str, float] | None:
+        if self._covers_today >= self.max_covers_per_day:
+            return None
         best = None
-        for obligation in risks[:self.max_covers_per_day]:
-            if obligation.threat.target in covered:
-                continue
+        for obligation in risks:
             result = self._defense_cover(offer, obligation, view)
             if result is None:
                 continue
-            if best is None or result[1] > best[1]:
-                best = result
+            target, channel, raw = result
+            remaining = self._remaining_channel(target, channel,
+                                                obligation, view)
+            if remaining <= 1e-9:
+                continue
+            value = min(remaining, raw)
+            if best is None or value > best[2]:
+                best = (target, channel, value)
         return best
 
     def _candidate(self, offer_or_command, *, view, base_pick,
                    risks, hard) -> DefenseCandidate:
         cover = self._best_cover(offer_or_command, risks, view)
         covered_targets = set(_cover_targets(offer_or_command))
+        # The cover benefit is realized through the expected-loss reduction
+        # below; adding it to long_term as well would double-count it and make
+        # the agent overspend every seat on defense.
         long_term = 0.0
+        cover_value = cover[2] if cover is not None else 0.0
         if cover is not None:
             covered_targets.add(cover[0])
-            long_term = cover[1]
         for threat in hard:
             if str((offer_or_command.get("parameters") or {}).get("target")) == threat.target:
                 covered_targets.add(threat.target)
-        total_risk = sum(item.weight * item.threat.confidence
-                         for item in risks)
+        total_risk = 0.0
+        for item in risks:
+            for channel in ("card", "ability"):
+                total_risk += self._remaining_channel(
+                    item.threat.target, channel, item, view)
         # A cover only removes the risk it can actually prevent: fi prevents
         # card intrigue fully, moving a suspected holder prevents a share
-        # proportional to the joint posterior.
-        expected_loss = max(0.0, total_risk - long_term)
+        # proportional to the joint posterior. Residual risk stays available
+        # for the next seat, so both disjuncts can be covered on the same day.
+        expected_loss = max(0.0, total_risk - cover_value)
         survival = 0.5
         if base_pick is not None and offer_or_command.get("id") == base_pick.get("id"):
             survival = 0.6
@@ -368,11 +418,18 @@ class TwoDayProtagonistAgent:
         if chosen is None or chosen.action not in by_id:
             return base_pick
         picked = by_id[chosen.action]
-        if chosen.long_term > 0:
-            cover_target = next((item.threat.target for item in risks
-                                 if item.threat.target in chosen.covered_targets), None)
-            if cover_target:
-                self._covered_today = getattr(self, "_covered_today", set()) | {cover_target}
+        cover = self._best_cover(picked, risks, view)
+        if cover is not None:
+            target, channel, value = cover
+            obligation = next((item for item in risks
+                               if item.threat.target == target), None)
+            if obligation is not None:
+                remaining = self._remaining_channel(target, channel,
+                                                    obligation, view)
+                self._residual[(target, channel)] = max(
+                    0.0, remaining - value)
+            self._covered_today = getattr(self, "_covered_today", set()) | {target}
+            self._covers_today += 1
         self.diagnostics.update(
             reason=selection.reason,
             risks=[{"target": item.threat.target, "plot": item.threat.role,
