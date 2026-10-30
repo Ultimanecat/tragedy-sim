@@ -164,6 +164,8 @@ class TwoDayProtagonistAgent:
     oracle_always_cover: bool = False
     posterior_cover: bool = False
     posterior_floor: float = 0.3
+    probe_information: bool = True
+    resync_joint_plan: bool = True
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
     controls_protagonist_team = True
@@ -343,6 +345,68 @@ class TwoDayProtagonistAgent:
                 best = (target, channel, value)
         return best
 
+    def _probe_information(self, offer: Mapping[str, Any],
+                           risks: tuple[DefenseObligation, ...],
+                           view: Mapping[str, Any]) -> float:
+        """Expected brain-identity entropy drop from testing a suspect by moving it.
+
+        Moving one of two candidates is an experiment: if the watched board
+        stops growing next ability phase the moved character is the holder;
+        if it keeps growing the other candidate is. Both outcomes identify the
+        brain, which is valuable even when the move prevents nothing today.
+        """
+        if self._snapshot is None:
+            return 0.0
+        params = offer.get("parameters") or {}
+        if params.get("card") not in MOVE_CARDS:
+            return 0.0
+        moved = str(params.get("target") or "")
+        worlds = tuple(getattr(self._snapshot, "worlds", ()) or ())
+        if not worlds:
+            return 0.0
+        characters = view.get("characters") or {}
+        best = 0.0
+        for obligation in risks:
+            plot = str(obligation.threat.role or "")
+            holder_role = ROLE_BOARD_PLOTS.get(plot)
+            if holder_role is None:
+                continue
+            board = obligation.threat.target
+            identities = []
+            stops = 0
+            for world in worlds:
+                if _world_value(world, "main_plot") != plot:
+                    continue
+                roles = _world_roles(world)
+                holder = next((cid for cid, role in roles.items()
+                               if role == holder_role), None)
+                if holder is None:
+                    continue
+                identities.append(holder)
+                if (holder == moved
+                        and str((characters.get(moved) or {}).get("location")) == board):
+                    stops += 1
+            total = len(identities)
+            if total < 2 or stops == 0 or stops == total:
+                continue
+            from math import log2
+            def entropy(values):
+                counts = {}
+                for value in values:
+                    counts[value] = counts.get(value, 0) + 1
+                return -sum((n / len(values)) * log2(n / len(values))
+                            for n in counts.values())
+            before = entropy(identities)
+            if before <= 1e-9:
+                continue
+            continued = [identity for identity in identities
+                         if not (identity == moved)]
+            after = (stops / total) * 0.0 + (len(continued) / total) * entropy(continued)
+            gain = (before - after) / before
+            # The ability is optional, so a quiet board is noisy evidence.
+            best = max(best, gain * 0.8)
+        return best
+
     def _candidate(self, offer_or_command, *, view, base_pick,
                    risks, hard) -> DefenseCandidate:
         cover = self._best_cover(offer_or_command, risks, view)
@@ -374,7 +438,10 @@ class TwoDayProtagonistAgent:
             action=offer_or_command.get("id"),
             survival=survival,
             long_term=long_term,
-            information=information_value(self._snapshot, view),
+            information=(max(information_value(self._snapshot, view),
+                             self._probe_information(offer_or_command, risks, view))
+                         if self.probe_information else
+                         information_value(self._snapshot, view)),
             final_guess=final_guess_value(self._snapshot, view),
             expected_loss=max(0.0, expected_loss),
             covered_targets=frozenset(covered_targets),
@@ -418,6 +485,12 @@ class TwoDayProtagonistAgent:
         if chosen is None or chosen.action not in by_id:
             return base_pick
         picked = by_id[chosen.action]
+        if chosen.action != base_pick.get("id") and self.resync_joint_plan:
+            # The base planner keeps a joint 3-card day plan; overriding one
+            # seat invalidates it, so drop it to avoid replaying stale cards.
+            if hasattr(self.base, "_joint_plan"):
+                self.base._joint_plan = []
+                self.base._joint_plan_position = None
         cover = self._best_cover(picked, risks, view)
         if cover is not None:
             target, channel, value = cover

@@ -42,6 +42,16 @@ def make_policy(arm: str, seed: int, node_limit: int, depth: int, scenario=None,
         return TwoDayProtagonistAgent(base=base,
                                       particle_count=agent_particles,
                                       posterior_cover=True)
+    if arm == "long_horizon_probe_only":
+        return TwoDayProtagonistAgent(base=base,
+                                      particle_count=agent_particles,
+                                      posterior_cover=True,
+                                      resync_joint_plan=False)
+    if arm == "long_horizon_resync_only":
+        return TwoDayProtagonistAgent(base=base,
+                                      particle_count=agent_particles,
+                                      posterior_cover=True,
+                                      probe_information=False)
     if arm == "long_horizon_hygiene":
         return TwoDayProtagonistAgent(base=base,
                                       particle_count=agent_particles,
