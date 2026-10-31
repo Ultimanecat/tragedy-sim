@@ -141,6 +141,84 @@ class RelocationTests(unittest.TestCase):
         self.assertIs(chosen, base_pick)
 
 
+class DayPlanEvaluationTests(unittest.TestCase):
+    class StubWorld:
+        def __init__(self, counter=1, lost=False):
+            self.counter = counter
+            self.lost = lost
+            self.loss_reasons = []
+            self.winner = None
+            self.controller = "a"
+            self.state = SimpleNamespace(loop=1, round=2)
+            self.commands = []
+
+        def clone(self):
+            clone = DayPlanEvaluationTests.StubWorld(self.counter, self.lost)
+            clone.commands = list(self.commands)
+            return clone
+
+        def transition(self, command):
+            self.commands.append(command)
+            if command.get("card") == "fi":
+                self.counter = max(0, self.counter - 1)
+            return SimpleNamespace(game=self)
+
+        def action_offers(self, controller):
+            return []
+
+        def protagonist_team_view(self):
+            return {"locations": {"school": self.counter},
+                    "characters": {"girl": {"alive": True}}}
+
+    def stub_base(self, first_offer, follow):
+        base = FakeBase(first_offer)
+        base._joint_plan = list(follow)
+        return base
+
+    def test_score_plan_prefers_lower_watched_counter(self):
+        base = self.stub_base(offer("g1", "girl"), [])
+        agent = TwoDayProtagonistAgent(base=base)
+        agent._snapshot = None
+        risk = DefenseObligation(plot_threat("school", plot="protect"),
+                                 counter=1, threshold=2, days_left=2)
+        commands = [{"actor": "a", "action": "play", "card": "g1",
+                     "target": "girl"},
+                    {"actor": "b", "action": "play", "card": "g1",
+                     "target": "girl"},
+                    {"actor": "c", "action": "play", "card": "g1",
+                     "target": "girl"}]
+        worlds = [DayPlanEvaluationTests.StubWorld() for _ in range(3)]
+        score = agent._score_plan(commands, {}, [risk], worlds)
+        self.assertIsNotNone(score)
+        self.assertGreaterEqual(score, 0.0)
+        self.assertLessEqual(score, 1.0)
+
+    def test_variant_chosen_when_it_scores_better(self):
+        base_first = offer("g1", "girl")
+        better = offer("fi", "school", actor="a")
+        base = self.stub_base(base_first, [
+            {"actor": "b", "action": "play", "card": "g1", "target": "girl"},
+            {"actor": "c", "action": "play", "card": "g1", "target": "girl"}])
+        agent = TwoDayProtagonistAgent(base=base)
+        agent._context_key = (1, 2)
+        risk = DefenseObligation(plot_threat("school", plot="protect"),
+                                 counter=1, threshold=2, days_left=2)
+        agent._obligations = (risk,)
+        agent._threats = (risk.threat,)
+        agent._snapshot = SimpleNamespace(worlds=[
+            DayPlanEvaluationTests.StubWorld(counter=2) for _ in range(3)])
+        agent._refresh = lambda *a, **k: None
+        agent._day_plan = []
+        agent._plan_day_key = (1, 2)
+        agent._plan_evaluated = False
+        data = view(school=1)
+        data["characters"] = {"girl": {"location": "city"}}
+        chosen = agent.choose_action(
+            participant="team", view=data, offers=[base_first, better])
+        self.assertEqual(chosen["parameters"]["card"], "fi")
+        self.assertEqual(agent.diagnostics.get("reason"), "day_plan_variant")
+
+
 class ChannelSplitTests(unittest.TestCase):
     def agent(self):
         entities = [SimpleNamespace(main_plot="avenger",

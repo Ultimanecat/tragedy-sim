@@ -166,6 +166,7 @@ class TwoDayProtagonistAgent:
     posterior_floor: float = 0.3
     probe_information: bool = True
     resync_joint_plan: bool = True
+    day_plan_value: bool = True
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
     controls_protagonist_team = True
@@ -176,6 +177,9 @@ class TwoDayProtagonistAgent:
         self._covered_today: set[str] = set()
         self._residual: dict[tuple[str, str], float] = {}
         self._covers_today = 0
+        self._day_plan: list[dict[str, Any]] = []
+        self._plan_day_key = None
+        self._plan_evaluated = False
         self._obligations: tuple[DefenseObligation, ...] = ()
         self._snapshot = None
         self._threats: tuple[ThreatAssessment, ...] = ()
@@ -447,6 +451,129 @@ class TwoDayProtagonistAgent:
             covered_targets=frozenset(covered_targets),
         )
 
+    # -- three-card day-plan evaluation -----------------------------------------
+    @staticmethod
+    def _command(offer: Mapping[str, Any]) -> dict[str, Any]:
+        params = offer.get("parameters") or {}
+        return {"actor": offer.get("actor"), "action": "play",
+                "card": params.get("card"), "target": params.get("target")}
+
+    def _score_plan(self, commands, view, risks,
+                    worlds: Sequence[Any]) -> float | None:
+        """Average public outcome of one day plan over sampled worlds."""
+        if len(commands) < 3 or not worlds:
+            return None
+        scores = []
+        for world in list(worlds)[:6]:
+            try:
+                sim = world.clone()
+                for command in commands:
+                    sim = sim.transition(command).game
+                start = (sim.state.loop, sim.state.round)
+                before = len(sim.loss_reasons)
+                steps = 0
+                # Drive the rest of the loop with the first legal action for
+                # both sides; the compared plans differ only in today's card,
+                # so the shared passive future keeps the comparison honest
+                # while still exposing multi-day accumulation.
+                while (sim.winner is None
+                       and (sim.state.loop, sim.state.round)[0] == start[0]
+                       and steps < 200):
+                    offers = sim.action_offers(sim.controller)
+                    if not offers:
+                        break
+                    if sim.controller == "m":
+                        pick = next((item for item in offers
+                                     if item.kind == "core.play"), None)
+                        if pick is None:
+                            pick = next((item for item in offers
+                                         if item.kind in ("core.next", "next",
+                                                          "core.choose", "choose")),
+                                        offers[0])
+                    else:
+                        pick = next((item for item in offers
+                                     if item.kind in ("core.next", "next",
+                                                      "core.choose", "choose")),
+                                    offers[0])
+                    sim = sim.transition(pick.command).game
+                    steps += 1
+                new_reasons = list(sim.loss_reasons[before:])
+                loop_lost = bool(new_reasons) or sim.winner == "mastermind"
+                rule_y_lost = any("规则 Y" in str(reason)
+                                  for reason in new_reasons)
+                if rule_y_lost:
+                    rule_safe, survival = 0.0, 0.0
+                elif loop_lost:
+                    rule_safe, survival = 0.5, 0.0
+                else:
+                    exec_safe = 1.0
+                    for obligation in risks:
+                        target = obligation.threat.target
+                        counter = int(sim.protagonist_team_view()[
+                            "locations"].get(target, 0))
+                        if counter >= obligation.threshold:
+                            exec_safe = 0.0
+                    rule_safe, survival = exec_safe, 1.0
+                scores.append(0.6 * rule_safe + 0.4 * survival)
+            except Exception:
+                continue
+        if len(scores) < 2:
+            return None
+        return sum(scores) / len(scores)
+
+    def _evaluate_day_plan(self, view, base_pick, offers, risks, worlds):
+        """Anchor on the base joint plan, try replacing one card, simulate."""
+        if not worlds:
+            return None
+        base_plan = list(getattr(self.base, "_joint_plan", ()) or ())
+        anchor = [self._command(base_pick), *base_plan]
+        if len(anchor) < 3:
+            return None
+        anchor_score = self._score_plan(anchor, view, risks, worlds)
+        if anchor_score is None:
+            return None
+        best = (anchor_score + 0.02, None, None)
+        for offer in offers:
+            if offer.get("id") == base_pick.get("id"):
+                continue
+            defensive = self._best_cover(offer, risks, view) is not None
+            probe = (self.probe_information
+                     and self._probe_information(offer, risks, view) > 0.15)
+            if not defensive and not probe:
+                continue
+            plan = [self._command(offer), *base_plan]
+            score = self._score_plan(plan, view, risks, worlds)
+            if score is None or score <= best[0]:
+                continue
+            best = (score, offer, plan[1:])
+        score, offer, follow = best
+        if offer is None:
+            return {"first": base_pick, "follow": [], "score": anchor_score,
+                    "anchor_score": anchor_score, "variant": False}
+        if hasattr(self.base, "_joint_plan"):
+            self.base._joint_plan = []
+            self.base._joint_plan_position = None
+        return {"first": offer, "follow": follow, "score": score,
+                "anchor_score": anchor_score, "variant": True}
+
+    def _follow_day_plan(self, view, offers):
+        if not self._day_plan:
+            return None
+        by_key = {}
+        for offer in offers:
+            params = offer.get("parameters") or {}
+            key = (offer.get("actor"), params.get("card"), params.get("target"))
+            by_key[key] = offer
+        command = self._day_plan[0]
+        key = (command.get("actor"), command.get("card"), command.get("target"))
+        offer = by_key.get(key)
+        if offer is None:
+            self._day_plan = []
+            self._plan_variant = False
+            return None
+        self._day_plan.pop(0)
+        return offer
+
     def choose_action(self, *, participant: str, view: dict[str, Any],
                       offers: Sequence[dict[str, Any]]) -> dict[str, Any]:
         if (view.get("module") not in ("FS", "BTX")
@@ -463,9 +590,44 @@ class TwoDayProtagonistAgent:
         if not risks and not hard:
             return self.base.choose_action(participant=participant,
                                            view=view, offers=offers)
-
+        position = (int(view.get("loop", 0)), int(view.get("round", 0)))
+        if self._plan_day_key != position:
+            self._plan_day_key = position
+            self._day_plan = []
+            self._plan_evaluated = False
+        follow = self._follow_day_plan(view, offers)
+        if follow is not None:
+            self.diagnostics.update(reason="day_plan_follow",
+                                    chosen=str(follow.get("id")))
+            return follow
         base_pick = self.base.choose_action(participant=participant,
                                             view=view, offers=offers)
+        if (self.day_plan_value and not self._plan_evaluated
+                and self._snapshot is not None
+                and getattr(self._snapshot, "worlds", ())):
+            self._plan_evaluated = True
+            plan = self._evaluate_day_plan(
+                view, base_pick, offers, risks, self._snapshot.worlds)
+            if plan is not None:
+                if not plan["variant"]:
+                    # The evaluated three-card anchor is best; trust it and let
+                    # the base planner execute its own joint follow-ups.
+                    self.diagnostics.update(
+                        reason="day_plan_anchor",
+                        planscore=round(plan["score"], 3),
+                        anchorscore=round(plan["anchor_score"], 3),
+                        chosen=str(plan["first"].get("id")))
+                    return plan["first"]
+                self._day_plan = list(plan["follow"])
+                self.diagnostics.update(
+                    reason="day_plan_variant",
+                    planscore=round(plan["score"], 3),
+                    anchorscore=round(plan["anchor_score"], 3),
+                    chosen=str(plan["first"].get("id")))
+                return plan["first"]
+        return self._per_seat_choice(view, base_pick, offers, risks, hard)
+
+    def _per_seat_choice(self, view, base_pick, offers, risks, hard):
         candidates = []
         by_id = {}
         for offer in offers:
@@ -512,4 +674,3 @@ class TwoDayProtagonistAgent:
             chosen=str(chosen.action),
             chosen_long_term=round(chosen.long_term, 3))
         return picked
-
