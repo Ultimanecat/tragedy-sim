@@ -104,6 +104,7 @@ def play_one(scenario, seed: int, *, node_limit: int = 24, depth: int = 12,
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seeds", type=int, default=2)
+    parser.add_argument("--scenarios", default=",".join(CANDIDATES))
     parser.add_argument("--node-limit", type=int, default=24)
     parser.add_argument("--forced-strategy", default=None,
                         help="force one mastermind plan, e.g. plot_intrigue")
@@ -112,7 +113,7 @@ def main() -> int:
     args = parser.parse_args()
     library = ScenarioLibrary()
     rows = []
-    for scenario_id in CANDIDATES:
+    for scenario_id in [item.strip() for item in args.scenarios.split(",") if item.strip()]:
         scenario = library.get(scenario_id)
         print(f"== {scenario_id} [{MODULES[scenario['module']].name}] "
               f"Y={PLOTS[scenario['main_plot']][0]}", flush=True)

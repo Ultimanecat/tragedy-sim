@@ -19,6 +19,7 @@ from benchmarks.ai_self_play import _choose_policy_action
 from tragedy_sim import Game
 from tragedy_sim.ai import FixedStrategyMastermindAgent
 from tragedy_sim.day_game.protagonist import TwoDayProtagonistAgent
+from tragedy_sim.joint_mastermind import JointPlanMastermindAgent
 from tragedy_sim.particle_ensemble import ParticleEnsembleProtagonistAgent
 from tragedy_sim.scenario_library import ScenarioLibrary
 from tragedy_sim.search import SearchBudget
@@ -52,6 +53,12 @@ def make_policy(arm: str, seed: int, node_limit: int, depth: int, scenario=None,
                                       particle_count=agent_particles,
                                       posterior_cover=True,
                                       probe_information=False)
+    if arm == "long_horizon_mz":
+        return TwoDayProtagonistAgent(base=base,
+                                      particle_count=agent_particles,
+                                      posterior_cover=True,
+                                      posterior_floor=0.15,
+                                      confidence_floor=0.15)
     if arm == "long_horizon_hygiene":
         return TwoDayProtagonistAgent(base=base,
                                       particle_count=agent_particles,
@@ -65,13 +72,21 @@ def make_policy(arm: str, seed: int, node_limit: int, depth: int, scenario=None,
     return TwoDayProtagonistAgent(base=base, particle_count=agent_particles)
 
 
+def make_mastermind(kind: str, seed: int, nodes: int, depth: int):
+    if kind == "joint":
+        return JointPlanMastermindAgent(
+            SearchBudget(node_limit=nodes, rollout_depth=depth, seed=seed))
+    return FixedStrategyMastermindAgent(random.Random(f"black:{seed}"))
+
+
 def play_one(scenario, seed: int, arm: str, *, node_limit: int, depth: int,
-             particles: int = 8, agent_particles: int = 8):
+             particles: int = 8, agent_particles: int = 8,
+             mastermind: str = "fixed", black_nodes: int = 8):
     game = Game(scenario)
     policy = make_policy(arm, seed, node_limit, depth, scenario,
                          particles=particles,
                          agent_particles=agent_particles)
-    black = FixedStrategyMastermindAgent(random.Random(f"black:{seed}"))
+    black = make_mastermind(mastermind, seed, black_nodes, depth)
     while game.winner is None:
         actions = game.action_offers(game.controller)
         if not actions:
@@ -103,6 +118,8 @@ def main() -> int:
     parser.add_argument("--depth", type=int, default=12)
     parser.add_argument("--arms", default="base,long_horizon,long_horizon_oracle")
     parser.add_argument("--scenarios", default=",".join(SCENARIOS))
+    parser.add_argument("--mastermind", choices=("fixed", "joint"), default="fixed")
+    parser.add_argument("--black-nodes", type=int, default=8)
     parser.add_argument("--particles", type=int, default=8,
                         help="particle count for the base planner")
     parser.add_argument("--agent-particles", type=int, default=8,
@@ -122,7 +139,9 @@ def main() -> int:
                 result = play_one(scenario, seed, arm,
                                   node_limit=args.node_limit, depth=args.depth,
                                   particles=args.particles,
-                                  agent_particles=args.agent_particles)
+                                  agent_particles=args.agent_particles,
+                                  mastermind=args.mastermind,
+                                  black_nodes=args.black_nodes)
                 rows.append({"scenario": scenario_id, "arm": arm,
                              "seed": seed, **result})
                 wins += result["winner"] == "protagonists"

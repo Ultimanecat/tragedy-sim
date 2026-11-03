@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ..catalog import PLOTS
 from .defense_value import (DefenseCandidate, DefenseValueWeights,
                             information_value, final_guess_value,
                             select_defense_action)
@@ -26,6 +27,18 @@ from .threats import (BOARD_PLOT_THRESHOLD, ThreatAssessment, classify_threats,
 # board, so moving the holder away stops the accumulation (cards still need fi).
 ROLE_BOARD_PLOTS = {"avenger": "brain", "bomb": "witch", "wm_bomb": "witch",
                     "ll_bomb_z": "witch"}
+
+
+def _holder_role_for(plot: str) -> str | None:
+    """Role whose mastermind ability can add intrigue to a watched board."""
+    holder = ROLE_BOARD_PLOTS.get(plot)
+    if holder is not None:
+        return holder
+    roles = PLOTS.get(plot, (None, None, {}))[2] if plot in PLOTS else {}
+    for role in ("brain", "witch"):
+        if roles.get(role):
+            return role
+    return None
 MOVE_CARDS = frozenset({"h", "v"})
 
 # Every supported rule-Y plot compares a counter against 2 at loop end.
@@ -283,7 +296,7 @@ class TwoDayProtagonistAgent:
         base_score = obligation.weight * obligation.threat.confidence
         if card in INTRIGUE_CARDS and chosen_target == target:
             return target, "card", base_score
-        holder_role = ROLE_BOARD_PLOTS.get(plot)
+        holder_role = _holder_role_for(plot)
         if holder_role and card in MOVE_CARDS and chosen_target:
             characters = view.get("characters") or {}
             if str((characters.get(chosen_target) or {}).get("location")) != target:
@@ -307,7 +320,7 @@ class TwoDayProtagonistAgent:
         """
         target = obligation.threat.target
         full = obligation.weight * obligation.threat.confidence
-        holder_role = ROLE_BOARD_PLOTS.get(str(obligation.threat.role or ""))
+        holder_role = _holder_role_for(str(obligation.threat.role or ""))
         ability = 0.0
         if holder_role:
             characters = view.get("characters") or {}
@@ -372,7 +385,7 @@ class TwoDayProtagonistAgent:
         best = 0.0
         for obligation in risks:
             plot = str(obligation.threat.role or "")
-            holder_role = ROLE_BOARD_PLOTS.get(plot)
+            holder_role = _holder_role_for(plot)
             if holder_role is None:
                 continue
             board = obligation.threat.target
@@ -614,7 +627,7 @@ class TwoDayProtagonistAgent:
 
     def choose_action(self, *, participant: str, view: dict[str, Any],
                       offers: Sequence[dict[str, Any]]) -> dict[str, Any]:
-        if (view.get("module") not in ("FS", "BTX")
+        if (view.get("module") not in ("FS", "BTX", "MZ")
                 or view.get("phase") != "protagonists"
                 or not offers
                 or not all(str(offer.get("type", offer.get("kind", "")))
