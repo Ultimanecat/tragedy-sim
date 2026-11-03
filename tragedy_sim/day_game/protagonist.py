@@ -180,6 +180,10 @@ class TwoDayProtagonistAgent:
     probe_information: bool = True
     resync_joint_plan: bool = True
     day_plan_value: bool = True
+    adaptive_budget: bool = False
+    anchor_trust_score: float = 1.01
+    variant_margin: float = 0.05
+    trust_anchor_plan: bool = False
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
     controls_protagonist_team = True
@@ -193,6 +197,7 @@ class TwoDayProtagonistAgent:
         self._day_plan: list[dict[str, Any]] = []
         self._plan_day_key = None
         self._plan_evaluated = False
+        self._trusted_anchor_day = None
         self._obligations: tuple[DefenseObligation, ...] = ()
         self._snapshot = None
         self._threats: tuple[ThreatAssessment, ...] = ()
@@ -342,10 +347,18 @@ class TwoDayProtagonistAgent:
         risks = self._channel_risks(obligation, view)
         return risks.get(channel, 0.0)
 
+    def _cover_cap(self) -> int:
+        """Daily defense budget: spend freely only when the loop is about to end."""
+        if not self.adaptive_budget:
+            return self.max_covers_per_day
+        urgent = any(item.counter >= item.threshold - 1
+                     for item in self._obligations if item.weight > 0)
+        return self.max_covers_per_day if urgent else 1
+
     def _best_cover(self, offer: Mapping[str, Any],
                     risks: tuple[DefenseObligation, ...],
                     view: Mapping[str, Any]) -> tuple[str, str, float] | None:
-        if self._covers_today >= self.max_covers_per_day:
+        if self._covers_today >= self._cover_cap():
             return None
         best = None
         for obligation in risks:
@@ -583,7 +596,11 @@ class TwoDayProtagonistAgent:
         anchor_score = self._score_plan(anchor, view, risks, worlds)
         if anchor_score is None:
             return None
-        best = (anchor_score + 0.02, None, None)
+        if anchor_score >= self.anchor_trust_score:
+            # The base plan already looks safe; do not spend cards to fix it.
+            return {"first": base_pick, "follow": [], "score": anchor_score,
+                    "anchor_score": anchor_score, "variant": False}
+        best = (anchor_score + self.variant_margin, None, None)
         for offer in offers:
             if offer.get("id") == base_pick.get("id"):
                 continue
@@ -646,6 +663,12 @@ class TwoDayProtagonistAgent:
             self._plan_day_key = position
             self._day_plan = []
             self._plan_evaluated = False
+            self._trusted_anchor_day = None
+        if self._trusted_anchor_day == position:
+            # The evaluated three-card anchor is being followed; do not
+            # override its remaining seats with single-card heuristics.
+            return self.base.choose_action(participant=participant,
+                                           view=view, offers=offers)
         follow = self._follow_day_plan(view, offers)
         if follow is not None:
             self.diagnostics.update(reason="day_plan_follow",
@@ -663,6 +686,8 @@ class TwoDayProtagonistAgent:
                 if not plan["variant"]:
                     # The evaluated three-card anchor is best; trust it and let
                     # the base planner execute its own joint follow-ups.
+                    if self.trust_anchor_plan:
+                        self._trusted_anchor_day = position
                     self.diagnostics.update(
                         reason="day_plan_anchor",
                         planscore=round(plan["score"], 3),
