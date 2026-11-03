@@ -458,6 +458,50 @@ class TwoDayProtagonistAgent:
         return {"actor": offer.get("actor"), "action": "play",
                 "card": params.get("card"), "target": params.get("target")}
 
+    @staticmethod
+    def _policy_offer(offer) -> dict[str, Any]:
+        kind = str(offer.kind).removeprefix("core.")
+        return {"id": offer.id, "actor": offer.actor, "type": kind,
+                "parameters": dict(offer.parameters), "label": offer.label}
+
+    def _sim_pick(self, sim, offers, risks, steps):
+        """One simulated future decision: modeled mastermind, proactive heroes."""
+        by_id = {offer.id: offer for offer in offers}
+        if sim.controller == "m":
+            try:
+                import random as _random
+                from ..ai import FixedStrategyMastermindAgent
+                black = FixedStrategyMastermindAgent(_random.Random(
+                    f"sim-m:{sim.state.loop}:{sim.state.round}:{steps}"))
+                choice = black.choose_action(
+                    participant="m", view=sim.view("m"),
+                    offers=[self._policy_offer(offer) for offer in offers])
+                pick = by_id.get(choice.get("id"))
+                if pick is not None:
+                    return pick
+            except Exception:
+                pass
+            pick = next((offer for offer in offers
+                         if offer.kind == "core.play"), None)
+            if pick is not None:
+                return pick
+            return next((offer for offer in offers
+                         if offer.kind in ("core.next", "next",
+                                           "core.choose", "choose")),
+                        offers[0])
+        targets = {item.threat.target for item in risks}
+        for offer in offers:
+            if offer.kind == "core.play" and offer.parameters.get("card") == "fi" \
+                    and offer.parameters.get("target") in targets:
+                return offer
+        for offer in offers:
+            if offer.kind == "core.play":
+                return offer
+        return next((offer for offer in offers
+                     if offer.kind in ("core.next", "next",
+                                       "core.choose", "choose")),
+                    offers[0])
+
     def _score_plan(self, commands, view, risks,
                     worlds: Sequence[Any]) -> float | None:
         """Average public outcome of one day plan over sampled worlds."""
@@ -471,36 +515,30 @@ class TwoDayProtagonistAgent:
                     sim = sim.transition(command).game
                 start = (sim.state.loop, sim.state.round)
                 before = len(sim.loss_reasons)
+                alive_before = {cid for cid, state in
+                                sim.protagonist_team_view()["characters"].items()
+                                if state.get("alive", True)}
                 steps = 0
-                # Drive the rest of the loop with the first legal action for
-                # both sides; the compared plans differ only in today's card,
-                # so the shared passive future keeps the comparison honest
-                # while still exposing multi-day accumulation.
                 while (sim.winner is None
                        and (sim.state.loop, sim.state.round)[0] == start[0]
-                       and steps < 200):
+                       and steps < 240):
                     offers = sim.action_offers(sim.controller)
                     if not offers:
                         break
-                    if sim.controller == "m":
-                        pick = next((item for item in offers
-                                     if item.kind == "core.play"), None)
-                        if pick is None:
-                            pick = next((item for item in offers
-                                         if item.kind in ("core.next", "next",
-                                                          "core.choose", "choose")),
-                                        offers[0])
-                    else:
-                        pick = next((item for item in offers
-                                     if item.kind in ("core.next", "next",
-                                                      "core.choose", "choose")),
-                                    offers[0])
+                    pick = self._sim_pick(sim, offers, risks, steps)
+                    if pick is None:
+                        break
                     sim = sim.transition(pick.command).game
                     steps += 1
                 new_reasons = list(sim.loss_reasons[before:])
                 loop_lost = bool(new_reasons) or sim.winner == "mastermind"
                 rule_y_lost = any("规则 Y" in str(reason)
                                   for reason in new_reasons)
+                final_view = sim.protagonist_team_view()
+                alive_after = {cid for cid, state in
+                               final_view["characters"].items()
+                               if state.get("alive", True)}
+                deaths = len(alive_before - alive_after)
                 if rule_y_lost:
                     rule_safe, survival = 0.0, 0.0
                 elif loop_lost:
@@ -509,11 +547,11 @@ class TwoDayProtagonistAgent:
                     exec_safe = 1.0
                     for obligation in risks:
                         target = obligation.threat.target
-                        counter = int(sim.protagonist_team_view()[
-                            "locations"].get(target, 0))
+                        counter = int(final_view["locations"].get(target, 0))
                         if counter >= obligation.threshold:
                             exec_safe = 0.0
-                    rule_safe, survival = exec_safe, 1.0
+                    rule_safe = exec_safe
+                    survival = max(0.0, 1.0 - 0.3 * deaths)
                 scores.append(0.6 * rule_safe + 0.4 * survival)
             except Exception:
                 continue
