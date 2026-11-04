@@ -185,6 +185,8 @@ class TwoDayProtagonistAgent:
     variant_margin: float = 0.05
     trust_anchor_plan: bool = False
     urgent_cover_only: bool = False
+    portfolio_cover: bool = False
+    portfolio_floor: float = 0.1
     plan_log: list[dict[str, Any]] = field(default_factory=list)
     sim_black: str = "fixed"
     sim_black_nodes: int = 2
@@ -242,7 +244,9 @@ class TwoDayProtagonistAgent:
             forced = ((self.oracle_always_cover
                        and threat.source == "oracle_plot")
                       or (self.posterior_cover
-                          and threat.confidence >= self.posterior_floor))
+                          and threat.confidence >= self.posterior_floor)
+                      or (self.portfolio_cover
+                          and threat.confidence >= self.portfolio_floor))
             obligations.append(DefenseObligation(
                 threat=threat, counter=_counter_for(threat, view),
                 threshold=threshold, days_left=days_left, forced=forced))
@@ -281,9 +285,11 @@ class TwoDayProtagonistAgent:
             active_now=False, source="oracle_plot", hard=False),)
 
     def _probe_risks(self) -> tuple[DefenseObligation, ...]:
+        floor = (self.portfolio_floor if self.portfolio_cover
+                 else self.confidence_floor)
         return tuple(obligation for obligation in self._obligations
                      if obligation.weight > 0
-                     and obligation.threat.confidence >= self.confidence_floor)
+                     and obligation.threat.confidence >= floor)
 
     def _risks(self) -> tuple[DefenseObligation, ...]:
         risks = self._probe_risks()
