@@ -53,6 +53,17 @@ def make_policy(arm: str, seed: int, node_limit: int, depth: int, scenario=None,
                                       particle_count=agent_particles,
                                       posterior_cover=True,
                                       probe_information=False)
+    if arm == "long_horizon_gate":
+        return TwoDayProtagonistAgent(base=base,
+                                      particle_count=agent_particles,
+                                      posterior_cover=True,
+                                      sim_adversary=True,
+                                      override_gate_score=0.8)
+    if arm == "long_horizon_advsim":
+        return TwoDayProtagonistAgent(base=base,
+                                      particle_count=agent_particles,
+                                      posterior_cover=True,
+                                      sim_adversary=True)
     if arm == "long_horizon_strict":
         return TwoDayProtagonistAgent(base=base,
                                       particle_count=agent_particles,

@@ -29,7 +29,8 @@ BUCKETS = ((0.0, 0.2), (0.2, 0.4), (0.4, 0.6), (0.6, 0.8), (0.8, 1.01))
 
 
 def play_one(scenario, seed: int, *, nodes: int, depth: int,
-             sim_black: str = "fixed", sim_nodes: int = 2):
+             sim_black: str = "fixed", sim_nodes: int = 2,
+             sim_adversary: bool = False):
     game = Game(scenario)
     base = ParticleEnsembleProtagonistAgent(
         SearchBudget(node_limit=24, rollout_depth=12, seed=seed),
@@ -37,7 +38,8 @@ def play_one(scenario, seed: int, *, nodes: int, depth: int,
     policy = TwoDayProtagonistAgent(base=base, particle_count=8,
                                     posterior_cover=True,
                                     sim_black=sim_black,
-                                    sim_black_nodes=sim_nodes)
+                                    sim_black_nodes=sim_nodes,
+                                    sim_adversary=sim_adversary)
     black = JointPlanMastermindAgent(
         SearchBudget(node_limit=nodes, rollout_depth=depth, seed=seed))
     while game.winner is None:
@@ -113,6 +115,7 @@ def main() -> int:
     parser.add_argument("--depth", type=int, default=12)
     parser.add_argument("--sim-black", choices=("fixed", "joint"), default="fixed")
     parser.add_argument("--sim-nodes", type=int, default=2)
+    parser.add_argument("--sim-adversary", action="store_true")
     parser.add_argument("--out", default="references/day-plan-calibration.json")
     args = parser.parse_args()
     library = ScenarioLibrary()
@@ -121,7 +124,8 @@ def main() -> int:
     for seed in range(args.seeds):
         seed_rows = play_one(scenario, seed, nodes=args.nodes, depth=args.depth,
                              sim_black=args.sim_black,
-                             sim_nodes=args.sim_nodes)
+                             sim_nodes=args.sim_nodes,
+                             sim_adversary=args.sim_adversary)
         rows.extend(seed_rows)
         print("seed", seed, "evaluations", len(seed_rows), flush=True)
     summary = summarize(rows)

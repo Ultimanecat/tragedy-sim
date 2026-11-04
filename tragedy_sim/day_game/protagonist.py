@@ -184,6 +184,7 @@ class TwoDayProtagonistAgent:
     anchor_trust_score: float = 1.01
     variant_margin: float = 0.05
     trust_anchor_plan: bool = False
+    override_gate_score: float | None = None
     urgent_cover_only: bool = False
     portfolio_cover: bool = False
     portfolio_floor: float = 0.1
@@ -192,6 +193,7 @@ class TwoDayProtagonistAgent:
     plan_log: list[dict[str, Any]] = field(default_factory=list)
     sim_black: str = "fixed"
     sim_black_nodes: int = 2
+    sim_adversary: bool = False
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
     controls_protagonist_team = True
@@ -512,10 +514,29 @@ class TwoDayProtagonistAgent:
         return {"id": offer.id, "actor": offer.actor, "type": kind,
                 "parameters": dict(offer.parameters), "label": offer.label}
 
+    @staticmethod
+    def _sim_adversarial_play(offers, risks):
+        """Future mastermind prefers intrigue on the rule-Y watched targets."""
+        watched = {item.threat.target for item in risks}
+        plays = [offer for offer in offers if offer.kind == "core.play"]
+        for offer in plays:
+            card = str((offer.parameters or {}).get("card") or "")
+            target = str((offer.parameters or {}).get("target") or "")
+            if card in ("i1", "i2") and target in watched:
+                return offer
+        for offer in plays:
+            if str((offer.parameters or {}).get("card") or "") in ("i1", "i2"):
+                return offer
+        return plays[0] if plays else None
+
     def _sim_pick(self, sim, offers, risks, steps):
         """One simulated future decision: modeled mastermind, proactive heroes."""
         by_id = {offer.id: offer for offer in offers}
         if sim.controller == "m":
+            if self.sim_adversary:
+                adversarial = self._sim_adversarial_play(offers, risks)
+                if adversarial is not None:
+                    return adversarial
             try:
                 import random as _random
                 seed = f"sim-m:{sim.state.loop}:{sim.state.round}:{steps}"
@@ -848,7 +869,10 @@ class TwoDayProtagonistAgent:
                 if not plan["variant"]:
                     # The evaluated three-card anchor is best; trust it and let
                     # the base planner execute its own joint follow-ups.
-                    if self.trust_anchor_plan:
+                    gate = self.override_gate_score
+                    if self.trust_anchor_plan or (
+                            gate is not None
+                            and plan["anchor_score"] >= gate):
                         self._trusted_anchor_day = position
                     self.diagnostics.update(
                         reason="day_plan_anchor",
