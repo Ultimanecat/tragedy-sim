@@ -175,7 +175,7 @@ class TwoDayProtagonistAgent:
     oracle_plot: str | None = None
     oracle_cast: Mapping[str, str] | None = None
     oracle_always_cover: bool = False
-    posterior_cover: bool = False
+    posterior_cover: bool = True
     posterior_floor: float = 0.3
     probe_information: bool = False
     resync_joint_plan: bool = True

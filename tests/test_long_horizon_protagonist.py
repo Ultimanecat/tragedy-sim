@@ -57,6 +57,22 @@ def agent_with(pick, obligations):
     return agent, base
 
 
+class DefaultConfigTests(unittest.TestCase):
+    def test_validated_default_configuration(self):
+        agent = TwoDayProtagonistAgent(base=FakeBase(offer("g1", "girl")))
+        self.assertTrue(agent.posterior_cover)
+        self.assertTrue(agent.day_plan_value)
+        self.assertTrue(agent.resync_joint_plan)
+        self.assertFalse(agent.probe_information)
+        self.assertFalse(agent.info_actions)
+        self.assertFalse(agent.portfolio_cover)
+        self.assertFalse(agent.trust_anchor_plan)
+        self.assertFalse(agent.sim_adversary)
+        self.assertFalse(agent.urgent_cover_only)
+        self.assertFalse(agent.adaptive_budget)
+        self.assertIsNone(agent.override_gate_score)
+
+
 class CoverTargetTests(unittest.TestCase):
     def test_only_forbid_intrigue_covers_accumulation(self):
         self.assertEqual(_cover_targets(offer("fi", "school")), frozenset({"school"}))

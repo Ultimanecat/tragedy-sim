@@ -39,6 +39,11 @@ def make_policy(arm: str, seed: int, node_limit: int, depth: int, scenario=None,
                                             rng_seed=seed)
     if arm == "base":
         return base
+    if arm == "base_strong":
+        return ParticleEnsembleProtagonistAgent(
+            SearchBudget(node_limit=node_limit * 2,
+                         rollout_depth=depth, seed=seed),
+            particle_count=max(particles, 32), rng_seed=seed)
     if arm == "long_horizon_posterior":
         return TwoDayProtagonistAgent(base=base,
                                       particle_count=agent_particles,

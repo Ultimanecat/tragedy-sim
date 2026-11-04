@@ -437,3 +437,27 @@ avenger 强黑方 4 种子：
 | 对抗模拟 + 0.8 覆盖门槛 | 1/4 | 10 |
 
 对抗模拟降低了模拟乐观偏差，但没有转化成胜场；覆盖门槛反而让 agent 在关键日放弃防守。默认配置仍是最优，两个新开关保持默认关闭。
+
+## 2026-11-05 底座预算实验与默认固化
+
+基础粒子策略加预算（粒子 32、节点 48）对强黑方 avenger 4 种子：0/4，规则 Y 失败 12，与默认预算完全一致。算力不是底座瓶颈。
+
+默认配置固化（`TwoDayProtagonistAgent`）：
+
+| 开关 | 默认值 | 说明 |
+| --- | --- | --- |
+| `posterior_cover` | True | 规则 Y 后验覆盖 |
+| `day_plan_value` | True | 三张牌日计划评估 |
+| `resync_joint_plan` | True | 覆盖时重建基础联合计划 |
+| `probe_information` | False | 强黑方下有害 |
+| `info_actions` | False | 24 种子无收益 |
+| `portfolio_cover` | False | 跨剧本无收益 |
+| `trust_anchor_plan` / `override_gate_score` | False / None | 会清零 avenger 收益 |
+| `sim_adversary` | False | 校准改善但胜场无提升 |
+| `urgent_cover_only` / `adaptive_budget` | False | 过度保守 |
+
+验证结果（强黑方 joint、avenger、24 种子）：14/24 对 1/24，规则 Y 43 对 69，McNemar p≈0.0002。`tests/test_long_horizon_protagonist.py` 增加默认配置固化测试。
+
+### 优化线程现状
+
+已尝试且未超过默认配置的方向：固定黑方门槛、探测信息、组合覆盖、信息动作、参数扫描、对抗模拟、覆盖门槛、底座预算。当前默认配置是这些实验里的最优；继续提升需要结构性改动（T2 两日搜索或重写基础粒子策略），不是调参能解决的。
