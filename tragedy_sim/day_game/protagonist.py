@@ -184,6 +184,9 @@ class TwoDayProtagonistAgent:
     anchor_trust_score: float = 1.01
     variant_margin: float = 0.05
     trust_anchor_plan: bool = False
+    plan_log: list[dict[str, Any]] = field(default_factory=list)
+    sim_black: str = "fixed"
+    sim_black_nodes: int = 2
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
     controls_protagonist_team = True
@@ -496,9 +499,17 @@ class TwoDayProtagonistAgent:
         if sim.controller == "m":
             try:
                 import random as _random
-                from ..ai import FixedStrategyMastermindAgent
-                black = FixedStrategyMastermindAgent(_random.Random(
-                    f"sim-m:{sim.state.loop}:{sim.state.round}:{steps}"))
+                seed = f"sim-m:{sim.state.loop}:{sim.state.round}:{steps}"
+                if self.sim_black == "joint":
+                    from ..joint_mastermind import JointPlanMastermindAgent
+                    from ..search import SearchBudget
+                    black = JointPlanMastermindAgent(SearchBudget(
+                        node_limit=self.sim_black_nodes,
+                        rollout_depth=6,
+                        seed=abs(hash(seed)) % (2 ** 31)))
+                else:
+                    from ..ai import FixedStrategyMastermindAgent
+                    black = FixedStrategyMastermindAgent(_random.Random(seed))
                 choice = black.choose_action(
                     participant="m", view=sim.view("m"),
                     offers=[self._policy_offer(offer) for offer in offers])
@@ -583,7 +594,11 @@ class TwoDayProtagonistAgent:
                 continue
         if len(scores) < 2:
             return None
-        return sum(scores) / len(scores)
+        mean = sum(scores) / len(scores)
+        # The sampled worlds are belief-consistent but not adversarial, so the
+        # mean is systematically optimistic. Mix in the worst world to keep
+        # fragile plans from looking safe.
+        return 0.7 * mean + 0.3 * min(scores)
 
     def _evaluate_day_plan(self, view, base_pick, offers, risks, worlds):
         """Anchor on the base joint plan, try replacing one card, simulate."""
@@ -683,6 +698,13 @@ class TwoDayProtagonistAgent:
             plan = self._evaluate_day_plan(
                 view, base_pick, offers, risks, self._snapshot.worlds)
             if plan is not None:
+                self.plan_log.append({
+                    "loop": int(view.get("loop", 0)),
+                    "round": int(view.get("round", 0)),
+                    "anchor_score": round(float(plan["anchor_score"]), 4),
+                    "chosen_score": round(float(plan["score"]), 4),
+                    "variant": bool(plan["variant"]),
+                })
                 if not plan["variant"]:
                     # The evaluated three-card anchor is best; trust it and let
                     # the base planner execute its own joint follow-ups.
