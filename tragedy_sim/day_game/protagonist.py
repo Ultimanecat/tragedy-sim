@@ -187,6 +187,8 @@ class TwoDayProtagonistAgent:
     urgent_cover_only: bool = False
     portfolio_cover: bool = False
     portfolio_floor: float = 0.1
+    info_actions: bool = False
+    info_entropy_threshold: float = 0.8
     plan_log: list[dict[str, Any]] = field(default_factory=list)
     sim_black: str = "fixed"
     sim_black_nodes: int = 2
@@ -204,6 +206,8 @@ class TwoDayProtagonistAgent:
         self._plan_day_key = None
         self._plan_evaluated = False
         self._trusted_anchor_day = None
+        self._info_cache: dict[tuple[int, int], tuple[Any, ...]] = {}
+        self._info_used: set[tuple] = set()
         self._obligations: tuple[DefenseObligation, ...] = ()
         self._snapshot = None
         self._threats: tuple[ThreatAssessment, ...] = ()
@@ -654,6 +658,117 @@ class TwoDayProtagonistAgent:
         return {"first": offer, "follow": follow, "score": score,
                 "anchor_score": anchor_score, "variant": True}
 
+    # -- rule-Y information actions ---------------------------------------------
+    def _plot_hypotheses(self, view: Mapping[str, Any]):
+        key = (int(view.get("loop", 0)), int(view.get("round", 0)))
+        if key in self._info_cache:
+            return self._info_cache[key]
+        if view.get("module") not in ("FS", "BTX"):
+            self._info_cache[key] = ()
+            return ()
+        import random as _random
+        from ..belief import ConstraintBeliefSampler, PublicEvidence
+        from ..witness import FsbtxWitnessCompiler
+        try:
+            evidence = PublicEvidence.from_view(view)
+            witnesses = FsbtxWitnessCompiler().compile(view)
+            sampler = ConstraintBeliefSampler()
+            hypotheses = sampler.sample(
+                evidence, 64, rng=_random.Random(f"info:{key}"),
+                witnesses=witnesses)
+            if len(hypotheses) < 12:
+                # Accumulated witnesses can be over-constrained in diagnostic
+                # mirrors; fall back to evidence-only sampling for information
+                # actions rather than giving up on the posterior entirely.
+                hypotheses = sampler.sample(
+                    evidence, 64, rng=_random.Random(f"info-raw:{key}"))
+        except Exception:
+            hypotheses = ()
+        self._info_cache[key] = tuple(hypotheses)
+        return self._info_cache[key]
+
+    @staticmethod
+    def _entropy(values) -> float:
+        from math import log2
+        values = list(values)
+        if not values:
+            return 0.0
+        counts: dict[Any, int] = {}
+        for value in values:
+            counts[value] = counts.get(value, 0) + 1
+        total = len(values)
+        return -sum((n / total) * log2(n / total) for n in counts.values())
+
+    def _choose_info_action(self, view: Mapping[str, Any], offers):
+        if not self.info_actions:
+            return None
+        hypotheses = self._plot_hypotheses(view)
+        if len(hypotheses) < 12:
+            return None
+        plots = [hypothesis.main_plot for hypothesis in hypotheses]
+        before = self._entropy(plots)
+        if before < self.info_entropy_threshold:
+            return None
+        known_roles = view.get("known_roles") or {}
+        loop = int(view.get("loop", 0))
+        round_ = int(view.get("round", 0))
+        best = None
+        for offer in offers:
+            ui = offer.get("ui") or {}
+            kind = str(ui.get("ability_kind") or offer.get("ability_kind") or "")
+            ability = str(ui.get("ability") or offer.get("ability") or "")
+            gain = None
+            if kind == "reveal" or ability == "reveal":
+                source = str(ui.get("source") or offer.get("source") or "")
+                if not source or source in known_roles:
+                    continue
+                if (loop, round_, source, ability) in self._info_used:
+                    continue
+                groups: dict[str, list[str]] = {}
+                for hypothesis in hypotheses:
+                    roles = hypothesis.roles
+                    if not isinstance(roles, Mapping):
+                        roles = dict(roles or ())
+                    role = roles.get(source)
+                    if role is None:
+                        continue
+                    groups.setdefault(role, []).append(hypothesis.main_plot)
+                total = sum(len(group) for group in groups.values())
+                if total < len(hypotheses) * 0.8:
+                    continue
+                after = sum((len(group) / total) * self._entropy(group)
+                            for group in groups.values())
+                gain = before - after
+            elif kind == "plot" or ability == "plot":
+                subplots = {plot for hypothesis in hypotheses
+                            for plot in hypothesis.subplots}
+                if not subplots:
+                    continue
+                after = 0.0
+                for candidate in subplots:
+                    subset = [hypothesis.main_plot for hypothesis in hypotheses
+                              if candidate in hypothesis.subplots]
+                    mass = len(subset) / len(hypotheses)
+                    after += mass * self._entropy(subset)
+                gain = before - after
+            elif kind == "culprit" or ability == "culprit":
+                gain = 0.4 * before
+            if gain is None or gain <= 0.05:
+                continue
+            if best is None or gain > best[0]:
+                best = (gain, offer)
+        if best is None:
+            return None
+        ui = best[1].get("ui") or {}
+        source = str(ui.get("source") or "")
+        if source:
+            self._info_used.add((loop, round_, source,
+                                 str(ui.get("ability") or "")))
+        self.diagnostics.update(reason="info_action",
+                                info_gain=round(best[0], 3),
+                                chosen=str(best[1].get("id")))
+        return best[1]
+
     def _follow_day_plan(self, view, offers):
         if not self._day_plan:
             return None
@@ -674,6 +789,14 @@ class TwoDayProtagonistAgent:
 
     def choose_action(self, *, participant: str, view: dict[str, Any],
                       offers: Sequence[dict[str, Any]]) -> dict[str, Any]:
+        if (view.get("module") in ("FS", "BTX")
+                and view.get("phase") in ("goodwill", "protagonist_ability")
+                and offers):
+            info = self._choose_info_action(view, offers)
+            if info is not None:
+                return info
+            return self.base.choose_action(participant=participant,
+                                           view=view, offers=offers)
         if (view.get("module") not in ("FS", "BTX", "MZ")
                 or view.get("phase") != "protagonists"
                 or not offers
@@ -694,6 +817,8 @@ class TwoDayProtagonistAgent:
             self._day_plan = []
             self._plan_evaluated = False
             self._trusted_anchor_day = None
+        self._info_cache: dict[tuple[int, int], tuple[Any, ...]] = {}
+        self._info_used: set[tuple] = set()
         if self._trusted_anchor_day == position:
             # The evaluated three-card anchor is being followed; do not
             # override its remaining seats with single-card heuristics.

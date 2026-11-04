@@ -141,6 +141,60 @@ class RelocationTests(unittest.TestCase):
         self.assertIs(chosen, base_pick)
 
 
+class InfoActionTests(unittest.TestCase):
+    def hypotheses(self, correlated=True):
+        worlds = []
+        for plot in ("sign", "sealed", "bomb", "change"):
+            for _ in range(4):
+                roles = {"girl": "key" if plot == "sign" else "ordinary"}
+                subplots = {"sign": ("lurking",), "sealed": ("unknown",),
+                            "bomb": ("virus",), "change": ("rumor",)}[plot]
+                worlds.append(SimpleNamespace(main_plot=plot,
+                                              subplots=subplots, roles=roles))
+        return tuple(worlds)
+
+    def agent(self, hypotheses):
+        base = FakeBase(offer("g1", "girl"))
+        agent = TwoDayProtagonistAgent(base=base, info_actions=True)
+        agent._info_cache[(1, 2)] = hypotheses
+        return agent
+
+    def test_reveal_with_correlated_role_wins(self):
+        agent = self.agent(self.hypotheses())
+        offers = [
+            {"id": "x", "type": "choose", "parameters": {"index": 1},
+             "ability": "reveal", "ability_kind": "reveal", "source": "girl"},
+            {"id": "y", "type": "choose", "parameters": {"index": 2},
+             "ability": "calm", "ability_kind": "counter", "source": "student"},
+        ]
+        view = {"module": "BTX", "phase": "goodwill", "loop": 1, "round": 2}
+        chosen = agent._choose_info_action(view, offers)
+        self.assertIsNotNone(chosen)
+        self.assertEqual(chosen["id"], "x")
+
+    def test_plot_reveal_wins_when_subplot_identifies_main(self):
+        agent = self.agent(self.hypotheses())
+        offers = [
+            {"id": "p", "type": "choose", "parameters": {"index": 1},
+             "ability": "plot", "ability_kind": "plot", "source": "informer"},
+        ]
+        view = {"module": "BTX", "phase": "goodwill", "loop": 1, "round": 2}
+        chosen = agent._choose_info_action(view, offers)
+        self.assertIsNotNone(chosen)
+        self.assertEqual(chosen["id"], "p")
+
+    def test_low_entropy_returns_none(self):
+        worlds = tuple(SimpleNamespace(main_plot="sign", subplots=("lurking",),
+                                       roles={"girl": "key"})
+                       for _ in range(16))
+        agent = self.agent(worlds)
+        offers = [{"id": "x", "type": "choose", "parameters": {"index": 1},
+                   "ability": "plot", "ability_kind": "plot",
+                   "source": "informer"}]
+        view = {"module": "BTX", "phase": "goodwill", "loop": 1, "round": 2}
+        self.assertIsNone(agent._choose_info_action(view, offers))
+
+
 class DayPlanEvaluationTests(unittest.TestCase):
     class StubWorld:
         def __init__(self, counter=1, lost=False):

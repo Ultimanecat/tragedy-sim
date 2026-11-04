@@ -53,6 +53,11 @@ def make_policy(arm: str, seed: int, node_limit: int, depth: int, scenario=None,
                                       particle_count=agent_particles,
                                       posterior_cover=True,
                                       probe_information=False)
+    if arm == "long_horizon_info":
+        return TwoDayProtagonistAgent(base=base,
+                                      particle_count=agent_particles,
+                                      posterior_cover=True,
+                                      info_actions=True)
     if arm == "long_horizon_portfolio":
         return TwoDayProtagonistAgent(base=base,
                                       particle_count=agent_particles,
