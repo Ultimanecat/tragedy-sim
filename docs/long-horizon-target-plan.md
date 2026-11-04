@@ -401,3 +401,23 @@ avenger 8 种子消融：
 信息动作在 avenger 上 24 种子与默认配置逐种子一致，没有额外收益；在 BTX-08 上仍无法翻盘（sign 的关键人物身份与计数目标不可覆盖）。默认保持 `info_actions=False`。
 
 附带发现：BTX-08 第 6 天起，带 witness 的采样返回 0 个 hypothesis，无 witness 采样正常返回 64 个。说明 witness 约束链在某些公开信息组合下会过约束，值得单独排查（影响 base 粒子信念本身，不只是信息动作）。
+
+## 2026-11-05 过约束排查与参数扫描
+
+排查结论（修正上一节的判断）：**生产粒子信念没有坏**。
+
+- 同一视图下 `ParticleInformationPolicy.factorized_belief.sample` 分别返回 16 / 64 / 128 / 256 个世界，正常；
+- 返回 0 的是信息动作里单独用的 `ConstraintBeliefSampler`：默认尝试次数内找不到可行赋值；
+- 该视图可行域约 1/512，`ConstraintBeliefSampler` 加 `condition_hard=True` 且 count=256 时能返回 1 个 hypothesis。
+
+所以这不是 base 信念的 bug，只是辅助采样器的搜索预算问题；信息动作已有无 witness 回退，不影响主流程。
+
+参数扫描（avenger 强黑方，4 种子）：
+
+| 变体 | 胜场 | 规则 Y 失败 |
+| --- | --- | --- |
+| 默认配置 | 3/4 | 6 |
+| 严格门槛（posterior 0.5 / cover 0.5 / 每天 2 次） | 3/4 | 6 |
+| 每天最多 2 次覆盖 | 3/4 | 6 |
+
+参数不敏感，没有找到优于默认的配置。
