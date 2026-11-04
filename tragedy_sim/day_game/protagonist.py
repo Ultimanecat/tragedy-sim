@@ -177,13 +177,14 @@ class TwoDayProtagonistAgent:
     oracle_always_cover: bool = False
     posterior_cover: bool = False
     posterior_floor: float = 0.3
-    probe_information: bool = True
+    probe_information: bool = False
     resync_joint_plan: bool = True
     day_plan_value: bool = True
     adaptive_budget: bool = False
     anchor_trust_score: float = 1.01
     variant_margin: float = 0.05
     trust_anchor_plan: bool = False
+    urgent_cover_only: bool = False
     plan_log: list[dict[str, Any]] = field(default_factory=list)
     sim_black: str = "fixed"
     sim_black_nodes: int = 2
@@ -279,10 +280,17 @@ class TwoDayProtagonistAgent:
             confidence=1.0, severity=1.0, deadline=deadline,
             active_now=False, source="oracle_plot", hard=False),)
 
-    def _risks(self) -> tuple[DefenseObligation, ...]:
+    def _probe_risks(self) -> tuple[DefenseObligation, ...]:
         return tuple(obligation for obligation in self._obligations
                      if obligation.weight > 0
                      and obligation.threat.confidence >= self.confidence_floor)
+
+    def _risks(self) -> tuple[DefenseObligation, ...]:
+        risks = self._probe_risks()
+        if not self.urgent_cover_only:
+            return risks
+        return tuple(item for item in risks
+                     if item.counter >= item.threshold - 1)
 
     # -- scoring ----------------------------------------------------------------
     def _defense_cover(self, offer: Mapping[str, Any],
@@ -472,7 +480,8 @@ class TwoDayProtagonistAgent:
             survival=survival,
             long_term=long_term,
             information=(max(information_value(self._snapshot, view),
-                             self._probe_information(offer_or_command, risks, view))
+                             self._probe_information(offer_or_command,
+                                                     self._probe_risks(), view))
                          if self.probe_information else
                          information_value(self._snapshot, view)),
             final_guess=final_guess_value(self._snapshot, view),
