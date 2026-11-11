@@ -194,6 +194,7 @@ class TwoDayProtagonistAgent:
     sim_black: str = "fixed"
     sim_black_nodes: int = 2
     sim_adversary: bool = False
+    two_day_value: bool = False
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
     controls_protagonist_team = True
@@ -579,6 +580,42 @@ class TwoDayProtagonistAgent:
                                        "core.choose", "choose")),
                     offers[0])
 
+    def _quick_state_score(self, state, risks) -> float:
+        sim_view = state.protagonist_team_view()
+        alive = sim_view.get("characters", {})
+        deaths = sum(1 for item in alive.values()
+                     if not item.get("alive", True))
+        rule_safe = 1.0
+        for obligation in risks:
+            counter = int(sim_view["locations"].get(
+                obligation.threat.target, 0))
+            if counter >= obligation.threshold:
+                rule_safe = 0.0
+        return rule_safe - 0.3 * deaths
+
+    def _cross_day_advance(self, sim, risks):
+        """One-day lookahead: adversarial black plans, searched red replies."""
+        from .plan_search import black_day_plans, red_day_plans
+        from .transition import advance_day_with_plans
+        blacks = black_day_plans(sim, limit=2)
+        if not blacks:
+            return sim
+        worst = None
+        for black in blacks:
+            best = None
+            for red in red_day_plans(sim, black, limit=2):
+                try:
+                    outcome = advance_day_with_plans(sim.clone(), black, red)
+                except Exception:
+                    continue
+                state = outcome.game
+                score = self._quick_state_score(state, risks)
+                if best is None or score > best[0]:
+                    best = (score, state)
+            if best is not None and (worst is None or best[0] < worst[0]):
+                worst = best
+        return worst[1] if worst is not None else sim
+
     def _score_plan(self, commands, view, risks,
                     worlds: Sequence[Any]) -> float | None:
         """Average public outcome of one day plan over sampled worlds."""
@@ -595,6 +632,25 @@ class TwoDayProtagonistAgent:
                 alive_before = {cid for cid, state in
                                 sim.protagonist_team_view()["characters"].items()
                                 if state.get("alive", True)}
+                if (self.two_day_value and sim.winner is None
+                        and sim.state.round == start[1]):
+                    # Finish today with a quick first-legal drive, then add a
+                    # searched next-day step before scoring the loop.
+                    guard = 0
+                    while (sim.winner is None
+                           and sim.state.round == start[1]
+                           and guard < 60):
+                        offers = sim.action_offers(sim.controller)
+                        if not offers:
+                            break
+                        pick = self._sim_pick(sim, offers, risks, guard)
+                        if pick is None:
+                            break
+                        sim = sim.transition(pick.command).game
+                        guard += 1
+                    if (sim.winner is None and sim.state.loop == start[0]
+                            and sim.state.round != start[1]):
+                        sim = self._cross_day_advance(sim, risks)
                 steps = 0
                 while (sim.winner is None
                        and (sim.state.loop, sim.state.round)[0] == start[0]
